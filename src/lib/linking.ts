@@ -43,7 +43,12 @@ export const linkingConfig = {
       path: "cart",
       screens: {
         CartMain: "",
-        PaymentSuccess: "payment-success",
+        PaymentSuccess: {
+          path: "payment-success",
+          parse: {
+            next: (value: string | undefined) => (value === "bookings" ? value : undefined),
+          },
+        },
         PaymentCanceled: "payment-canceled",
       },
     },

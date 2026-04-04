@@ -1,0 +1,45 @@
+{
+  "version": "5",
+  "redirects": {
+    "https://esm.sh/@supabase/supabase-js@2": "https://esm.sh/@supabase/supabase-js@2.101.1"
+  },
+  "remote": {
+    "https://esm.sh/@supabase/supabase-js@2.101.1": "a0b3bce15718ea65beee03d44136fb795fab037a2f7134cc4e0157eee6f8063a"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@expo/vector-icons@^15.0.3",
+        "npm:@react-native-async-storage/async-storage@2.2.0",
+        "npm:@react-navigation/bottom-tabs@^7.15.6",
+        "npm:@react-navigation/native-stack@^7.14.6",
+        "npm:@react-navigation/native@^7.1.34",
+        "npm:@supabase/supabase-js@^2.99.3",
+        "npm:@tanstack/react-query@^5.94.5",
+        "npm:@types/react@~19.1.10",
+        "npm:babel-plugin-module-resolver@^5.0.3",
+        "npm:babel-preset-expo@^55.0.12",
+        "npm:expo-apple-authentication@~8.0.7",
+        "npm:expo-constants@~18.0.13",
+        "npm:expo-image-picker@~17.0.10",
+        "npm:expo-image@~3.0.11",
+        "npm:expo-linear-gradient@~15.0.8",
+        "npm:expo-linking@~8.0.11",
+        "npm:expo-location@~19.0.8",
+        "npm:expo-notifications@~0.32.16",
+        "npm:expo-splash-screen@~31.0.13",
+        "npm:expo-status-bar@~3.0.9",
+        "npm:expo-web-browser@~15.0.10",
+        "npm:expo@54.0",
+        "npm:jsonwebtoken@^9.0.3",
+        "npm:react-native-maps@1.20.1",
+        "npm:react-native-safe-area-context@5.6",
+        "npm:react-native-screens@4.16",
+        "npm:react-native@0.81.5",
+        "npm:react@19.1.0",
+        "npm:typescript@~5.9.2",
+        "npm:zustand@^5.0.12"
+      ]
+    }
+  }
+}

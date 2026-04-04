@@ -5,6 +5,8 @@ type Extra = {
   supabaseAnonKey?: string;
   oauthRedirectBase?: string;
   stripeReturnScheme?: string;
+  /** Reverse-proxy API (e.g. https://api.pixapp.kz). If unset, Lemon checkout calls Supabase /functions/v1 directly. */
+  pixappApiUrl?: string;
   /** Maps SDK + Directions/Geocoding REST (same key if APIs enabled in Google Cloud) */
   googleMapsApiKey?: string;
 };
@@ -44,5 +46,16 @@ export const env = {
   get googleMapsApiKey(): string | undefined {
     const v = getExtra().googleMapsApiKey ?? process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
     return v && v.length > 0 ? v : undefined;
+  },
+  /**
+   * Optional `EXPO_PUBLIC_PIXAPP_API_URL` = `https://api.pixapp.kz` (reverse proxy to Edge Functions).
+   * If omitted, Lemon checkout uses `{supabaseUrl}/functions/v1/lemon-create-checkout` for local/dev.
+   */
+  get lemonCreateCheckoutUrl(): string {
+    const pixapp = getExtra().pixappApiUrl ?? process.env.EXPO_PUBLIC_PIXAPP_API_URL;
+    if (pixapp?.trim()) {
+      return `${pixapp.replace(/\/$/, "")}/v1/lemon-create-checkout`;
+    }
+    return `${this.supabaseUrl.replace(/\/$/, "")}/functions/v1/lemon-create-checkout`;
   },
 };

@@ -1,0 +1,4 @@
+# Supabase local / deploy settings. Set project_id when linking the repo.
+
+[functions.lemon-webhook]
+verify_jwt = false

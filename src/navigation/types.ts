@@ -22,7 +22,7 @@ export type SearchStackParamList = {
 
 export type CartStackParamList = {
   CartMain: undefined;
-  PaymentSuccess: undefined;
+  PaymentSuccess: { next?: "bookings" } | undefined;
   PaymentCanceled: undefined;
 };
 

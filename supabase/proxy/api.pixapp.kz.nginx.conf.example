@@ -1,0 +1,33 @@
+# Reverse proxy: https://api.pixapp.kz → Supabase Edge Functions.
+# Replace ylcyktbppowabnxuwdrr with the Supabase project reference (from SUPABASE_URL host).
+#
+# TLS: terminate HTTPS on this host (Let's Encrypt / provider cert).
+# Point DNS for api.pixapp.kz to this server.
+
+server {
+    listen 443 ssl http2;
+    server_name api.pixapp.kz;
+
+    # ssl_certificate /etc/letsencrypt/live/api.pixapp.kz/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/api.pixapp.kz/privkey.pem;
+
+    location = /v1/lemon-create-checkout {
+        proxy_pass https://ylcyktbppowabnxuwdrr.supabase.co/functions/v1/lemon-create-checkout;
+        proxy_ssl_server_name on;
+        proxy_set_header Host ylcyktbppowabnxuwdrr.supabase.co;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Lemon Squeezy dashboard webhook URL:
+    #   https://api.pixapp.kz/v1/lemon-webhook
+    location = /v1/lemon-webhook {
+        proxy_pass https://ylcyktbppowabnxuwdrr.supabase.co/functions/v1/lemon-webhook;
+        proxy_ssl_server_name on;
+        proxy_set_header Host ylcyktbppowabnxuwdrr.supabase.co;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
