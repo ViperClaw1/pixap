@@ -20,6 +20,7 @@ import PlaceDetailScreen from "@/screens/PlaceDetailScreen";
 import CategoryScreen from "@/screens/CategoryScreen";
 import ShoppingItemsScreen from "@/screens/ShoppingItemsScreen";
 import BookingFlowScreen from "@/screens/BookingFlowScreen";
+import AIBookingScreen from "@/screens/AIBookingScreen";
 import AuthScreen from "@/screens/AuthScreen";
 import ResetPasswordScreen from "@/screens/ResetPasswordScreen";
 import OAuthCallbackScreen from "@/screens/OAuthCallbackScreen";
@@ -48,6 +49,7 @@ function HomeStackNavigator() {
       <HomeStack.Screen name="Category" component={CategoryScreen} />
       <HomeStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <HomeStack.Screen name="BookingFlow" component={BookingFlowScreen} />
+      <HomeStack.Screen name="AIBooking" component={AIBookingScreen} />
       <HomeStack.Screen name="OAuthCallback" component={OAuthCallbackScreen} />
     </HomeStack.Navigator>
   );
@@ -61,6 +63,7 @@ function SearchStackNavigator() {
       <SearchStack.Screen name="Category" component={CategoryScreen} />
       <SearchStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <SearchStack.Screen name="BookingFlow" component={BookingFlowScreen} />
+      <SearchStack.Screen name="AIBooking" component={AIBookingScreen} />
     </SearchStack.Navigator>
   );
 }
@@ -83,6 +86,7 @@ function BookingsStackNavigator() {
       <BookingsStack.Screen name="Category" component={CategoryScreen} />
       <BookingsStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <BookingsStack.Screen name="BookingFlow" component={BookingFlowScreen} />
+      <BookingsStack.Screen name="AIBooking" component={AIBookingScreen} />
     </BookingsStack.Navigator>
   );
 }
@@ -102,6 +106,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="Category" component={CategoryScreen} />
       <ProfileStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <ProfileStack.Screen name="BookingFlow" component={BookingFlowScreen} />
+      <ProfileStack.Screen name="AIBooking" component={AIBookingScreen} />
     </ProfileStack.Navigator>
   );
 }

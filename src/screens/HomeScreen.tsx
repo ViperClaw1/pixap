@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, StyleSheet, FlatList, ScrollView, useWindowDimensions, Modal, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet, FlatList, ScrollView, useWindowDimensions, Alert } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -20,6 +21,7 @@ import {
   FeaturedSkeletonRow,
   RecommendedSkeletonList,
 } from "@/components/shimmer";
+import { BottomSheetPickerModal } from "@/components/BottomSheetPickerModal";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, "HomeMain">,
@@ -95,12 +97,23 @@ export default function HomeScreen() {
           paddingHorizontal: 6,
         },
         badgeText: { color: colors.onPrimary, fontSize: 11, fontWeight: "700" },
+        aiIconBtn: {
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+          alignItems: "center",
+          justifyContent: "center",
+        },
         searchBtn: {
           backgroundColor: colors.border,
           padding: 14,
           borderRadius: 12,
           marginBottom: 20,
         },
+        searchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
         searchBtnText: { color: colors.textMuted, fontSize: 14 },
         sectionTitle: { fontSize: 18, fontWeight: "700", marginBottom: 10, color: colors.text },
         sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
@@ -117,16 +130,6 @@ export default function HomeScreen() {
         pillText: { color: colors.text },
         featuredCardWrap: { marginRight: 12 },
         recommendedGap: { marginBottom: 12 },
-        cityModalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
-        cityModalSheet: {
-          backgroundColor: colors.card,
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-          borderWidth: 1,
-          borderColor: colors.border,
-          paddingBottom: Math.max(insets.bottom, 10),
-        },
-        cityModalTitle: { color: colors.text, fontSize: 16, fontWeight: "700", padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
         cityRow: {
           paddingHorizontal: 14,
           paddingVertical: 12,
@@ -161,12 +164,26 @@ export default function HomeScreen() {
                 <Text style={stylesThemed.badgeText}>{unread > 9 ? "9+" : unread}</Text>
               </View>
             ) : null}
+            <Pressable
+              style={stylesThemed.aiIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Open PixAI booking"
+              onPress={() => navigation.navigate("AIBooking")}
+            >
+              <Ionicons name="sparkles-outline" size={16} color={colors.text} />
+            </Pressable>
             <ThemeToggle />
           </View>
         </View>
 
         <Pressable style={stylesThemed.searchBtn} onPress={() => navigateToSearchTab(navigation)}>
           <Text style={stylesThemed.searchBtnText}>Search restaurants, salons, events…</Text>
+        </Pressable>
+        <Pressable style={[stylesThemed.searchBtn, { marginTop: -8 }]} onPress={() => navigation.navigate("AIBooking")}>
+          <View style={stylesThemed.searchRow}>
+            <Ionicons name="sparkles-outline" size={16} color={colors.textMuted} />
+            <Text style={stylesThemed.searchBtnText}>Try PixAI Smart Booking</Text>
+          </View>
         </Pressable>
 
         <Text style={stylesThemed.sectionTitle}>Categories</Text>
@@ -234,21 +251,18 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      <Modal visible={cityModalVisible} animationType="slide" transparent onRequestClose={() => setCityModalVisible(false)}>
-        <View style={stylesThemed.cityModalBackdrop}>
-          <View style={stylesThemed.cityModalSheet}>
-            <Text style={stylesThemed.cityModalTitle}>Choose city</Text>
-            <ScrollView>
-              {availableCities.map((city) => (
-                <Pressable key={city} style={stylesThemed.cityRow} onPress={() => void handleSelectCity(city)}>
-                  <Text style={stylesThemed.cityRowText}>{city}</Text>
-                  {city === selectedCity ? <Text style={stylesThemed.cityCheck}>Selected</Text> : null}
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <BottomSheetPickerModal
+        visible={cityModalVisible}
+        onClose={() => setCityModalVisible(false)}
+        title="Choose city"
+      >
+        {availableCities.map((city) => (
+          <Pressable key={city} style={stylesThemed.cityRow} onPress={() => void handleSelectCity(city)}>
+            <Text style={stylesThemed.cityRowText}>{city}</Text>
+            {city === selectedCity ? <Text style={stylesThemed.cityCheck}>Selected</Text> : null}
+          </Pressable>
+        ))}
+      </BottomSheetPickerModal>
     </ShimmerProvider>
   );
 }

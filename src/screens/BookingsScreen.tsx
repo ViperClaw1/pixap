@@ -71,6 +71,8 @@ export default function BookingsScreen() {
       <View style={{ flex: 1 }}>
         <Text style={stylesThemed.name}>{item.business_card?.name}</Text>
         <Text style={stylesThemed.meta}>{new Date(item.date_time).toLocaleString()}</Text>
+        {item.persons ? <Text style={stylesThemed.meta}>Persons: {item.persons}</Text> : null}
+        {item.comment ? <Text style={stylesThemed.meta}>Comment: {item.comment}</Text> : null}
         <Text style={stylesThemed.badge}>{item.status}</Text>
       </View>
     </Pressable>

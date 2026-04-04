@@ -46,6 +46,7 @@ export default function BookingFlowScreen() {
         business_card_id: place.id,
         date_time: dateTime.toISOString(),
         cost: Number(place.booking_price),
+        persons: guests,
       });
       Alert.alert("Added to cart");
       navigateToCartMain(navigation);

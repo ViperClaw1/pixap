@@ -15,28 +15,43 @@ export type Database = {
       bookings: {
         Row: {
           business_card_id: string
+          comment: string | null
           cost: number
           created_at: string
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
           date_time: string
           id: string
+          persons: number | null
           status: Database["public"]["Enums"]["booking_status"]
           user_id: string
         }
         Insert: {
           business_card_id: string
+          comment?: string | null
           cost?: number
           created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
           date_time: string
           id?: string
+          persons?: number | null
           status?: Database["public"]["Enums"]["booking_status"]
           user_id: string
         }
         Update: {
           business_card_id?: string
+          comment?: string | null
           cost?: number
           created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
           date_time?: string
           id?: string
+          persons?: number | null
           status?: Database["public"]["Enums"]["booking_status"]
           user_id?: string
         }
@@ -60,6 +75,9 @@ export type Database = {
           description: string | null
           id: string
           image: string | null
+          latitude: number | null
+          location: unknown | null
+          longitude: number | null
           name: string
           phone: string
           rating: number
@@ -75,6 +93,8 @@ export type Database = {
           description?: string | null
           id?: string
           image?: string | null
+          latitude?: number | null
+          longitude?: number | null
           name: string
           phone?: string
           rating?: number
@@ -90,6 +110,8 @@ export type Database = {
           description?: string | null
           id?: string
           image?: string | null
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           phone?: string
           rating?: number
@@ -109,28 +131,43 @@ export type Database = {
       cart_items: {
         Row: {
           business_card_id: string
+          comment: string | null
           cost: number
           created_at: string
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
           date_time: string
           id: string
+          persons: number | null
           status: Database["public"]["Enums"]["cart_item_status"]
           user_id: string
         }
         Insert: {
           business_card_id: string
+          comment?: string | null
           cost?: number
           created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
           date_time: string
           id?: string
+          persons?: number | null
           status?: Database["public"]["Enums"]["cart_item_status"]
           user_id: string
         }
         Update: {
           business_card_id?: string
+          comment?: string | null
           cost?: number
           created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
           date_time?: string
           id?: string
+          persons?: number | null
           status?: Database["public"]["Enums"]["cart_item_status"]
           user_id?: string
         }
@@ -477,6 +514,28 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      search_business_cards_nearby: {
+        Args: {
+          p_category_id?: string | null
+          p_city?: string | null
+          p_is_restaurant_table?: boolean
+          p_latitude: number
+          p_limit?: number
+          p_longitude: number
+          p_radius_miles?: number
+        }
+        Returns: {
+          address: string | null
+          booking_price: number
+          category_id: string | null
+          city: string | null
+          distance_miles: number
+          id: string
+          name: string
+          rating: number
+          tags: string[] | null
+        }[]
       }
     }
     Enums: {

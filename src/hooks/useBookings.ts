@@ -8,6 +8,11 @@ export interface Booking {
   business_card_id: string;
   date_time: string;
   cost: number;
+  persons: number | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_email: string | null;
+  comment: string | null;
   status: "upcoming" | "completed" | "expired";
   created_at: string;
   business_card?: {
@@ -42,7 +47,16 @@ export const useCreateBooking = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (booking: { business_card_id: string; date_time: string; cost: number }) => {
+    mutationFn: async (booking: {
+      business_card_id: string;
+      date_time: string;
+      cost: number;
+      persons?: number | null;
+      customer_name?: string | null;
+      customer_phone?: string | null;
+      customer_email?: string | null;
+      comment?: string | null;
+    }) => {
       const { data, error } = await supabase
         .from("bookings")
         .insert({ ...booking, user_id: user!.id, status: "upcoming" as const })
