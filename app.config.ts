@@ -89,6 +89,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     oauthMobileRedirectUri: process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI,
     stripeReturnScheme: process.env.EXPO_PUBLIC_STRIPE_RETURN_SCHEME ?? "Pixap",
     googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+    pixappApiUrl: process.env.EXPO_PUBLIC_PIXAPP_API_URL,
     eas: {
       projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
     },

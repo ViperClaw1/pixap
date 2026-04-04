@@ -15,15 +15,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCartItems, useDeleteCartItem } from "@/hooks/useCartItems";
-import { useCreateBooking } from "@/hooks/useBookings";
 import {
   useShoppingCart,
   useUpdateShoppingCartQuantity,
   useRemoveShoppingCartItem,
   type ShoppingCartItem,
 } from "@/hooks/useShoppingItems";
-import { supabase } from "@/integrations/supabase/client";
-import { stripeSuccessUrl, stripeCancelUrl } from "@/lib/linking";
+import { createLemonServiceBookingCheckout, createLemonShoppingCheckout } from "@/lib/lemonCheckout";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import AuthScreen from "@/screens/AuthScreen";
 
@@ -34,25 +32,19 @@ function ServiceCartRow({
   item: import("@/hooks/useCartItems").CartItem;
   stylesThemed: ReturnType<typeof createCartStyles>;
 }) {
-  const createBooking = useCreateBooking();
   const deleteCartItem = useDeleteCartItem();
+  const [paying, setPaying] = useState(false);
 
   const onBook = async () => {
+    if (paying) return;
+    setPaying(true);
     try {
-      await createBooking.mutateAsync({
-        business_card_id: item.business_card_id,
-        date_time: item.date_time,
-        cost: item.cost,
-        persons: item.persons,
-        customer_name: item.customer_name,
-        customer_phone: item.customer_phone,
-        customer_email: item.customer_email,
-        comment: item.comment,
-      });
-      await deleteCartItem.mutateAsync(item.id);
-      Alert.alert("Booked", "Your booking is confirmed.");
-    } catch {
-      Alert.alert("Failed", "Could not complete booking.");
+      const url = await createLemonServiceBookingCheckout(item.id);
+      await WebBrowser.openBrowserAsync(url);
+    } catch (e: unknown) {
+      Alert.alert("Checkout failed", e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -69,8 +61,12 @@ function ServiceCartRow({
         {item.comment ? <Text style={stylesThemed.meta}>Comment: {item.comment}</Text> : null}
         <Text style={stylesThemed.price}>{Number(item.cost).toLocaleString()} ₸</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-          <Pressable style={stylesThemed.smallBtn} onPress={() => void onBook()}>
-            <Text style={stylesThemed.smallBtnText}>Confirm booking</Text>
+          <Pressable
+            style={[stylesThemed.smallBtn, paying && { opacity: 0.6 }]}
+            disabled={paying}
+            onPress={() => void onBook()}
+          >
+            <Text style={stylesThemed.smallBtnText}>{paying ? "Opening…" : "Confirm booking"}</Text>
           </Pressable>
           <Pressable style={stylesThemed.smallBtnDanger} onPress={() => void deleteCartItem.mutateAsync(item.id)}>
             <Text style={stylesThemed.dangerBtnText}>Remove</Text>
@@ -260,15 +256,7 @@ export default function CartScreen() {
 
   const pay = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: {
-          success_url: stripeSuccessUrl(),
-          cancel_url: stripeCancelUrl(),
-        },
-      });
-      if (error) throw error;
-      const url = (data as { url?: string })?.url;
-      if (!url) throw new Error("No checkout URL");
+      const url = await createLemonShoppingCheckout();
       await WebBrowser.openBrowserAsync(url);
     } catch (e: unknown) {
       Alert.alert("Checkout failed", e instanceof Error ? e.message : "Unknown error");

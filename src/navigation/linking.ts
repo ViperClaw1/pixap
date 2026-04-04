@@ -10,14 +10,26 @@ function normalizePath(path: string) {
   return path.replace(/^\//, "").split("?")[0] ?? "";
 }
 
+function queryParamsFromPath(fullPath: string): URLSearchParams {
+  const q = fullPath.indexOf("?");
+  if (q < 0) return new URLSearchParams();
+  return new URLSearchParams(fullPath.slice(q + 1));
+}
+
 /** Map legacy root paths (custom scheme) into nested tab state. */
-function stateForRootPath(normalized: string) {
+function stateForRootPath(fullPath: string) {
+  const normalized = normalizePath(fullPath);
   if (normalized === "payment-success") {
+    const nextRaw = queryParamsFromPath(fullPath).get("next");
+    const next = nextRaw === "bookings" ? ("bookings" as const) : undefined;
     return {
       routes: [
         {
           name: "Cart" as const,
-          state: { routes: [{ name: "PaymentSuccess" as const }], index: 0 },
+          state: {
+            routes: [{ name: "PaymentSuccess" as const, params: next ? { next } : undefined }],
+            index: 0,
+          },
         },
       ],
       index: 0,
@@ -41,8 +53,7 @@ export const linking: LinkingOptions<RootTabParamList> = {
   prefixes,
   config: linkingConfig,
   getStateFromPath(path, options) {
-    const normalized = normalizePath(path);
-    const direct = stateForRootPath(normalized);
+    const direct = stateForRootPath(path);
     if (direct) {
       return direct as ReturnType<typeof getStateFromPathInternal>;
     }

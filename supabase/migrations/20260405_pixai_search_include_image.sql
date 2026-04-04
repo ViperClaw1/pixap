@@ -1,4 +1,10 @@
 -- Include business_cards.image in PixAI search RPCs for list thumbnails.
+--
+-- Nearby distance uses latitude/longitude → geography (same formula as the generated
+-- `location` column in 20260331). Some DBs expose `business_cards.location` as text
+-- to clients, which breaks st_distance(bc.location, …); lat/lon is reliable.
+
+create extension if not exists postgis;
 
 drop function if exists public.search_business_cards_nearby(
   double precision,
@@ -55,13 +61,14 @@ as $$
     bc.category_id,
     bc.image,
     st_distance(
-      bc.location,
+      st_setsrid(st_makepoint(bc.longitude, bc.latitude), 4326)::geography,
       st_setsrid(st_makepoint(p_longitude, p_latitude), 4326)::geography
     ) / 1609.344 as distance_miles
   from public.business_cards bc
-  where bc.location is not null
+  where bc.latitude is not null
+    and bc.longitude is not null
     and st_dwithin(
-      bc.location,
+      st_setsrid(st_makepoint(bc.longitude, bc.latitude), 4326)::geography,
       st_setsrid(st_makepoint(p_longitude, p_latitude), 4326)::geography,
       greatest(0.1, coalesce(p_radius_miles, 5)) * 1609.344
     )
