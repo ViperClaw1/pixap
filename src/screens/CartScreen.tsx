@@ -43,6 +43,11 @@ function ServiceCartRow({
         business_card_id: item.business_card_id,
         date_time: item.date_time,
         cost: item.cost,
+        persons: item.persons,
+        customer_name: item.customer_name,
+        customer_phone: item.customer_phone,
+        customer_email: item.customer_email,
+        comment: item.comment,
       });
       await deleteCartItem.mutateAsync(item.id);
       Alert.alert("Booked", "Your booking is confirmed.");
@@ -57,6 +62,11 @@ function ServiceCartRow({
       <View style={{ flex: 1 }}>
         <Text style={stylesThemed.name}>{item.business_card?.name}</Text>
         <Text style={stylesThemed.meta}>{new Date(item.date_time).toLocaleString()}</Text>
+        {item.persons ? <Text style={stylesThemed.meta}>Persons: {item.persons}</Text> : null}
+        {item.customer_name ? <Text style={stylesThemed.meta}>Name: {item.customer_name}</Text> : null}
+        {item.customer_phone ? <Text style={stylesThemed.meta}>Phone: {item.customer_phone}</Text> : null}
+        {item.customer_email ? <Text style={stylesThemed.meta}>Email: {item.customer_email}</Text> : null}
+        {item.comment ? <Text style={stylesThemed.meta}>Comment: {item.comment}</Text> : null}
         <Text style={stylesThemed.price}>{Number(item.cost).toLocaleString()} ₸</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
           <Pressable style={stylesThemed.smallBtn} onPress={() => void onBook()}>

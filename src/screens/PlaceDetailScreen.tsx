@@ -181,6 +181,9 @@ export default function PlaceDetailScreen() {
         <Pressable style={stylesThemed.primaryBtn} onPress={() => navigation.navigate("BookingFlow", { id: place.id })}>
           <Text style={stylesThemed.primaryBtnText}>Book now</Text>
         </Pressable>
+        <Pressable style={stylesThemed.outlineBtn} onPress={() => navigation.navigate("AIBooking", { id: place.id })}>
+          <Text style={stylesThemed.outlineBtnText}>Book with PixAI</Text>
+        </Pressable>
         <Pressable style={stylesThemed.outlineBtn} onPress={() => navigation.navigate("ShoppingItems", { id: place.id })}>
           <Text style={stylesThemed.outlineBtnText}>Order items</Text>
         </Pressable>

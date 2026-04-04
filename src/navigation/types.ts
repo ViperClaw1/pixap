@@ -6,6 +6,7 @@ export type BrowseFlowParamList = {
   Category: { id: string };
   ShoppingItems: { id: string };
   BookingFlow: { id: string };
+  AIBooking: { id?: string } | undefined;
 };
 
 /** Home tab stack */
