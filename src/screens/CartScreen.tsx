@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/components/SmartImage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCartItems, useDeleteCartItem } from "@/hooks/useCartItems";
 import {
@@ -21,26 +22,43 @@ import {
   useRemoveShoppingCartItem,
   type ShoppingCartItem,
 } from "@/hooks/useShoppingItems";
-import { createLemonServiceBookingCheckout, createLemonShoppingCheckout } from "@/lib/lemonCheckout";
+import { createPaypalServiceBookingOrder, createPaypalShoppingOrder, capturePaypalOrder } from "@/lib/paypalCheckout";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import AuthScreen from "@/screens/AuthScreen";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { CartStackParamList } from "@/navigation/types";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  buildAvailabilityMessage,
+  openWhatsAppAvailability,
+  resolveShoppingWhatsAppPhone,
+  resolveWhatsAppPhone,
+  serviceCartContextLines,
+  shoppingCartContextLines,
+} from "@/lib/whatsappAvailability";
+import type { CartItem } from "@/hooks/useCartItems";
 
 function ServiceCartRow({
   item,
   stylesThemed,
+  onBookPress,
+  onConfirmWhatsApp,
 }: {
-  item: import("@/hooks/useCartItems").CartItem;
+  item: CartItem;
   stylesThemed: ReturnType<typeof createCartStyles>;
+  onBookPress: (cartItemId: string) => Promise<void>;
+  onConfirmWhatsApp: (item: CartItem) => void | Promise<void>;
 }) {
   const deleteCartItem = useDeleteCartItem();
   const [paying, setPaying] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const onBook = async () => {
     if (paying) return;
     setPaying(true);
     try {
-      const url = await createLemonServiceBookingCheckout(item.id);
-      await WebBrowser.openBrowserAsync(url);
+      await onBookPress(item.id);
     } catch (e: unknown) {
       Alert.alert("Checkout failed", e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -62,11 +80,21 @@ function ServiceCartRow({
         <Text style={stylesThemed.price}>{Number(item.cost).toLocaleString()} ₸</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
           <Pressable
+            style={[stylesThemed.smallBtnOutline, confirming && { opacity: 0.6 }]}
+            disabled={confirming}
+            onPress={() => {
+              setConfirming(true);
+              void Promise.resolve(onConfirmWhatsApp(item)).finally(() => setConfirming(false));
+            }}
+          >
+            <Text style={stylesThemed.smallBtnOutlineText}>{confirming ? "Opening…" : "Confirm"}</Text>
+          </Pressable>
+          <Pressable
             style={[stylesThemed.smallBtn, paying && { opacity: 0.6 }]}
             disabled={paying}
             onPress={() => void onBook()}
           >
-            <Text style={stylesThemed.smallBtnText}>{paying ? "Opening…" : "Confirm booking"}</Text>
+            <Text style={stylesThemed.smallBtnText}>{paying ? "Opening checkout…" : "Pay for booking"}</Text>
           </Pressable>
           <Pressable style={stylesThemed.smallBtnDanger} onPress={() => void deleteCartItem.mutateAsync(item.id)}>
             <Text style={stylesThemed.dangerBtnText}>Remove</Text>
@@ -101,7 +129,14 @@ function createCartStyles(colors: import("@/theme/palettes").ThemeColors, bottom
     meta: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
     price: { marginTop: 6, fontWeight: "700", color: colors.text },
     child: { fontSize: 12, color: colors.textMuted },
-    qtyRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8 },
+    shopTitleRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+    shopTitleCol: { flex: 1, minWidth: 0 },
+    qtyRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 6 },
     qtyBtn: { fontSize: 20, fontWeight: "700", color: colors.text },
     smallBtn: {
       paddingHorizontal: 10,
@@ -119,6 +154,16 @@ function createCartStyles(colors: import("@/theme/palettes").ThemeColors, bottom
       alignSelf: "flex-start",
     },
     smallBtnText: { color: colors.onPrimary, fontSize: 12, fontWeight: "600" },
+    smallBtnOutline: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: "transparent",
+      alignItems: "center",
+    },
+    smallBtnOutlineText: { color: colors.text, fontSize: 12, fontWeight: "600" },
     dangerBtnText: { color: "#ffffff", fontSize: 12, fontWeight: "600" },
     empty: { textAlign: "center", color: colors.textMuted, marginTop: 32 },
     payBar: {
@@ -132,6 +177,14 @@ function createCartStyles(colors: import("@/theme/palettes").ThemeColors, bottom
     },
     totalLabel: { fontSize: 14, color: colors.textMuted },
     totalVal: { fontSize: 20, fontWeight: "800", marginTop: 4, color: colors.text },
+    payRow: { flexDirection: "row", gap: 8, marginTop: 12 },
+    payRowBtn: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     payBtn: {
       marginTop: 12,
       backgroundColor: colors.primary,
@@ -140,12 +193,35 @@ function createCartStyles(colors: import("@/theme/palettes").ThemeColors, bottom
       alignItems: "center",
     },
     payBtnText: { color: colors.onPrimary, fontWeight: "700" },
+    payRowBtnPrimary: { backgroundColor: colors.primary },
+    payRowBtnOutline: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: "transparent",
+    },
+    payRowBtnOutlineText: { color: colors.text, fontWeight: "700" },
     deleteIconBtn: {
       padding: 10,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: "rgba(239,68,68,0.45)",
       backgroundColor: "rgba(239,68,68,0.12)",
+    },
+    vendorBadge: {
+      alignSelf: "flex-start",
+      maxWidth: "100%",
+      marginTop: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    vendorBadgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.textMuted,
     },
   });
 }
@@ -184,10 +260,19 @@ function ShopRow({
         contentFit="cover"
       />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-          <Text style={[stylesThemed.name, { flex: 1 }]} numberOfLines={3}>
-            {item.shopping_item?.name}
-          </Text>
+        <View style={stylesThemed.shopTitleRow}>
+          <View style={stylesThemed.shopTitleCol}>
+            <Text style={stylesThemed.name} numberOfLines={3}>
+              {item.shopping_item?.name}
+            </Text>
+            {item.business_card?.name?.trim() ? (
+              <View style={stylesThemed.vendorBadge}>
+                <Text style={stylesThemed.vendorBadgeText} numberOfLines={1}>
+                  {item.business_card.name.trim()}
+                </Text>
+              </View>
+            ) : null}
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Remove item from cart"
@@ -228,11 +313,43 @@ function ShopRow({
 export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
+  const route = useRoute<RouteProp<CartStackParamList, "CartMain">>();
+  const navigation = useNavigation<NativeStackNavigationProp<CartStackParamList>>();
   const stylesThemed = useMemo(() => createCartStyles(colors, insets.bottom), [colors, insets.bottom]);
   const { user, loading } = useAuth();
   const [tab, setTab] = useState<"services" | "shopping">("services");
+  const [isPayingShopping, setIsPayingShopping] = useState(false);
+  const [checkingShopWa, setCheckingShopWa] = useState(false);
   const { data: cartItems = [], isLoading: cl } = useCartItems();
   const { data: shoppingItems = [], isLoading: sl } = useShoppingCart();
+
+  const autoWhatsApp = route.params?.autoWhatsApp;
+  useEffect(() => {
+    if (!autoWhatsApp?.businessCardId || !autoWhatsApp.kind) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("business_cards")
+        .select("name, contact_whatsapp")
+        .eq("id", autoWhatsApp.businessCardId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (!data) {
+        navigation.setParams({ autoWhatsApp: undefined });
+        return;
+      }
+      const phone = resolveWhatsAppPhone(data.contact_whatsapp);
+      const msg = buildAvailabilityMessage(autoWhatsApp.kind, {
+        businessName: data.name ?? "—",
+        extraLines: [],
+      });
+      await openWhatsAppAvailability(phone, msg);
+      navigation.setParams({ autoWhatsApp: undefined });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [autoWhatsApp?.businessCardId, autoWhatsApp?.kind, navigation]);
 
   if (loading) {
     return (
@@ -254,12 +371,105 @@ export default function CartScreen() {
     0,
   );
 
-  const pay = async () => {
+  const confirmServiceWhatsApp = async (item: CartItem) => {
+    const kind = item.is_restaurant_table ? "restaurant" : "service";
+    const phone = resolveWhatsAppPhone(item.business_card?.contact_whatsapp);
+    const msg = buildAvailabilityMessage(kind, {
+      businessName: item.business_card?.name ?? "—",
+      extraLines: serviceCartContextLines({
+        dateTimeLabel: new Date(item.date_time).toLocaleString(),
+        persons: item.persons,
+        customer_name: item.customer_name,
+        customer_phone: item.customer_phone,
+        customer_email: item.customer_email,
+        comment: item.comment,
+      }),
+    });
+    await openWhatsAppAvailability(phone, msg);
+  };
+
+  const checkShoppingAvailability = async () => {
+    if (checkingShopWa || shoppingItems.length === 0) return;
+    setCheckingShopWa(true);
     try {
-      const url = await createLemonShoppingCheckout();
-      await WebBrowser.openBrowserAsync(url);
+      const phone = resolveShoppingWhatsAppPhone(shoppingItems);
+      const mains = shoppingItems.filter((i) => !i.parent_id);
+      const vendorIds = new Set(mains.map((i) => i.business_card_id));
+      const businessName =
+        vendorIds.size === 1 ? (mains[0]?.business_card?.name?.trim() ?? "—") : "Multiple vendors";
+      const msg = buildAvailabilityMessage("goods", {
+        businessName,
+        extraLines: shoppingCartContextLines(shoppingItems),
+      });
+      await openWhatsAppAvailability(phone, msg);
+    } finally {
+      setCheckingShopWa(false);
+    }
+  };
+
+  const runPaypalCheckout = async (cartItemId?: string) => {
+    const created = cartItemId
+      ? await createPaypalServiceBookingOrder(cartItemId)
+      : await createPaypalShoppingOrder();
+    // Use runtime callback URL so Expo Go / Dev Client / standalone all match PayPal return URL.
+    const callbackUrl = Linking.createURL("payment-success");
+    const result = await WebBrowser.openAuthSessionAsync(created.approveUrl, callbackUrl);
+
+    if (result.type !== "success" || !result.url) {
+      navigation.navigate("PaymentCanceled");
+      return;
+    }
+
+    const url = result.url;
+    if (url.includes("payment-canceled")) {
+      navigation.navigate("PaymentCanceled");
+      return;
+    }
+    if (!url.includes("payment-success")) {
+      throw new Error("Invalid payment redirect URL");
+    }
+
+    const parsed = Linking.parse(url);
+    const qp = (parsed.queryParams ?? {}) as Record<string, string | string[] | undefined>;
+    const firstParam = (v: string | string[] | undefined): string | undefined => {
+      if (v == null) return undefined;
+      if (Array.isArray(v)) return v[0];
+      return v;
+    };
+    const rawOrderId = firstParam(qp.token) ?? firstParam(qp.order_id) ?? firstParam(qp.orderId) ?? created.orderId;
+    let orderId = rawOrderId;
+    if (orderId) {
+      try {
+        orderId = decodeURIComponent(orderId);
+      } catch {
+        /* keep raw */
+      }
+    }
+    if (!orderId) {
+      throw new Error("Missing PayPal order id");
+    }
+
+    const capture = await capturePaypalOrder(orderId);
+    if (capture.status !== "COMPLETED") {
+      if (capture.status === "PENDING") {
+        throw new Error("Payment is processing. Please wait a few seconds and try again.");
+      }
+      throw new Error("Payment failed. Please try again.");
+    }
+
+    const next = capture.bookingNext ?? (cartItemId ? "bookings" : undefined);
+    navigation.navigate("PaymentSuccess", next ? { next } : undefined);
+  };
+
+  const pay = async () => {
+    if (isPayingShopping) return;
+    setIsPayingShopping(true);
+    try {
+      await runPaypalCheckout();
     } catch (e: unknown) {
       Alert.alert("Checkout failed", e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setIsPayingShopping(false);
     }
   };
 
@@ -285,7 +495,12 @@ export default function CartScreen() {
             contentContainerStyle={{ padding: 16, paddingBottom: 100 + insets.bottom }}
             ListEmptyComponent={<Text style={stylesThemed.empty}>No service bookings in cart</Text>}
             renderItem={({ item }) => (
-              <ServiceCartRow item={item} stylesThemed={stylesThemed} />
+              <ServiceCartRow
+                item={item}
+                stylesThemed={stylesThemed}
+                onBookPress={runPaypalCheckout}
+                onConfirmWhatsApp={confirmServiceWhatsApp}
+              />
             )}
           />
         )
@@ -304,9 +519,34 @@ export default function CartScreen() {
             <View style={stylesThemed.payBar}>
               <Text style={stylesThemed.totalLabel}>Total</Text>
               <Text style={stylesThemed.totalVal}>{shoppingTotal.toLocaleString()} ₸</Text>
-              <Pressable style={stylesThemed.payBtn} onPress={() => void pay()}>
-                <Text style={stylesThemed.payBtnText}>Pay {shoppingTotal.toLocaleString()} ₸</Text>
-              </Pressable>
+              <View style={stylesThemed.payRow}>
+                <Pressable
+                  style={[
+                    stylesThemed.payRowBtn,
+                    stylesThemed.payRowBtnOutline,
+                    (checkingShopWa || isPayingShopping) && { opacity: 0.6 },
+                  ]}
+                  disabled={checkingShopWa || isPayingShopping}
+                  onPress={() => void checkShoppingAvailability()}
+                >
+                  <Text style={stylesThemed.payRowBtnOutlineText}>
+                    {checkingShopWa ? "Opening…" : "Check availability"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    stylesThemed.payRowBtn,
+                    stylesThemed.payRowBtnPrimary,
+                    isPayingShopping && { opacity: 0.6 },
+                  ]}
+                  disabled={isPayingShopping || checkingShopWa}
+                  onPress={() => void pay()}
+                >
+                  <Text style={stylesThemed.payBtnText}>
+                    {isPayingShopping ? "Processing..." : `Pay ${shoppingTotal.toLocaleString()} ₸`}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           ) : null}
         </ScrollView>

@@ -87,7 +87,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     oauthRedirectBase: process.env.EXPO_PUBLIC_OAUTH_REDIRECT_BASE ?? "https://Pixap.kz",
     /** Optional: override native OAuth redirect (default: Linking.createURL("~oauth/callback")) */
     oauthMobileRedirectUri: process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI,
-    stripeReturnScheme: process.env.EXPO_PUBLIC_STRIPE_RETURN_SCHEME ?? "Pixap",
+    stripeReturnScheme: (process.env.EXPO_PUBLIC_STRIPE_RETURN_SCHEME ?? "pixap").toLowerCase(),
     googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
     pixappApiUrl: process.env.EXPO_PUBLIC_PIXAPP_API_URL,
     eas: {

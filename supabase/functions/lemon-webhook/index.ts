@@ -156,38 +156,70 @@ Deno.serve(async (req) => {
   }
 
   if (checkoutType === "shopping_cart") {
-    const { error: delErr } = await admin.from("shopping_cart_items").delete().eq("user_id", userId);
-    if (delErr) {
-      console.error("[lemon-webhook] clear cart:", delErr);
-      return new Response(JSON.stringify({ error: delErr.message }), { status: 500 });
+    const { error: updErr } = await admin
+      .from("shopping_cart_items")
+      .update({ status: "paid", paid_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("status", "created");
+    if (updErr) {
+      console.error("[lemon-webhook] mark shopping cart paid:", updErr);
+      return new Response(JSON.stringify({ error: updErr.message }), { status: 500 });
     }
   } else if (serviceRow) {
-    const { error: bookErr } = await admin.from("bookings").insert({
-      user_id: userId,
-      business_card_id: serviceRow.business_card_id,
-      date_time: serviceRow.date_time,
-      cost: serviceRow.cost,
-      persons: serviceRow.persons,
-      customer_name: serviceRow.customer_name,
-      customer_phone: serviceRow.customer_phone,
-      customer_email: serviceRow.customer_email,
-      comment: serviceRow.comment,
-      status: "upcoming",
-    });
+    const { data: insertedBookings, error: bookErr } = await admin
+      .from("bookings")
+      .insert({
+        user_id: userId,
+        business_card_id: serviceRow.business_card_id,
+        date_time: serviceRow.date_time,
+        cost: serviceRow.cost,
+        persons: serviceRow.persons,
+        customer_name: serviceRow.customer_name,
+        customer_phone: serviceRow.customer_phone,
+        customer_email: serviceRow.customer_email,
+        comment: serviceRow.comment,
+        status: "upcoming",
+        payment_status: "paid",
+      })
+      .select("id");
 
     if (bookErr) {
       console.error("[lemon-webhook] insert booking:", bookErr);
       return new Response(JSON.stringify({ error: bookErr.message }), { status: 500 });
     }
 
-    const { error: delCartErr } = await admin
+    let bookingId = insertedBookings?.[0]?.id;
+    if (!bookingId) {
+      const { data: found } = await admin
+        .from("bookings")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("business_card_id", serviceRow.business_card_id)
+        .eq("date_time", serviceRow.date_time)
+        .eq("payment_status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      bookingId = found?.[0]?.id;
+    }
+    if (bookingId) {
+      const { error: paidBookingErr } = await admin
+        .from("bookings")
+        .update({ payment_status: "paid" })
+        .eq("id", bookingId);
+      if (paidBookingErr) {
+        console.error("[lemon-webhook] set booking payment_status:", paidBookingErr);
+        return new Response(JSON.stringify({ error: paidBookingErr.message }), { status: 500 });
+      }
+    }
+
+    const { error: paidErr } = await admin
       .from("cart_items")
-      .delete()
+      .update({ status: "paid", paid_at: new Date().toISOString() })
       .eq("id", serviceRow.id)
       .eq("user_id", userId);
-    if (delCartErr) {
-      console.error("[lemon-webhook] delete cart_items:", delCartErr);
-      return new Response(JSON.stringify({ error: delCartErr.message }), { status: 500 });
+    if (paidErr) {
+      console.error("[lemon-webhook] update cart_items paid:", paidErr);
+      return new Response(JSON.stringify({ error: paidErr.message }), { status: 500 });
     }
   }
 

@@ -15,6 +15,7 @@ export interface BusinessCard {
   description: string;
   booking_price: number;
   phone: string;
+  contact_whatsapp?: string | null;
   type: "featured" | "recommended";
   created_at: string;
   category?: { id: string; name: string } | null;

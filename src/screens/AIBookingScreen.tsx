@@ -9,12 +9,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/contexts/ThemeContext";
-import { useCreateCartItem } from "@/hooks/useCartItems";
+import { useCreateCartItem, useCartItems } from "@/hooks/useCartItems";
+import { useAvailableSlots } from "@/hooks/useAvailableSlots";
 import { usePixAI, type PixAIFlowPayload, type PixAIPlace, type PixAISlot } from "@/hooks/usePixAI";
 import { useAuth } from "@/contexts/AuthContext";
 import AuthScreen from "@/screens/AuthScreen";
@@ -39,8 +41,52 @@ const PHONE_REGEX = /^\d-\(\d{3}\)-\d{3}-\d{4}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESTAURANT_TABLE_KEY = "restaurant-table";
 const DEFAULT_RADIUS_MILES = 5;
+const CALENDAR_MONTHS_AHEAD = 6;
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 type FlowStep = "city" | "category" | "scope" | "places" | "booking";
+
+type CalendarCell = { kind: "pad" } | { kind: "day"; ymd: string; day: number };
+
+function startOfLocalDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function toYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function monthKey(d: Date): number {
+  return d.getFullYear() * 12 + d.getMonth();
+}
+
+function firstOfMonthContaining(d: Date): Date {
+  const x = startOfLocalDay(d);
+  return new Date(x.getFullYear(), x.getMonth(), 1);
+}
+
+function buildMonthCells(year: number, month: number): CalendarCell[] {
+  const lead = new Date(year, month, 1).getDay();
+  const dim = new Date(year, month + 1, 0).getDate();
+  const cells: CalendarCell[] = [];
+  for (let i = 0; i < lead; i++) cells.push({ kind: "pad" });
+  for (let d = 1; d <= dim; d++) {
+    cells.push({ kind: "day", day: d, ymd: toYmd(new Date(year, month, d)) });
+  }
+  while (cells.length % 7 !== 0) cells.push({ kind: "pad" });
+  return cells;
+}
+
+function chunkCells<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 
 const validationSchema = {
   persons: (value: string) => {
@@ -74,6 +120,7 @@ export default function AIBookingScreen() {
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
   const { data: categories = [] } = useCategories();
   const createCartItem = useCreateCartItem();
+  const { data: cartItems = [] } = useCartItems();
   const [currentStep, setCurrentStep] = useState<FlowStep>("city");
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
@@ -85,6 +132,8 @@ export default function AIBookingScreen() {
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<PixAIPlace | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<PixAISlot | null>(null);
+  const [bookingDateYmd, setBookingDateYmd] = useState<string | null>(null);
+  const [visibleCalendarMonth, setVisibleCalendarMonth] = useState<Date>(() => firstOfMonthContaining(new Date()));
   const [cityPickerVisible, setCityPickerVisible] = useState(false);
   const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
   const [form, setForm] = useState<DraftForm>({
@@ -99,7 +148,7 @@ export default function AIBookingScreen() {
     () =>
       StyleSheet.create({
         root: { flex: 1, backgroundColor: colors.background },
-        scroll: { padding: 16, paddingTop: Math.max(12, insets.top), paddingBottom: 130 + insets.bottom, gap: 12 },
+        scroll: { padding: 16, paddingTop: Math.max(12, insets.top), paddingBottom: 130 + insets.bottom, gap: 14 },
         topRow: { flexDirection: "row", alignItems: "center", gap: 10 },
         backBtn: {
           width: 36,
@@ -112,14 +161,14 @@ export default function AIBookingScreen() {
           justifyContent: "center",
         },
         title: { color: colors.text, fontSize: 24, fontWeight: "800" },
-        subtitle: { color: colors.textMuted, marginTop: 2, marginBottom: 10 },
-        sectionCard: {
+        subtitle: { color: colors.textMuted, marginTop: 2 },
+        /** Bordered block for each major step / semantic region (scroll `gap` separates sections). */
+        semanticSection: {
           borderWidth: 1,
           borderColor: colors.border,
           backgroundColor: colors.card,
           borderRadius: 12,
           padding: 12,
-          marginBottom: 10,
           gap: 10,
         },
         stepTitle: { color: colors.text, fontWeight: "700", fontSize: 15 },
@@ -135,24 +184,22 @@ export default function AIBookingScreen() {
         optionChipSelected: { borderColor: colors.primary, backgroundColor: colors.border },
         optionChipText: { color: colors.text, fontWeight: "600" },
         bubble: {
-          backgroundColor: colors.card,
+          backgroundColor: colors.background,
           borderColor: colors.border,
           borderWidth: 1,
           borderRadius: 14,
           padding: 12,
-          marginBottom: 10,
         },
         bubbleUser: { backgroundColor: colors.primary, borderColor: colors.primary },
         bubbleText: { color: colors.text },
         bubbleUserText: { color: colors.onPrimary },
-        label: { color: colors.textMuted, fontSize: 11, marginBottom: 8, textTransform: "uppercase", fontWeight: "700" },
+        label: { color: colors.textMuted, fontSize: 11, marginBottom: 2, textTransform: "uppercase", fontWeight: "700" },
         placeCard: {
           borderWidth: 1,
           borderColor: colors.border,
-          backgroundColor: colors.card,
+          backgroundColor: colors.background,
           borderRadius: 12,
           padding: 10,
-          marginBottom: 8,
         },
         placeCardSelected: { borderColor: colors.primary },
         placeRow: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -165,6 +212,47 @@ export default function AIBookingScreen() {
         placeTextCol: { flex: 1, minWidth: 0 },
         placeName: { color: colors.text, fontWeight: "700" },
         placeMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+        /** Calendar panel inside Step 5 section (outer `semanticSection` provides the border). */
+        calendarPanel: {
+          borderRadius: 10,
+          padding: 8,
+          marginTop: 4,
+          backgroundColor: colors.background,
+        },
+        calendarNav: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 10,
+        },
+        calendarNavBtn: { padding: 8, borderRadius: 8 },
+        calendarNavBtnDisabled: { opacity: 0.35 },
+        calendarMonthTitle: { color: colors.text, fontWeight: "800", fontSize: 16 },
+        calendarDowRow: { flexDirection: "row", marginBottom: 4 },
+        calendarDowCell: {
+          flex: 1,
+          textAlign: "center",
+          color: colors.textMuted,
+          fontSize: 11,
+          fontWeight: "700",
+        },
+        calendarWeekRow: { flexDirection: "row", alignItems: "center" },
+        calendarCell: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 4 },
+        calendarCellDayInner: {
+          minWidth: 38,
+          minHeight: 38,
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: "transparent",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.background,
+        },
+        calendarCellDayText: { color: colors.text, fontSize: 15, fontWeight: "700" },
+        calendarCellToday: { borderStyle: "dashed", borderColor: colors.border },
+        calendarCellSelected: { borderColor: colors.primary, backgroundColor: colors.border },
+        calendarCellPast: { opacity: 0.38 },
+        calendarHint: { color: colors.textMuted, fontSize: 12 },
         slotGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
         slotChip: {
           minWidth: 76,
@@ -174,9 +262,8 @@ export default function AIBookingScreen() {
           borderRadius: 8,
           paddingVertical: 8,
           paddingHorizontal: 10,
-          backgroundColor: colors.card,
+          backgroundColor: colors.background,
         },
-        slotChipBest: { borderColor: colors.primary, backgroundColor: colors.border },
         slotChipSelected: { borderColor: colors.primary, backgroundColor: colors.border },
         slotChipUnavailable: { opacity: 0.45 },
         slotText: { color: colors.text, fontSize: 12, fontWeight: "600" },
@@ -190,6 +277,13 @@ export default function AIBookingScreen() {
           backgroundColor: colors.card,
           marginBottom: 8,
         },
+        /** Inputs on top of `semanticSection` (card) background */
+        fieldOnCard: {
+          backgroundColor: colors.background,
+          marginBottom: 0,
+        },
+        formFieldsStack: { gap: 8 },
+        summaryText: { color: colors.textMuted, fontSize: 12, lineHeight: 16 },
         commentField: {
           minHeight: 88,
           textAlignVertical: "top",
@@ -216,7 +310,7 @@ export default function AIBookingScreen() {
           alignItems: "center",
           justifyContent: "center",
           paddingVertical: 11,
-          backgroundColor: colors.card,
+          backgroundColor: colors.background,
         },
         secondaryBtnText: { color: colors.text, fontWeight: "700" },
         draftBtn: {
@@ -227,7 +321,6 @@ export default function AIBookingScreen() {
           paddingVertical: 12,
         },
         draftBtnText: { color: colors.onPrimary, fontWeight: "700" },
-        summaryText: { color: colors.textMuted, fontSize: 12, lineHeight: 16 },
         dropdownTrigger: {
           flexDirection: "row",
           alignItems: "center",
@@ -256,8 +349,6 @@ export default function AIBookingScreen() {
     [colors, insets.bottom, insets.top],
   );
 
-  if (!user) return <AuthScreen />;
-
   useEffect(() => {
     const city = profile?.city?.trim();
     if (!city) return;
@@ -270,7 +361,38 @@ export default function AIBookingScreen() {
     .find((m) => m.role === "assistant" && m.toolResult)?.toolResult;
 
   const placeOptions = latestToolResult?.places ?? [];
-  const slotOptions = latestToolResult?.slots ?? [];
+
+  const {
+    data: slotsForDate = [],
+    isFetching: slotsFetching,
+    isError: slotsError,
+    refetch: refetchSlots,
+  } = useAvailableSlots(selectedPlace?.id ?? null, bookingDateYmd);
+
+  const cartReservedSlotTimes = useMemo(() => {
+    const s = new Set<number>();
+    if (!selectedPlace) return s;
+    for (const it of cartItems) {
+      if (it.business_card_id !== selectedPlace.id) continue;
+      s.add(new Date(it.date_time).getTime());
+    }
+    return s;
+  }, [cartItems, selectedPlace]);
+
+  const todayYmd = toYmd(startOfLocalDay(new Date()));
+  const earliestBookableMonth = firstOfMonthContaining(new Date());
+  const latestBookableMonth = new Date(
+    earliestBookableMonth.getFullYear(),
+    earliestBookableMonth.getMonth() + CALENDAR_MONTHS_AHEAD,
+    1,
+  );
+  const canGoPrevMonth = monthKey(visibleCalendarMonth) > monthKey(earliestBookableMonth);
+  const canGoNextMonth = monthKey(visibleCalendarMonth) < monthKey(latestBookableMonth);
+
+  const calendarCells = useMemo(
+    () => buildMonthCells(visibleCalendarMonth.getFullYear(), visibleCalendarMonth.getMonth()),
+    [visibleCalendarMonth],
+  );
 
   const isRestaurantTable = selectedCategoryId === RESTAURANT_TABLE_KEY;
 
@@ -338,6 +460,9 @@ export default function AIBookingScreen() {
 
   const onSelectPlace = (place: PixAIPlace) => {
     setSelectedPlace(place);
+    setBookingDateYmd(null);
+    setSelectedSlot(null);
+    setVisibleCalendarMonth(firstOfMonthContaining(new Date()));
     setCurrentStep("booking");
   };
 
@@ -374,27 +499,39 @@ export default function AIBookingScreen() {
         customer_phone: form.customer_phone.trim(),
         customer_email: form.customer_email.trim(),
         comment: form.comment.trim() || null,
+        is_restaurant_table: isRestaurantTable,
       });
       Alert.alert("Added to cart", "Your AI booking draft is ready for confirmation in Cart.");
-      navigateToCartMain(navigation as unknown as NavigationProp<ParamListBase>);
+      navigateToCartMain(navigation as unknown as NavigationProp<ParamListBase>, {
+        autoWhatsApp: {
+          kind: isRestaurantTable ? "restaurant" : "service",
+          businessCardId: selectedPlace.id,
+        },
+      });
     } catch {
       Alert.alert("Failed", "Could not create booking draft.");
     }
   };
 
+  if (!user) return <AuthScreen />;
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={stylesThemed.root}>
       <ScrollView style={stylesThemed.root} contentContainerStyle={stylesThemed.scroll}>
-        <View style={stylesThemed.topRow}>
-          <Pressable style={stylesThemed.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={18} color={colors.text} />
-          </Pressable>
-          <Text style={stylesThemed.title}>PixAI Smart Booking</Text>
+        <View style={stylesThemed.semanticSection}>
+          <View style={stylesThemed.topRow}>
+            <Pressable style={stylesThemed.backBtn} onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={18} color={colors.text} />
+            </Pressable>
+            <Text style={stylesThemed.title}>PixAI Smart Booking</Text>
+          </View>
+          <Text style={stylesThemed.subtitle}>
+            Describe what you need and PixAI will suggest places and slots.
+          </Text>
         </View>
-        <Text style={stylesThemed.subtitle}>Describe what you need and PixAI will suggest places and slots.</Text>
 
         {currentStep === "city" ? (
-          <View style={stylesThemed.sectionCard}>
+          <View style={stylesThemed.semanticSection}>
             <Text style={stylesThemed.stepTitle}>Step 1. Choose city</Text>
             <Pressable
               accessibilityRole="button"
@@ -414,7 +551,7 @@ export default function AIBookingScreen() {
         ) : null}
 
         {currentStep === "category" ? (
-          <View style={stylesThemed.sectionCard}>
+          <View style={stylesThemed.semanticSection}>
             <Text style={stylesThemed.stepTitle}>Step 2. Choose service or table</Text>
             <Pressable
               accessibilityRole="button"
@@ -434,7 +571,7 @@ export default function AIBookingScreen() {
               <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
             </Pressable>
             <TextInput
-              style={[stylesThemed.field, stylesThemed.commentField, { height: commentInputHeight }]}
+              style={[stylesThemed.field, stylesThemed.fieldOnCard, stylesThemed.commentField, { height: commentInputHeight }]}
               multiline
               value={requestComment}
               onContentSizeChange={(event) => setCommentInputHeight(Math.min(180, Math.max(88, event.nativeEvent.contentSize.height + 10)))}
@@ -449,7 +586,7 @@ export default function AIBookingScreen() {
         ) : null}
 
         {currentStep === "scope" ? (
-          <View style={stylesThemed.sectionCard}>
+          <View style={stylesThemed.semanticSection}>
             <Text style={stylesThemed.stepTitle}>Step 3. Choose search scope</Text>
             <Pressable
               style={[stylesThemed.optionChip, scope === "nearby" && stylesThemed.optionChipSelected]}
@@ -472,14 +609,16 @@ export default function AIBookingScreen() {
           </View>
         ) : null}
 
-        {messages.map((m) => (
-          <View key={m.id} style={[stylesThemed.bubble, m.role === "user" && stylesThemed.bubbleUser]}>
-            <Text style={m.role === "user" ? stylesThemed.bubbleUserText : stylesThemed.bubbleText}>{m.content}</Text>
-          </View>
-        ))}
+        <View style={stylesThemed.semanticSection}>
+          {messages.map((m) => (
+            <View key={m.id} style={[stylesThemed.bubble, m.role === "user" && stylesThemed.bubbleUser]}>
+              <Text style={m.role === "user" ? stylesThemed.bubbleUserText : stylesThemed.bubbleText}>{m.content}</Text>
+            </View>
+          ))}
+        </View>
 
         {(currentStep === "places" || currentStep === "booking") && hasSearched && placeOptions.length > 0 ? (
-          <View>
+          <View style={stylesThemed.semanticSection}>
             <Text style={stylesThemed.label}>Step 4. Suggested places</Text>
             {placeOptions.map((place) => (
               <Pressable
@@ -508,77 +647,185 @@ export default function AIBookingScreen() {
           </View>
         ) : null}
 
-        {currentStep === "booking" && slotOptions.length > 0 ? (
-          <View>
+        {currentStep === "booking" && selectedPlace ? (
+          <View style={stylesThemed.semanticSection}>
             <Text style={stylesThemed.label}>Step 5. Available slots</Text>
-            <View style={stylesThemed.slotGrid}>
-              {slotOptions.map((slot) => (
+            <Text style={stylesThemed.calendarHint} numberOfLines={2}>
+              Pick a date for {selectedPlace.name}, then choose a time.
+            </Text>
+            <View style={stylesThemed.calendarPanel}>
+              <View style={stylesThemed.calendarNav}>
                 <Pressable
-                  disabled={!slot.available}
-                  key={slot.dateTimeIso}
-                  onPress={() => setSelectedSlot(slot)}
-                  style={[
-                    stylesThemed.slotChip,
-                    slot.isBest && stylesThemed.slotChipBest,
-                    selectedSlot?.dateTimeIso === slot.dateTimeIso && stylesThemed.slotChipSelected,
-                    !slot.available && stylesThemed.slotChipUnavailable,
-                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous month"
+                  disabled={!canGoPrevMonth}
+                  onPress={() =>
+                    setVisibleCalendarMonth((prev) => {
+                      const y = prev.getFullYear();
+                      const m = prev.getMonth();
+                      return new Date(y, m - 1, 1);
+                    })
+                  }
+                  style={[stylesThemed.calendarNavBtn, !canGoPrevMonth && stylesThemed.calendarNavBtnDisabled]}
                 >
-                  <Text style={stylesThemed.slotText}>{slot.label}</Text>
+                  <Ionicons name="chevron-back" size={22} color={colors.text} />
                 </Pressable>
+                <Text style={stylesThemed.calendarMonthTitle}>
+                  {visibleCalendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Next month"
+                  disabled={!canGoNextMonth}
+                  onPress={() =>
+                    setVisibleCalendarMonth((prev) => {
+                      const y = prev.getFullYear();
+                      const m = prev.getMonth();
+                      return new Date(y, m + 1, 1);
+                    })
+                  }
+                  style={[stylesThemed.calendarNavBtn, !canGoNextMonth && stylesThemed.calendarNavBtnDisabled]}
+                >
+                  <Ionicons name="chevron-forward" size={22} color={colors.text} />
+                </Pressable>
+              </View>
+              <View style={stylesThemed.calendarDowRow}>
+                {WEEKDAY_LABELS.map((label) => (
+                  <Text key={label} style={stylesThemed.calendarDowCell}>
+                    {label}
+                  </Text>
+                ))}
+              </View>
+              {chunkCells(calendarCells, 7).map((row, rowIdx) => (
+                <View key={`w-${rowIdx}`} style={stylesThemed.calendarWeekRow}>
+                  {row.map((cell, colIdx) => {
+                    if (cell.kind === "pad") {
+                      return <View key={`p-${rowIdx}-${colIdx}`} style={stylesThemed.calendarCell} />;
+                    }
+                    const { ymd, day } = cell;
+                    const isSelected = bookingDateYmd === ymd;
+                    const isToday = ymd === todayYmd;
+                    const isPast = ymd < todayYmd;
+                    return (
+                      <View key={ymd} style={stylesThemed.calendarCell}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${ymd}`}
+                          disabled={isPast}
+                          onPress={() => {
+                            setBookingDateYmd(ymd);
+                            setSelectedSlot(null);
+                          }}
+                          style={[
+                            stylesThemed.calendarCellDayInner,
+                            isToday && stylesThemed.calendarCellToday,
+                            isSelected && stylesThemed.calendarCellSelected,
+                            isPast && stylesThemed.calendarCellPast,
+                          ]}
+                        >
+                          <Text style={stylesThemed.calendarCellDayText}>{day}</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
               ))}
             </View>
+
+            {!bookingDateYmd ? (
+              <Text style={stylesThemed.calendarHint}>Select a date to load time slots.</Text>
+            ) : slotsFetching ? (
+              <ActivityIndicator style={{ marginTop: 16 }} color={colors.primary} />
+            ) : slotsError ? (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                <Text style={stylesThemed.helperText}>Could not load slots.</Text>
+                <Pressable style={stylesThemed.secondaryBtn} onPress={() => void refetchSlots()}>
+                  <Text style={stylesThemed.secondaryBtnText}>Retry</Text>
+                </Pressable>
+              </View>
+            ) : slotsForDate.length === 0 ? (
+              <Text style={stylesThemed.calendarHint}>No time slots for this date.</Text>
+            ) : (
+              <View style={[stylesThemed.slotGrid, { marginTop: 10 }]}>
+                {slotsForDate.map((slot) => {
+                  const inCart = cartReservedSlotTimes.has(new Date(slot.dateTimeIso).getTime());
+                  const disabled = !slot.available || inCart;
+                  return (
+                    <Pressable
+                      disabled={disabled}
+                      key={slot.dateTimeIso}
+                      onPress={() => setSelectedSlot(slot)}
+                      style={[
+                        stylesThemed.slotChip,
+                        selectedSlot?.dateTimeIso === slot.dateTimeIso && stylesThemed.slotChipSelected,
+                        disabled && stylesThemed.slotChipUnavailable,
+                      ]}
+                    >
+                      <Text style={stylesThemed.slotText}>{slot.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
         ) : null}
 
         {currentStep === "booking" ? (
-          <View>
-            <Text style={stylesThemed.label}>Booking details</Text>
-            <Text style={stylesThemed.summaryText}>{summaryMessage}</Text>
-          <TextInput
-            style={stylesThemed.field}
-            keyboardType="number-pad"
-            value={form.persons}
-            onChangeText={(persons) => setForm((prev) => ({ ...prev, persons }))}
-            placeholder="Persons"
-            placeholderTextColor={colors.textMuted}
-          />
-          <TextInput
-            style={stylesThemed.field}
-            value={form.customer_name}
-            onChangeText={(customer_name) => setForm((prev) => ({ ...prev, customer_name }))}
-            placeholder="Full name"
-            placeholderTextColor={colors.textMuted}
-          />
-          <TextInput
-            style={stylesThemed.field}
-            value={form.customer_phone}
-            onChangeText={(customer_phone) => setForm((prev) => ({ ...prev, customer_phone: formatPhoneMask(customer_phone) }))}
-            keyboardType="number-pad"
-            placeholder="X-(XXX)-XXX-XXXX"
-            placeholderTextColor={colors.textMuted}
-          />
-          <TextInput
-            style={stylesThemed.field}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={form.customer_email}
-            onChangeText={(customer_email) => setForm((prev) => ({ ...prev, customer_email }))}
-            placeholder="Email"
-            placeholderTextColor={colors.textMuted}
-          />
-          <TextInput
-            style={stylesThemed.field}
-            multiline
-            value={form.comment}
-            onChangeText={(comment) => setForm((prev) => ({ ...prev, comment }))}
-            placeholder="Optional comment"
-            placeholderTextColor={colors.textMuted}
-          />
-          <Pressable style={stylesThemed.draftBtn} onPress={() => void onCreateDraft()}>
-            <Text style={stylesThemed.draftBtnText}>Add booking draft to cart</Text>
-          </Pressable>
-          </View>
+          <>
+            <View style={stylesThemed.semanticSection}>
+              <Text style={stylesThemed.label}>Booking details</Text>
+              <Text style={stylesThemed.summaryText}>{summaryMessage}</Text>
+            </View>
+            <View style={stylesThemed.semanticSection}>
+              <View style={stylesThemed.formFieldsStack}>
+                <TextInput
+                  style={[stylesThemed.field, stylesThemed.fieldOnCard]}
+                  keyboardType="number-pad"
+                  value={form.persons}
+                  onChangeText={(persons) => setForm((prev) => ({ ...prev, persons }))}
+                  placeholder="Persons"
+                  placeholderTextColor={colors.textMuted}
+                />
+                <TextInput
+                  style={[stylesThemed.field, stylesThemed.fieldOnCard]}
+                  value={form.customer_name}
+                  onChangeText={(customer_name) => setForm((prev) => ({ ...prev, customer_name }))}
+                  placeholder="Full name"
+                  placeholderTextColor={colors.textMuted}
+                />
+                <TextInput
+                  style={[stylesThemed.field, stylesThemed.fieldOnCard]}
+                  value={form.customer_phone}
+                  onChangeText={(customer_phone) =>
+                    setForm((prev) => ({ ...prev, customer_phone: formatPhoneMask(customer_phone) }))
+                  }
+                  keyboardType="number-pad"
+                  placeholder="X-(XXX)-XXX-XXXX"
+                  placeholderTextColor={colors.textMuted}
+                />
+                <TextInput
+                  style={[stylesThemed.field, stylesThemed.fieldOnCard]}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={form.customer_email}
+                  onChangeText={(customer_email) => setForm((prev) => ({ ...prev, customer_email }))}
+                  placeholder="Email"
+                  placeholderTextColor={colors.textMuted}
+                />
+                <TextInput
+                  style={[stylesThemed.field, stylesThemed.fieldOnCard, stylesThemed.commentField]}
+                  multiline
+                  value={form.comment}
+                  onChangeText={(comment) => setForm((prev) => ({ ...prev, comment }))}
+                  placeholder="Optional comment"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+              <Pressable style={stylesThemed.draftBtn} onPress={() => void onCreateDraft()}>
+                <Text style={stylesThemed.draftBtnText}>Add booking draft to cart</Text>
+              </Pressable>
+            </View>
+          </>
         ) : null}
       </ScrollView>
 

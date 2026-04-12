@@ -23,6 +23,7 @@ export type Database = {
           customer_phone: string | null
           date_time: string
           id: string
+          payment_status: Database["public"]["Enums"]["booking_payment_status"]
           persons: number | null
           status: Database["public"]["Enums"]["booking_status"]
           user_id: string
@@ -37,6 +38,7 @@ export type Database = {
           customer_phone?: string | null
           date_time: string
           id?: string
+          payment_status?: Database["public"]["Enums"]["booking_payment_status"]
           persons?: number | null
           status?: Database["public"]["Enums"]["booking_status"]
           user_id: string
@@ -51,6 +53,7 @@ export type Database = {
           customer_phone?: string | null
           date_time?: string
           id?: string
+          payment_status?: Database["public"]["Enums"]["booking_payment_status"]
           persons?: number | null
           status?: Database["public"]["Enums"]["booking_status"]
           user_id?: string
@@ -71,6 +74,7 @@ export type Database = {
           booking_price: number
           category_id: string | null
           city: string | null
+          contact_whatsapp: string | null
           created_at: string
           description: string | null
           id: string
@@ -89,6 +93,7 @@ export type Database = {
           booking_price?: number
           category_id?: string | null
           city?: string | null
+          contact_whatsapp?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -106,6 +111,7 @@ export type Database = {
           booking_price?: number
           category_id?: string | null
           city?: string | null
+          contact_whatsapp?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -139,6 +145,8 @@ export type Database = {
           customer_phone: string | null
           date_time: string
           id: string
+          is_restaurant_table: boolean
+          paid_at: string | null
           persons: number | null
           status: Database["public"]["Enums"]["cart_item_status"]
           user_id: string
@@ -153,6 +161,8 @@ export type Database = {
           customer_phone?: string | null
           date_time: string
           id?: string
+          is_restaurant_table?: boolean
+          paid_at?: string | null
           persons?: number | null
           status?: Database["public"]["Enums"]["cart_item_status"]
           user_id: string
@@ -167,6 +177,8 @@ export type Database = {
           customer_phone?: string | null
           date_time?: string
           id?: string
+          is_restaurant_table?: boolean
+          paid_at?: string | null
           persons?: number | null
           status?: Database["public"]["Enums"]["cart_item_status"]
           user_id?: string
@@ -342,27 +354,33 @@ export type Database = {
           business_card_id: string
           created_at: string
           id: string
+          paid_at: string | null
           parent_id: string | null
           quantity: number
           shopping_item_id: string
+          status: string
           user_id: string
         }
         Insert: {
           business_card_id: string
           created_at?: string
           id?: string
+          paid_at?: string | null
           parent_id?: string | null
           quantity?: number
           shopping_item_id: string
+          status?: string
           user_id: string
         }
         Update: {
           business_card_id?: string
           created_at?: string
           id?: string
+          paid_at?: string | null
           parent_id?: string | null
           quantity?: number
           shopping_item_id?: string
+          status?: string
           user_id?: string
         }
         Relationships: [
@@ -508,13 +526,21 @@ export type Database = {
       }
     }
     Functions: {
+      get_bookings_datetimes_for_availability: {
+        Args: {
+          p_business_id: string
+          p_end: string
+          p_start: string
+        }
+        Returns: string[]
+      },
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
-      }
+      },
       search_business_cards_nearby: {
         Args: {
           p_category_id?: string | null
@@ -540,6 +566,7 @@ export type Database = {
     }
     Enums: {
       app_role: "buyer" | "partner" | "admin"
+      booking_payment_status: "pending" | "paid"
       booking_status: "upcoming" | "completed" | "expired"
       business_card_type: "featured" | "recommended"
       cart_item_status: "created" | "paid" | "expired"
@@ -672,6 +699,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["buyer", "partner", "admin"],
+      booking_payment_status: ["pending", "paid"],
       booking_status: ["upcoming", "completed", "expired"],
       business_card_type: ["featured", "recommended"],
       cart_item_status: ["created", "paid", "expired"],

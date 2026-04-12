@@ -155,7 +155,8 @@ Deno.serve(async (req) => {
       const { data: rows, error: cartErr } = await supabase
         .from("shopping_cart_items")
         .select("quantity, shopping_item:shopping_items(price)")
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .eq("status", "created");
 
       if (cartErr) throw cartErr;
 
