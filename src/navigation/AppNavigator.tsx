@@ -31,6 +31,7 @@ import EditProfileScreen from "@/screens/EditProfileScreen";
 import FavoritesScreen from "@/screens/FavoritesScreen";
 import NotFoundScreen from "@/screens/NotFoundScreen";
 import AdminImageUploadScreen from "@/screens/AdminImageUploadScreen";
+import MyPurchasesScreen from "@/screens/MyPurchasesScreen";
 
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const SearchStack = createNativeStackNavigator<SearchStackParamList>();
@@ -95,6 +96,7 @@ function ProfileStackNavigator() {
   return (
     <ProfileStack.Navigator initialRouteName="ProfileMain" screenOptions={stackScreenOptions}>
       <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} />
+      <ProfileStack.Screen name="MyPurchases" component={MyPurchasesScreen} />
       <ProfileStack.Screen name="Auth" component={AuthScreen} />
       <ProfileStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />

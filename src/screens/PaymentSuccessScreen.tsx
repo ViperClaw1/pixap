@@ -26,6 +26,8 @@ export default function PaymentSuccessScreen() {
   useEffect(() => {
     void queryClient.invalidateQueries({ queryKey: ["shopping_cart"] });
     void queryClient.invalidateQueries({ queryKey: ["cart_items"] });
+    void queryClient.invalidateQueries({ queryKey: ["paid_cart_items"] });
+    void queryClient.invalidateQueries({ queryKey: ["paid_shopping_cart_items"] });
     void queryClient.invalidateQueries({ queryKey: ["bookings"] });
   }, [queryClient]);
 
@@ -74,7 +76,7 @@ export default function PaymentSuccessScreen() {
     <View style={stylesThemed.root}>
       <Text style={stylesThemed.title}>Payment successful</Text>
       <Text style={stylesThemed.body}>Thank you! Your order is confirmed.</Text>
-      <Pressable style={stylesThemed.btn} onPress={() => navigation.navigate("CartMain")}>
+      <Pressable style={stylesThemed.btn} onPress={() => navigation.navigate("CartMain", {})}>
         <Text style={stylesThemed.btnText}>Back to cart</Text>
       </Pressable>
       <Pressable style={stylesThemed.secondaryBtn} onPress={goBookings}>

@@ -13,7 +13,9 @@ export interface Booking {
   customer_phone: string | null;
   customer_email: string | null;
   comment: string | null;
+  /** Legacy column; schedule tabs use `date_time` vs now. */
   status: "upcoming" | "completed" | "expired";
+  payment_status: "paid" | "pending";
   created_at: string;
   business_card?: {
     id: string;
@@ -24,17 +26,27 @@ export interface Booking {
   } | null;
 }
 
-export const useBookings = (status?: "upcoming" | "completed" | "expired") => {
+/** Paid booking: upcoming if due_date >= now, else completed. */
+export function bookingScheduleLabel(dateTimeIso: string): "upcoming" | "completed" {
+  return new Date(dateTimeIso).getTime() >= Date.now() ? "upcoming" : "completed";
+}
+
+export type BookingsTabFilter = undefined | "upcoming" | "completed";
+
+export const useBookings = (tab?: BookingsTabFilter) => {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["bookings", user?.id, status],
+    queryKey: ["bookings", user?.id, tab],
     queryFn: async () => {
+      const nowIso = new Date().toISOString();
       let query = supabase
         .from("bookings")
         .select("*, business_card:business_cards(id, name, image, address, category_id)")
         .eq("user_id", user!.id)
+        .eq("payment_status", "paid")
         .order("date_time", { ascending: false });
-      if (status) query = query.eq("status", status);
+      if (tab === "upcoming") query = query.gte("date_time", nowIso);
+      if (tab === "completed") query = query.lt("date_time", nowIso);
       const { data, error } = await query;
       if (error) throw error;
       return data as Booking[];
@@ -59,7 +71,12 @@ export const useCreateBooking = () => {
     }) => {
       const { data, error } = await supabase
         .from("bookings")
-        .insert({ ...booking, user_id: user!.id, status: "upcoming" as const })
+        .insert({
+          ...booking,
+          user_id: user!.id,
+          status: "upcoming" as const,
+          payment_status: "pending" as const,
+        })
         .select()
         .single();
       if (error) throw error;

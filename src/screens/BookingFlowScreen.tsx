@@ -37,6 +37,10 @@ export default function BookingFlowScreen() {
 
   const totalSteps = 2;
 
+  const isRestaurantBooking =
+    (place.tags ?? []).some((t) => /restaurant/i.test(String(t))) ||
+    (place.category?.name?.toLowerCase().includes("restaurant") ?? false);
+
   const handleConfirm = async () => {
     const dateTime = new Date(selectedDate);
     const [h, m] = selectedTime.split(":").map(Number);
@@ -47,9 +51,15 @@ export default function BookingFlowScreen() {
         date_time: dateTime.toISOString(),
         cost: Number(place.booking_price),
         persons: guests,
+        is_restaurant_table: isRestaurantBooking,
       });
       Alert.alert("Added to cart");
-      navigateToCartMain(navigation);
+      navigateToCartMain(navigation, {
+        autoWhatsApp: {
+          kind: isRestaurantBooking ? "restaurant" : "service",
+          businessCardId: place.id,
+        },
+      });
     } catch {
       Alert.alert("Failed to add to cart");
     }

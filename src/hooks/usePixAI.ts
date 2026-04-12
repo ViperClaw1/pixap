@@ -75,6 +75,23 @@ function isFunctionsUnauthorized(error: unknown): boolean {
   return ctx instanceof Response && ctx.status === 401;
 }
 
+/** Proactively refresh so the Functions gateway does not reject an expired access_token as Invalid JWT. */
+async function ensureFreshAccessTokenForFunctions(): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return;
+  if (!session.access_token) {
+    await supabase.auth.refreshSession();
+    return;
+  }
+  const exp = session.expires_at;
+  if (typeof exp !== "number") return;
+  const expiresAtMs = exp * 1000;
+  if (expiresAtMs >= Date.now() + 60_000) return;
+  await supabase.auth.refreshSession();
+}
+
 async function logEdgeInvokeFailure(error: unknown): Promise<void> {
   if (!__DEV__) return;
   console.warn("[PixAI] pixai-orchestrate invoke failed:", error);
@@ -93,26 +110,23 @@ async function logEdgeInvokeFailure(error: unknown): Promise<void> {
 }
 
 /**
- * Edge gateway validates JWT on Authorization. Use the current session access token explicitly
- * and retry once after refresh — fixes stale tokens and avoids relying on merge order with apikey.
+ * Edge gateway validates the `Authorization` JWT before the function runs.
+ * Do not pass a custom Authorization header: supabase-js `fetchWithAuth` will set it from
+ * `getAccessToken()`, but only when the header is absent. A manual Bearer token blocks that
+ * and keeps sending an expired access_token → `{"code":401,"message":"Invalid JWT"}`.
  */
 async function invokePixaiOrchestrateWithAuth(body: object): Promise<{ data: unknown; error: unknown }> {
   const invokeOnce = async () => {
-    let { data: sessionData } = await supabase.auth.getSession();
-    let token = sessionData.session?.access_token;
-    if (!token) {
-      const { data: refreshed } = await supabase.auth.refreshSession();
-      token = refreshed.session?.access_token ?? undefined;
-    }
-    return supabase.functions.invoke("pixai-orchestrate", {
-      body,
-      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
-    });
+    await ensureFreshAccessTokenForFunctions();
+    return supabase.functions.invoke("pixai-orchestrate", { body });
   };
 
   let { data, error } = await invokeOnce();
   if (error && isFunctionsUnauthorized(error)) {
-    await supabase.auth.refreshSession();
+    const { error: refErr } = await supabase.auth.refreshSession();
+    if (__DEV__ && refErr) {
+      console.warn("[PixAI] refreshSession after orchestrate 401 failed:", refErr.message);
+    }
     ({ data, error } = await invokeOnce());
   }
   return { data, error };
@@ -150,7 +164,7 @@ function makeLocalSlots(): PixAISlot[] {
       label: d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       dateTimeIso: d.toISOString(),
       available: idx !== 2,
-      isBest: idx === 1,
+      isBest: false,
     };
   });
 }

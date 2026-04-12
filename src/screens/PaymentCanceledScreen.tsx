@@ -40,7 +40,7 @@ export default function PaymentCanceledScreen() {
     <View style={stylesThemed.root}>
       <Text style={stylesThemed.title}>Payment canceled</Text>
       <Text style={stylesThemed.body}>You can return to your cart and try again.</Text>
-      <Pressable style={stylesThemed.btn} onPress={() => navigation.navigate("CartMain")}>
+      <Pressable style={stylesThemed.btn} onPress={() => navigation.navigate("CartMain", {})}>
         <Text style={stylesThemed.btnText}>Back to cart</Text>
       </Pressable>
     </View>

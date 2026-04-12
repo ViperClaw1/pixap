@@ -5,21 +5,26 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBookings, type Booking } from "@/hooks/useBookings";
+import {
+  useBookings,
+  bookingScheduleLabel,
+  type Booking,
+  type BookingsTabFilter,
+} from "@/hooks/useBookings";
 import type { BookingsStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import AuthScreen from "@/screens/AuthScreen";
 
 type Nav = NativeStackNavigationProp<BookingsStackParamList, "BookingsMain">;
 
-const filters = [undefined, "upcoming", "completed", "expired"] as const;
+const filters: readonly BookingsTabFilter[] = [undefined, "upcoming", "completed"];
 
 export default function BookingsScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { user, loading } = useAuth();
-  const [filter, setFilter] = useState<(typeof filters)[number]>(undefined);
+  const [filter, setFilter] = useState<BookingsTabFilter>(undefined);
   const { data: bookings = [] } = useBookings(filter);
 
   const stylesThemed = useMemo(
@@ -73,7 +78,7 @@ export default function BookingsScreen() {
         <Text style={stylesThemed.meta}>{new Date(item.date_time).toLocaleString()}</Text>
         {item.persons ? <Text style={stylesThemed.meta}>Persons: {item.persons}</Text> : null}
         {item.comment ? <Text style={stylesThemed.meta}>Comment: {item.comment}</Text> : null}
-        <Text style={stylesThemed.badge}>{item.status}</Text>
+        <Text style={stylesThemed.badge}>{bookingScheduleLabel(item.date_time)}</Text>
       </View>
     </Pressable>
   );

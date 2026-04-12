@@ -170,6 +170,7 @@ export default function ProfileScreen() {
   };
 
   const actions: ActionItem[] = [
+    { key: "purchases", label: "My Purchases", icon: "bag-handle-outline", onPress: () => navigation.navigate("MyPurchases") },
     { key: "notifications", label: "Notifications", icon: "notifications-outline", onPress: () => setNotificationsOpen(true) },
     { key: "favorites", label: "Favorites", icon: "star-outline", onPress: () => navigation.navigate("Favorites") },
     { key: "privacy", label: "Privacy & Security", icon: "shield-outline", onPress: openPrivacy },
@@ -214,6 +215,7 @@ export default function ProfileScreen() {
           <Text style={stylesThemed.statLabel}>Favorites</Text>
         </View>
       </View>
+
       <View style={stylesThemed.actionsCard}>
         {actions.map((item, index) => (
           <Pressable
