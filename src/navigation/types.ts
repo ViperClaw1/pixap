@@ -1,5 +1,4 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
-import type { WhatsAppAvailabilityKind } from "@/lib/whatsappAvailability";
 
 /** Shared routes for browse/detail flows (mounted on Home + Search stacks). */
 export type BrowseFlowParamList = {
@@ -22,9 +21,7 @@ export type SearchStackParamList = {
 } & BrowseFlowParamList;
 
 export type CartStackParamList = {
-  CartMain: {
-    autoWhatsApp?: { kind: WhatsAppAvailabilityKind; businessCardId: string };
-  };
+  CartMain: undefined;
   PaymentSuccess: { next?: "bookings" } | undefined;
   PaymentCanceled: undefined;
 };

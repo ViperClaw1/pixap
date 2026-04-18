@@ -150,6 +150,12 @@ export type Database = {
           persons: number | null
           status: Database["public"]["Enums"]["cart_item_status"]
           user_id: string
+          wa_confirmable: boolean
+          wa_confirmed_price: string | null
+          wa_confirmed_slot: string | null
+          wa_n8n_callback_token: string | null
+          wa_n8n_started_at: string | null
+          wa_status_lines: Json
         }
         Insert: {
           business_card_id: string
@@ -166,6 +172,12 @@ export type Database = {
           persons?: number | null
           status?: Database["public"]["Enums"]["cart_item_status"]
           user_id: string
+          wa_confirmable?: boolean
+          wa_confirmed_price?: string | null
+          wa_confirmed_slot?: string | null
+          wa_n8n_callback_token?: string | null
+          wa_n8n_started_at?: string | null
+          wa_status_lines?: Json
         }
         Update: {
           business_card_id?: string
@@ -182,6 +194,12 @@ export type Database = {
           persons?: number | null
           status?: Database["public"]["Enums"]["cart_item_status"]
           user_id?: string
+          wa_confirmable?: boolean
+          wa_confirmed_price?: string | null
+          wa_confirmed_slot?: string | null
+          wa_n8n_callback_token?: string | null
+          wa_n8n_started_at?: string | null
+          wa_status_lines?: Json
         }
         Relationships: [
           {

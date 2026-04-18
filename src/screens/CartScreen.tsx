@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/components/SmartImage";
@@ -15,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCartItems, useDeleteCartItem } from "@/hooks/useCartItems";
+import { useCartItems, useDeleteCartItem, useConfirmServiceCartBooking, parseWaStatusLines } from "@/hooks/useCartItems";
 import {
   useShoppingCart,
   useUpdateShoppingCartQuantity,
@@ -25,16 +26,15 @@ import {
 import { createPaypalServiceBookingOrder, createPaypalShoppingOrder, capturePaypalOrder } from "@/lib/paypalCheckout";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import AuthScreen from "@/screens/AuthScreen";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CartStackParamList } from "@/navigation/types";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   buildAvailabilityMessage,
   openWhatsAppAvailability,
   resolveShoppingWhatsAppPhone,
-  resolveWhatsAppPhone,
-  serviceCartContextLines,
   shoppingCartContextLines,
 } from "@/lib/whatsappAvailability";
 import type { CartItem } from "@/hooks/useCartItems";
@@ -42,29 +42,17 @@ import type { CartItem } from "@/hooks/useCartItems";
 function ServiceCartRow({
   item,
   stylesThemed,
-  onBookPress,
-  onConfirmWhatsApp,
+  onConfirmBooking,
 }: {
   item: CartItem;
   stylesThemed: ReturnType<typeof createCartStyles>;
-  onBookPress: (cartItemId: string) => Promise<void>;
-  onConfirmWhatsApp: (item: CartItem) => void | Promise<void>;
+  onConfirmBooking: (item: CartItem) => Promise<void>;
 }) {
   const deleteCartItem = useDeleteCartItem();
-  const [paying, setPaying] = useState(false);
   const [confirming, setConfirming] = useState(false);
-
-  const onBook = async () => {
-    if (paying) return;
-    setPaying(true);
-    try {
-      await onBookPress(item.id);
-    } catch (e: unknown) {
-      Alert.alert("Checkout failed", e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setPaying(false);
-    }
-  };
+  const statusLines = parseWaStatusLines(item.wa_status_lines);
+  const canConfirm = Boolean(item.wa_confirmable);
+  const hasVenueWa = Boolean(item.business_card?.contact_whatsapp?.trim());
 
   return (
     <View style={stylesThemed.card}>
@@ -77,24 +65,37 @@ function ServiceCartRow({
         {item.customer_phone ? <Text style={stylesThemed.meta}>Phone: {item.customer_phone}</Text> : null}
         {item.customer_email ? <Text style={stylesThemed.meta}>Email: {item.customer_email}</Text> : null}
         {item.comment ? <Text style={stylesThemed.meta}>Comment: {item.comment}</Text> : null}
-        <Text style={stylesThemed.price}>{Number(item.cost).toLocaleString()} ₸</Text>
+        <Text style={stylesThemed.price}>{Number(item.cost).toLocaleString()} </Text>
+        {!hasVenueWa ? (
+          <Text style={[stylesThemed.meta, { marginTop: 8 }]}>Venue has no WhatsApp on file — automation cannot start.</Text>
+        ) : null}
+        {statusLines.length > 0 ? (
+          <View style={{ marginTop: 10, gap: 4 }}>
+            {statusLines.map((line, idx) => (
+              <Text key={`${idx}-${line.slice(0, 24)}`} style={stylesThemed.waStatusLine}>
+                {line}
+              </Text>
+            ))}
+          </View>
+        ) : item.wa_n8n_started_at ? (
+          <Text style={[stylesThemed.meta, { marginTop: 8 }]}>Waiting for venue status…</Text>
+        ) : hasVenueWa ? (
+          <Text style={[stylesThemed.meta, { marginTop: 8 }]}>Starting venue check…</Text>
+        ) : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
           <Pressable
-            style={[stylesThemed.smallBtnOutline, confirming && { opacity: 0.6 }]}
-            disabled={confirming}
+            style={[
+              stylesThemed.smallBtnOutline,
+              (confirming || !canConfirm) && { opacity: 0.55 },
+            ]}
+            disabled={confirming || !canConfirm}
+            accessibilityState={{ disabled: confirming || !canConfirm }}
             onPress={() => {
               setConfirming(true);
-              void Promise.resolve(onConfirmWhatsApp(item)).finally(() => setConfirming(false));
+              void Promise.resolve(onConfirmBooking(item)).finally(() => setConfirming(false));
             }}
           >
-            <Text style={stylesThemed.smallBtnOutlineText}>{confirming ? "Opening…" : "Confirm"}</Text>
-          </Pressable>
-          <Pressable
-            style={[stylesThemed.smallBtn, paying && { opacity: 0.6 }]}
-            disabled={paying}
-            onPress={() => void onBook()}
-          >
-            <Text style={stylesThemed.smallBtnText}>{paying ? "Opening checkout…" : "Pay for booking"}</Text>
+            <Text style={stylesThemed.smallBtnOutlineText}>{confirming ? "Saving…" : "Confirm"}</Text>
           </Pressable>
           <Pressable style={stylesThemed.smallBtnDanger} onPress={() => void deleteCartItem.mutateAsync(item.id)}>
             <Text style={stylesThemed.dangerBtnText}>Remove</Text>
@@ -164,6 +165,7 @@ function createCartStyles(colors: import("@/theme/palettes").ThemeColors, bottom
       alignItems: "center",
     },
     smallBtnOutlineText: { color: colors.text, fontSize: 12, fontWeight: "600" },
+    waStatusLine: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
     dangerBtnText: { color: "#ffffff", fontSize: 12, fontWeight: "600" },
     empty: { textAlign: "center", color: colors.textMuted, marginTop: 32 },
     payBar: {
@@ -304,7 +306,7 @@ function ShopRow({
             + {c.shopping_item?.name} ×{c.quantity}
           </Text>
         ))}
-        <Text style={stylesThemed.price}>{line.toLocaleString()} ₸</Text>
+        <Text style={stylesThemed.price}>{line.toLocaleString()} $</Text>
       </View>
     </View>
   );
@@ -313,43 +315,81 @@ function ShopRow({
 export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const route = useRoute<RouteProp<CartStackParamList, "CartMain">>();
   const navigation = useNavigation<NativeStackNavigationProp<CartStackParamList>>();
   const stylesThemed = useMemo(() => createCartStyles(colors, insets.bottom), [colors, insets.bottom]);
-  const { user, loading } = useAuth();
+  const { user, session, loading } = useAuth();
+  const queryClient = useQueryClient();
+  const confirmServiceBooking = useConfirmServiceCartBooking();
   const [tab, setTab] = useState<"services" | "shopping">("services");
   const [isPayingShopping, setIsPayingShopping] = useState(false);
   const [checkingShopWa, setCheckingShopWa] = useState(false);
-  const { data: cartItems = [], isLoading: cl } = useCartItems();
+  const { data: cartItems = [], isLoading: cl, refetch: refetchCartItems } = useCartItems();
+  const [servicesRefreshing, setServicesRefreshing] = useState(false);
   const { data: shoppingItems = [], isLoading: sl } = useShoppingCart();
+  const n8nStartingRef = useRef(new Set<string>());
+  const n8nStartFailedRef = useRef(new Set<string>());
 
-  const autoWhatsApp = route.params?.autoWhatsApp;
   useEffect(() => {
-    if (!autoWhatsApp?.businessCardId || !autoWhatsApp.kind) return;
-    let cancelled = false;
-    void (async () => {
-      const { data } = await supabase
-        .from("business_cards")
-        .select("name, contact_whatsapp")
-        .eq("id", autoWhatsApp.businessCardId)
-        .maybeSingle();
-      if (cancelled) return;
-      if (!data) {
-        navigation.setParams({ autoWhatsApp: undefined });
-        return;
+    if (tab !== "services" || loading || !user) return;
+    const accessToken = session?.access_token;
+    if (!accessToken) return;
+    for (const item of cartItems) {
+      if (item.wa_n8n_started_at) continue;
+      if (n8nStartFailedRef.current.has(item.id)) continue;
+      if (n8nStartingRef.current.has(item.id)) continue;
+      if (!item.business_card?.contact_whatsapp?.trim()) {
+        n8nStartFailedRef.current.add(item.id);
+        continue;
       }
-      const phone = resolveWhatsAppPhone(data.contact_whatsapp);
-      const msg = buildAvailabilityMessage(autoWhatsApp.kind, {
-        businessName: data.name ?? "—",
-        extraLines: [],
-      });
-      await openWhatsAppAvailability(phone, msg);
-      navigation.setParams({ autoWhatsApp: undefined });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [autoWhatsApp?.businessCardId, autoWhatsApp?.kind, navigation]);
+      n8nStartingRef.current.add(item.id);
+      void supabase.functions
+        .invoke("n8n-wa-booking-start", {
+          body: { cart_item_id: item.id },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        .then((res) => {
+          const { data, error } = res;
+          if (!error) return;
+          let msg = error.message;
+          const ctx = (error as { context?: { body?: string } }).context;
+          const rawBody = ctx?.body;
+          if (rawBody) {
+            try {
+              const j = JSON.parse(rawBody) as {
+                error?: string;
+                hint?: string;
+                step?: string;
+                n8n_status?: number;
+                n8n_message?: string;
+                n8n_body_preview?: string;
+                wa_booking_status?: number;
+                wa_booking_body_preview?: string;
+              };
+              if (j.error) {
+                msg = `${msg} [${j.step ?? "?"}] ${j.error}`;
+                if (j.n8n_message) msg += `: ${j.n8n_message}`;
+                if (j.hint) msg += ` — ${j.hint}`;
+                const upstream = j.wa_booking_status ?? j.n8n_status;
+                if (upstream != null) {
+                  msg += j.wa_booking_status != null ? ` (booking service HTTP ${upstream})` : ` (n8n HTTP ${upstream})`;
+                }
+              }
+            } catch {
+              msg = `${msg} ${rawBody.slice(0, 160)}`;
+            }
+          } else if (data && typeof data === "object" && data !== null && "error" in data) {
+            const j = data as { error?: string; hint?: string };
+            if (typeof j.error === "string") msg = `${msg}: ${j.error}${j.hint ? ` — ${j.hint}` : ""}`;
+          }
+          console.warn("[n8n-wa-booking-start]", msg);
+          n8nStartFailedRef.current.add(item.id);
+        })
+        .finally(() => {
+          n8nStartingRef.current.delete(item.id);
+          void queryClient.invalidateQueries({ queryKey: ["cart_items", user.id] });
+        });
+    }
+  }, [tab, cartItems, loading, user, session?.access_token, queryClient]);
 
   if (loading) {
     return (
@@ -371,21 +411,19 @@ export default function CartScreen() {
     0,
   );
 
-  const confirmServiceWhatsApp = async (item: CartItem) => {
-    const kind = item.is_restaurant_table ? "restaurant" : "service";
-    const phone = resolveWhatsAppPhone(item.business_card?.contact_whatsapp);
-    const msg = buildAvailabilityMessage(kind, {
-      businessName: item.business_card?.name ?? "—",
-      extraLines: serviceCartContextLines({
-        dateTimeLabel: new Date(item.date_time).toLocaleString(),
-        persons: item.persons,
-        customer_name: item.customer_name,
-        customer_phone: item.customer_phone,
-        customer_email: item.customer_email,
-        comment: item.comment,
-      }),
-    });
-    await openWhatsAppAvailability(phone, msg);
+  const handleConfirmServiceBooking = async (item: CartItem) => {
+    try {
+      await confirmServiceBooking.mutateAsync(item.id);
+      Alert.alert("Booking confirmed", "Your booking is saved under Bookings.");
+      navigation.getParent()?.dispatch(
+        CommonActions.navigate({
+          name: "Bookings",
+          params: { screen: "BookingsMain" },
+        }),
+      );
+    } catch (e: unknown) {
+      Alert.alert("Could not confirm", e instanceof Error ? e.message : "Unknown error");
+    }
   };
 
   const checkShoppingAvailability = async () => {
@@ -493,14 +531,20 @@ export default function CartScreen() {
             data={cartItems}
             keyExtractor={(i) => i.id}
             contentContainerStyle={{ padding: 16, paddingBottom: 100 + insets.bottom }}
+            refreshControl={
+              <RefreshControl
+                refreshing={servicesRefreshing}
+                onRefresh={() => {
+                  n8nStartFailedRef.current.clear();
+                  setServicesRefreshing(true);
+                  void refetchCartItems().finally(() => setServicesRefreshing(false));
+                }}
+                tintColor={colors.primary}
+              />
+            }
             ListEmptyComponent={<Text style={stylesThemed.empty}>No service bookings in cart</Text>}
             renderItem={({ item }) => (
-              <ServiceCartRow
-                item={item}
-                stylesThemed={stylesThemed}
-                onBookPress={runPaypalCheckout}
-                onConfirmWhatsApp={confirmServiceWhatsApp}
-              />
+              <ServiceCartRow item={item} stylesThemed={stylesThemed} onConfirmBooking={handleConfirmServiceBooking} />
             )}
           />
         )
@@ -518,7 +562,7 @@ export default function CartScreen() {
           {shoppingItems.length > 0 ? (
             <View style={stylesThemed.payBar}>
               <Text style={stylesThemed.totalLabel}>Total</Text>
-              <Text style={stylesThemed.totalVal}>{shoppingTotal.toLocaleString()} ₸</Text>
+              <Text style={stylesThemed.totalVal}>{shoppingTotal.toLocaleString()} $</Text>
               <View style={stylesThemed.payRow}>
                 <Pressable
                   style={[
@@ -543,7 +587,7 @@ export default function CartScreen() {
                   onPress={() => void pay()}
                 >
                   <Text style={stylesThemed.payBtnText}>
-                    {isPayingShopping ? "Processing..." : `Pay ${shoppingTotal.toLocaleString()} ₸`}
+                    {isPayingShopping ? "Processing..." : `Pay ${shoppingTotal.toLocaleString()} $`}
                   </Text>
                 </Pressable>
               </View>

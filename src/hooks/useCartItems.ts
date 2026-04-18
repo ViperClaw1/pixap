@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +18,12 @@ export interface CartItem {
   status: "created" | "paid" | "expired";
   created_at: string;
   paid_at: string | null;
+  wa_n8n_callback_token: string | null;
+  wa_n8n_started_at: string | null;
+  wa_status_lines: unknown;
+  wa_confirmable: boolean;
+  wa_confirmed_slot: string | null;
+  wa_confirmed_price: string | null;
   business_card?: {
     id: string;
     name: string;
@@ -27,8 +34,36 @@ export interface CartItem {
   } | null;
 }
 
+export function parseWaStatusLines(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const x of raw) {
+    if (typeof x === "string") out.push(x);
+  }
+  return out;
+}
+
 export const useCartItems = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`cart_items_user_${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "cart_items", filter: `user_id=eq.${user.id}` },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["cart_items", user.id] });
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
+
   return useQuery({
     queryKey: ["cart_items", user?.id],
     queryFn: async () => {
@@ -42,6 +77,36 @@ export const useCartItems = () => {
       return data as CartItem[];
     },
     enabled: !!user,
+    refetchInterval: (query) => {
+      const list = query.state.data as CartItem[] | undefined;
+      if (!list?.length) return false;
+      return list.some((i) => i.wa_n8n_started_at && !i.wa_confirmable) ? 5000 : false;
+    },
+  });
+};
+
+export const useConfirmServiceCartBooking = () => {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  return useMutation({
+    mutationFn: async (cartItemId: string) => {
+      const token = session?.access_token;
+      if (!token) throw new Error("Not signed in");
+      const { data, error } = await supabase.functions.invoke("confirm-service-cart-booking", {
+        body: { cart_item_id: cartItemId },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (error) throw new Error(error.message);
+      const payload = data as { error?: string; ok?: boolean };
+      if (payload && typeof payload === "object" && payload.error) {
+        throw new Error(String(payload.error));
+      }
+      return payload;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["cart_items"] });
+      void queryClient.invalidateQueries({ queryKey: ["bookings"] });
+    },
   });
 };
 

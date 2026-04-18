@@ -76,7 +76,7 @@ export default function PaymentSuccessScreen() {
     <View style={stylesThemed.root}>
       <Text style={stylesThemed.title}>Payment successful</Text>
       <Text style={stylesThemed.body}>Thank you! Your order is confirmed.</Text>
-      <Pressable style={stylesThemed.btn} onPress={() => navigation.navigate("CartMain", {})}>
+      <Pressable style={stylesThemed.btn} onPress={() => navigation.navigate("CartMain")}>
         <Text style={stylesThemed.btnText}>Back to cart</Text>
       </Pressable>
       <Pressable style={stylesThemed.secondaryBtn} onPress={goBookings}>

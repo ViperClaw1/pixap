@@ -356,6 +356,21 @@ export default function AIBookingScreen() {
     setCurrentStep((prev) => (prev === "city" ? "category" : prev));
   }, [profile?.city]);
 
+  useEffect(() => {
+    if (!profile) return;
+
+    const defaultFullName = `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim();
+    const defaultPhone = formatPhoneMask(profile.phone ?? "");
+    const defaultEmail = (profile.email ?? "").trim();
+
+    setForm((prev) => ({
+      ...prev,
+      customer_name: prev.customer_name.trim().length > 0 ? prev.customer_name : defaultFullName,
+      customer_phone: prev.customer_phone.trim().length > 0 ? prev.customer_phone : defaultPhone,
+      customer_email: prev.customer_email.trim().length > 0 ? prev.customer_email : defaultEmail,
+    }));
+  }, [profile]);
+
   const latestToolResult = [...messages]
     .reverse()
     .find((m) => m.role === "assistant" && m.toolResult)?.toolResult;
@@ -502,12 +517,7 @@ export default function AIBookingScreen() {
         is_restaurant_table: isRestaurantTable,
       });
       Alert.alert("Added to cart", "Your AI booking draft is ready for confirmation in Cart.");
-      navigateToCartMain(navigation as unknown as NavigationProp<ParamListBase>, {
-        autoWhatsApp: {
-          kind: isRestaurantTable ? "restaurant" : "service",
-          businessCardId: selectedPlace.id,
-        },
-      });
+      navigateToCartMain(navigation as unknown as NavigationProp<ParamListBase>);
     } catch {
       Alert.alert("Failed", "Could not create booking draft.");
     }

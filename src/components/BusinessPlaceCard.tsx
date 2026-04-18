@@ -205,7 +205,7 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
         <Text style={styles.vTagsLine} numberOfLines={1}>
           {displayTags.length > 0 ? displayTags.join(" · ") : " "}
         </Text>
-        <Text style={styles.vPrice}>{Number(place.booking_price).toLocaleString()} ₸</Text>
+        <Text style={styles.vPrice}>{Number(place.booking_price).toLocaleString()} $</Text>
       </View>
     </Pressable>
   );
