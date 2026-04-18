@@ -54,12 +54,7 @@ export default function BookingFlowScreen() {
         is_restaurant_table: isRestaurantBooking,
       });
       Alert.alert("Added to cart");
-      navigateToCartMain(navigation, {
-        autoWhatsApp: {
-          kind: isRestaurantBooking ? "restaurant" : "service",
-          businessCardId: place.id,
-        },
-      });
+      navigateToCartMain(navigation);
     } catch {
       Alert.alert("Failed to add to cart");
     }

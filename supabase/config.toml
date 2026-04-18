@@ -2,3 +2,14 @@
 
 [functions.lemon-webhook]
 verify_jwt = false
+
+[functions.n8n-wa-booking-callback]
+verify_jwt = false
+
+# Gateway JWT verify can 401 valid ES256 session tokens (see supabase/supabase#44530).
+# Auth is enforced inside each function via auth.getUser() + service role.
+[functions.n8n-wa-booking-start]
+verify_jwt = false
+
+[functions.confirm-service-cart-booking]
+verify_jwt = false

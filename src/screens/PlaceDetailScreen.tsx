@@ -157,7 +157,7 @@ export default function PlaceDetailScreen() {
         <Text style={stylesThemed.title}>{place.name}</Text>
         <Text style={stylesThemed.rating}>
           {Number(place.rating).toFixed(1)} ({reviews.length} reviews) · {Number(place.booking_price).toLocaleString()}{" "}
-          ₸
+          $
         </Text>
         <View style={stylesThemed.tags}>
           {place.tags.map((tag) => (

@@ -1,6 +1,4 @@
 import { CommonActions, type NavigationProp, type ParamListBase } from "@react-navigation/native";
-import type { CartStackParamList } from "@/navigation/types";
-
 /** Open Profile tab → Auth (tabs stay visible). */
 export function navigateToProfileAuth(nav: NavigationProp<ParamListBase>) {
   const parent = nav.getParent();
@@ -36,16 +34,13 @@ export function navigateToSearchTab(nav: NavigationProp<ParamListBase>) {
   );
 }
 
-export function navigateToCartMain(
-  nav: NavigationProp<ParamListBase>,
-  cartMainParams?: CartStackParamList["CartMain"],
-) {
+export function navigateToCartMain(nav: NavigationProp<ParamListBase>) {
   const parent = nav.getParent();
   if (!parent) return;
   parent.dispatch(
     CommonActions.navigate({
       name: "Cart",
-      params: { screen: "CartMain", params: cartMainParams ?? {} },
+      params: { screen: "CartMain" },
     }),
   );
 }

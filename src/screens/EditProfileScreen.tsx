@@ -7,16 +7,17 @@ import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
-const PHONE_MASK_PATTERN = /^(\d{1})(\d{0,3})(\d{0,3})(\d{0,4})$/;
-const PHONE_VALIDATION_PATTERN = /^\d-\d{3}-\d{3}-\d{4}$/;
+const PHONE_VALIDATION_PATTERN = /^\d-\(\d{3}\)-\d{3}-\d{4}$/;
 
 const formatPhoneMask = (raw: string) => {
   const digits = raw.replace(/\D/g, "").slice(0, 11);
-  if (!digits) return "";
-  const match = PHONE_MASK_PATTERN.exec(digits);
-  if (!match) return digits;
-  const [, g1, g2, g3, g4] = match;
-  return [g1, g2, g3, g4].filter(Boolean).join("-");
+  if (digits.length === 0) return "";
+  let masked = digits[0];
+  if (digits.length > 1) masked += "-(" + digits.slice(1, Math.min(4, digits.length));
+  // Close the area-code parenthesis only when enough digits exist to avoid sticky backspace behavior.
+  if (digits.length > 4) masked += ")-" + digits.slice(4, Math.min(7, digits.length));
+  if (digits.length > 7) masked += "-" + digits.slice(7, 11);
+  return masked;
 };
 
 export default function EditProfileScreen() {
@@ -102,11 +103,16 @@ export default function EditProfileScreen() {
 
   const save = async () => {
     if (phone && !PHONE_VALIDATION_PATTERN.test(phone)) {
-      setPhoneError("Phone must match X-XXX-XXX-XXXX");
+      setPhoneError("Phone must match X-(XXX)-XXX-XXXX");
       return;
     }
+    const phoneToSave = phone.trim() ? phone.trim() : null;
     try {
-      await update.mutateAsync({ first_name: first, last_name: last, phone });
+      await update.mutateAsync({
+        first_name: first.trim(),
+        last_name: last.trim(),
+        phone: phoneToSave,
+      });
       if (avatarUrl) {
         const { error } = await supabase.auth.updateUser({ data: { avatar_url: avatarUrl } });
         if (error) throw error;
@@ -147,7 +153,7 @@ export default function EditProfileScreen() {
         value={phone}
         onChangeText={handlePhoneChange}
         keyboardType="phone-pad"
-        placeholder="X-XXX-XXX-XXXX"
+        placeholder="X-(XXX)-XXX-XXXX"
         placeholderTextColor="#7987a0"
       />
       {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
