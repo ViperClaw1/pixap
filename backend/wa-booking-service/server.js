@@ -5,7 +5,8 @@ const whatsappRoutes = require("./routes/whatsapp");
 const { getDebugState } = require("./services/bookingService");
 const { runParserSelfChecks } = require("./services/parser");
 
-const DEFAULT_PORT = 8081;
+/** Local default: keep off **8081** (Expo Metro / RN bundler). Production uses `PORT` from the host (e.g. Railway). */
+const DEFAULT_PORT = 8787;
 const AUTO_PORT_MAX_TRIES = 40;
 
 const explicitPortEnv = process.env.PORT;

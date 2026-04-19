@@ -26,7 +26,7 @@ Legacy `N8N_WA_WEBHOOK_URL` is **no longer** used by `n8n-wa-booking-start`.
 |----------|---------|
 | `WA_BOOKING_SUPABASE_CALLBACK_SECRET` | Must match Supabase `N8N_INBOUND_SECRET` when that secret is set; sent as `Authorization: Bearer …` to `n8n-wa-booking-callback`. If Supabase leaves `N8N_INBOUND_SECRET` empty, omit this env. |
 | `APP_CALLBACK_URL` | Optional secondary webhook (non-Supabase JSON shape); used only when a booking has **no** `supabase_callback_*` fields |
-| `PORT` | Listen port (default `8081`) |
+| `PORT` | Listen port (default **8787** locally; avoids Expo Metro on **8081**. Railway sets `PORT` automatically.) |
 
 ## Outbound payload (`n8n-wa-booking-start` → Node `POST /webhook/booking`)
 

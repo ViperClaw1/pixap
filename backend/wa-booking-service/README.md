@@ -16,7 +16,7 @@ Standalone Express backend that handles deterministic (non-AI) WhatsApp booking 
 
    `npm run dev`
 
-Service listens on **port 8081** by default. If that port is already in use and you did **not** set `PORT`, the server automatically tries **8082, 8083, …** until one is free (watch the log for the actual port). If you set `PORT` explicitly and it is busy, the process exits with a clear error.
+Service listens on **port 8787** by default (avoids **8081**, which Expo Metro uses). If that port is busy and you did **not** set `PORT`, the server tries **8788, 8789, …** until one is free (watch the log). If you set `PORT` explicitly and it is busy, the process exits with a clear error.
 
 ## Railway / containers
 
@@ -27,7 +27,7 @@ Service listens on **port 8081** by default. If that port is already in use and 
 
 ## Environment variables
 
-- `PORT` (optional): default `8081` — on Railway, **do not** override; the platform sets `PORT` for you.
+- `PORT` (optional): default **8787** locally — on Railway, **do not** override; the platform sets `PORT` for you.
 - `LISTEN_HOST` (optional): default `0.0.0.0`
 - `RAILWAY_EXTRA_LISTEN_8081` (optional): on Railway, when `PORT` is not `8081`, the app also listens on **8081** unless this is `0` or `false` (fixes custom domains whose internal target port is still **8081**).
 - `WA_BOOKING_SUPABASE_CALLBACK_SECRET` (recommended in production): Bearer token sent to Supabase `n8n-wa-booking-callback`; must match Supabase secret `N8N_INBOUND_SECRET` when that is set
@@ -37,8 +37,8 @@ Service listens on **port 8081** by default. If that port is already in use and 
 
 ## Endpoints
 
-- `POST /webhook/booking`
-- `POST /webhook/whatsapp`
+- `POST /webhook/booking` (GET returns **405** + hint — browsers cannot “open” this URL)
+- `POST /webhook/whatsapp` (GET returns **405** + hint)
 - `GET /health`
 - `GET /debug/state` (for local verification)
 
