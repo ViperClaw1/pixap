@@ -29,6 +29,20 @@ function bearerToken(req: Request): string | null {
   return m ? m[1].trim() : null;
 }
 
+/**
+ * Shared secret for server → this function.
+ * Prefer **`x-wa-booking-secret`** so **`Authorization`** can carry the Supabase **anon JWT**
+ * (`Bearer <SUPABASE_ANON_KEY>`), which the hosted API gateway requires. Putting the inbound
+ * secret in `Authorization` alone fails with `UNAUTHORIZED_INVALID_JWT_FORMAT` because it is not a JWT.
+ */
+function callbackSharedSecret(req: Request): string | null {
+  const fromDedicated =
+    req.headers.get("x-wa-booking-secret") ?? req.headers.get("X-Wa-Booking-Secret") ?? "";
+  const t = fromDedicated.trim();
+  if (t) return t;
+  return bearerToken(req);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 204, headers: corsHeaders });
@@ -54,7 +68,7 @@ Deno.serve(async (req) => {
   }
 
   if (secret.length > 0) {
-    const token = bearerToken(req);
+    const token = callbackSharedSecret(req);
     if (!token || token !== secret) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
