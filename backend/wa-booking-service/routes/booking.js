@@ -1,13 +1,15 @@
 const express = require("express");
 const { createBooking } = require("../services/bookingService");
+const { handleMetaWebhookVerify } = require("../utils/metaWebhookVerify");
 
 const router = express.Router();
 
-router.get("/booking", (_req, res) => {
-  res.status(405).set("Allow", "POST").json({
+router.get("/booking", (req, res) => {
+  if (handleMetaWebhookVerify(req, res)) return;
+  res.status(405).set("Allow", "GET (Meta verify), POST").json({
     ok: false,
     error: "Method Not Allowed",
-    hint: "POST JSON here (called by Supabase n8n-wa-booking-start). Browsers use GET — use curl/Postman or the app flow.",
+    hint: "POST JSON here (Supabase n8n-wa-booking-start). For Meta webhook verification, use the same verify token env as /webhook/whatsapp; prefer configuring Meta on POST {base}/webhook/whatsapp.",
   });
 });
 
