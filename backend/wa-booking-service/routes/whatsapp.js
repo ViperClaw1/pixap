@@ -3,6 +3,14 @@ const { processIncomingWhatsApp } = require("../services/bookingService");
 
 const router = express.Router();
 
+router.get("/whatsapp", (_req, res) => {
+  res.status(405).set("Allow", "POST").json({
+    ok: false,
+    error: "Method Not Allowed",
+    hint: "POST JSON here (WhatsApp provider inbound webhook).",
+  });
+});
+
 router.post("/whatsapp", async (req, res) => {
   try {
     const result = await processIncomingWhatsApp(req.body || {});
