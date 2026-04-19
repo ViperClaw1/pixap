@@ -14,6 +14,9 @@ const explicitPort =
     ? Number.parseInt(String(explicitPortEnv).trim(), 10)
     : null;
 
+/** Railway and other containers must bind all interfaces; localhost-only breaks the proxy. */
+const listenHost = (process.env.LISTEN_HOST ?? "0.0.0.0").trim() || "0.0.0.0";
+
 if (explicitPort !== null && (Number.isNaN(explicitPort) || explicitPort < 1 || explicitPort > 65535)) {
   console.error("[server] Invalid PORT:", explicitPortEnv);
   process.exit(1);
@@ -24,6 +27,10 @@ const app = express();
 runParserSelfChecks();
 
 app.use(express.json({ limit: "1mb" }));
+
+app.get("/", (_req, res) => {
+  res.status(200).json({ ok: true, service: "wa-booking-service", message: "Use GET /health for probes." });
+});
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true, service: "wa-booking-service" });
@@ -71,13 +78,13 @@ function listenOnPort(port, attemptIndex) {
     process.exit(1);
   });
 
-  server.listen(port, () => {
+  server.listen(port, listenHost, () => {
     if (explicitPort === null && port !== DEFAULT_PORT) {
       console.warn(
         `[server] Using port ${port} because ${DEFAULT_PORT} was busy. Set WA_BOOKING_SERVICE_URL accordingly for Supabase.`,
       );
     }
-    console.log(`[server] wa-booking-service listening on http://localhost:${port}`);
+    console.log(`[server] wa-booking-service listening on http://${listenHost}:${port}`);
   });
 }
 

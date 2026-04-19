@@ -1,0 +1,6 @@
+# Config-as-code for Railway: https://docs.railway.app/guides/config-as-code
+# Ensure the service root in Railway is this directory (backend/wa-booking-service).
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 120

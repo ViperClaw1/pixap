@@ -18,9 +18,15 @@ Standalone Express backend that handles deterministic (non-AI) WhatsApp booking 
 
 Service listens on **port 8081** by default. If that port is already in use and you did **not** set `PORT`, the server automatically tries **8082, 8083, …** until one is free (watch the log for the actual port). If you set `PORT` explicitly and it is busy, the process exits with a clear error.
 
+## Railway / containers
+
+- The server binds to **`0.0.0.0`** by default so the platform proxy can reach it (binding only to `localhost` often causes **“Application failed to respond”**). Override with `LISTEN_HOST` if needed.
+- Use service root **`backend/wa-booking-service`** (or set the config file path in Railway to **`/backend/wa-booking-service/railway.toml`** if the repo root is the project root). `railway.toml` sets `healthcheckPath = "/health"`.
+
 ## Environment variables
 
-- `PORT` (optional): default `8081`
+- `PORT` (optional): default `8081` — on Railway, **do not** override; the platform sets `PORT` for you.
+- `LISTEN_HOST` (optional): default `0.0.0.0`
 - `WA_BOOKING_SUPABASE_CALLBACK_SECRET` (recommended in production): Bearer token sent to Supabase `n8n-wa-booking-callback`; must match Supabase secret `N8N_INBOUND_SECRET` when that is set
 - `APP_CALLBACK_URL` (optional): default `https://example.com/api/update-booking` — used only for bookings **without** `supabase_callback_url` / `supabase_callback_token` in the POST body
 - `APP_NOTIFY_RETRIES` (optional): default `3`
