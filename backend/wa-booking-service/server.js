@@ -17,6 +17,16 @@ const explicitPort =
 /** Railway and other containers must bind all interfaces; localhost-only breaks the proxy. */
 const listenHost = (process.env.LISTEN_HOST ?? "0.0.0.0").trim() || "0.0.0.0";
 
+/** Railway-provided vars — used to optionally bind :8081 when PORT ≠ 8081 (legacy Expo target port). */
+const onRailway = Boolean(
+  process.env.RAILWAY_PUBLIC_DOMAIN ||
+    process.env.RAILWAY_PRIVATE_DOMAIN ||
+    process.env.RAILWAY_ENVIRONMENT ||
+    process.env.RAILWAY_PROJECT_ID,
+);
+const extra8081Disabled =
+  process.env.RAILWAY_EXTRA_LISTEN_8081 === "0" || process.env.RAILWAY_EXTRA_LISTEN_8081 === "false";
+
 if (explicitPort !== null && (Number.isNaN(explicitPort) || explicitPort < 1 || explicitPort > 65535)) {
   console.error("[server] Invalid PORT:", explicitPortEnv);
   process.exit(1);
@@ -47,6 +57,35 @@ app.use((err, _req, res, _next) => {
   console.error("[server] unhandled route error", err);
   res.status(500).json({ ok: false, error: "Internal server error" });
 });
+
+/**
+ * Custom domains that used to point at Expo often had internal **target port 8081**.
+ * Railway injects a different `PORT` (e.g. 8080). The edge then forwards to 8081 and nothing answers.
+ * We bind the same app on 8081 as well when on Railway and `PORT` is not already 8081.
+ * Prefer fixing Networking → custom domain → target port to match `PORT`, then set `RAILWAY_EXTRA_LISTEN_8081=0`.
+ *
+ * @param {number} primaryPort
+ */
+function maybeListenRailwayLegacy8081(primaryPort) {
+  if (!onRailway || extra8081Disabled) return;
+  if (explicitPort === null || primaryPort === 8081) return;
+
+  const legacy = http.createServer(app);
+  legacy.on("error", (err) => {
+    if (err && err.code === "EADDRINUSE") {
+      console.warn(
+        "[server] :8081 busy — skipping secondary listener. Set Railway custom domain target port to match PORT.",
+      );
+      return;
+    }
+    console.error("[server] secondary :8081 listen error", err);
+  });
+  legacy.listen(8081, listenHost, () => {
+    console.log(
+      `[server] Secondary listener on :8081 (legacy Expo-style target). Prefer clearing that target in Railway Networking so only PORT=${primaryPort} is used; then set RAILWAY_EXTRA_LISTEN_8081=0.`,
+    );
+  });
+}
 
 /**
  * @param {number} port
@@ -84,7 +123,10 @@ function listenOnPort(port, attemptIndex) {
         `[server] Using port ${port} because ${DEFAULT_PORT} was busy. Set WA_BOOKING_SERVICE_URL accordingly for Supabase.`,
       );
     }
-    console.log(`[server] wa-booking-service listening on http://${listenHost}:${port}`);
+    console.log(
+      `[server] wa-booking-service primary http://${listenHost}:${port} (Railway: set custom domain target port to ${port} if traffic still fails)`,
+    );
+    maybeListenRailwayLegacy8081(port);
   });
 }
 
