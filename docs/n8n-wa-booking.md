@@ -25,8 +25,7 @@ Legacy `N8N_WA_WEBHOOK_URL` is **no longer** used by `n8n-wa-booking-start`.
 | Variable | Purpose |
 |----------|---------|
 | `WA_BOOKING_SUPABASE_CALLBACK_SECRET` | Must match Supabase `N8N_INBOUND_SECRET` when set; sent as **`x-wa-booking-secret`** to `n8n-wa-booking-callback`. Omit if `N8N_INBOUND_SECRET` is unset. |
-| `SUPABASE_ANON_KEY` | Project **anon** key (**required** on Railway unless `SUPABASE_SERVICE_ROLE_KEY` is set). Used for `apikey` + `Authorization` on **`POST …supabase.co/functions/v1/…`** so the gateway does not return **`UNAUTHORIZED_NO_AUTH_HEADER`**. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Optional **fallback** on the Node service only: same value as in Supabase dashboard; used if `SUPABASE_ANON_KEY` is missing. Prefer anon for least privilege. |
+| `SUPABASE_ANON_KEY` **or** `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Project **anon** JWT (**required** on Railway for callbacks). Same value as in the app; used for `apikey` + `Authorization` on **`POST …supabase.co/functions/v1/…`**. The `EXPO_PUBLIC_*` name is supported so one key can be shared with Expo-style env vars. **Do not** put the service role key on this Node service unless you intend to (not required for callbacks). |
 | `APP_CALLBACK_URL` | Optional secondary webhook (non-Supabase JSON shape); used only when a booking has **no** `supabase_callback_*` fields |
 | `PORT` | Listen port (default **8787** locally; avoids Expo Metro on **8081**. Railway sets `PORT` automatically.) |
 
@@ -54,7 +53,7 @@ Idempotent: if `wa_n8n_started_at` is already set for the cart row, the function
 
 **URL:** `https://<project-ref>.supabase.co/functions/v1/n8n-wa-booking-callback`  
 **Method:** `POST`  
-**Headers (hosted Supabase):** the API gateway requires a **valid JWT** on `Authorization` (use **`Bearer <SUPABASE_ANON_KEY>`**) and the **`apikey`** header (same anon key). If **`N8N_INBOUND_SECRET`** is set, also send **`x-wa-booking-secret: <same value>`** — do **not** put the inbound secret alone in `Authorization` (it is not a JWT and triggers `UNAUTHORIZED_INVALID_JWT_FORMAT`). The Node service does this automatically when **`SUPABASE_ANON_KEY`** and **`WA_BOOKING_SUPABASE_CALLBACK_SECRET`** are set on Railway.  
+**Headers (hosted Supabase):** the API gateway requires a **valid JWT** on `Authorization` (use **`Bearer <anon key>`**) and the **`apikey`** header (same anon key). If **`N8N_INBOUND_SECRET`** is set, also send **`x-wa-booking-secret: <same value>`** — do **not** put the inbound secret alone in `Authorization` (it is not a JWT and triggers `UNAUTHORIZED_INVALID_JWT_FORMAT`). The Node service reads **`SUPABASE_ANON_KEY`** or **`EXPO_PUBLIC_SUPABASE_ANON_KEY`** plus **`WA_BOOKING_SUPABASE_CALLBACK_SECRET`** on Railway.  
 **Content-Type:** `application/json`
 
 **Body:**
@@ -125,10 +124,10 @@ The Expo log line `Edge Function returned a non-2xx status code` is generic. Aft
 
 ### Callback auth (optional)
 
-If **`N8N_INBOUND_SECRET`** is unset or empty, `n8n-wa-booking-callback` does not check the shared secret. For production, set **`N8N_INBOUND_SECRET`** in Supabase and **`WA_BOOKING_SUPABASE_CALLBACK_SECRET`** + **`SUPABASE_ANON_KEY`** on the Node service (same secret values as in this doc).
+If **`N8N_INBOUND_SECRET`** is unset or empty, `n8n-wa-booking-callback` does not check the shared secret. For production, set **`N8N_INBOUND_SECRET`** in Supabase and **`WA_BOOKING_SUPABASE_CALLBACK_SECRET`** + anon (**`SUPABASE_ANON_KEY`** or **`EXPO_PUBLIC_SUPABASE_ANON_KEY`**) on the Node service.
 
 | Symptom | Likely cause |
 |--------|----------------|
 | **`UNAUTHORIZED_INVALID_JWT_FORMAT`** on callback | Node sent **`Authorization: Bearer <random secret>`** only. Add **`SUPABASE_ANON_KEY`** on Railway and redeploy Node; use **`x-wa-booking-secret`** for the inbound secret (handled in current code). Redeploy **`n8n-wa-booking-callback`** if it predates `x-wa-booking-secret` support. |
-| **`UNAUTHORIZED_NO_AUTH_HEADER`** on callback | **`SUPABASE_ANON_KEY`** (or **`SUPABASE_SERVICE_ROLE_KEY`** fallback) is **not** set on Railway, so `fetch` sends no gateway JWT. Set one of them and redeploy **`wa-booking-service`**. |
-| **No `n8n-wa-booking-callback` invocations at all** in Supabase logs | (1) **`SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` missing** — current code **does not send** a request to Supabase (check Railway for **`supabase_cart_callback_missing_gateway_jwt`** or stderr line about missing anon key). (2) **`POST /webhook/booking` reuses the same `booking_id`** — the service keeps state in memory; duplicates return **`booking_already_exists`** and **skip** all side effects including callback. (3) Payload missing **`supabase_callback_url`** / **`supabase_callback_token`** — logs show **`sync_cart_notify_path` → `legacy_app_callback`** instead of `supabase_callback`. |
+| **`UNAUTHORIZED_NO_AUTH_HEADER`** on callback | Anon JWT missing on the Node service: set **`SUPABASE_ANON_KEY`** or **`EXPO_PUBLIC_SUPABASE_ANON_KEY`** and redeploy **`wa-booking-service`**. |
+| **No `n8n-wa-booking-callback` invocations at all** in Supabase logs | (1) **Neither `SUPABASE_ANON_KEY` nor `EXPO_PUBLIC_SUPABASE_ANON_KEY`** in the **wa-booking** process — no `fetch` (Railway **`supabase_cart_callback_missing_gateway_jwt`**). (2) **Same `booking_id` again** → **`booking_already_exists`**, no callback. (3) Missing **`supabase_callback_*`** on the booking payload → **`legacy_app_callback`**, no Supabase function call. |

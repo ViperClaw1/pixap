@@ -100,24 +100,28 @@ async function postSupabaseCartCallback(booking, patch) {
   const secret = (process.env.WA_BOOKING_SUPABASE_CALLBACK_SECRET || "").trim();
 
   const isHostedSupabaseFn = /supabase\.co\/functions\/v1\//i.test(url);
-  /** Supabase hosted gateway requires a JWT on `Authorization` + `apikey` (anon or service_role). */
+  /**
+   * Hosted Supabase Edge requires `apikey` + `Authorization: Bearer <anon JWT>`.
+   * Prefer `SUPABASE_ANON_KEY`; fall back to `EXPO_PUBLIC_SUPABASE_ANON_KEY` so Railway can reuse
+   * the same variable name many Expo projects already have (no service role on the Node service).
+   */
   const gatewayJwt = (
     process.env.SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
     ""
   ).trim();
 
   if (isHostedSupabaseFn && !gatewayJwt) {
     log("supabase_cart_callback_missing_gateway_jwt", {
       booking_id: booking.id,
-      hint: "Set SUPABASE_ANON_KEY (preferred) or SUPABASE_SERVICE_ROLE_KEY on Railway. Without it, no HTTP request is sent — Supabase will show zero n8n-wa-booking-callback invocations.",
+      hint: "Set SUPABASE_ANON_KEY or EXPO_PUBLIC_SUPABASE_ANON_KEY (same anon JWT). Without it, no request is sent — zero n8n-wa-booking-callback invocations in Supabase logs.",
     });
     console.error(
-      "[wa-booking-service] Missing SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY: cannot POST to Supabase Edge callback (see README).",
+      "[wa-booking-service] Missing SUPABASE_ANON_KEY / EXPO_PUBLIC_SUPABASE_ANON_KEY: cannot POST to Supabase Edge callback (see README).",
     );
     return {
       ok: false,
-      error: "Missing SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY for hosted Supabase Edge callback",
+      error: "Missing SUPABASE_ANON_KEY or EXPO_PUBLIC_SUPABASE_ANON_KEY for hosted Supabase Edge callback",
     };
   }
 
