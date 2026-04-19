@@ -1,6 +1,13 @@
 # Config-as-code for Railway: https://docs.railway.app/guides/config-as-code
-# Ensure the service root in Railway is this directory (backend/wa-booking-service).
+#
+# Service root directory in Railway must be exactly: backend/wa-booking-service
+# (not wa-booking--service — double hyphen is a different path and will not match this repo).
+#
+# If https://your-domain still fails while logs show the app listening, open
+# Networking → your custom domain → ensure internal target port matches the
+# PORT shown in deploy logs (or rely on the app's secondary :8081 listener on Railway).
 
 [deploy]
+startCommand = "npm start"
 healthcheckPath = "/health"
-healthcheckTimeout = 120
+healthcheckTimeout = 300
