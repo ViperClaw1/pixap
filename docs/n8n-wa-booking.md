@@ -14,7 +14,7 @@ Service cart items trigger the Supabase Edge Function `n8n-wa-booking-start`, wh
 | Secret | Purpose |
 |--------|---------|
 | `WA_BOOKING_SERVICE_URL` | Base URL of the Node service (e.g. `https://wa-bookings.example.com`) **or** full `…/webhook/booking` URL |
-| `N8N_INBOUND_SECRET` | Bearer secret for **inbound** calls to `n8n-wa-booking-callback` (the Node service must use the same value; see below) |
+| `N8N_INBOUND_SECRET` | Shared secret for **inbound** calls to `n8n-wa-booking-callback`; the Node service sends it as **`x-wa-booking-secret`** (must match this value). |
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically to Edge Functions.
 
@@ -24,7 +24,8 @@ Legacy `N8N_WA_WEBHOOK_URL` is **no longer** used by `n8n-wa-booking-start`.
 
 | Variable | Purpose |
 |----------|---------|
-| `WA_BOOKING_SUPABASE_CALLBACK_SECRET` | Must match Supabase `N8N_INBOUND_SECRET` when that secret is set; sent as `Authorization: Bearer …` to `n8n-wa-booking-callback`. If Supabase leaves `N8N_INBOUND_SECRET` empty, omit this env. |
+| `WA_BOOKING_SUPABASE_CALLBACK_SECRET` | Must match Supabase `N8N_INBOUND_SECRET` when set; sent as **`x-wa-booking-secret`** to `n8n-wa-booking-callback`. Omit if `N8N_INBOUND_SECRET` is unset. |
+| `SUPABASE_ANON_KEY` | Supabase project **anon** key; required for **`POST …supabase.co/functions/v1/n8n-wa-booking-callback`** so `apikey` + `Authorization` satisfy the gateway (see inbound callback section). |
 | `APP_CALLBACK_URL` | Optional secondary webhook (non-Supabase JSON shape); used only when a booking has **no** `supabase_callback_*` fields |
 | `PORT` | Listen port (default **8787** locally; avoids Expo Metro on **8081**. Railway sets `PORT` automatically.) |
 
@@ -52,7 +53,7 @@ Idempotent: if `wa_n8n_started_at` is already set for the cart row, the function
 
 **URL:** `https://<project-ref>.supabase.co/functions/v1/n8n-wa-booking-callback`  
 **Method:** `POST`  
-**Headers:** `Authorization: Bearer <N8N_INBOUND_SECRET>` (if secret is set on Supabase)  
+**Headers (hosted Supabase):** the API gateway requires a **valid JWT** on `Authorization` (use **`Bearer <SUPABASE_ANON_KEY>`**) and the **`apikey`** header (same anon key). If **`N8N_INBOUND_SECRET`** is set, also send **`x-wa-booking-secret: <same value>`** — do **not** put the inbound secret alone in `Authorization` (it is not a JWT and triggers `UNAUTHORIZED_INVALID_JWT_FORMAT`). The Node service does this automatically when **`SUPABASE_ANON_KEY`** and **`WA_BOOKING_SUPABASE_CALLBACK_SECRET`** are set on Railway.  
 **Content-Type:** `application/json`
 
 **Body:**
@@ -74,7 +75,7 @@ Idempotent: if `wa_n8n_started_at` is already set for the cart row, the function
 - Set **`confirmable`: `true`** only when the user is allowed to tap **Confirm** in the app (after price is finalized: free `0` or paid number).
 - `confirmed_slot` / `confirmed_price` are optional; if `confirmed_price` is parseable as a number, **Confirm** uses it as the booking `cost`.
 
-JWT verification is **disabled** for this function (server-to-server); only the Bearer secret is accepted when `N8N_INBOUND_SECRET` is set.
+JWT verification is **disabled** for this function in [`supabase/config.toml`](../supabase/config.toml); when `N8N_INBOUND_SECRET` is set, the function checks **`x-wa-booking-secret`** (preferred) or legacy **`Authorization: Bearer <secret>`** (only works if your gateway does not require a JWT).
 
 ## WhatsApp inbound
 
@@ -95,12 +96,26 @@ Optionally enable Postgres **Realtime** on `public.cart_items` so the app update
 
 Migration `20260416_cart_items_wa_n8n.sql` adds `wa_*` columns on `cart_items`. Apply migrations before deploying functions.
 
+## Deploy / refresh the Edge function
+
+Production must run the **current** `n8n-wa-booking-start` code (it calls **`WA_BOOKING_SERVICE_URL`** only; it does **not** call n8n). From the repo root, with the Supabase CLI logged in and project linked:
+
+```bash
+supabase link --project-ref <your-project-ref>
+supabase functions deploy n8n-wa-booking-start
+```
+
+Or pass the ref without linking: `supabase functions deploy n8n-wa-booking-start --project-ref <your-project-ref>`.
+
+After deploy, function logs should mention **`wa_booking_upstream`** on upstream errors — if you still see **`n8n_upstream`**, the hosted bundle is an old build.
+
 ## Troubleshooting `n8n-wa-booking-start` (non-2xx)
 
 The Expo log line `Edge Function returned a non-2xx status code` is generic. After redeploying the function, the app console should append details from the function JSON body (e.g. `wa_booking_service_failed`, `wa_booking_status`, `hint`).
 
 | Symptom | Likely cause |
 |--------|----------------|
+| Log **`n8n_upstream` 404** and JSON like *"The requested webhook … is not registered"* (n8n / test-mode hint) | **Stale deployment:** Supabase is still running an **old** `n8n-wa-booking-start` that posted to **n8n**. Redeploy this function from the repo (see above). Set secret **`WA_BOOKING_SERVICE_URL`** to your `wa-booking-service` HTTPS base (e.g. `https://api.pixapp.kz`). |
 | `step: "db_select"` / missing column | Migration not applied on the Supabase project used by the app. |
 | `WA_BOOKING_SERVICE_URL is not set` | Secret missing or typo in the Dashboard. |
 | `wa_booking_status: 404` | Wrong `WA_BOOKING_SERVICE_URL` or Node service not deployed / path not `/webhook/booking`. |
@@ -109,4 +124,8 @@ The Expo log line `Edge Function returned a non-2xx status code` is generic. Aft
 
 ### Callback auth (optional)
 
-If **`N8N_INBOUND_SECRET`** is unset or empty, `n8n-wa-booking-callback` accepts requests **without** `Authorization`. Set a strong secret in production and configure `WA_BOOKING_SUPABASE_CALLBACK_SECRET` on the Node service to match.
+If **`N8N_INBOUND_SECRET`** is unset or empty, `n8n-wa-booking-callback` does not check the shared secret. For production, set **`N8N_INBOUND_SECRET`** in Supabase and **`WA_BOOKING_SUPABASE_CALLBACK_SECRET`** + **`SUPABASE_ANON_KEY`** on the Node service (same secret values as in this doc).
+
+| Symptom | Likely cause |
+|--------|----------------|
+| **`UNAUTHORIZED_INVALID_JWT_FORMAT`** on callback | Node sent **`Authorization: Bearer <random secret>`** only. Add **`SUPABASE_ANON_KEY`** on Railway and redeploy Node; use **`x-wa-booking-secret`** for the inbound secret (handled in current code). Redeploy **`n8n-wa-booking-callback`** if it predates `x-wa-booking-secret` support. |

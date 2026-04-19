@@ -115,7 +115,21 @@ async function postSupabaseCartCallback(booking, patch) {
     const timeoutId = setTimeout(() => controller.abort(), APP_NOTIFY_TIMEOUT_MS);
     try {
       const headers = { "Content-Type": "application/json" };
-      if (secret) headers.Authorization = `Bearer ${secret}`;
+      const anon = (process.env.SUPABASE_ANON_KEY || "").trim();
+      const isHostedSupabaseFn = /supabase\.co\/functions\/v1\//i.test(url);
+      if (isHostedSupabaseFn && !anon) {
+        log("supabase_cart_callback_missing_anon", {
+          booking_id: booking.id,
+          hint: "Set SUPABASE_ANON_KEY so Supabase gateway accepts POSTs to functions/v1 (see docs/n8n-wa-booking.md).",
+        });
+      }
+      if (anon && isHostedSupabaseFn) {
+        headers.apikey = anon;
+        headers.Authorization = `Bearer ${anon}`;
+      }
+      if (secret) {
+        headers["x-wa-booking-secret"] = secret;
+      }
       const response = await fetch(url, {
         method: "POST",
         headers,
