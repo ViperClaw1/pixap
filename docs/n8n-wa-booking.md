@@ -78,10 +78,12 @@ JWT verification is **disabled** for this function (server-to-server); only the 
 
 ## WhatsApp inbound
 
-Configure your WhatsApp provider (e.g. Meta) to `POST` owner replies to the Node service:
+Configure your WhatsApp provider (e.g. Meta) on **`{your-service}/webhook/whatsapp`**:
 
-- `POST {your-service}/webhook/whatsapp`
-- JSON body: `{ "from": "<owner_phone>", "message": "<text>" }`
+- **Meta / WhatsApp Cloud API** sends a **GET** first with `hub.mode`, `hub.verify_token`, `hub.challenge` ([verification](https://developers.facebook.com/docs/graph-api/webhooks/getting-started#verification-requests)). Set **`META_WEBHOOK_VERIFY_TOKEN`** on the Node service (Railway) to the **same** string as Meta’s “Verify token” field. A matching request returns **200** and the raw `hub.challenge` body.
+- **POST** events: Meta posts to the same callback URL. This repo’s handler expects a simplified JSON shape: `{ "from": "<owner_phone>", "message": "<text>" }` (you may need a small adapter if Meta’s payload differs).
+
+`GET /webhook/booking` also answers Meta’s verification handshake (same token env) so a mis-pasted Meta URL can still verify; **POST** booking traffic for the app remains **`/webhook/booking`** from Supabase only.
 
 Phone matching uses the same string as `owner_phone` on the booking (normalize consistently in production).
 

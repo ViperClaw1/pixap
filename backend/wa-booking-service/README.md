@@ -34,11 +34,14 @@ Service listens on **port 8787** by default (avoids **8081**, which Expo Metro u
 - `APP_CALLBACK_URL` (optional): default `https://example.com/api/update-booking` — used only for bookings **without** `supabase_callback_url` / `supabase_callback_token` in the POST body
 - `APP_NOTIFY_RETRIES` (optional): default `3`
 - `APP_NOTIFY_TIMEOUT_MS` (optional): default `5000`
+- `META_WEBHOOK_VERIFY_TOKEN` (recommended for Meta / WhatsApp Cloud API): must match the **Verify token** you enter in the Meta developer app when subscribing the webhook. Alternate env name: `WHATSAPP_VERIFY_TOKEN`.
 
 ## Endpoints
 
-- `POST /webhook/booking` (GET returns **405** + hint — browsers cannot “open” this URL)
-- `POST /webhook/whatsapp` (GET returns **405** + hint)
+- `POST /webhook/booking` — Supabase `n8n-wa-booking-start` → JSON booking payload. Plain GET (no `hub.*` params) returns **405** + hint.
+- `POST /webhook/whatsapp` — inbound WhatsApp / owner replies (JSON). **Preferred Meta webhook URL** for GET verify + POST events.
+- **Meta GET verification** ([docs](https://developers.facebook.com/docs/graph-api/webhooks/getting-started#verification-requests)): on **`GET /webhook/whatsapp`** and **`GET /webhook/booking`**, if `hub.mode=subscribe` and `hub.verify_token` matches `META_WEBHOOK_VERIFY_TOKEN`, the server responds **200** with plain-text `hub.challenge`. Use the **same** verify token string in Meta’s field and in Railway/env.
+- In Meta’s Webhooks UI, turn **off** “Attach client certificate” unless you intentionally use mTLS (otherwise verification can fail).
 - `GET /health`
 - `GET /debug/state` (for local verification)
 
