@@ -110,8 +110,11 @@ async function postSupabaseCartCallback(booking, patch) {
   if (isHostedSupabaseFn && !gatewayJwt) {
     log("supabase_cart_callback_missing_gateway_jwt", {
       booking_id: booking.id,
-      hint: "Set SUPABASE_ANON_KEY (preferred) or SUPABASE_SERVICE_ROLE_KEY on Railway. Without it, Supabase returns UNAUTHORIZED_NO_AUTH_HEADER.",
+      hint: "Set SUPABASE_ANON_KEY (preferred) or SUPABASE_SERVICE_ROLE_KEY on Railway. Without it, no HTTP request is sent — Supabase will show zero n8n-wa-booking-callback invocations.",
     });
+    console.error(
+      "[wa-booking-service] Missing SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY: cannot POST to Supabase Edge callback (see README).",
+    );
     return {
       ok: false,
       error: "Missing SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY for hosted Supabase Edge callback",
@@ -140,6 +143,13 @@ async function postSupabaseCartCallback(booking, patch) {
       }
       if (secret) {
         headers["x-wa-booking-secret"] = secret;
+      }
+      if (attempt === 1) {
+        log("supabase_cart_callback_fetch", {
+          booking_id: booking.id,
+          has_gateway_jwt: Boolean(gatewayJwt),
+          has_x_wa_secret: Boolean(secret),
+        });
       }
       const response = await fetch(url, {
         method: "POST",
@@ -204,12 +214,18 @@ async function notifyLegacyApp(payload) {
 
 async function syncCartOrLegacy(booking, supabasePatch, legacyPayload) {
   if (hasSupabaseCartIntegration(booking)) {
+    log("sync_cart_notify_path", { booking_id: booking.id, path: "supabase_callback" });
     const out = await postSupabaseCartCallback(booking, supabasePatch);
     if (!out.ok) {
       log("supabase_cart_callback_exhausted", { booking_id: booking.id, error: out.error });
     }
     return out;
   }
+  log("sync_cart_notify_path", {
+    booking_id: booking.id,
+    path: "legacy_app_callback",
+    hint: "Payload had no supabase_callback_url/token — n8n-wa-booking-callback is never called.",
+  });
   return notifyLegacyApp(legacyPayload);
 }
 
@@ -222,7 +238,10 @@ async function createBooking(payload) {
 
   if (bookingsById.has(bookingId)) {
     const existing = bookingsById.get(bookingId);
-    log("booking_already_exists", { booking_id: bookingId });
+    log("booking_already_exists", {
+      booking_id: bookingId,
+      hint: "In-memory duplicate: no new WhatsApp send and no Supabase callback. Use a new booking_id or restart the service for a full retest.",
+    });
     return makeBookingSnapshot(existing);
   }
 
