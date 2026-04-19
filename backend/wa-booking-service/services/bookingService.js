@@ -99,6 +99,25 @@ async function postSupabaseCartCallback(booking, patch) {
   const token = String(booking.supabase_callback_token).trim();
   const secret = (process.env.WA_BOOKING_SUPABASE_CALLBACK_SECRET || "").trim();
 
+  const isHostedSupabaseFn = /supabase\.co\/functions\/v1\//i.test(url);
+  /** Supabase hosted gateway requires a JWT on `Authorization` + `apikey` (anon or service_role). */
+  const gatewayJwt = (
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    ""
+  ).trim();
+
+  if (isHostedSupabaseFn && !gatewayJwt) {
+    log("supabase_cart_callback_missing_gateway_jwt", {
+      booking_id: booking.id,
+      hint: "Set SUPABASE_ANON_KEY (preferred) or SUPABASE_SERVICE_ROLE_KEY on Railway. Without it, Supabase returns UNAUTHORIZED_NO_AUTH_HEADER.",
+    });
+    return {
+      ok: false,
+      error: "Missing SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY for hosted Supabase Edge callback",
+    };
+  }
+
   const body = {
     callback_token: token,
     status_lines: patch.status_lines,
@@ -115,17 +134,9 @@ async function postSupabaseCartCallback(booking, patch) {
     const timeoutId = setTimeout(() => controller.abort(), APP_NOTIFY_TIMEOUT_MS);
     try {
       const headers = { "Content-Type": "application/json" };
-      const anon = (process.env.SUPABASE_ANON_KEY || "").trim();
-      const isHostedSupabaseFn = /supabase\.co\/functions\/v1\//i.test(url);
-      if (isHostedSupabaseFn && !anon) {
-        log("supabase_cart_callback_missing_anon", {
-          booking_id: booking.id,
-          hint: "Set SUPABASE_ANON_KEY so Supabase gateway accepts POSTs to functions/v1 (see docs/n8n-wa-booking.md).",
-        });
-      }
-      if (anon && isHostedSupabaseFn) {
-        headers.apikey = anon;
-        headers.Authorization = `Bearer ${anon}`;
+      if (gatewayJwt && isHostedSupabaseFn) {
+        headers.apikey = gatewayJwt;
+        headers.Authorization = `Bearer ${gatewayJwt}`;
       }
       if (secret) {
         headers["x-wa-booking-secret"] = secret;
