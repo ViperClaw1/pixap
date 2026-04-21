@@ -11,7 +11,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useBookings } from "@/hooks/useBookings";
 import type { ProfileStackParamList } from "@/navigation/types";
-import { ThemeProvider, useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/contexts/ThemeContext";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">;
 const PRIVACY_URL = "https://pixapp.kz/privacy";
@@ -279,9 +279,5 @@ function ProfileScreenContent() {
 }
 
 export default function ProfileScreen() {
-  return (
-    <ThemeProvider>
-      <ProfileScreenContent />
-    </ThemeProvider>
-  );
+  return <ProfileScreenContent />;
 }

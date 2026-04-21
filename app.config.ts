@@ -2,6 +2,9 @@ import type { ExpoConfig, ConfigContext } from "expo/config";
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
+  const nativeOAuthRedirectUri =
+    oauthMobileRedirectUri && !oauthMobileRedirectUri.startsWith("exp://") ? oauthMobileRedirectUri : undefined;
   const googleMapsConfig = googleMapsApiKey
     ? {
         googleMaps: {
@@ -94,8 +97,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     oauthRedirectBase: process.env.EXPO_PUBLIC_OAUTH_REDIRECT_BASE ?? "https://pixapp.kz",
-    /** Optional: override native OAuth redirect (default: Linking.createURL("~oauth/callback")) */
-    oauthMobileRedirectUri: process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI,
+    /** Optional: override native OAuth redirect (default: Linking.createURL("~oauth/callback")); exp:// ignored */
+    oauthMobileRedirectUri: nativeOAuthRedirectUri,
     stripeReturnScheme: (process.env.EXPO_PUBLIC_STRIPE_RETURN_SCHEME ?? "pixap").toLowerCase(),
     googleMapsApiKey,
     pixappApiUrl: process.env.EXPO_PUBLIC_PIXAPP_API_URL,

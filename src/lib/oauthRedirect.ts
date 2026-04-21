@@ -18,16 +18,11 @@ function getOptionalOverride(): string | undefined {
  * OAuth `redirectTo` for native. Must match **exactly** one entry in Supabase
  * Dashboard → Authentication → URL Configuration → Redirect URLs.
  *
- * Default: app scheme from `app.config.ts` (`scheme`), e.g. `pixapp://~oauth/callback`.
- * In Expo Go dev, this is often an `exp://…` URL — add that exact string to Supabase while testing.
+ * Default: app scheme from `app.config.ts` (`scheme`), e.g. `pixap://~oauth/callback`.
  */
 export function getOAuthRedirectUri(): string {
   const override = getOptionalOverride();
-  const appOwnership = Constants.appOwnership;
-  // Expo Go can require `exp://...` callback URLs.
-  if (override && (appOwnership === "expo" || !override.startsWith("exp://"))) {
-    return override;
-  }
-  // Dev Client / standalone should prefer scheme callbacks like `pixapp://...`.
+  // Explicitly ignore Expo Go callbacks to keep OAuth native-only.
+  if (override && !override.startsWith("exp://")) return override;
   return Linking.createURL("~oauth/callback");
 }
