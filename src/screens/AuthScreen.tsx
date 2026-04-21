@@ -47,17 +47,16 @@ export default function AuthScreen() {
   const stylesThemed = useMemo(
     () =>
       StyleSheet.create({
-        root: { flex: 1, backgroundColor: "#07101d", paddingHorizontal: 20 },
+        root: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20 },
         content: { flexGrow: 1, justifyContent: "center" },
-        title: { fontSize: 36, fontWeight: "800", marginBottom: 6, color: "#f4f7ff", lineHeight: 54 },
-        subtitle: { fontSize: 20, fontWeight: "700", marginBottom: 10, color: "#f4f7ff", lineHeight: 34 },
-        helper: { fontSize: 14, color: "#98a5bb", marginBottom: 26, lineHeight: 30 },
+        title: { fontSize: 36, fontWeight: "800", marginBottom: 6, color: colors.text, lineHeight: 54 },
+        helper: { fontSize: 14, color: colors.textMuted, marginBottom: 26, lineHeight: 30 },
         fieldWrap: {
           borderWidth: 1,
-          borderColor: "#2a3750",
+          borderColor: colors.border,
           borderRadius: 16,
           marginBottom: 12,
-          backgroundColor: "#222c3c",
+          backgroundColor: colors.card,
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 14,
@@ -67,7 +66,7 @@ export default function AuthScreen() {
         input: {
           flex: 1,
           fontSize: 14,
-          color: "#dce6f7",
+          color: colors.text,
           paddingVertical: 12,
         },
         primary: {
@@ -79,28 +78,28 @@ export default function AuthScreen() {
         },
         primaryText: { color: "#fff", fontWeight: "700", fontSize: 16, lineHeight: 32 },
         smallLink: { marginTop: 10, alignSelf: "flex-start" },
-        smallLinkText: { color: "#ff724f", fontSize: 14, fontWeight: "500" },
+        smallLinkText: { color: "#ec6544", fontSize: 14, fontWeight: "500" },
         orRow: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 20 },
-        orLine: { flex: 1, height: 1, backgroundColor: "#2a3750" },
-        orText: { color: "#9dabc0", fontSize: 14, paddingHorizontal: 6 },
+        orLine: { flex: 1, height: 1, backgroundColor: colors.border },
+        orText: { color: colors.textMuted, fontSize: 14, paddingHorizontal: 6 },
         outline: {
           borderWidth: 1,
-          borderColor: "#2a3750",
+          borderColor: colors.border,
           paddingVertical: 14,
           borderRadius: 18,
           alignItems: "center",
           marginBottom: 10,
-          backgroundColor: "#07101d",
+          backgroundColor: colors.background,
           flexDirection: "row",
           justifyContent: "center",
           gap: 10,
         },
-        outlineText: { color: "#ffffff", fontWeight: "700", fontSize: 14 },
+        outlineText: { color: colors.text, fontWeight: "700", fontSize: 14 },
         bottomSwitch: { marginTop: 12, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 },
-        bottomSwitchText: { color: "#9fb0c6", fontSize: 14 },
-        bottomSwitchLink: { color: "#ff724f", fontSize: 14, fontWeight: "700" },
+        bottomSwitchText: { color: colors.textMuted, fontSize: 14 },
+        bottomSwitchLink: { color: "#ec6544", fontSize: 14, fontWeight: "700" },
       }),
-    [],
+    [colors],
   );
 
   useEffect(() => {
@@ -245,7 +244,7 @@ export default function AuthScreen() {
     }
   };
 
-  const ph = "#a6b4c9";
+  const ph = colors.textMuted;
 
   return (
     <ScrollView
@@ -266,7 +265,7 @@ export default function AuthScreen() {
       {mode === "signup" && (
         <>
           <View style={stylesThemed.fieldWrap}>
-            <Ionicons name="person-outline" size={18} color="#9ca9be" style={stylesThemed.fieldIcon} />
+            <Ionicons name="person-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
             <TextInput
               style={stylesThemed.input}
               placeholder="First name"
@@ -276,7 +275,7 @@ export default function AuthScreen() {
             />
           </View>
           <View style={stylesThemed.fieldWrap}>
-            <Ionicons name="person-outline" size={18} color="#9ca9be" style={stylesThemed.fieldIcon} />
+            <Ionicons name="person-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
             <TextInput
               style={stylesThemed.input}
               placeholder="Last name"
@@ -289,7 +288,7 @@ export default function AuthScreen() {
       )}
 
       <View style={stylesThemed.fieldWrap}>
-        <Ionicons name="mail-outline" size={18} color="#9ca9be" style={stylesThemed.fieldIcon} />
+        <Ionicons name="mail-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
         <TextInput
           style={stylesThemed.input}
           placeholder="Email address"
@@ -302,7 +301,7 @@ export default function AuthScreen() {
       </View>
       {mode !== "forgot" && (
         <View style={stylesThemed.fieldWrap}>
-          <Ionicons name="lock-closed-outline" size={18} color="#9ca9be" style={stylesThemed.fieldIcon} />
+          <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
           <TextInput
             style={stylesThemed.input}
             placeholder="Password"
@@ -312,7 +311,7 @@ export default function AuthScreen() {
             secureTextEntry={!showPassword}
           />
           <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
-            <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color="#9ca9be" />
+            <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
           </Pressable>
         </View>
       )}

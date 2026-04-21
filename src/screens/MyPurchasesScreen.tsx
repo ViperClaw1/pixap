@@ -61,7 +61,7 @@ export default function MyPurchasesScreen() {
   const stylesThemed = useMemo(
     () =>
       StyleSheet.create({
-        root: { flex: 1, backgroundColor: "#07101d" },
+        root: { flex: 1, backgroundColor: colors.background },
         header: {
           flexDirection: "row",
           alignItems: "center",
@@ -69,22 +69,22 @@ export default function MyPurchasesScreen() {
           paddingHorizontal: 8,
           paddingBottom: 12,
           borderBottomWidth: 1,
-          borderBottomColor: "#202a3d",
+          borderBottomColor: colors.border,
         },
-        headerTitle: { fontSize: 20, fontWeight: "800", color: "#f4f7ff", flex: 1 },
+        headerTitle: { fontSize: 20, fontWeight: "800", color: colors.text, flex: 1 },
         card: {
-          backgroundColor: "#111b2a",
+          backgroundColor: colors.card,
           borderRadius: 20,
           borderWidth: 1,
-          borderColor: "#202a3d",
+          borderColor: colors.border,
           marginBottom: 16,
           padding: 16,
         },
         purchaseCard: {
-          backgroundColor: "#0d1625",
+          backgroundColor: colors.surface,
           borderRadius: 14,
           borderWidth: 1,
-          borderColor: "#1e2941",
+          borderColor: colors.border,
           padding: 14,
           marginBottom: 10,
         },
@@ -94,21 +94,21 @@ export default function MyPurchasesScreen() {
           paddingHorizontal: 8,
           paddingVertical: 4,
           borderRadius: 8,
-          backgroundColor: "#1a2538",
+          backgroundColor: colors.card,
         },
-        typePillText: { fontSize: 11, fontWeight: "700", color: "#93a0b5" },
-        purchaseLabel: { fontSize: 11, fontWeight: "600", color: "#7a8aa0", marginTop: 8 },
-        purchaseValue: { fontSize: 14, color: "#e8edf5", marginTop: 2 },
-        childLine: { fontSize: 12, color: "#93a0b5", marginTop: 4 },
+        typePillText: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
+        purchaseLabel: { fontSize: 11, fontWeight: "600", color: colors.textMuted, marginTop: 8 },
+        purchaseValue: { fontSize: 14, color: colors.text, marginTop: 2 },
+        childLine: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
         bookingBlock: {
           marginTop: 10,
           paddingTop: 10,
           borderTopWidth: 1,
-          borderTopColor: "#1e2941",
+          borderTopColor: colors.border,
         },
-        emptyText: { color: "#93a0b5", textAlign: "center", marginTop: 12, fontSize: 14 },
+        emptyText: { color: colors.textMuted, textAlign: "center", marginTop: 12, fontSize: 14 },
       }),
-    [],
+    [colors],
   );
 
   if (!loading && !user) {
@@ -119,9 +119,9 @@ export default function MyPurchasesScreen() {
     <View style={[stylesThemed.root, { paddingTop: Math.max(insets.top, 12) }]}>
       <View style={stylesThemed.header}>
         <Pressable style={{ padding: 8 }} onPress={() => navigation.goBack()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color="#f4f7ff" />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
-        <Ionicons name="bag-handle-outline" size={22} color="#9aa8be" />
+        <Ionicons name="bag-handle-outline" size={22} color={colors.textMuted} />
         <Text style={stylesThemed.headerTitle}>My purchases</Text>
       </View>
       <ScrollView

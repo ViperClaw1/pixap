@@ -5,7 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/contexts/AuthContext";
-import { ThemeProvider, useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/integrations/supabase/client";
 
 const PHONE_VALIDATION_PATTERN = /^\d-\(\d{3}\)-\d{3}-\d{4}$/;
@@ -217,9 +217,5 @@ function EditProfileScreenContent() {
 }
 
 export default function EditProfileScreen() {
-  return (
-    <ThemeProvider>
-      <EditProfileScreenContent />
-    </ThemeProvider>
-  );
+  return <EditProfileScreenContent />;
 }
