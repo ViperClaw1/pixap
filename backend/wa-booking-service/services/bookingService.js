@@ -1,5 +1,5 @@
 const { parsePrice, parseYesNo } = require("./parser");
-const { sendWhatsAppMessage } = require("./whatsapp");
+const { sendWhatsAppMessage, sendWhatsAppTemplate } = require("./whatsapp");
 
 const APP_CALLBACK_URL = process.env.APP_CALLBACK_URL || "https://example.com/api/update-booking";
 const APP_NOTIFY_RETRIES = Number.parseInt(process.env.APP_NOTIFY_RETRIES || "3", 10);
@@ -82,9 +82,9 @@ function requireStringField(payload, fieldName) {
   return value.trim();
 }
 
-function makeAvailabilityPrompt(venueName, date, time) {
-  return `New booking request for ${venueName} at ${time} on ${date}.\nIs this slot available? Reply YES or NO.`;
-}
+const TEMPLATE_BOOK_AVAILABILITY = "book_availability_v1";
+const TEMPLATE_BOOK_IS_FREE = "book_is_free";
+const TEMPLATE_BOOK_GET_PRICE = "book_get_price";
 
 function hasSupabaseCartIntegration(booking) {
   return Boolean(
@@ -255,6 +255,8 @@ async function createBooking(payload) {
     venue_id: payload.venue_id || null,
     owner_phone: ownerPhone,
     venue_name: venueName,
+    customer_name: optionalTrimString(payload, "customer_name"),
+    customer_phone: optionalTrimString(payload, "customer_phone"),
     date,
     time,
     status: "pending",
@@ -271,7 +273,13 @@ async function createBooking(payload) {
   addActiveBooking(ownerPhone, bookingId);
 
   log("booking_created", { booking_id: bookingId, owner_phone: ownerPhone, step: booking.step });
-  await sendWhatsAppMessage(ownerPhone, makeAvailabilityPrompt(venueName, date, time));
+  await sendWhatsAppTemplate(ownerPhone, TEMPLATE_BOOK_AVAILABILITY, [
+    booking.customer_name ?? "Client",
+    booking.customer_phone ?? "—",
+    venueName,
+    date,
+    time,
+  ]);
 
   await syncCartOrLegacy(
     booking,
@@ -293,7 +301,7 @@ async function handleAvailabilityStep(booking, messageText) {
     booking.updated_at = new Date().toISOString();
     removeActiveBooking(booking.owner_phone, booking.id);
 
-    await sendWhatsAppMessage(booking.owner_phone, "Booking rejected. Thank you.");
+    await sendWhatsAppMessage(booking.owner_phone, "Booking marked unavailable. Flow closed.");
     await syncCartOrLegacy(
       booking,
       { status_lines: ["Venue declined this slot."], confirmable: false },
@@ -303,10 +311,11 @@ async function handleAvailabilityStep(booking, messageText) {
   }
 
   if (yesNo === "yes") {
+    booking.status = "available";
     booking.step = "pricing";
     booking.updated_at = new Date().toISOString();
 
-    await sendWhatsAppMessage(booking.owner_phone, "Is this booking free? Reply YES or NO.");
+    await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_IS_FREE);
     await syncCartOrLegacy(
       booking,
       {
@@ -326,16 +335,16 @@ async function handlePricingStep(booking, messageText) {
   if (yesNo === "yes") {
     booking.is_free = true;
     booking.price = 0;
-    booking.status = "confirmed";
+    booking.status = "confirmed_free";
     booking.step = "completed";
     booking.updated_at = new Date().toISOString();
     removeActiveBooking(booking.owner_phone, booking.id);
 
-    await sendWhatsAppMessage(booking.owner_phone, "Booking confirmed as FREE.");
+    await sendWhatsAppMessage(booking.owner_phone, "Marked as free. Customer can now confirm.");
     await syncCartOrLegacy(
       booking,
       {
-        status_lines: ["Booking confirmed as free.", "You can confirm in the app."],
+        status_lines: ["Slot available and free.", "Customer can now tap Confirm."],
         confirmable: true,
         confirmed_price: "0",
       },
@@ -346,10 +355,11 @@ async function handlePricingStep(booking, messageText) {
 
   if (yesNo === "no") {
     booking.is_free = false;
+    booking.status = "price_requested";
     booking.step = "pricing_price_input";
     booking.updated_at = new Date().toISOString();
 
-    await sendWhatsAppMessage(booking.owner_phone, "Please enter the price as a number.");
+    await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PRICE);
     await syncCartOrLegacy(
       booking,
       {
@@ -367,21 +377,21 @@ async function handlePricingStep(booking, messageText) {
 async function handlePricingPriceInputStep(booking, messageText) {
   const price = parsePrice(messageText);
   if (price == null) {
-    await sendWhatsAppMessage(booking.owner_phone, "Invalid price. Please enter a number.");
+    await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PRICE);
     return;
   }
 
   booking.price = price;
-  booking.status = "confirmed";
+  booking.status = "awaiting_payment";
   booking.step = "completed";
   booking.updated_at = new Date().toISOString();
   removeActiveBooking(booking.owner_phone, booking.id);
 
-  await sendWhatsAppMessage(booking.owner_phone, `Booking confirmed with price ${price}.`);
+  await sendWhatsAppMessage(booking.owner_phone, `Got it. Price recorded: ${price}.`);
   await syncCartOrLegacy(
     booking,
     {
-      status_lines: [`Price confirmed: ${price}.`, "You can confirm in the app."],
+      status_lines: [`Price set: ${price}.`, `Customer can now tap Pay ${price} $ in the app.`],
       confirmable: true,
       confirmed_price: String(price),
     },

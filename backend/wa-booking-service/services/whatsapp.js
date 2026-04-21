@@ -1,3 +1,16 @@
+async function sendWhatsAppTemplate(phone, templateId, variables = []) {
+  console.log(
+    JSON.stringify({
+      scope: "whatsapp",
+      action: "send_template",
+      phone,
+      template_id: templateId,
+      variables,
+      timestamp: new Date().toISOString(),
+    }),
+  );
+}
+
 async function sendWhatsAppMessage(phone, text) {
   console.log(
     JSON.stringify({
@@ -11,5 +24,6 @@ async function sendWhatsAppMessage(phone, text) {
 }
 
 module.exports = {
+  sendWhatsAppTemplate,
   sendWhatsAppMessage,
 };

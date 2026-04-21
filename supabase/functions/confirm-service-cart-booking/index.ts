@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-type ReqBody = { cart_item_id?: string };
+type ReqBody = { cart_item_id?: string; action?: "confirm" | "pay" };
 
 function jsonHeaders() {
   return { ...corsHeaders, "Content-Type": "application/json" };
@@ -69,6 +69,7 @@ Deno.serve(async (req) => {
   }
 
   const cartItemId = typeof body.cart_item_id === "string" ? body.cart_item_id.trim() : "";
+  const action = body.action === "pay" ? "pay" : "confirm";
   if (!cartItemId) {
     return new Response(JSON.stringify({ error: "Missing cart_item_id" }), {
       status: 400,
@@ -109,6 +110,20 @@ Deno.serve(async (req) => {
 
   const parsed = parsePriceToNumber(row.wa_confirmed_price as string | null);
   const cost = parsed != null ? parsed : Number(row.cost);
+  const requiresPayment = parsed != null && parsed > 0;
+
+  if (requiresPayment && action !== "pay") {
+    return new Response(JSON.stringify({ error: "This booking requires payment action" }), {
+      status: 409,
+      headers: jsonHeaders(),
+    });
+  }
+  if (!requiresPayment && action !== "confirm") {
+    return new Response(JSON.stringify({ error: "Payment action is only allowed for priced bookings" }), {
+      status: 409,
+      headers: jsonHeaders(),
+    });
+  }
 
   const { data: inserted, error: bookErr } = await db
     .from("bookings")
@@ -123,7 +138,7 @@ Deno.serve(async (req) => {
       customer_email: row.customer_email,
       comment: row.comment,
       status: "upcoming",
-      payment_status: "paid",
+      payment_status: requiresPayment ? "pending" : "paid",
     })
     .select("id")
     .maybeSingle();

@@ -26,11 +26,10 @@ function parseYesNo(text) {
 }
 
 function parsePrice(text) {
-  const normalized = normalize(text);
-  if (!normalized) return null;
-  const match = normalized.match(/\d+(\.\d+)?/);
-  if (!match) return null;
-  const numberValue = Number.parseInt(match[0], 10);
+  if (typeof text !== "string") return null;
+  const trimmed = text.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const numberValue = Number.parseInt(trimmed, 10);
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
@@ -40,8 +39,9 @@ function runParserSelfChecks() {
     parseYesNo("Yep") === "yes",
     parseYesNo("Nope.") === "no",
     parseYesNo("maybe") === null,
-    parsePrice("AED 150") === 150,
-    parsePrice("price is 42.99") === 42,
+    parsePrice("150") === 150,
+    parsePrice(" 0050 ") === 50,
+    parsePrice("price is 42.99") === null,
     parsePrice("free") === null,
   ];
   const allPassed = checks.every(Boolean);
