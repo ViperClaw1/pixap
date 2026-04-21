@@ -18,7 +18,10 @@ type Extra = {
 };
 
 function getExtra(): Extra {
-  const extra = Constants.expoConfig?.extra as Extra | undefined;
+  const extra =
+    (Constants.expoConfig?.extra as Extra | undefined) ??
+    ((Constants.manifest2 as { extra?: Extra } | null | undefined)?.extra ?? undefined) ??
+    ((Constants.manifest as { extra?: Extra } | null | undefined)?.extra ?? undefined);
   return extra ?? {};
 }
 

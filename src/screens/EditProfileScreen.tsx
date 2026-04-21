@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView, ActivityIndicator } from "react-native";
 import { SmartImage } from "@/components/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/contexts/AuthContext";
+import { ThemeProvider, useAppTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/integrations/supabase/client";
 
 const PHONE_VALIDATION_PATTERN = /^\d-\(\d{3}\)-\d{3}-\d{4}$/;
@@ -20,8 +21,9 @@ const formatPhoneMask = (raw: string) => {
   return masked;
 };
 
-export default function EditProfileScreen() {
+function EditProfileScreenContent() {
   const navigation = useNavigation();
+  const { colors } = useAppTheme();
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const update = useUpdateProfile();
@@ -124,88 +126,100 @@ export default function EditProfileScreen() {
     }
   };
 
-  return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Edit profile</Text>
+  const stylesThemed = useMemo(
+    () =>
+      StyleSheet.create({
+        root: { flex: 1, backgroundColor: colors.background },
+        content: { padding: 16, paddingTop: 48, paddingBottom: 36 },
+        title: { color: colors.text, fontSize: 22, fontWeight: "800", marginBottom: 16 },
+        avatarBlock: { alignItems: "center", marginBottom: 12 },
+        avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.surface },
+        avatarFallback: { alignItems: "center", justifyContent: "center" },
+        avatarFallbackText: { color: colors.text, fontSize: 28, fontWeight: "700" },
+        avatarBtn: {
+          marginTop: 10,
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          minHeight: 36,
+          justifyContent: "center",
+        },
+        avatarBtnText: { color: colors.text, fontWeight: "600", fontSize: 14 },
+        label: { marginTop: 12, fontWeight: "600", color: colors.textMuted, fontSize: 13 },
+        input: {
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 10,
+          padding: 12,
+          marginTop: 6,
+          fontSize: 14,
+          color: colors.text,
+          backgroundColor: colors.card,
+        },
+        disabledInput: { backgroundColor: colors.surface, color: colors.textMuted },
+        inputError: { borderColor: colors.danger },
+        errorText: { color: colors.danger, marginTop: 6, fontSize: 12 },
+        btn: {
+          marginTop: 24,
+          backgroundColor: colors.primary,
+          paddingVertical: 14,
+          borderRadius: 12,
+          alignItems: "center",
+          borderWidth: 1,
+          borderColor: colors.primary,
+        },
+        btnText: { color: colors.onPrimary, fontWeight: "700", fontSize: 14 },
+      }),
+    [colors],
+  );
 
-      <View style={styles.avatarBlock}>
+  return (
+    <ScrollView style={stylesThemed.root} contentContainerStyle={stylesThemed.content}>
+      <Text style={stylesThemed.title}>Edit profile</Text>
+
+      <View style={stylesThemed.avatarBlock}>
         {avatarUrl?.trim() ? (
-          <SmartImage uri={avatarUrl} recyclingKey={avatarUrl} style={styles.avatar} contentFit="cover" />
+          <SmartImage uri={avatarUrl} recyclingKey={avatarUrl} style={stylesThemed.avatar} contentFit="cover" />
         ) : (
-          <View style={[styles.avatar, styles.avatarFallback]}>
-            <Text style={styles.avatarFallbackText}>{(first || "U").charAt(0).toUpperCase()}</Text>
+          <View style={[stylesThemed.avatar, stylesThemed.avatarFallback]}>
+            <Text style={stylesThemed.avatarFallbackText}>{(first || "U").charAt(0).toUpperCase()}</Text>
           </View>
         )}
-        <Pressable style={styles.avatarBtn} onPress={pickAvatar} disabled={uploadingAvatar}>
-          {uploadingAvatar ? <ActivityIndicator color="#fff" /> : <Text style={styles.avatarBtnText}>Upload avatar</Text>}
+        <Pressable style={stylesThemed.avatarBtn} onPress={pickAvatar} disabled={uploadingAvatar}>
+          {uploadingAvatar ? <ActivityIndicator color={colors.primary} /> : <Text style={stylesThemed.avatarBtnText}>Upload avatar</Text>}
         </Pressable>
       </View>
 
-      <Text style={styles.label}>First name</Text>
-      <TextInput style={styles.input} value={first} onChangeText={setFirst} placeholderTextColor="#7987a0" />
-      <Text style={styles.label}>Last name</Text>
-      <TextInput style={styles.input} value={last} onChangeText={setLast} placeholderTextColor="#7987a0" />
-      <Text style={styles.label}>Email</Text>
-      <TextInput style={[styles.input, styles.disabledInput]} value={profile?.email ?? user?.email ?? ""} editable={false} />
-      <Text style={styles.label}>Phone</Text>
+      <Text style={stylesThemed.label}>First name</Text>
+      <TextInput style={stylesThemed.input} value={first} onChangeText={setFirst} placeholderTextColor={colors.textMuted} />
+      <Text style={stylesThemed.label}>Last name</Text>
+      <TextInput style={stylesThemed.input} value={last} onChangeText={setLast} placeholderTextColor={colors.textMuted} />
+      <Text style={stylesThemed.label}>Email</Text>
+      <TextInput style={[stylesThemed.input, stylesThemed.disabledInput]} value={profile?.email ?? user?.email ?? ""} editable={false} />
+      <Text style={stylesThemed.label}>Phone</Text>
       <TextInput
-        style={[styles.input, phoneError ? styles.inputError : null]}
+        style={[stylesThemed.input, phoneError ? stylesThemed.inputError : null]}
         value={phone}
         onChangeText={handlePhoneChange}
         keyboardType="phone-pad"
         placeholder="X-(XXX)-XXX-XXXX"
-        placeholderTextColor="#7987a0"
+        placeholderTextColor={colors.textMuted}
       />
-      {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
-      <Pressable style={styles.btn} onPress={() => void save()} disabled={update.isPending || uploadingAvatar}>
-        <Text style={styles.btnText}>{update.isPending ? "Saving..." : "Save"}</Text>
+      {phoneError ? <Text style={stylesThemed.errorText}>{phoneError}</Text> : null}
+      <Pressable style={stylesThemed.btn} onPress={() => void save()} disabled={update.isPending || uploadingAvatar}>
+        <Text style={stylesThemed.btnText}>{update.isPending ? "Saving..." : "Save"}</Text>
       </Pressable>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#07101d" },
-  content: { padding: 16, paddingTop: 48, paddingBottom: 36 },
-  title: { color: "#f4f7ff", fontSize: 22, fontWeight: "800", marginBottom: 16 },
-  avatarBlock: { alignItems: "center", marginBottom: 12 },
-  avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: "#1a2538" },
-  avatarFallback: { alignItems: "center", justifyContent: "center" },
-  avatarFallbackText: { color: "#f0f4ff", fontSize: 28, fontWeight: "700" },
-  avatarBtn: {
-    marginTop: 10,
-    backgroundColor: "#18243a",
-    borderWidth: 1,
-    borderColor: "#2b3954",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minHeight: 36,
-    justifyContent: "center",
-  },
-  avatarBtnText: { color: "#f0f4ff", fontWeight: "600", fontSize: 14 },
-  label: { marginTop: 12, fontWeight: "600", color: "#d2dcef", fontSize: 13 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#26344d",
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 6,
-    fontSize: 14,
-    color: "#f2f6ff",
-    backgroundColor: "#111b2a",
-  },
-  disabledInput: { backgroundColor: "#1b2435", color: "#7c8aa2" },
-  inputError: { borderColor: "#cc4b5f" },
-  errorText: { color: "#dd6879", marginTop: 6, fontSize: 12 },
-  btn: {
-    marginTop: 24,
-    backgroundColor: "#18243a",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#2b3954",
-  },
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
-});
+export default function EditProfileScreen() {
+  return (
+    <ThemeProvider>
+      <EditProfileScreenContent />
+    </ThemeProvider>
+  );
+}
