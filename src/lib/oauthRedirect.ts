@@ -4,7 +4,10 @@ import * as Linking from "expo-linking";
 type Extra = { oauthMobileRedirectUri?: string };
 
 function getOptionalOverride(): string | undefined {
-  const extra = Constants.expoConfig?.extra as Extra | undefined;
+  const extra =
+    (Constants.expoConfig?.extra as Extra | undefined) ??
+    ((Constants.manifest2 as { extra?: Extra } | null | undefined)?.extra ?? undefined) ??
+    ((Constants.manifest as { extra?: Extra } | null | undefined)?.extra ?? undefined);
   const fromExtra = extra?.oauthMobileRedirectUri?.trim();
   if (fromExtra) return fromExtra;
   const fromEnv = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();

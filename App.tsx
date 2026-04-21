@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { Text, View } from "react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
@@ -10,6 +11,8 @@ import AppNavigator from "@/navigation/AppNavigator";
 import { linking } from "@/navigation/linking";
 import PermissionsOnboardingScreen from "@/screens/PermissionsOnboardingScreen";
 import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/lib/permissionsStorage";
+import { supabaseConfigError } from "@/integrations/supabase/client";
+import { logStartupDiagnostics } from "@/lib/startupDiagnostics";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -43,13 +46,23 @@ function NavigationRoot() {
 export default function App() {
   const [ready, setReady] = useState(false);
   const [showPerms, setShowPerms] = useState(false);
+  const [bootError, setBootError] = useState<string | null>(null);
+
+  useEffect(() => {
+    logStartupDiagnostics();
+  }, []);
 
   useEffect(() => {
     void (async () => {
-      const seen = await hasSeenPermissionsIntro();
-      setShowPerms(!seen);
-      setReady(true);
-      await SplashScreen.hideAsync();
+      try {
+        const seen = await hasSeenPermissionsIntro();
+        setShowPerms(!seen);
+      } catch (error) {
+        setBootError(error instanceof Error ? error.message : "Startup failed");
+      } finally {
+        setReady(true);
+        await SplashScreen.hideAsync().catch(() => undefined);
+      }
     })();
   }, []);
 
@@ -63,7 +76,14 @@ export default function App() {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            {!ready ? null : showPerms ? (
+            {!ready ? null : bootError || supabaseConfigError ? (
+              <View style={{ flex: 1, backgroundColor: "#111", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>Configuration error</Text>
+                <Text style={{ color: "#ddd", textAlign: "center" }}>
+                  {bootError ?? supabaseConfigError}
+                </Text>
+              </View>
+            ) : showPerms ? (
               <PermissionsOnboardingScreen onComplete={() => void onPermsDone()} />
             ) : (
               <NavigationRoot />

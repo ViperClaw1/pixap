@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type {
@@ -118,6 +119,8 @@ const TAB_ICON_SIZE = 24;
 export default function AppNavigator() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
+  const androidTabLift = Platform.OS === "android" ? 8 : 0;
+  const tabBottomPadding = Math.max(insets.bottom, 6) + androidTabLift;
 
   return (
     <Tab.Navigator
@@ -129,9 +132,9 @@ export default function AppNavigator() {
         tabBarStyle: {
           backgroundColor: colors.tabBar,
           borderTopColor: colors.border,
-          paddingBottom: Math.max(insets.bottom, 6),
+          paddingBottom: tabBottomPadding,
           paddingTop: 6,
-          minHeight: 52 + Math.max(insets.bottom, 6),
+          minHeight: 52 + tabBottomPadding,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
         tabBarHideOnKeyboard: true,

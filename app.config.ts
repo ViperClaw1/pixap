@@ -1,6 +1,16 @@
 import type { ExpoConfig, ConfigContext } from "expo/config";
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
+export default ({ config }: ConfigContext): ExpoConfig => {
+  const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const googleMapsConfig = googleMapsApiKey
+    ? {
+        googleMaps: {
+          apiKey: googleMapsApiKey,
+        },
+      }
+    : undefined;
+
+  return ({
   ...config,
   name: "Pixap",
   slug: "pixap",
@@ -18,9 +28,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config.ios,
     supportsTablet: true,
     bundleIdentifier: "com.pixap.pixap",
-    associatedDomains: ["applinks:Pixap.kz", "applinks:www.Pixap.kz"],
+    associatedDomains: ["applinks:pixapp.kz", "applinks:www.pixapp.kz"],
     infoPlist: {
       ...config.ios?.infoPlist,
+      ITSAppUsesNonExemptEncryption: false,
       NSCameraUsageDescription:
         "Pixap uses the camera when you upload images for partner business listings (admin).",
       NSPhotoLibraryUsageDescription:
@@ -31,16 +42,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     config: {
       ...config.ios?.config,
-      googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "",
+      ...(googleMapsApiKey ? { googleMapsApiKey } : {}),
     },
   },
   android: {
     ...config.android,
     config: {
       ...config.android?.config,
-      googleMaps: {
-        apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "",
-      },
+      ...googleMapsConfig,
     },
     package: "com.pixap.pixap",
     adaptiveIcon: {
@@ -54,8 +63,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         action: "VIEW",
         autoVerify: true,
         data: [
-          { scheme: "https", host: "Pixap.kz", pathPrefix: "/" },
-          { scheme: "https", host: "www.Pixap.kz", pathPrefix: "/" },
+          { scheme: "https", host: "pixapp.kz", pathPrefix: "/" },
+          { scheme: "https", host: "www.pixapp.kz", pathPrefix: "/" },
         ],
         category: ["BROWSABLE", "DEFAULT"],
       },
@@ -84,14 +93,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config.extra,
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    oauthRedirectBase: process.env.EXPO_PUBLIC_OAUTH_REDIRECT_BASE ?? "https://Pixap.kz",
+    oauthRedirectBase: process.env.EXPO_PUBLIC_OAUTH_REDIRECT_BASE ?? "https://pixapp.kz",
     /** Optional: override native OAuth redirect (default: Linking.createURL("~oauth/callback")) */
     oauthMobileRedirectUri: process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI,
     stripeReturnScheme: (process.env.EXPO_PUBLIC_STRIPE_RETURN_SCHEME ?? "pixap").toLowerCase(),
-    googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+    googleMapsApiKey,
     pixappApiUrl: process.env.EXPO_PUBLIC_PIXAPP_API_URL,
     eas: {
-      projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
+      projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? "b98667c5-ca9d-4d17-8620-71f832f3befb",
     },
   },
-});
+  });
+};

@@ -11,7 +11,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useBookings } from "@/hooks/useBookings";
 import type { ProfileStackParamList } from "@/navigation/types";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { ThemeProvider, useAppTheme } from "@/contexts/ThemeContext";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">;
 const PRIVACY_URL = "https://pixapp.kz/privacy";
@@ -23,7 +23,7 @@ type ActionItem = {
   onPress: () => void;
 };
 
-export default function ProfileScreen() {
+function ProfileScreenContent() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
@@ -44,13 +44,13 @@ export default function ProfileScreen() {
   const stylesThemed = useMemo(
     () =>
       StyleSheet.create({
-        root: { flex: 1, backgroundColor: "#07101d", paddingHorizontal: 16 },
-        header: { fontSize: 30, fontWeight: "800", color: "#f4f7ff", marginBottom: 16 },
+        root: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16 },
+        header: { fontSize: 30, fontWeight: "800", color: colors.text, marginBottom: 16 },
         card: {
-          backgroundColor: "#111b2a",
+          backgroundColor: colors.card,
           borderRadius: 20,
           borderWidth: 1,
-          borderColor: "#202a3d",
+          borderColor: colors.border,
           marginBottom: 16,
           padding: 16,
         },
@@ -59,60 +59,62 @@ export default function ProfileScreen() {
           width: 56,
           height: 56,
           borderRadius: 28,
-          backgroundColor: "#2a2230",
+          backgroundColor: colors.surface,
           alignItems: "center",
           justifyContent: "center",
         },
-        avatarText: { color: "#ff6d47", fontSize: 24, fontWeight: "700" },
-        name: { fontSize: 18, fontWeight: "700", color: "#ffffff" },
-        email: { color: "#95a2b8", marginTop: 2, fontSize: 16 },
+        avatarText: { color: colors.primary, fontSize: 24, fontWeight: "700" },
+        name: { fontSize: 18, fontWeight: "700", color: colors.text },
+        email: { color: colors.textMuted, marginTop: 2, fontSize: 16 },
         settingsBtn: {
           marginLeft: "auto",
           width: 34,
           height: 34,
           borderRadius: 17,
           borderWidth: 1,
-          borderColor: "#39455f",
+          borderColor: colors.border,
           alignItems: "center",
           justifyContent: "center",
         },
         statRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
         statCard: {
           flex: 1,
-          backgroundColor: "#111b2a",
+          backgroundColor: colors.card,
           borderRadius: 14,
           borderWidth: 1,
-          borderColor: "#202a3d",
+          borderColor: colors.border,
           paddingVertical: 14,
           alignItems: "center",
         },
-        statValue: { color: "#ffffff", fontSize: 24, fontWeight: "700" },
-        statLabel: { color: "#9aa6bb", fontSize: 12 },
+        statValue: { color: colors.text, fontSize: 24, fontWeight: "700" },
+        statLabel: { color: colors.textMuted, fontSize: 12 },
         actionsCard: {
-          backgroundColor: "#111b2a",
+          backgroundColor: colors.card,
           borderRadius: 20,
           borderWidth: 1,
-          borderColor: "#202a3d",
+          borderColor: colors.border,
           overflow: "hidden",
         },
         link: {
           paddingVertical: 15,
           paddingHorizontal: 14,
           borderBottomWidth: 1,
-          borderBottomColor: "#1d2840",
+          borderBottomColor: colors.border,
           flexDirection: "row",
           alignItems: "center",
           gap: 12,
         },
-        linkText: { color: "#f1f4fa", fontSize: 14 },
+        linkText: { color: colors.text, fontSize: 14 },
         linkRight: { marginLeft: "auto" },
         signOut: {
-          backgroundColor: "#1a1016",
+          backgroundColor: colors.surface,
           marginTop: 16,
           borderRadius: 16,
           paddingVertical: 15,
           alignItems: "center",
           marginBottom: 16,
+          borderWidth: 1,
+          borderColor: colors.border,
         },
         modalBackdrop: {
           flex: 1,
@@ -121,11 +123,11 @@ export default function ProfileScreen() {
           alignItems: "stretch",
         },
         modalContent: {
-          backgroundColor: "#111b2a",
+          backgroundColor: colors.card,
           borderTopLeftRadius: 18,
           borderTopRightRadius: 18,
           borderWidth: 1,
-          borderColor: "#25314a",
+          borderColor: colors.border,
           borderBottomWidth: 0,
           paddingBottom: Math.max(insets.bottom, 10),
           flexGrow: 0,
@@ -138,28 +140,30 @@ export default function ProfileScreen() {
           justifyContent: "space-between",
           padding: 14,
           borderBottomWidth: 1,
-          borderBottomColor: "#25314a",
+          borderBottomColor: colors.border,
         },
-        modalTitle: { color: "#fff", fontSize: 14, fontWeight: "700" },
+        modalTitle: { color: colors.text, fontSize: 14, fontWeight: "700" },
         modalBody: { padding: 16 },
         notificationCard: {
-          backgroundColor: "#0d1625",
+          backgroundColor: colors.surface,
           borderRadius: 10,
           borderWidth: 1,
-          borderColor: "#1e2941",
+          borderColor: colors.border,
           padding: 12,
           marginBottom: 10,
         },
-        notificationText: { color: "#f2f5fa", fontSize: 14 },
-        notificationDate: { color: "#93a0b5", fontSize: 11, marginTop: 6 },
-        emptyText: { color: "#93a0b5", textAlign: "center", marginTop: 12, fontSize: 12 },
+        notificationText: { color: colors.text, fontSize: 14 },
+        notificationDate: { color: colors.textMuted, fontSize: 11, marginTop: 6 },
+        emptyText: { color: colors.textMuted, textAlign: "center", marginTop: 12, fontSize: 12 },
         closeBtn: {
-          backgroundColor: "#202c43",
+          backgroundColor: colors.surface,
           borderRadius: 10,
           paddingHorizontal: 10,
           paddingVertical: 6,
+          borderWidth: 1,
+          borderColor: colors.border,
         },
-        closeText: { color: "#d8e1f1", fontSize: 12, fontWeight: "600" },
+        closeText: { color: colors.text, fontSize: 12, fontWeight: "600" },
       }),
     [colors, insets.bottom],
   );
@@ -197,7 +201,7 @@ export default function ProfileScreen() {
             <Text style={stylesThemed.email}>{profile?.email ?? user?.email}</Text>
           </View>
           <Pressable style={stylesThemed.settingsBtn} onPress={() => navigation.navigate("EditProfile")}>
-            <Ionicons name="settings-outline" size={16} color="#dce7f8" />
+            <Ionicons name="settings-outline" size={16} color={colors.text} />
           </Pressable>
         </View>
       </View>
@@ -223,9 +227,9 @@ export default function ProfileScreen() {
             style={[stylesThemed.link, index === actions.length - 1 ? { borderBottomWidth: 0 } : null]}
             onPress={item.onPress}
           >
-            <Ionicons name={item.icon} size={20} color="#9aa8be" />
+            <Ionicons name={item.icon} size={20} color={colors.textMuted} />
             <Text style={stylesThemed.linkText}>{item.label}</Text>
-            <Ionicons style={stylesThemed.linkRight} name="chevron-forward" size={18} color="#7e8ea9" />
+            <Ionicons style={stylesThemed.linkRight} name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
         ))}
       </View>
@@ -235,7 +239,7 @@ export default function ProfileScreen() {
         </Pressable>
       )}
       <Pressable style={stylesThemed.signOut} onPress={() => void signOut()}>
-        <Text style={{ color: "#cf3548", fontWeight: "700", fontSize: 14 }}>Log Out</Text>
+        <Text style={{ color: colors.danger, fontWeight: "700", fontSize: 14 }}>Log Out</Text>
       </Pressable>
 
       {/* Notifications Modal */}
@@ -271,5 +275,13 @@ export default function ProfileScreen() {
         </View>
       </Modal>
     </ScrollView>
+  );
+}
+
+export default function ProfileScreen() {
+  return (
+    <ThemeProvider>
+      <ProfileScreenContent />
+    </ThemeProvider>
   );
 }
