@@ -43,15 +43,19 @@ function ServiceCartRow({
   item,
   stylesThemed,
   onConfirmBooking,
+  onPayBooking,
 }: {
   item: CartItem;
   stylesThemed: ReturnType<typeof createCartStyles>;
   onConfirmBooking: (item: CartItem) => Promise<void>;
+  onPayBooking: (item: CartItem, amount: number) => Promise<void>;
 }) {
   const deleteCartItem = useDeleteCartItem();
   const [confirming, setConfirming] = useState(false);
   const statusLines = parseWaStatusLines(item.wa_status_lines);
   const canConfirm = Boolean(item.wa_confirmable);
+  const confirmedPrice = item.wa_confirmed_price ? Number(item.wa_confirmed_price) : null;
+  const requiresPayment = canConfirm && confirmedPrice != null && Number.isFinite(confirmedPrice) && confirmedPrice > 0;
   const hasVenueWa = Boolean(item.business_card?.contact_whatsapp?.trim());
 
   return (
@@ -83,20 +87,36 @@ function ServiceCartRow({
           <Text style={[stylesThemed.meta, { marginTop: 8 }]}>Starting venue check…</Text>
         ) : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-          <Pressable
-            style={[
-              stylesThemed.smallBtnOutline,
-              (confirming || !canConfirm) && { opacity: 0.55 },
-            ]}
-            disabled={confirming || !canConfirm}
-            accessibilityState={{ disabled: confirming || !canConfirm }}
-            onPress={() => {
-              setConfirming(true);
-              void Promise.resolve(onConfirmBooking(item)).finally(() => setConfirming(false));
-            }}
-          >
-            <Text style={stylesThemed.smallBtnOutlineText}>{confirming ? "Saving…" : "Confirm"}</Text>
-          </Pressable>
+          {requiresPayment ? (
+            <Pressable
+              style={[stylesThemed.smallBtnOutline, confirming && { opacity: 0.55 }]}
+              disabled={confirming}
+              accessibilityState={{ disabled: confirming }}
+              onPress={() => {
+                setConfirming(true);
+                void Promise.resolve(onPayBooking(item, confirmedPrice!)).finally(() => setConfirming(false));
+              }}
+            >
+              <Text style={stylesThemed.smallBtnOutlineText}>
+                {confirming ? "Saving…" : `Pay ${Math.trunc(confirmedPrice!)} $`}
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={[
+                stylesThemed.smallBtnOutline,
+                (confirming || !canConfirm) && { opacity: 0.55 },
+              ]}
+              disabled={confirming || !canConfirm}
+              accessibilityState={{ disabled: confirming || !canConfirm }}
+              onPress={() => {
+                setConfirming(true);
+                void Promise.resolve(onConfirmBooking(item)).finally(() => setConfirming(false));
+              }}
+            >
+              <Text style={stylesThemed.smallBtnOutlineText}>{confirming ? "Saving…" : "Confirm"}</Text>
+            </Pressable>
+          )}
           <Pressable style={stylesThemed.smallBtnDanger} onPress={() => void deleteCartItem.mutateAsync(item.id)}>
             <Text style={stylesThemed.dangerBtnText}>Remove</Text>
           </Pressable>
@@ -413,7 +433,7 @@ export default function CartScreen() {
 
   const handleConfirmServiceBooking = async (item: CartItem) => {
     try {
-      await confirmServiceBooking.mutateAsync(item.id);
+      await confirmServiceBooking.mutateAsync({ cartItemId: item.id, action: "confirm" });
       Alert.alert("Booking confirmed", "Your booking is saved under Bookings.");
       navigation.getParent()?.dispatch(
         CommonActions.navigate({
@@ -423,6 +443,21 @@ export default function CartScreen() {
       );
     } catch (e: unknown) {
       Alert.alert("Could not confirm", e instanceof Error ? e.message : "Unknown error");
+    }
+  };
+
+  const handlePayServiceBooking = async (item: CartItem, amount: number) => {
+    try {
+      await confirmServiceBooking.mutateAsync({ cartItemId: item.id, action: "pay" });
+      Alert.alert("Price accepted", `Booking moved to Bookings with pending payment: ${Math.trunc(amount)} $.`);
+      navigation.getParent()?.dispatch(
+        CommonActions.navigate({
+          name: "Bookings",
+          params: { screen: "BookingsMain" },
+        }),
+      );
+    } catch (e: unknown) {
+      Alert.alert("Could not move booking", e instanceof Error ? e.message : "Unknown error");
     }
   };
 
@@ -544,7 +579,12 @@ export default function CartScreen() {
             }
             ListEmptyComponent={<Text style={stylesThemed.empty}>No service bookings in cart</Text>}
             renderItem={({ item }) => (
-              <ServiceCartRow item={item} stylesThemed={stylesThemed} onConfirmBooking={handleConfirmServiceBooking} />
+              <ServiceCartRow
+                item={item}
+                stylesThemed={stylesThemed}
+                onConfirmBooking={handleConfirmServiceBooking}
+                onPayBooking={handlePayServiceBooking}
+              />
             )}
           />
         )

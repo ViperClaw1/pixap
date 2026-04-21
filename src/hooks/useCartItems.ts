@@ -89,11 +89,11 @@ export const useConfirmServiceCartBooking = () => {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   return useMutation({
-    mutationFn: async (cartItemId: string) => {
+    mutationFn: async ({ cartItemId, action }: { cartItemId: string; action: "confirm" | "pay" }) => {
       const token = session?.access_token;
       if (!token) throw new Error("Not signed in");
       const { data, error } = await supabase.functions.invoke("confirm-service-cart-booking", {
-        body: { cart_item_id: cartItemId },
+        body: { cart_item_id: cartItemId, action },
         headers: { Authorization: `Bearer ${token}` },
       });
       if (error) throw new Error(error.message);

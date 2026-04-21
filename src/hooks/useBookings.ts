@@ -43,7 +43,6 @@ export const useBookings = (tab?: BookingsTabFilter) => {
         .from("bookings")
         .select("*, business_card:business_cards(id, name, image, address, category_id)")
         .eq("user_id", user!.id)
-        .eq("payment_status", "paid")
         .order("date_time", { ascending: false });
       if (tab === "upcoming") query = query.gte("date_time", nowIso);
       if (tab === "completed") query = query.lt("date_time", nowIso);

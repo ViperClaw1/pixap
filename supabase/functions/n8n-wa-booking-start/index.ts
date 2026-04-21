@@ -169,6 +169,8 @@ Deno.serve(async (req) => {
     venue_name: bc?.name ?? "—",
     date,
     time,
+    customer_name: (row.customer_name as string | null | undefined) ?? null,
+    customer_phone: (row.customer_phone as string | null | undefined) ?? null,
     owner_phone: venueWhatsapp,
     user_id: userId,
     venue_id: row.business_card_id != null ? String(row.business_card_id) : null,

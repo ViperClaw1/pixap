@@ -78,6 +78,9 @@ export default function BookingsScreen() {
         <Text style={stylesThemed.meta}>{new Date(item.date_time).toLocaleString()}</Text>
         {item.persons ? <Text style={stylesThemed.meta}>Persons: {item.persons}</Text> : null}
         {item.comment ? <Text style={stylesThemed.meta}>Comment: {item.comment}</Text> : null}
+        <Text style={stylesThemed.meta}>
+          Payment: {item.payment_status === "pending" ? "Pending" : "Paid"}
+        </Text>
         <Text style={stylesThemed.badge}>{bookingScheduleLabel(item.date_time)}</Text>
       </View>
     </Pressable>
