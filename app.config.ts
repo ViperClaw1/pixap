@@ -3,6 +3,8 @@ import type { ExpoConfig, ConfigContext } from "expo/config";
 export default ({ config }: ConfigContext): ExpoConfig => {
   const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
   const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
+  const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.0";
+  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "12";
   const nativeOAuthRedirectUri =
     oauthMobileRedirectUri && !oauthMobileRedirectUri.startsWith("exp://") ? oauthMobileRedirectUri : undefined;
   const googleMapsConfig = googleMapsApiKey
@@ -18,7 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   name: "Pixap",
   slug: "pixap",
   scheme: "pixap",
-  version: "1.0.0",
+  version: appVersion,
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
@@ -29,6 +31,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   },
   ios: {
     ...config.ios,
+    buildNumber: iosBuildNumber,
     supportsTablet: true,
     bundleIdentifier: "com.pixap.pixap",
     associatedDomains: ["applinks:pixapp.kz", "applinks:www.pixapp.kz"],
