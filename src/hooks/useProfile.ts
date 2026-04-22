@@ -7,6 +7,7 @@ export interface Profile {
   first_name: string;
   last_name: string;
   email: string;
+  avatar_url: string | null;
   phone: string | null;
   city: string | null;
   is_verified: boolean;

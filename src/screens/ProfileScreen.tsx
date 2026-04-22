@@ -12,6 +12,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { useBookings } from "@/hooks/useBookings";
 import type { ProfileStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import { SmartImage } from "@/components/SmartImage";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">;
 const PRIVACY_URL = "https://pixapp.kz/privacy";
@@ -194,7 +195,16 @@ function ProfileScreenContent() {
       <View style={stylesThemed.card}>
         <View style={stylesThemed.profileRow}>
           <View style={stylesThemed.avatarWrap}>
-            <Text style={stylesThemed.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+            {profile?.avatar_url ? (
+              <SmartImage
+                uri={profile.avatar_url}
+                recyclingKey={profile.avatar_url}
+                style={{ width: 56, height: 56, borderRadius: 28 }}
+                contentFit="cover"
+              />
+            ) : (
+              <Text style={stylesThemed.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+            )}
           </View>
           <View style={{ marginLeft: 12, flex: 1 }}>
             <Text style={stylesThemed.name}>{userName}</Text>

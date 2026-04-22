@@ -32,6 +32,11 @@ Service listens on **port 8787** by default (avoids **8081**, which Expo Metro u
 - `RAILWAY_EXTRA_LISTEN_8081` (optional): on Railway, when `PORT` is not `8081`, the app also listens on **8081** unless this is `0` or `false` (fixes custom domains whose internal target port is still **8081**).
 - `WA_BOOKING_SUPABASE_CALLBACK_SECRET` (recommended in production): must match Supabase **`N8N_INBOUND_SECRET`** when set; sent as header **`x-wa-booking-secret`** to `n8n-wa-booking-callback` (not as `Authorization`, because Supabase’s gateway requires a JWT there).
 - `SUPABASE_ANON_KEY` or **`EXPO_PUBLIC_SUPABASE_ANON_KEY`** (**required** for hosted **`…supabase.co/functions/v1/n8n-wa-booking-callback`**): same project **anon** JWT; used for **`apikey`** + **`Authorization`** so the gateway does not return `UNAUTHORIZED_NO_AUTH_HEADER`. Railway often only defines the `EXPO_PUBLIC_*` name — that is enough. Copy from Supabase → Project Settings → API.
+- `WHATSAPP_PHONE_NUMBER_ID` (**required** to send outbound messages): WhatsApp Cloud API Phone Number ID from Meta.
+- `WHATSAPP_ACCESS_TOKEN` (**required** to send outbound messages): permanent/system user token with `whatsapp_business_messaging`.
+- `WHATSAPP_GRAPH_VERSION` (optional): default `v22.0`.
+- `WHATSAPP_GRAPH_BASE_URL` (optional): default `https://graph.facebook.com`.
+- `WHATSAPP_TEMPLATE_LANGUAGE` (optional): default `en_US`.
 - `APP_CALLBACK_URL` (optional): default `https://example.com/api/update-booking` — used only for bookings **without** `supabase_callback_url` / `supabase_callback_token` in the POST body
 - `APP_NOTIFY_RETRIES` (optional): default `3`
 - `APP_NOTIFY_TIMEOUT_MS` (optional): default `5000`

@@ -4,6 +4,7 @@ import { SmartImage } from "@/components/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,10 +28,11 @@ function EditProfileScreenContent() {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const update = useUpdateProfile();
+  const queryClient = useQueryClient();
   const [first, setFirst] = useState(profile?.first_name ?? "");
   const [last, setLast] = useState(profile?.last_name ?? "");
   const [phone, setPhone] = useState(formatPhoneMask(profile?.phone ?? ""));
-  const [avatarUrl, setAvatarUrl] = useState<string>((user?.user_metadata?.avatar_url as string) ?? "");
+  const [avatarUrl, setAvatarUrl] = useState<string>(profile?.avatar_url ?? ((user?.user_metadata?.avatar_url as string) ?? ""));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
@@ -39,11 +41,14 @@ function EditProfileScreenContent() {
     setFirst(profile.first_name ?? "");
     setLast(profile.last_name ?? "");
     setPhone(formatPhoneMask(profile.phone ?? ""));
-  }, [profile]);
+    setAvatarUrl(profile.avatar_url ?? ((user?.user_metadata?.avatar_url as string) ?? ""));
+  }, [profile, user]);
 
   useEffect(() => {
-    setAvatarUrl((user?.user_metadata?.avatar_url as string) ?? "");
-  }, [user]);
+    if (!profile?.avatar_url) {
+      setAvatarUrl((user?.user_metadata?.avatar_url as string) ?? "");
+    }
+  }, [profile?.avatar_url, user]);
 
   const handlePhoneChange = (value: string) => {
     setPhone(formatPhoneMask(value));
@@ -87,17 +92,32 @@ function EditProfileScreenContent() {
     setUploadingAvatar(true);
     try {
       const response = await fetch(localUri);
+      if (!response.ok) {
+        throw new Error(`Failed to read selected image (${response.status})`);
+      }
       const blob = await response.blob();
       const path = `${user.id}/${Date.now()}.jpg`;
-      const { error } = await supabase.storage.from("avatars").upload(path, blob, {
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, blob, {
         upsert: true,
         contentType: "image/jpeg",
       });
-      if (error) throw error;
+      if (uploadError) throw uploadError;
       const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      setAvatarUrl(data.publicUrl);
-    } catch {
-      Alert.alert("Upload failed", "Could not upload avatar. Please try again.");
+      const nextAvatarUrl = data.publicUrl;
+      setAvatarUrl(nextAvatarUrl);
+
+      // Persist immediately so avatar does not get lost if user navigates away.
+      const { error: profileUpdateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: nextAvatarUrl })
+        .eq("id", user.id);
+      if (profileUpdateError) {
+        throw profileUpdateError;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Could not upload avatar. Please try again.";
+      Alert.alert("Upload failed", message);
     } finally {
       setUploadingAvatar(false);
     }
@@ -114,15 +134,13 @@ function EditProfileScreenContent() {
         first_name: first.trim(),
         last_name: last.trim(),
         phone: phoneToSave,
+        avatar_url: avatarUrl || null,
       });
-      if (avatarUrl) {
-        const { error } = await supabase.auth.updateUser({ data: { avatar_url: avatarUrl } });
-        if (error) throw error;
-      }
       Alert.alert("Saved");
       navigation.goBack();
-    } catch {
-      Alert.alert("Failed to save");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to save";
+      Alert.alert("Failed to save", message);
     }
   };
 
