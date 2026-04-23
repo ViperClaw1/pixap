@@ -33,6 +33,9 @@ import FavoritesScreen from "@/screens/FavoritesScreen";
 import NotFoundScreen from "@/screens/NotFoundScreen";
 import AdminImageUploadScreen from "@/screens/AdminImageUploadScreen";
 import MyPurchasesScreen from "@/screens/MyPurchasesScreen";
+import StoryViewerScreen from "@/screens/StoryViewerScreen";
+import StoryComposerScreen from "@/screens/StoryComposerScreen";
+import StoryDiscussionScreen from "@/screens/StoryDiscussionScreen";
 
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const SearchStack = createNativeStackNavigator<SearchStackParamList>();
@@ -48,6 +51,9 @@ function HomeStackNavigator() {
     <HomeStack.Navigator initialRouteName="HomeMain" screenOptions={stackScreenOptions}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
       <HomeStack.Screen name="PlaceDetail" component={PlaceDetailScreen} />
+      <HomeStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: "fullScreenModal" }} />
+      <HomeStack.Screen name="StoryComposer" component={StoryComposerScreen} options={{ presentation: "fullScreenModal" }} />
+      <HomeStack.Screen name="StoryDiscussion" component={StoryDiscussionScreen} />
       <HomeStack.Screen name="Category" component={CategoryScreen} />
       <HomeStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <HomeStack.Screen name="BookingFlow" component={BookingFlowScreen} />
@@ -62,6 +68,9 @@ function SearchStackNavigator() {
     <SearchStack.Navigator initialRouteName="SearchMain" screenOptions={stackScreenOptions}>
       <SearchStack.Screen name="SearchMain" component={SearchScreen} />
       <SearchStack.Screen name="PlaceDetail" component={PlaceDetailScreen} />
+      <SearchStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: "fullScreenModal" }} />
+      <SearchStack.Screen name="StoryComposer" component={StoryComposerScreen} options={{ presentation: "fullScreenModal" }} />
+      <SearchStack.Screen name="StoryDiscussion" component={StoryDiscussionScreen} />
       <SearchStack.Screen name="Category" component={CategoryScreen} />
       <SearchStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <SearchStack.Screen name="BookingFlow" component={BookingFlowScreen} />
@@ -85,6 +94,9 @@ function BookingsStackNavigator() {
     <BookingsStack.Navigator initialRouteName="BookingsMain" screenOptions={stackScreenOptions}>
       <BookingsStack.Screen name="BookingsMain" component={BookingsScreen} />
       <BookingsStack.Screen name="PlaceDetail" component={PlaceDetailScreen} />
+      <BookingsStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: "fullScreenModal" }} />
+      <BookingsStack.Screen name="StoryComposer" component={StoryComposerScreen} options={{ presentation: "fullScreenModal" }} />
+      <BookingsStack.Screen name="StoryDiscussion" component={StoryDiscussionScreen} />
       <BookingsStack.Screen name="Category" component={CategoryScreen} />
       <BookingsStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <BookingsStack.Screen name="BookingFlow" component={BookingFlowScreen} />
@@ -106,6 +118,9 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="NotFound" component={NotFoundScreen} />
       <ProfileStack.Screen name="AdminImageUpload" component={AdminImageUploadScreen} />
       <ProfileStack.Screen name="PlaceDetail" component={PlaceDetailScreen} />
+      <ProfileStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: "fullScreenModal" }} />
+      <ProfileStack.Screen name="StoryComposer" component={StoryComposerScreen} options={{ presentation: "fullScreenModal" }} />
+      <ProfileStack.Screen name="StoryDiscussion" component={StoryDiscussionScreen} />
       <ProfileStack.Screen name="Category" component={CategoryScreen} />
       <ProfileStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <ProfileStack.Screen name="BookingFlow" component={BookingFlowScreen} />

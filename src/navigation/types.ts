@@ -1,8 +1,16 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
+import type {
+  StoryComposerRouteParams,
+  StoryDiscussionRouteParams,
+  StoryViewerRouteParams,
+} from "@/types/stories";
 
 /** Shared routes for browse/detail flows (mounted on Home + Search stacks). */
 export type BrowseFlowParamList = {
   PlaceDetail: { id: string };
+  StoryViewer: StoryViewerRouteParams;
+  StoryComposer: StoryComposerRouteParams;
+  StoryDiscussion: StoryDiscussionRouteParams;
   Category: { id: string };
   ShoppingItems: { id: string };
   BookingFlow: { id: string };

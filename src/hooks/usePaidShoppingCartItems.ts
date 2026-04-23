@@ -36,7 +36,7 @@ export const usePaidShoppingCartItems = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shopping_cart_items")
-        .select("*, shopping_item:shopping_items(*), business_card:business_cards(id, name, image)")
+        .select("*, shopping_item:shopping_items(*), business_card:business_cards(id, name, images)")
         .eq("user_id", user!.id)
         .eq("status", "paid");
       if (error) throw error;

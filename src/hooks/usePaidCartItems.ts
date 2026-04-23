@@ -10,7 +10,7 @@ export const usePaidCartItems = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cart_items")
-        .select("*, business_card:business_cards(id, name, image, address, category_id, contact_whatsapp)")
+        .select("*, business_card:business_cards(id, name, images, address, category_id, contact_whatsapp)")
         .eq("user_id", user!.id)
         .eq("status", "paid")
         .order("paid_at", { ascending: false });

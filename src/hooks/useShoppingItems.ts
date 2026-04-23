@@ -22,7 +22,7 @@ export interface ShoppingCartItem {
   created_at: string;
   shopping_item?: ShoppingItem | null;
   /** Joined for cart thumbnails when product image is empty. */
-  business_card?: { id: string; name: string; image: string | null; contact_whatsapp?: string | null } | null;
+  business_card?: { id: string; name: string; images: string[] | null; contact_whatsapp?: string | null } | null;
   children?: ShoppingCartItem[];
   status?: string;
   paid_at?: string | null;
@@ -70,7 +70,7 @@ export const useShoppingCart = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shopping_cart_items")
-        .select("*, shopping_item:shopping_items(*), business_card:business_cards(id, name, image, contact_whatsapp)")
+        .select("*, shopping_item:shopping_items(*), business_card:business_cards(id, name, images, contact_whatsapp)")
         .eq("user_id", user!.id)
         .eq("status", "created")
         .order("created_at");

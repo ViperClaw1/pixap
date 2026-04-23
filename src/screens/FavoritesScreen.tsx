@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import type { ProfileStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Favorites">;
 
@@ -56,11 +57,11 @@ export default function FavoritesScreen() {
       }}
       ListEmptyComponent={<Text style={stylesThemed.empty}>No favorites yet</Text>}
       renderItem={({ item }) => {
-        const b = item.business_card as { id: string; name: string; image: string; address: string } | null;
+        const b = item.business_card as { id: string; name: string; images: string[] | null; address: string } | null;
         if (!b) return null;
         return (
           <Pressable style={stylesThemed.row} onPress={() => navigation.navigate("PlaceDetail", { id: b.id })}>
-            <SmartImage uri={b.image} recyclingKey={b.id} style={styles.thumb} contentFit="cover" />
+            <SmartImage uri={getLatestBusinessCardImage(b.images)} recyclingKey={b.id} style={styles.thumb} contentFit="cover" />
             <View style={{ flex: 1 }}>
               <Text style={stylesThemed.name}>{b.name}</Text>
               <Text style={stylesThemed.meta} numberOfLines={1}>

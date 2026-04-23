@@ -9,7 +9,7 @@ export const useFavorites = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("favorites")
-        .select("*, business_card:business_cards(id, name, image, address, rating, tags, booking_price, type)")
+        .select("*, business_card:business_cards(id, name, images, address, rating, tags, booking_price, type)")
         .eq("user_id", user!.id);
       if (error) throw error;
       return data;

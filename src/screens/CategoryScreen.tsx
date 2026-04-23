@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCardsByCategory } from "@/hooks/useBusinessCards";
 import type { BrowseFlowParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 
 type R = RouteProp<BrowseFlowParamList, "Category">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "Category">;
@@ -54,7 +55,7 @@ export default function CategoryScreen() {
       contentContainerStyle={[stylesThemed.list, { paddingTop: Math.max(insets.top, 12) }]}
       renderItem={({ item }) => (
         <Pressable style={stylesThemed.row} onPress={() => navigation.navigate("PlaceDetail", { id: item.id })}>
-          <SmartImage uri={item.image} recyclingKey={item.id} style={styles.img} contentFit="cover" />
+          <SmartImage uri={getLatestBusinessCardImage(item.images)} recyclingKey={item.id} style={styles.img} contentFit="cover" />
           <View style={{ flex: 1 }}>
             <Text style={stylesThemed.name}>{item.name}</Text>
             <Text style={stylesThemed.meta}>{Number(item.booking_price).toLocaleString()} ₸</Text>

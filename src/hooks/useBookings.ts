@@ -20,7 +20,7 @@ export interface Booking {
   business_card?: {
     id: string;
     name: string;
-    image: string;
+    images: string[] | null;
     address: string;
     category_id: string | null;
   } | null;
@@ -41,14 +41,23 @@ export const useBookings = (tab?: BookingsTabFilter) => {
       const nowIso = new Date().toISOString();
       let query = supabase
         .from("bookings")
-        .select("*, business_card:business_cards(id, name, image, address, category_id)")
+        .select("*, business_card:business_cards(id, name, images, address, category_id)")
         .eq("user_id", user!.id)
         .order("date_time", { ascending: false });
       if (tab === "upcoming") query = query.gte("date_time", nowIso);
       if (tab === "completed") query = query.lt("date_time", nowIso);
       const { data, error } = await query;
       if (error) throw error;
-      return data as Booking[];
+      const rows = (data as Booking[]).map((row) => ({
+        ...row,
+        business_card: row.business_card
+          ? {
+              ...row.business_card,
+              images: row.business_card.images,
+            }
+          : null,
+      }));
+      return rows;
     },
     enabled: !!user,
   });

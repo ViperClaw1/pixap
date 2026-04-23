@@ -14,6 +14,7 @@ import {
 import type { BookingsStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import AuthScreen from "@/screens/AuthScreen";
+import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 
 type Nav = NativeStackNavigationProp<BookingsStackParamList, "BookingsMain">;
 
@@ -72,7 +73,12 @@ export default function BookingsScreen() {
       style={stylesThemed.card}
       onPress={() => navigation.navigate("PlaceDetail", { id: item.business_card_id })}
     >
-      <SmartImage uri={item.business_card?.image} recyclingKey={item.id} style={styles.thumb} contentFit="cover" />
+      <SmartImage
+        uri={getLatestBusinessCardImage(item.business_card?.images)}
+        recyclingKey={item.id}
+        style={styles.thumb}
+        contentFit="cover"
+      />
       <View style={{ flex: 1 }}>
         <Text style={stylesThemed.name}>{item.business_card?.name}</Text>
         <Text style={stylesThemed.meta}>{new Date(item.date_time).toLocaleString()}</Text>

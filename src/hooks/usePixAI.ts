@@ -3,8 +3,9 @@ import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { BusinessCard } from "@/hooks/useBusinessCards";
+import { normalizeBusinessCardImages } from "@/lib/businessCardImages";
 
-export type PixAIPlace = Pick<BusinessCard, "id" | "name" | "address" | "city" | "rating" | "booking_price" | "image">;
+export type PixAIPlace = Pick<BusinessCard, "id" | "name" | "address" | "city" | "rating" | "booking_price" | "images">;
 
 export type PixAISlot = {
   label: string;
@@ -177,6 +178,8 @@ function mapRowsToPlaces(rows: unknown): PixAIPlace[] {
   if (!Array.isArray(rows)) return [];
   return rows.map((row) => {
     const r = row as Record<string, unknown>;
+    const images = normalizeBusinessCardImages(r.images as string[] | null | undefined);
+    const legacyImage = r.image != null && String(r.image).trim() ? [String(r.image)] : [];
     return {
       id: String(r.id),
       name: String(r.name ?? ""),
@@ -184,7 +187,7 @@ function mapRowsToPlaces(rows: unknown): PixAIPlace[] {
       city: r.city != null ? String(r.city) : null,
       rating: Number(r.rating ?? 0),
       booking_price: Number(r.booking_price ?? 0),
-      image: r.image != null && String(r.image).trim() !== "" ? String(r.image) : "",
+      images: images.length > 0 ? images : normalizeBusinessCardImages(legacyImage),
     };
   });
 }
@@ -233,7 +236,7 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload): Promise
     } else {
       let q = supabase
         .from("business_cards")
-        .select("id, name, address, city, rating, booking_price, image")
+        .select("id, name, address, city, rating, booking_price, images")
         .ilike("city", city)
         .order("rating", { ascending: false })
         .limit(limit);
@@ -249,7 +252,7 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload): Promise
   if (places.length === 0 && city) {
     const { data: rows } = await supabase
       .from("business_cards")
-      .select("id, name, address, city, rating, booking_price, image")
+      .select("id, name, address, city, rating, booking_price, images")
       .eq("city", city)
       .order("rating", { ascending: false })
       .limit(3);

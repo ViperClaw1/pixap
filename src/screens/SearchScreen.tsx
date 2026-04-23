@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCards } from "@/hooks/useBusinessCards";
 import type { SearchStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 
 type Nav = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
 
@@ -70,7 +71,7 @@ export default function SearchScreen() {
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
         renderItem={({ item }) => (
           <Pressable style={stylesThemed.row} onPress={() => navigation.navigate("PlaceDetail", { id: item.id })}>
-            <SmartImage uri={item.image} recyclingKey={item.id} style={styles.thumb} contentFit="cover" />
+            <SmartImage uri={getLatestBusinessCardImage(item.images)} recyclingKey={item.id} style={styles.thumb} contentFit="cover" />
             <View style={{ flex: 1 }}>
               <Text style={stylesThemed.name}>{item.name}</Text>
               <Text style={stylesThemed.meta} numberOfLines={1}>

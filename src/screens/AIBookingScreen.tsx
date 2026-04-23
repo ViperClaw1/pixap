@@ -28,6 +28,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useProfile } from "@/hooks/useProfile";
 import { BottomSheetPickerModal } from "@/components/BottomSheetPickerModal";
 import { SmartImage } from "@/components/SmartImage";
+import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 
 type DraftForm = {
   persons: string;
@@ -638,7 +639,7 @@ export default function AIBookingScreen() {
               >
                 <View style={stylesThemed.placeRow}>
                   <SmartImage
-                    uri={place.image}
+                    uri={getLatestBusinessCardImage(place.images)}
                     recyclingKey={place.id}
                     style={stylesThemed.placeThumb}
                     contentFit="cover"

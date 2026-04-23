@@ -38,6 +38,7 @@ import {
   shoppingCartContextLines,
 } from "@/lib/whatsappAvailability";
 import type { CartItem } from "@/hooks/useCartItems";
+import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 
 function ServiceCartRow({
   item,
@@ -60,7 +61,12 @@ function ServiceCartRow({
 
   return (
     <View style={stylesThemed.card}>
-      <SmartImage uri={item.business_card?.image} recyclingKey={`svc-${item.id}`} style={stylesThemed.thumb} contentFit="cover" />
+      <SmartImage
+        uri={getLatestBusinessCardImage(item.business_card?.images)}
+        recyclingKey={`svc-${item.id}`}
+        style={stylesThemed.thumb}
+        contentFit="cover"
+      />
       <View style={{ flex: 1 }}>
         <Text style={stylesThemed.name}>{item.business_card?.name}</Text>
         <Text style={stylesThemed.meta}>{new Date(item.date_time).toLocaleString()}</Text>
@@ -276,7 +282,7 @@ function ShopRow({
     <View style={stylesThemed.card}>
       <SmartImage
         uri={item.shopping_item?.image}
-        fallbackUri={item.business_card?.image}
+        fallbackUri={getLatestBusinessCardImage(item.business_card?.images)}
         recyclingKey={`shop-${item.id}`}
         style={stylesThemed.thumb}
         contentFit="cover"

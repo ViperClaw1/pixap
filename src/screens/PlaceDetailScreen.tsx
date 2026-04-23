@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Linking,
   Alert,
+  useWindowDimensions,
 } from "react-native";
 import { SmartImage } from "@/components/SmartImage";
 import { useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
@@ -21,6 +22,11 @@ import { DirectionsModal } from "@/components/DirectionsModal";
 import type { BrowseFlowParamList } from "@/navigation/types";
 import { navigateToProfileAuth } from "@/navigation/navigationHelpers";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import { getLatestBusinessCardImage, normalizeBusinessCardImages } from "@/lib/businessCardImages";
+import { getOptimizedImageUrl } from "@/lib/imageUtils";
+import Carousel from "react-native-reanimated-carousel";
+import { StoryBubblesRow } from "@/components/stories/StoryBubblesRow";
+import { useStories } from "@/hooks/useStories";
 
 type R = RouteProp<BrowseFlowParamList, "PlaceDetail">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "PlaceDetail">;
@@ -31,11 +37,20 @@ export default function PlaceDetailScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { data: place, isLoading } = useBusinessCard(id);
+  const { width: windowWidth } = useWindowDimensions();
   const { data: reviews = [] } = useReviews(id);
+  const {
+    groupedStories,
+    isLoading: storiesLoading,
+    isError: storiesError,
+    refetch: refetchStories,
+  } = useStories(id);
   const { user } = useAuth();
   const isFavorite = useIsFavorite(id);
   const toggleFavorite = useToggleFavorite();
   const [directionsOpen, setDirectionsOpen] = useState(false);
+  const [heroSlide, setHeroSlide] = useState(0);
+  const [seenStoryIds, setSeenStoryIds] = useState<Record<string, true>>({});
 
   const stylesThemed = useMemo(
     () =>
@@ -58,6 +73,24 @@ export default function PlaceDetailScreen() {
           justifyContent: "center",
         },
         iconBtnText: { fontSize: 18, color: "#111" },
+        heroDotsRow: {
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 10,
+          flexDirection: "row",
+          justifyContent: "center",
+          gap: 6,
+        },
+        heroDot: {
+          width: 7,
+          height: 7,
+          borderRadius: 3.5,
+          backgroundColor: "rgba(255,255,255,0.45)",
+        },
+        heroDotActive: {
+          backgroundColor: "rgba(255,255,255,0.95)",
+        },
         card: {
           marginTop: -24,
           backgroundColor: colors.card,
@@ -110,6 +143,37 @@ export default function PlaceDetailScreen() {
     [colors],
   );
 
+  const openStoryGroup = useCallback(
+    (groupIndex: number) => {
+      const targetGroup = groupedStories[groupIndex];
+      if (!targetGroup?.stories.length) return;
+
+      setSeenStoryIds((prev) => {
+        const next = { ...prev };
+        for (const story of targetGroup.stories) {
+          next[story.id] = true;
+        }
+        return next;
+      });
+
+      navigation.navigate("StoryViewer", {
+        groups: groupedStories,
+        initialGroupIndex: groupIndex,
+        initialStoryIndex: 0,
+        placeId: id,
+      });
+    },
+    [groupedStories, id, navigation],
+  );
+
+  const openStoryComposer = useCallback(() => {
+    if (!user) {
+      navigateToProfileAuth(navigation);
+      return;
+    }
+    navigation.navigate("StoryComposer", { placeId: id });
+  }, [id, navigation, user]);
+
   if (isLoading || !place) {
     return (
       <View style={[stylesThemed.centered, { backgroundColor: colors.background }]}>
@@ -135,6 +199,13 @@ export default function PlaceDetailScreen() {
   };
 
   const heroTop = Math.max(insets.top, 12);
+  const legacyImage = (place as unknown as { image?: string | null }).image;
+  const heroImagesRaw = [
+    ...normalizeBusinessCardImages(place.images),
+    ...normalizeBusinessCardImages(legacyImage),
+  ].filter((url, idx, arr) => arr.indexOf(url) === idx);
+  const heroImages = heroImagesRaw.map((url) => getOptimizedImageUrl(url, 900, 560) || url);
+  const heroFallback = getLatestBusinessCardImage(place.images) ?? getLatestBusinessCardImage(legacyImage);
 
   return (
     <ScrollView
@@ -142,7 +213,40 @@ export default function PlaceDetailScreen() {
       contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}
     >
       <View>
-        <SmartImage uri={place.image} recyclingKey={place.id} style={styles.hero} contentFit="cover" />
+        {heroImages.length > 1 ? (
+          <>
+            <Carousel
+              width={windowWidth}
+              height={280}
+              data={heroImages}
+              loop={false}
+              onSnapToItem={setHeroSlide}
+              renderItem={({ item, index }) => (
+                <SmartImage
+                  uri={item}
+                  fallbackUri={heroImagesRaw[index] ?? null}
+                  recyclingKey={`${place.id}-hero-${index}`}
+                  style={styles.hero}
+                  contentFit="cover"
+                  transition={200}
+                />
+              )}
+            />
+            <View style={stylesThemed.heroDotsRow}>
+              {heroImages.map((_, idx) => (
+                <View key={`${place.id}-hero-dot-${idx}`} style={[stylesThemed.heroDot, heroSlide === idx && stylesThemed.heroDotActive]} />
+              ))}
+            </View>
+          </>
+        ) : (
+          <SmartImage
+            uri={heroImages[0] ?? heroFallback}
+            fallbackUri={heroImagesRaw[0] ?? null}
+            recyclingKey={place.id}
+            style={styles.hero}
+            contentFit="cover"
+          />
+        )}
         <View style={[stylesThemed.heroBar, { top: heroTop }]}>
           <Pressable style={stylesThemed.iconBtn} onPress={() => navigation.goBack()}>
             <Text style={stylesThemed.iconBtnText}>←</Text>
@@ -154,6 +258,15 @@ export default function PlaceDetailScreen() {
       </View>
 
       <View style={stylesThemed.card}>
+        <StoryBubblesRow
+          groups={groupedStories}
+          seenStoryIds={seenStoryIds}
+          onPressGroup={openStoryGroup}
+          onPressAddStory={openStoryComposer}
+          loading={storiesLoading}
+          isError={storiesError}
+          onRetry={() => void refetchStories()}
+        />
         <Text style={stylesThemed.title}>{place.name}</Text>
         <Text style={stylesThemed.rating}>
           {Number(place.rating).toFixed(1)} ({reviews.length} reviews) · {Number(place.booking_price).toLocaleString()}{" "}
