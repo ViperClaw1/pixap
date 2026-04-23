@@ -82,9 +82,9 @@ function requireStringField(payload, fieldName) {
   return value.trim();
 }
 
-const TEMPLATE_BOOK_AVAILABILITY = "book_availability_v1";
-const TEMPLATE_BOOK_IS_FREE = "book_is_free";
-const TEMPLATE_BOOK_GET_PRICE = "book_get_price";
+const TEMPLATE_BOOK_AVAILABILITY = "check_is_free";
+const TEMPLATE_BOOK_IS_FREE = "check_availability";
+const TEMPLATE_BOOK_GET_PAYMENT_LINK = "get_payment_link";
 
 function hasSupabaseCartIntegration(booking) {
   return Boolean(
@@ -359,7 +359,7 @@ async function handlePricingStep(booking, messageText) {
     booking.step = "pricing_price_input";
     booking.updated_at = new Date().toISOString();
 
-    await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PRICE);
+    await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
     await syncCartOrLegacy(
       booking,
       {
@@ -377,7 +377,7 @@ async function handlePricingStep(booking, messageText) {
 async function handlePricingPriceInputStep(booking, messageText) {
   const price = parsePrice(messageText);
   if (price == null) {
-    await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PRICE);
+    await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
     return;
   }
 

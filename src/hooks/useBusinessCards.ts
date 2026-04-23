@@ -6,7 +6,7 @@ export const ALL_CITIES_OPTION = "All cities";
 export interface BusinessCard {
   id: string;
   name: string;
-  image: string;
+  images: string[];
   category_id: string | null;
   city: string | null;
   address: string;

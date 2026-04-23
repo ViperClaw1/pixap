@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { BrowseFlowParamList } from "@/navigation/types";
 import { navigateToProfileAuth } from "@/navigation/navigationHelpers";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 
 type R = RouteProp<BrowseFlowParamList, "ShoppingItems">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "ShoppingItems">;
@@ -168,7 +169,7 @@ export default function ShoppingItemsScreen() {
           <Pressable style={stylesThemed.row} onPress={() => openFlow(item)}>
             <SmartImage
               uri={item.image}
-              fallbackUri={place?.image}
+              fallbackUri={getLatestBusinessCardImage(place?.images)}
               recyclingKey={`${item.id}-${id}`}
               style={styles.thumb}
               contentFit="cover"
