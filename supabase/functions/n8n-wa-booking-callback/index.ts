@@ -7,6 +7,7 @@ type Body = {
   confirmable?: boolean;
   confirmed_slot?: string | null;
   confirmed_price?: string | null;
+  payment_link?: string | null;
 };
 
 function jsonHeaders() {
@@ -108,6 +109,12 @@ Deno.serve(async (req) => {
   const confirmable = Boolean(body.confirmable);
   const slot = body.confirmed_slot != null ? String(body.confirmed_slot).trim() || null : null;
   const price = body.confirmed_price != null ? String(body.confirmed_price).trim() || null : null;
+  const paymentLink =
+    body.payment_link !== undefined
+      ? body.payment_link != null
+        ? String(body.payment_link).trim() || null
+        : null
+      : undefined;
 
   const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
@@ -138,6 +145,7 @@ Deno.serve(async (req) => {
   };
   if (slot !== null) patch.wa_confirmed_slot = slot;
   if (price !== null) patch.wa_confirmed_price = price;
+  if (paymentLink !== undefined) patch.wa_payment_link = paymentLink;
 
   const { error: updErr } = await db.from("cart_items").update(patch).eq("id", row.id);
   if (updErr) {

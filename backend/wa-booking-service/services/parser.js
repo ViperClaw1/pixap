@@ -25,12 +25,23 @@ function parseYesNo(text) {
   return null;
 }
 
-function parsePrice(text) {
+function parsePaymentLink(text) {
   if (typeof text !== "string") return null;
   const trimmed = text.trim();
-  if (!/^\d+$/.test(trimmed)) return null;
-  const numberValue = Number.parseInt(trimmed, 10);
-  return Number.isFinite(numberValue) ? numberValue : null;
+  if (!trimmed) return null;
+
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return null;
+  }
+
+  return parsed.toString();
 }
 
 function runParserSelfChecks() {
@@ -39,10 +50,10 @@ function runParserSelfChecks() {
     parseYesNo("Yep") === "yes",
     parseYesNo("Nope.") === "no",
     parseYesNo("maybe") === null,
-    parsePrice("150") === 150,
-    parsePrice(" 0050 ") === 50,
-    parsePrice("price is 42.99") === null,
-    parsePrice("free") === null,
+    parsePaymentLink("https://pay.example.com/invoice/abc") === "https://pay.example.com/invoice/abc",
+    parsePaymentLink("http://pay.example.com") === "http://pay.example.com/",
+    parsePaymentLink("pay.example.com/invoice/abc") === null,
+    parsePaymentLink("ftp://pay.example.com") === null,
   ];
   const allPassed = checks.every(Boolean);
   if (!allPassed) {
@@ -54,6 +65,6 @@ function runParserSelfChecks() {
 module.exports = {
   normalize,
   parseYesNo,
-  parsePrice,
+  parsePaymentLink,
   runParserSelfChecks,
 };
