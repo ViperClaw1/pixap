@@ -55,14 +55,14 @@ function ServiceCartRow({
   item: CartItem;
   stylesThemed: ReturnType<typeof createCartStyles>;
   onConfirmBooking: (item: CartItem) => Promise<void>;
-  onPayBooking: (item: CartItem, amount: number) => Promise<void>;
+  onPayBooking: (item: CartItem) => Promise<void>;
 }) {
   const deleteCartItem = useDeleteCartItem();
   const [confirming, setConfirming] = useState(false);
   const statusLines = parseWaStatusLines(item.wa_status_lines);
   const canConfirm = Boolean(item.wa_confirmable);
-  const confirmedPrice = item.wa_confirmed_price ? Number(item.wa_confirmed_price) : null;
-  const requiresPayment = canConfirm && confirmedPrice != null && Number.isFinite(confirmedPrice) && confirmedPrice > 0;
+  const paymentLink = item.wa_payment_link?.trim() || null;
+  const canPay = canConfirm && Boolean(paymentLink);
   const hasVenueWa = Boolean(item.business_card?.contact_whatsapp?.trim());
 
   return (
@@ -99,36 +99,33 @@ function ServiceCartRow({
           <Text style={[stylesThemed.meta, { marginTop: 8 }]}>Starting venue check…</Text>
         ) : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-          {requiresPayment ? (
+          {canPay ? (
             <Pressable
               style={[stylesThemed.smallBtnOutline, confirming && { opacity: 0.55 }]}
               disabled={confirming}
               accessibilityState={{ disabled: confirming }}
               onPress={() => {
                 setConfirming(true);
-                void Promise.resolve(onPayBooking(item, confirmedPrice!)).finally(() => setConfirming(false));
+                void Promise.resolve(onPayBooking(item)).finally(() => setConfirming(false));
               }}
             >
-              <Text style={stylesThemed.smallBtnOutlineText}>
-                {confirming ? "Saving…" : `Pay ${Math.trunc(confirmedPrice!)} $`}
-              </Text>
+              <Text style={stylesThemed.smallBtnOutlineText}>{confirming ? "Opening…" : "Pay"}</Text>
             </Pressable>
-          ) : (
-            <Pressable
-              style={[
-                stylesThemed.smallBtnOutline,
-                (confirming || !canConfirm) && { opacity: 0.55 },
-              ]}
-              disabled={confirming || !canConfirm}
-              accessibilityState={{ disabled: confirming || !canConfirm }}
-              onPress={() => {
-                setConfirming(true);
-                void Promise.resolve(onConfirmBooking(item)).finally(() => setConfirming(false));
-              }}
-            >
-              <Text style={stylesThemed.smallBtnOutlineText}>{confirming ? "Saving…" : "Confirm"}</Text>
-            </Pressable>
-          )}
+          ) : null}
+          <Pressable
+            style={[
+              stylesThemed.smallBtnOutline,
+              (confirming || !canConfirm) && { opacity: 0.55 },
+            ]}
+            disabled={confirming || !canConfirm}
+            accessibilityState={{ disabled: confirming || !canConfirm }}
+            onPress={() => {
+              setConfirming(true);
+              void Promise.resolve(onConfirmBooking(item)).finally(() => setConfirming(false));
+            }}
+          >
+            <Text style={stylesThemed.smallBtnOutlineText}>{confirming ? "Saving…" : "Confirm"}</Text>
+          </Pressable>
           <Pressable style={stylesThemed.smallBtnDanger} onPress={() => void deleteCartItem.mutateAsync(item.id)}>
             <Text style={stylesThemed.dangerBtnText}>Remove</Text>
           </Pressable>
@@ -455,18 +452,20 @@ export default function CartScreen() {
     }
   };
 
-  const handlePayServiceBooking = async (item: CartItem, amount: number) => {
+  const handlePayServiceBooking = async (item: CartItem) => {
+    const paymentLink = item.wa_payment_link?.trim();
+    if (!paymentLink) {
+      Alert.alert("Payment link missing", "Venue has not provided a payment link yet.");
+      return;
+    }
     try {
-      await confirmServiceBooking.mutateAsync({ cartItemId: item.id, action: "pay" });
-      Alert.alert("Price accepted", `Booking moved to Bookings with pending payment: ${Math.trunc(amount)} $.`);
-      navigation.getParent()?.dispatch(
-        CommonActions.navigate({
-          name: "Bookings",
-          params: { screen: "BookingsMain" },
-        }),
-      );
+      const canOpen = await Linking.canOpenURL(paymentLink);
+      if (!canOpen) {
+        throw new Error("Cannot open this payment link");
+      }
+      await Linking.openURL(paymentLink);
     } catch (e: unknown) {
-      Alert.alert("Could not move booking", e instanceof Error ? e.message : "Unknown error");
+      Alert.alert("Could not open payment link", e instanceof Error ? e.message : "Unknown error");
     }
   };
 

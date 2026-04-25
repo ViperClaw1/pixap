@@ -1,4 +1,4 @@
-const { parsePrice, parseYesNo } = require("./parser");
+const { parsePaymentLink, parseYesNo } = require("./parser");
 const { sendWhatsAppMessage, sendWhatsAppTemplate } = require("./whatsapp");
 
 const APP_CALLBACK_URL = process.env.APP_CALLBACK_URL || "https://example.com/api/update-booking";
@@ -71,6 +71,7 @@ function makeBookingSnapshot(booking) {
     step: booking.step,
     is_free: booking.is_free,
     price: booking.price,
+    payment_link: booking.payment_link,
   };
 }
 
@@ -133,6 +134,9 @@ async function postSupabaseCartCallback(booking, patch) {
   if (patch.confirmed_slot !== undefined) body.confirmed_slot = patch.confirmed_slot;
   if (patch.confirmed_price !== undefined && patch.confirmed_price !== null) {
     body.confirmed_price = String(patch.confirmed_price);
+  }
+  if (patch.payment_link !== undefined) {
+    body.payment_link = patch.payment_link == null ? null : String(patch.payment_link);
   }
 
   let lastError = null;
@@ -263,6 +267,7 @@ async function createBooking(payload) {
     step: "availability",
     is_free: null,
     price: null,
+    payment_link: null,
     supabase_callback_url: optionalTrimString(payload, "supabase_callback_url"),
     supabase_callback_token: optionalTrimString(payload, "supabase_callback_token"),
     created_at: new Date().toISOString(),
@@ -286,6 +291,7 @@ async function createBooking(payload) {
     {
       status_lines: ["Message sent to venue.", "Waiting for availability…"],
       confirmable: false,
+      payment_link: null,
     },
     { booking_id: booking.id, status: booking.status, step: booking.step, price: null },
   );
@@ -304,7 +310,7 @@ async function handleAvailabilityStep(booking, messageText) {
     await sendWhatsAppMessage(booking.owner_phone, "Booking marked unavailable. Flow closed.");
     await syncCartOrLegacy(
       booking,
-      { status_lines: ["Venue declined this slot."], confirmable: false },
+      { status_lines: ["Venue declined this slot."], confirmable: false, payment_link: null },
       { booking_id: booking.id, status: "rejected", step: booking.step },
     );
     return;
@@ -321,6 +327,7 @@ async function handleAvailabilityStep(booking, messageText) {
       {
         status_lines: ["Slot available.", "Checking if booking is free…"],
         confirmable: false,
+        payment_link: null,
       },
       { booking_id: booking.id, status: booking.status, step: booking.step },
     );
@@ -347,6 +354,7 @@ async function handlePricingStep(booking, messageText) {
         status_lines: ["Slot available and free.", "Customer can now tap Confirm."],
         confirmable: true,
         confirmed_price: "0",
+        payment_link: null,
       },
       { booking_id: booking.id, status: "confirmed", price: 0, step: booking.step },
     );
@@ -355,16 +363,17 @@ async function handlePricingStep(booking, messageText) {
 
   if (yesNo === "no") {
     booking.is_free = false;
-    booking.status = "price_requested";
-    booking.step = "pricing_price_input";
+    booking.status = "payment_link_requested";
+    booking.step = "pricing_payment_link_input";
     booking.updated_at = new Date().toISOString();
 
     await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
     await syncCartOrLegacy(
       booking,
       {
-        status_lines: ["Slot available.", "Awaiting price from venue…"],
+        status_lines: ["Slot available.", "Awaiting payment link from venue…"],
         confirmable: false,
+        payment_link: null,
       },
       { booking_id: booking.id, status: booking.status, step: booking.step },
     );
@@ -374,28 +383,38 @@ async function handlePricingStep(booking, messageText) {
   await sendWhatsAppMessage(booking.owner_phone, "Please reply YES or NO.");
 }
 
-async function handlePricingPriceInputStep(booking, messageText) {
-  const price = parsePrice(messageText);
-  if (price == null) {
+async function handlePricingPaymentLinkInputStep(booking, messageText) {
+  const paymentLink = parsePaymentLink(messageText);
+  if (paymentLink == null) {
     await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
+    await sendWhatsAppMessage(booking.owner_phone, "Please send a valid http/https payment link.");
+    await syncCartOrLegacy(
+      booking,
+      {
+        status_lines: ["Slot available.", "Awaiting valid payment link from venue…"],
+        confirmable: false,
+        payment_link: null,
+      },
+      { booking_id: booking.id, status: booking.status, step: booking.step },
+    );
     return;
   }
 
-  booking.price = price;
+  booking.payment_link = paymentLink;
   booking.status = "awaiting_payment";
   booking.step = "completed";
   booking.updated_at = new Date().toISOString();
   removeActiveBooking(booking.owner_phone, booking.id);
 
-  await sendWhatsAppMessage(booking.owner_phone, `Got it. Price recorded: ${price}.`);
+  await sendWhatsAppMessage(booking.owner_phone, "Got it. Payment link recorded.");
   await syncCartOrLegacy(
     booking,
     {
-      status_lines: [`Price set: ${price}.`, `Customer can now tap Pay ${price} $ in the app.`],
+      status_lines: ["Payment link ready.", "Customer can now tap Confirm or Pay in the app."],
       confirmable: true,
-      confirmed_price: String(price),
+      payment_link: paymentLink,
     },
-    { booking_id: booking.id, status: "confirmed", price, step: booking.step },
+    { booking_id: booking.id, status: "confirmed", payment_link: paymentLink, step: booking.step },
   );
 }
 
@@ -425,8 +444,8 @@ async function processIncomingWhatsApp(payload) {
     await handleAvailabilityStep(booking, message);
   } else if (booking.step === "pricing") {
     await handlePricingStep(booking, message);
-  } else if (booking.step === "pricing_price_input") {
-    await handlePricingPriceInputStep(booking, message);
+  } else if (booking.step === "pricing_payment_link_input") {
+    await handlePricingPaymentLinkInputStep(booking, message);
   } else {
     log("message_for_completed_booking", { booking_id: booking.id, from });
     return { ok: true, ignored: true, reason: "Booking already completed" };
