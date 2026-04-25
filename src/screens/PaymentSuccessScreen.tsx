@@ -9,6 +9,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CartStackParamList, RootTabParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import {
+  SHARED_PRESSABLE_HEIGHT,
+  SHARED_PRESSABLE_RADIUS,
+  primaryPressableStyle,
+  primaryPressableTextStyle,
+} from "@/theme/primaryPressable";
 
 type PaymentSuccessNav = CompositeNavigationProp<
   NativeStackNavigationProp<CartStackParamList, "PaymentSuccess">,
@@ -49,17 +55,15 @@ export default function PaymentSuccessScreen() {
         title: { fontSize: 24, fontWeight: "800", marginBottom: 8, color: colors.text },
         body: { color: colors.textMuted, marginBottom: 24 },
         btn: {
-          backgroundColor: colors.primary,
-          paddingVertical: 14,
-          borderRadius: 12,
-          alignItems: "center",
+          ...primaryPressableStyle,
         },
-        btnText: { color: colors.onPrimary, fontWeight: "700" },
+        btnText: primaryPressableTextStyle,
         secondaryBtn: {
           marginTop: 12,
-          paddingVertical: 14,
-          borderRadius: 12,
+          minHeight: SHARED_PRESSABLE_HEIGHT,
+          borderRadius: SHARED_PRESSABLE_RADIUS,
           alignItems: "center",
+          justifyContent: "center",
           borderWidth: 1,
           borderColor: colors.border,
         },

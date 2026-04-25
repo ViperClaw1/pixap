@@ -6,14 +6,13 @@ import { Ionicons } from "@expo/vector-icons";
 import type {
   BookingsStackParamList,
   CartStackParamList,
+  FeedStackParamList,
   HomeStackParamList,
   ProfileStackParamList,
   RootTabParamList,
-  SearchStackParamList,
 } from "./types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import HomeScreen from "@/screens/HomeScreen";
-import SearchScreen from "@/screens/SearchScreen";
 import CartScreen from "@/screens/CartScreen";
 import BookingsScreen from "@/screens/BookingsScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
@@ -36,9 +35,11 @@ import MyPurchasesScreen from "@/screens/MyPurchasesScreen";
 import StoryViewerScreen from "@/screens/StoryViewerScreen";
 import StoryComposerScreen from "@/screens/StoryComposerScreen";
 import StoryDiscussionScreen from "@/screens/StoryDiscussionScreen";
+import StoriesFeedScreen from "@/screens/StoriesFeedScreen";
+import SubscriptionPaywallScreen from "@/screens/SubscriptionPaywallScreen";
 
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
-const SearchStack = createNativeStackNavigator<SearchStackParamList>();
+const FeedStack = createNativeStackNavigator<FeedStackParamList>();
 const CartStack = createNativeStackNavigator<CartStackParamList>();
 const BookingsStack = createNativeStackNavigator<BookingsStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
@@ -58,24 +59,26 @@ function HomeStackNavigator() {
       <HomeStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <HomeStack.Screen name="BookingFlow" component={BookingFlowScreen} />
       <HomeStack.Screen name="AIBooking" component={AIBookingScreen} />
+      <HomeStack.Screen name="SubscriptionPaywall" component={SubscriptionPaywallScreen} />
       <HomeStack.Screen name="OAuthCallback" component={OAuthCallbackScreen} />
     </HomeStack.Navigator>
   );
 }
 
-function SearchStackNavigator() {
+function FeedStackNavigator() {
   return (
-    <SearchStack.Navigator initialRouteName="SearchMain" screenOptions={stackScreenOptions}>
-      <SearchStack.Screen name="SearchMain" component={SearchScreen} />
-      <SearchStack.Screen name="PlaceDetail" component={PlaceDetailScreen} />
-      <SearchStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: "fullScreenModal" }} />
-      <SearchStack.Screen name="StoryComposer" component={StoryComposerScreen} options={{ presentation: "fullScreenModal" }} />
-      <SearchStack.Screen name="StoryDiscussion" component={StoryDiscussionScreen} />
-      <SearchStack.Screen name="Category" component={CategoryScreen} />
-      <SearchStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
-      <SearchStack.Screen name="BookingFlow" component={BookingFlowScreen} />
-      <SearchStack.Screen name="AIBooking" component={AIBookingScreen} />
-    </SearchStack.Navigator>
+    <FeedStack.Navigator initialRouteName="FeedMain" screenOptions={stackScreenOptions}>
+      <FeedStack.Screen name="FeedMain" component={StoriesFeedScreen} />
+      <FeedStack.Screen name="PlaceDetail" component={PlaceDetailScreen} />
+      <FeedStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: "fullScreenModal" }} />
+      <FeedStack.Screen name="StoryComposer" component={StoryComposerScreen} options={{ presentation: "fullScreenModal" }} />
+      <FeedStack.Screen name="StoryDiscussion" component={StoryDiscussionScreen} />
+      <FeedStack.Screen name="Category" component={CategoryScreen} />
+      <FeedStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
+      <FeedStack.Screen name="BookingFlow" component={BookingFlowScreen} />
+      <FeedStack.Screen name="AIBooking" component={AIBookingScreen} />
+      <FeedStack.Screen name="SubscriptionPaywall" component={SubscriptionPaywallScreen} />
+    </FeedStack.Navigator>
   );
 }
 
@@ -101,6 +104,7 @@ function BookingsStackNavigator() {
       <BookingsStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <BookingsStack.Screen name="BookingFlow" component={BookingFlowScreen} />
       <BookingsStack.Screen name="AIBooking" component={AIBookingScreen} />
+      <BookingsStack.Screen name="SubscriptionPaywall" component={SubscriptionPaywallScreen} />
     </BookingsStack.Navigator>
   );
 }
@@ -125,6 +129,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <ProfileStack.Screen name="BookingFlow" component={BookingFlowScreen} />
       <ProfileStack.Screen name="AIBooking" component={AIBookingScreen} />
+      <ProfileStack.Screen name="SubscriptionPaywall" component={SubscriptionPaywallScreen} />
     </ProfileStack.Navigator>
   );
 }
@@ -160,9 +165,9 @@ export default function AppNavigator() {
               return (
                 <Ionicons name={focused ? "home" : "home-outline"} size={TAB_ICON_SIZE} color={iconColor} />
               );
-            case "Search":
+            case "Feed":
               return (
-                <Ionicons name={focused ? "search" : "search-outline"} size={TAB_ICON_SIZE} color={iconColor} />
+                <Ionicons name={focused ? "albums" : "albums-outline"} size={TAB_ICON_SIZE} color={iconColor} />
               );
             case "Cart":
               return (
@@ -183,7 +188,7 @@ export default function AppNavigator() {
       })}
     >
       <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: "Home" }} />
-      <Tab.Screen name="Search" component={SearchStackNavigator} options={{ title: "Search" }} />
+      <Tab.Screen name="Feed" component={FeedStackNavigator} options={{ title: "Feed" }} />
       <Tab.Screen name="Cart" component={CartStackNavigator} options={{ title: "Cart" }} />
       <Tab.Screen name="Bookings" component={BookingsStackNavigator} options={{ title: "Bookings" }} />
       <Tab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: "Profile" }} />

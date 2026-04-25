@@ -35,7 +35,7 @@ export const useReplyToStory = () => {
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["story_comments", "story", variables.storyId] });
-      void queryClient.invalidateQueries({ queryKey: ["stories", "place"] });
+      void queryClient.invalidateQueries({ queryKey: ["stories"] });
     },
   });
 };

@@ -28,10 +28,10 @@ export const linkingConfig = {
         OAuthCallback: "~oauth/callback",
       },
     },
-    Search: {
-      path: "search",
+    Feed: {
+      path: "feed",
       screens: {
-        SearchMain: "",
+        FeedMain: "",
         PlaceDetail: "place/:id",
         Category: "category/:id",
         ShoppingItems: "shop/:id",

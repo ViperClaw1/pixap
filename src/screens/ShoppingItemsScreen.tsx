@@ -26,6 +26,7 @@ import type { BrowseFlowParamList } from "@/navigation/types";
 import { navigateToProfileAuth } from "@/navigation/navigationHelpers";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
+import { primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
 
 type R = RouteProp<BrowseFlowParamList, "ShoppingItems">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "ShoppingItems">;
@@ -92,12 +93,9 @@ export default function ShoppingItemsScreen() {
         qtyVal: { minWidth: 24, textAlign: "center", color: colors.text },
         primary: {
           marginTop: 16,
-          backgroundColor: colors.primary,
-          paddingVertical: 14,
-          borderRadius: 12,
-          alignItems: "center",
+          ...primaryPressableStyle,
         },
-        primaryText: { color: colors.onPrimary, fontWeight: "700" },
+        primaryText: primaryPressableTextStyle,
         cancel: { textAlign: "center", marginTop: 12, color: colors.textMuted },
       }),
     [colors, insets.bottom],

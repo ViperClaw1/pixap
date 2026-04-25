@@ -46,6 +46,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let active = true;
 
+    const isInvalidRefreshTokenError = (error: unknown) => {
+      if (!(error instanceof Error)) return false;
+      const message = error.message.toLowerCase();
+      return (
+        message.includes("invalid refresh token") ||
+        message.includes("refresh token not found") ||
+        message.includes("jwt expired")
+      );
+    };
+
     const applySession = (next: Session | null) => {
       if (!active) return;
       setSession(next);
@@ -65,10 +75,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (event === "INITIAL_SESSION") finishInit();
     });
 
-    void supabase.auth.getSession().then(({ data: { session: s } }) => {
-      applySession(s);
-      finishInit();
-    });
+    void supabase.auth
+      .getSession()
+      .then(async ({ data: { session: s }, error }) => {
+        if (error) {
+          if (isInvalidRefreshTokenError(error)) {
+            // Recover from stale local token without hitting network sign-out endpoint.
+            await supabase.auth.signOut({ scope: "local" });
+            applySession(null);
+            finishInit();
+            return;
+          }
+          throw error;
+        }
+        applySession(s);
+        finishInit();
+      })
+      .catch(async (error: unknown) => {
+        if (isInvalidRefreshTokenError(error)) {
+          await supabase.auth.signOut({ scope: "local" });
+          applySession(null);
+          finishInit();
+          return;
+        }
+        if (__DEV__) {
+          const message = error instanceof Error ? error.message : "Unknown auth initialization error";
+          console.warn("[auth] getSession failed:", message);
+        }
+        applySession(null);
+        finishInit();
+      });
 
     return () => {
       active = false;

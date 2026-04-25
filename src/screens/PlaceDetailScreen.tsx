@@ -27,6 +27,12 @@ import { getOptimizedImageUrl } from "@/lib/imageUtils";
 import Carousel from "react-native-reanimated-carousel";
 import { StoryBubblesRow } from "@/components/stories/StoryBubblesRow";
 import { useStories } from "@/hooks/useStories";
+import {
+  SHARED_PRESSABLE_HEIGHT,
+  SHARED_PRESSABLE_RADIUS,
+  primaryPressableStyle,
+  primaryPressableTextStyle,
+} from "@/theme/primaryPressable";
 
 type R = RouteProp<BrowseFlowParamList, "PlaceDetail">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "PlaceDetail">;
@@ -116,27 +122,26 @@ export default function PlaceDetailScreen() {
         actions: { flexDirection: "row", gap: 10, marginTop: 16 },
         secondaryBtn: {
           flex: 1,
-          paddingVertical: 12,
-          borderRadius: 12,
+          minHeight: SHARED_PRESSABLE_HEIGHT,
+          borderRadius: SHARED_PRESSABLE_RADIUS,
           backgroundColor: colors.border,
           alignItems: "center",
+          justifyContent: "center",
         },
         secondaryBtnText: { fontWeight: "600", color: colors.text },
         primaryBtn: {
           marginTop: 16,
-          paddingVertical: 14,
-          borderRadius: 12,
-          backgroundColor: colors.primary,
-          alignItems: "center",
+          ...primaryPressableStyle,
         },
-        primaryBtnText: { color: colors.onPrimary, fontWeight: "700" },
+        primaryBtnText: primaryPressableTextStyle,
         outlineBtn: {
           marginTop: 10,
-          paddingVertical: 14,
-          borderRadius: 12,
+          minHeight: SHARED_PRESSABLE_HEIGHT,
+          borderRadius: SHARED_PRESSABLE_RADIUS,
           borderWidth: 1,
           borderColor: colors.primary,
           alignItems: "center",
+          justifyContent: "center",
         },
         outlineBtnText: { fontWeight: "700", color: colors.primary },
       }),
@@ -297,9 +302,9 @@ export default function PlaceDetailScreen() {
         <Pressable style={stylesThemed.outlineBtn} onPress={() => navigation.navigate("AIBooking", { id: place.id })}>
           <Text style={stylesThemed.outlineBtnText}>Book with PixAI</Text>
         </Pressable>
-        <Pressable style={stylesThemed.outlineBtn} onPress={() => navigation.navigate("ShoppingItems", { id: place.id })}>
+        {/* <Pressable style={stylesThemed.outlineBtn} onPress={() => navigation.navigate("ShoppingItems", { id: place.id })}>
           <Text style={stylesThemed.outlineBtnText}>Order items</Text>
-        </Pressable>
+        </Pressable> */}
       </View>
 
       <DirectionsModal

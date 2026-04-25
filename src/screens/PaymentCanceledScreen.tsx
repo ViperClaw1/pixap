@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CartStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import { primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
 
 type Nav = NativeStackNavigationProp<CartStackParamList, "PaymentCanceled">;
 
@@ -26,12 +27,9 @@ export default function PaymentCanceledScreen() {
         title: { fontSize: 24, fontWeight: "800", marginBottom: 8, color: colors.text },
         body: { color: colors.textMuted, marginBottom: 24 },
         btn: {
-          backgroundColor: colors.primary,
-          paddingVertical: 14,
-          borderRadius: 12,
-          alignItems: "center",
+          ...primaryPressableStyle,
         },
-        btnText: { color: colors.onPrimary, fontWeight: "700" },
+        btnText: primaryPressableTextStyle,
       }),
     [colors, insets.bottom],
   );
