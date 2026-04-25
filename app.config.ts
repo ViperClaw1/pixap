@@ -4,7 +4,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
   const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
   const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.0";
-  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "12";
+  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "13";
+  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "13");
+  const androidVersionCode = Number.parseInt(androidVersionCodeRaw, 10);
   const nativeOAuthRedirectUri =
     oauthMobileRedirectUri && !oauthMobileRedirectUri.startsWith("exp://") ? oauthMobileRedirectUri : undefined;
   const googleMapsConfig = googleMapsApiKey
@@ -53,6 +55,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   },
   android: {
     ...config.android,
+    versionCode: Number.isFinite(androidVersionCode) && androidVersionCode > 0 ? androidVersionCode : 12,
     config: {
       ...config.android?.config,
       ...googleMapsConfig,
