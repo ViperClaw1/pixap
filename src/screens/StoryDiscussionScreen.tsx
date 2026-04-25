@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAppTheme } from "@/contexts/ThemeContext";
@@ -18,6 +18,7 @@ function formatTime(value: string) {
 
 export default function StoryDiscussionScreen() {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<DiscussionNav>();
   const { params } = useRoute<DiscussionRoute>();
   const { data: comments = [] } = useStoryComments(params.storyId);
@@ -30,32 +31,48 @@ export default function StoryDiscussionScreen() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={[styles.backText, { color: colors.text }]}>Back</Text>
-        </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>Discussion</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Math.max(insets.top, 8)}
+      >
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()}>
+            <Text style={[styles.backText, { color: colors.text }]}>Back</Text>
+          </Pressable>
+          <Text style={[styles.title, { color: colors.text }]}>Discussion</Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
-      <FlatList
-        data={sorted}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
-          <View style={[styles.commentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.commentText, { color: colors.text }]}>{item.content}</Text>
-            <Text style={[styles.commentTime, { color: colors.textMuted }]}>{formatTime(item.created_at)}</Text>
-          </View>
-        )}
-      />
-
-      <View style={[styles.inputWrap, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-        <ReplyInput
-          submitting={replyMutation.isPending}
-          onSubmit={(value) => replyMutation.mutateAsync({ storyId: params.storyId, content: value })}
+        <FlatList
+          data={sorted}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => (
+            <View style={[styles.commentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.commentText, { color: colors.text }]}>{item.content}</Text>
+              <Text style={[styles.commentTime, { color: colors.textMuted }]}>{formatTime(item.created_at)}</Text>
+            </View>
+          )}
         />
-      </View>
+
+        <View
+          style={[
+            styles.inputWrap,
+            {
+              borderTopColor: colors.border,
+              backgroundColor: colors.background,
+              paddingBottom: Math.max(8, insets.bottom),
+            },
+          ]}
+        >
+          <ReplyInput
+            submitting={replyMutation.isPending}
+            onSubmit={(value) => replyMutation.mutateAsync({ storyId: params.storyId, content: value })}
+          />
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

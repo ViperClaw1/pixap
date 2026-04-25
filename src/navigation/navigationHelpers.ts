@@ -23,15 +23,20 @@ export function navigateToHomeMain(nav: NavigationProp<ParamListBase>) {
   );
 }
 
-export function navigateToSearchTab(nav: NavigationProp<ParamListBase>) {
+export function navigateToFeedTab(nav: NavigationProp<ParamListBase>) {
   const parent = nav.getParent();
   if (!parent) return;
   parent.dispatch(
     CommonActions.navigate({
-      name: "Search",
-      params: { screen: "SearchMain" },
+      name: "Feed",
+      params: { screen: "FeedMain" },
     }),
   );
+}
+
+/** Backward-compatible alias for previous naming. */
+export function navigateToSearchTab(nav: NavigationProp<ParamListBase>) {
+  navigateToFeedTab(nav);
 }
 
 export function navigateToCartMain(nav: NavigationProp<ParamListBase>) {
@@ -43,4 +48,8 @@ export function navigateToCartMain(nav: NavigationProp<ParamListBase>) {
       params: { screen: "CartMain" },
     }),
   );
+}
+
+export function navigateToSubscriptionPaywall(nav: NavigationProp<ParamListBase>) {
+  nav.navigate("SubscriptionPaywall");
 }

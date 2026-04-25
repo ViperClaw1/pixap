@@ -7,6 +7,7 @@ import { useBusinessCard } from "@/hooks/useBusinessCards";
 import { useCreateCartItem } from "@/hooks/useCartItems";
 import type { BrowseFlowParamList } from "@/navigation/types";
 import { navigateToCartMain } from "@/navigation/navigationHelpers";
+import { primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
 
 const timeSlots = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
 
@@ -200,6 +201,6 @@ const styles = StyleSheet.create({
   timeCellSel: { backgroundColor: "#111" },
   timeCellTextSel: { color: "#fff", fontWeight: "600" },
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: "#eee" },
-  primary: { backgroundColor: "#111", paddingVertical: 14, borderRadius: 12, alignItems: "center" },
-  primaryText: { color: "#fff", fontWeight: "700" },
+  primary: primaryPressableStyle,
+  primaryText: primaryPressableTextStyle,
 });

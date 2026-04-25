@@ -5,7 +5,7 @@ import type {
   StoryViewerRouteParams,
 } from "@/types/stories";
 
-/** Shared routes for browse/detail flows (mounted on Home + Search stacks). */
+/** Shared routes for browse/detail flows (mounted on Home + Feed stacks). */
 export type BrowseFlowParamList = {
   PlaceDetail: { id: string };
   StoryViewer: StoryViewerRouteParams;
@@ -15,6 +15,7 @@ export type BrowseFlowParamList = {
   ShoppingItems: { id: string };
   BookingFlow: { id: string };
   AIBooking: { id?: string } | undefined;
+  SubscriptionPaywall: undefined;
 };
 
 /** Home tab stack */
@@ -23,7 +24,12 @@ export type HomeStackParamList = {
   OAuthCallback: undefined;
 } & BrowseFlowParamList;
 
-/** Search tab stack (same detail flows as Home for consistent `navigate` calls). */
+/** Feed tab stack (same detail flows as Home for consistent `navigate` calls). */
+export type FeedStackParamList = {
+  FeedMain: undefined;
+} & BrowseFlowParamList;
+
+/** Legacy type kept for compatibility with existing SearchScreen typings. */
 export type SearchStackParamList = {
   SearchMain: undefined;
 } & BrowseFlowParamList;
@@ -48,12 +54,13 @@ export type ProfileStackParamList = {
   Privacy: undefined;
   NotFound: undefined;
   AdminImageUpload: undefined;
+  SubscriptionPaywall: undefined;
 } & BrowseFlowParamList;
 
 /** Root is bottom tabs — tab bar is always mounted. */
 export type RootTabParamList = {
   Home: NavigatorScreenParams<HomeStackParamList>;
-  Search: NavigatorScreenParams<SearchStackParamList>;
+  Feed: NavigatorScreenParams<FeedStackParamList>;
   Cart: NavigatorScreenParams<CartStackParamList>;
   Bookings: NavigatorScreenParams<BookingsStackParamList>;
   Profile: NavigatorScreenParams<ProfileStackParamList>;

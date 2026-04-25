@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ProfileStackParamList } from "@/navigation/types";
 import { navigateToHomeMain } from "@/navigation/navigationHelpers";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import { primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "NotFound">;
 
@@ -28,12 +29,10 @@ export default function NotFoundScreen() {
         },
         title: { fontSize: 20, fontWeight: "700", marginBottom: 16, color: colors.text },
         btn: {
-          backgroundColor: colors.primary,
+          ...primaryPressableStyle,
           paddingHorizontal: 24,
-          paddingVertical: 12,
-          borderRadius: 12,
         },
-        btnText: { color: colors.onPrimary, fontWeight: "700" },
+        btnText: primaryPressableTextStyle,
       }),
     [colors, insets.bottom, insets.top],
   );

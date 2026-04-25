@@ -39,6 +39,12 @@ import {
 } from "@/lib/whatsappAvailability";
 import type { CartItem } from "@/hooks/useCartItems";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
+import {
+  SHARED_PRESSABLE_HEIGHT,
+  SHARED_PRESSABLE_RADIUS,
+  primaryPressableStyle,
+  primaryPressableTextStyle,
+} from "@/theme/primaryPressable";
 
 function ServiceCartRow({
   item,
@@ -208,20 +214,17 @@ function createCartStyles(colors: import("@/theme/palettes").ThemeColors, bottom
     payRow: { flexDirection: "row", gap: 8, marginTop: 12 },
     payRowBtn: {
       flex: 1,
-      paddingVertical: 14,
-      borderRadius: 12,
+      minHeight: SHARED_PRESSABLE_HEIGHT,
+      borderRadius: SHARED_PRESSABLE_RADIUS,
       alignItems: "center",
       justifyContent: "center",
     },
     payBtn: {
       marginTop: 12,
-      backgroundColor: colors.primary,
-      paddingVertical: 14,
-      borderRadius: 12,
-      alignItems: "center",
+      ...primaryPressableStyle,
     },
-    payBtnText: { color: colors.onPrimary, fontWeight: "700" },
-    payRowBtnPrimary: { backgroundColor: colors.primary },
+    payBtnText: primaryPressableTextStyle,
+    payRowBtnPrimary: { backgroundColor: primaryPressableStyle.backgroundColor },
     payRowBtnOutline: {
       borderWidth: 1,
       borderColor: colors.border,

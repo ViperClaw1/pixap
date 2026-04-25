@@ -29,6 +29,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { BottomSheetPickerModal } from "@/components/BottomSheetPickerModal";
 import { SmartImage } from "@/components/SmartImage";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
+import { useEntitlement } from "@/hooks/useEntitlement";
+import SubscriptionPaywallScreen from "@/screens/SubscriptionPaywallScreen";
 
 type DraftForm = {
   persons: string;
@@ -115,6 +117,7 @@ export default function AIBookingScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { user } = useAuth();
+  const { isActive, isLoading: entitlementLoading } = useEntitlement();
   const navigation = useNavigation();
   const { messages, runFlow, isLoading } = usePixAI();
   const { data: profile } = useProfile();
@@ -525,6 +528,14 @@ export default function AIBookingScreen() {
   };
 
   if (!user) return <AuthScreen />;
+  if (entitlementLoading) {
+    return (
+      <View style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+  if (!isActive) return <SubscriptionPaywallScreen />;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={stylesThemed.root}>

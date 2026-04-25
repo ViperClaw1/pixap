@@ -11,7 +11,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useUnreadCount } from "@/hooks/useNotifications";
 import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
 import type { HomeStackParamList, RootTabParamList } from "@/navigation/types";
-import { navigateToSearchTab } from "@/navigation/navigationHelpers";
+import { navigateToFeedTab } from "@/navigation/navigationHelpers";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
 import BusinessPlaceCard from "@/components/BusinessPlaceCard";
@@ -193,7 +193,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Pressable style={stylesThemed.searchBtn} onPress={() => navigateToSearchTab(navigation)}>
+        <Pressable style={stylesThemed.searchBtn} onPress={() => navigateToFeedTab(navigation)}>
           <Text style={stylesThemed.searchBtnText}>Search restaurants, salons, events…</Text>
         </Pressable>
 
@@ -219,7 +219,7 @@ export default function HomeScreen() {
 
         <View style={stylesThemed.sectionRow}>
           <Text style={stylesThemed.sectionTitle}>Featured</Text>
-          <Pressable onPress={() => navigateToSearchTab(navigation)}>
+          <Pressable onPress={() => navigateToFeedTab(navigation)}>
             <Text style={stylesThemed.link}>See all</Text>
           </Pressable>
         </View>

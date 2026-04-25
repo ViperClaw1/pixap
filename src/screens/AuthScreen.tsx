@@ -24,6 +24,13 @@ import { env } from "@/lib/env";
 import { getOAuthRedirectUri } from "@/lib/oauthRedirect";
 import type { ProfileStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import {
+  AUTH_PRIMARY_COLOR,
+  SHARED_PRESSABLE_HEIGHT,
+  SHARED_PRESSABLE_RADIUS,
+  primaryPressableStyle,
+  primaryPressableTextStyle,
+} from "@/theme/primaryPressable";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -70,34 +77,31 @@ export default function AuthScreen() {
           paddingVertical: 12,
         },
         primary: {
-          backgroundColor: "#ec6544",
-          paddingVertical: 16,
-          borderRadius: 18,
-          alignItems: "center",
+          ...primaryPressableStyle,
           marginTop: 14,
         },
-        primaryText: { color: "#fff", fontWeight: "700", fontSize: 16, lineHeight: 32 },
+        primaryText: primaryPressableTextStyle,
         smallLink: { marginTop: 10, alignSelf: "flex-start" },
-        smallLinkText: { color: "#ec6544", fontSize: 14, fontWeight: "500" },
+        smallLinkText: { color: AUTH_PRIMARY_COLOR, fontSize: 14, fontWeight: "500" },
         orRow: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 20 },
         orLine: { flex: 1, height: 1, backgroundColor: colors.border },
         orText: { color: colors.textMuted, fontSize: 14, paddingHorizontal: 6 },
         outline: {
           borderWidth: 1,
           borderColor: colors.border,
-          paddingVertical: 14,
-          borderRadius: 18,
+          minHeight: SHARED_PRESSABLE_HEIGHT,
+          borderRadius: SHARED_PRESSABLE_RADIUS,
           alignItems: "center",
+          justifyContent: "center",
           marginBottom: 10,
           backgroundColor: colors.background,
           flexDirection: "row",
-          justifyContent: "center",
           gap: 10,
         },
         outlineText: { color: colors.text, fontWeight: "700", fontSize: 14 },
         bottomSwitch: { marginTop: 12, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 },
         bottomSwitchText: { color: colors.textMuted, fontSize: 14 },
-        bottomSwitchLink: { color: "#ec6544", fontSize: 14, fontWeight: "700" },
+        bottomSwitchLink: { color: AUTH_PRIMARY_COLOR, fontSize: 14, fontWeight: "700" },
       }),
     [colors],
   );

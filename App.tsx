@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider, useAppTheme } from "@/contexts/ThemeContext";
@@ -13,10 +14,16 @@ import PermissionsOnboardingScreen from "@/screens/PermissionsOnboardingScreen";
 import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/lib/permissionsStorage";
 import { supabaseConfigError } from "@/integrations/supabase/client";
 import { logStartupDiagnostics } from "@/lib/startupDiagnostics";
+import { useSubscription } from "@/hooks/useSubscription";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 const queryClient = new QueryClient();
+
+function SubscriptionBootstrap() {
+  useSubscription();
+  return null;
+}
 
 function NavigationRoot() {
   const { colors, isDark } = useAppTheme();
@@ -72,25 +79,28 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            {!ready ? null : bootError || supabaseConfigError ? (
-              <View style={{ flex: 1, backgroundColor: "#111", alignItems: "center", justifyContent: "center", padding: 20 }}>
-                <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>Configuration error</Text>
-                <Text style={{ color: "#ddd", textAlign: "center" }}>
-                  {bootError ?? supabaseConfigError}
-                </Text>
-              </View>
-            ) : showPerms ? (
-              <PermissionsOnboardingScreen onComplete={() => void onPermsDone()} />
-            ) : (
-              <NavigationRoot />
-            )}
-          </AuthProvider>
-        </QueryClientProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              <SubscriptionBootstrap />
+              {!ready ? null : bootError || supabaseConfigError ? (
+                <View style={{ flex: 1, backgroundColor: "#111", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                  <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>Configuration error</Text>
+                  <Text style={{ color: "#ddd", textAlign: "center" }}>
+                    {bootError ?? supabaseConfigError}
+                  </Text>
+                </View>
+              ) : showPerms ? (
+                <PermissionsOnboardingScreen onComplete={() => void onPermsDone()} />
+              ) : (
+                <NavigationRoot />
+              )}
+            </AuthProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

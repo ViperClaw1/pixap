@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView, Modal, ActivityIndicator, Linking } from "react-native";
+import { View, Text, Pressable, StyleSheet, ScrollView, Modal, ActivityIndicator, Linking, Platform } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,9 +13,12 @@ import { useBookings } from "@/hooks/useBookings";
 import type { ProfileStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { SmartImage } from "@/components/SmartImage";
+import { useEntitlement } from "@/hooks/useEntitlement";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">;
 const PRIVACY_URL = "https://pixapp.kz/privacy";
+const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
+const GOOGLE_SUBSCRIPTION_URL = "https://play.google.com/store/account/subscriptions";
 
 type ActionItem = {
   key: string;
@@ -34,6 +37,7 @@ function ProfileScreenContent() {
   const { data: favorites = [] } = useFavorites();
   const { data: bookings = [] } = useBookings();
   const { role } = useUserRole();
+  const { status: subscriptionStatus, isTrial, expiresAt, isActive } = useEntitlement();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
@@ -173,9 +177,30 @@ function ProfileScreenContent() {
   const openPrivacy = () => {
     void Linking.openURL(PRIVACY_URL);
   };
+  const openManageSubscription = () => {
+    void Linking.openURL(Platform.OS === "ios" ? APPLE_SUBSCRIPTION_URL : GOOGLE_SUBSCRIPTION_URL);
+  };
+
+  const subscriptionLabel = !subscriptionStatus
+    ? "Not subscribed"
+    : subscriptionStatus === "trialing"
+      ? "Trial active"
+      : subscriptionStatus === "active"
+        ? "Active"
+        : subscriptionStatus === "grace_period"
+          ? "Grace period"
+          : subscriptionStatus === "billing_retry"
+            ? "Billing issue"
+            : "Expired";
 
   const actions: ActionItem[] = [
     { key: "purchases", label: "My Purchases", icon: "bag-handle-outline", onPress: () => navigation.navigate("MyPurchases") },
+    {
+      key: "subscription",
+      label: isActive ? "Manage subscription" : "Get PixAI Premium",
+      icon: "sparkles-outline",
+      onPress: () => (isActive ? openManageSubscription() : navigation.navigate("SubscriptionPaywall")),
+    },
     { key: "notifications", label: "Notifications", icon: "notifications-outline", onPress: () => setNotificationsOpen(true) },
     { key: "favorites", label: "Favorites", icon: "star-outline", onPress: () => navigation.navigate("Favorites") },
     { key: "privacy", label: "Privacy & Security", icon: "shield-outline", onPress: openPrivacy },
@@ -213,6 +238,15 @@ function ProfileScreenContent() {
           <Pressable style={stylesThemed.settingsBtn} onPress={() => navigation.navigate("EditProfile")}>
             <Ionicons name="settings-outline" size={16} color={colors.text} />
           </Pressable>
+        </View>
+        <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
+          <Text style={{ color: colors.text, fontWeight: "700" }}>PixAI subscription: {subscriptionLabel}</Text>
+          {isTrial ? <Text style={{ color: colors.textMuted, marginTop: 2 }}>Trial in progress</Text> : null}
+          {expiresAt ? (
+            <Text style={{ color: colors.textMuted, marginTop: 2 }}>
+              Expires: {new Date(expiresAt).toLocaleDateString()}
+            </Text>
+          ) : null}
         </View>
       </View>
       <View style={stylesThemed.statRow}>

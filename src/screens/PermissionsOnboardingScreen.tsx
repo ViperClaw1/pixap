@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import * as Notifications from "expo-notifications";
 import { setSeenPermissionsIntro } from "@/lib/permissionsStorage";
+import { primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
 
 type Props = {
   onComplete: () => void;
@@ -63,13 +64,8 @@ const styles = StyleSheet.create({
   body: { fontSize: 16, color: "#444", lineHeight: 22 },
   sub: { fontSize: 13, color: "#888", marginTop: 16, lineHeight: 18 },
   actions: { marginTop: 28, gap: 12 },
-  primary: {
-    backgroundColor: "#111",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  primaryText: { color: "#fff", fontWeight: "700" },
+  primary: primaryPressableStyle,
+  primaryText: primaryPressableTextStyle,
   secondary: { paddingVertical: 12, alignItems: "center" },
   secondaryText: { color: "#666", fontWeight: "600" },
 });

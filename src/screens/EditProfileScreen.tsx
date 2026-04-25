@@ -8,8 +8,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/integrations/supabase/client";
+import { AUTH_PRIMARY_COLOR, primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
 
 const PHONE_VALIDATION_PATTERN = /^\d-\(\d{3}\)-\d{3}-\d{4}$/;
+const AVATARS_BUCKET = "avatars";
+
+function bytesFromBase64(base64: string): Uint8Array {
+  const binary = globalThis.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
 
 const formatPhoneMask = (raw: string) => {
   const digits = raw.replace(/\D/g, "").slice(0, 11);
@@ -69,9 +80,14 @@ function EditProfileScreenContent() {
       Alert.alert("Permission needed", "Camera access is required to take a photo.");
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.8, allowsEditing: true });
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+      allowsEditing: true,
+      base64: true,
+    });
     if (!result.canceled && result.assets[0]?.uri) {
-      await uploadAvatar(result.assets[0].uri);
+      await uploadAvatar(result.assets[0]);
     }
   };
 
@@ -81,28 +97,44 @@ function EditProfileScreenContent() {
       Alert.alert("Permission needed", "Storage access is required to choose a photo.");
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8, allowsEditing: true });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+      allowsEditing: true,
+      base64: true,
+    });
     if (!result.canceled && result.assets[0]?.uri) {
-      await uploadAvatar(result.assets[0].uri);
+      await uploadAvatar(result.assets[0]);
     }
   };
 
-  const uploadAvatar = async (localUri: string) => {
+  const uploadAvatar = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!user?.id) return;
     setUploadingAvatar(true);
     try {
-      const response = await fetch(localUri);
-      if (!response.ok) {
-        throw new Error(`Failed to read selected image (${response.status})`);
+      let fileBytes: ArrayBuffer | Uint8Array;
+      if (asset.base64) {
+        fileBytes = bytesFromBase64(asset.base64);
+      } else {
+        const response = await fetch(asset.uri);
+        if (!response.ok) {
+          throw new Error(`Failed to read selected image (${response.status})`);
+        }
+        fileBytes = await response.arrayBuffer();
       }
-      const blob = await response.blob();
-      const path = `${user.id}/${Date.now()}.jpg`;
-      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, blob, {
+      if (!fileBytes.byteLength) {
+        throw new Error("Selected image is empty (0 bytes).");
+      }
+
+      const mimeType = asset.mimeType || "image/jpeg";
+      const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from(AVATARS_BUCKET).upload(path, fileBytes, {
         upsert: true,
-        contentType: "image/jpeg",
+        contentType: mimeType,
       });
       if (uploadError) throw uploadError;
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      const { data } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(path);
       const nextAvatarUrl = data.publicUrl;
       setAvatarUrl(nextAvatarUrl);
 
@@ -182,14 +214,11 @@ function EditProfileScreenContent() {
         errorText: { color: colors.danger, marginTop: 6, fontSize: 12 },
         btn: {
           marginTop: 24,
-          backgroundColor: colors.primary,
-          paddingVertical: 14,
-          borderRadius: 12,
-          alignItems: "center",
+          ...primaryPressableStyle,
           borderWidth: 1,
-          borderColor: colors.primary,
+          borderColor: AUTH_PRIMARY_COLOR,
         },
-        btnText: { color: colors.onPrimary, fontWeight: "700", fontSize: 14 },
+        btnText: primaryPressableTextStyle,
       }),
     [colors],
   );

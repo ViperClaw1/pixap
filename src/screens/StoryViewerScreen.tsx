@@ -3,6 +3,8 @@ import {
   Alert,
   FlatList,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -191,55 +193,61 @@ export default function StoryViewerScreen() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
-      <GestureDetector gesture={composedGesture}>
-        <View style={styles.gestureSurface}>
-          <View style={styles.topArea}>
-            <StoryProgressBar
-              count={activeGroup.stories.length}
-              currentIndex={viewer.currentStoryIndex}
-              progress={progress}
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Math.max(insets.top, 8)}
+      >
+        <GestureDetector gesture={composedGesture}>
+          <View style={styles.gestureSurface}>
+            <View style={styles.topArea}>
+              <StoryProgressBar
+                count={activeGroup.stories.length}
+                currentIndex={viewer.currentStoryIndex}
+                progress={progress}
+              />
+              <View style={styles.headerRow}>
+                <Text style={[styles.headerText, { color: colors.text }]}>
+                  {(activeGroup.profile?.first_name ?? "User").trim()}
+                </Text>
+                <Text style={[styles.timeText, { color: colors.textMuted }]}>{formatStoryTime(activeStory.created_at)}</Text>
+              </View>
+            </View>
+
+            <FlatList
+              ref={flatListRef}
+              horizontal
+              pagingEnabled
+              data={viewer.flatStories}
+              scrollEnabled={false}
+              keyExtractor={(item) => item.key}
+              getItemLayout={(_data, index) => ({ length: width, offset: width * index, index })}
+              initialScrollIndex={viewer.currentFlatIndex}
+              renderItem={({ item }) => <StorySlide story={item.story} width={width} height={contentHeight} />}
+              style={styles.slider}
+              removeClippedSubviews
+              initialNumToRender={1}
+              maxToRenderPerBatch={2}
+              windowSize={3}
             />
-            <View style={styles.headerRow}>
-              <Text style={[styles.headerText, { color: colors.text }]}>
-                {(activeGroup.profile?.first_name ?? "User").trim()}
-              </Text>
-              <Text style={[styles.timeText, { color: colors.textMuted }]}>{formatStoryTime(activeStory.created_at)}</Text>
+
+            <View style={[styles.bottomArea, { paddingBottom: Math.max(8, insets.bottom) }]}>
+              <ReactionBar
+                activeReaction={localReaction}
+                reactionCount={localReactionCount}
+                onReact={(type) => void onReact(type)}
+              />
+              <Text style={[styles.replyCount, { color: colors.textMuted }]}>{comments.length} replies</Text>
+              <Pressable
+                onPress={() => navigation.navigate("StoryDiscussion", { storyId: activeStory.id, placeId: params.placeId })}
+              >
+                <Text style={[styles.discussionLink, { color: colors.primary }]}>View discussion</Text>
+              </Pressable>
+              <ReplyInput submitting={replyMutation.isPending} onSubmit={onReply} />
             </View>
           </View>
-
-          <FlatList
-            ref={flatListRef}
-            horizontal
-            pagingEnabled
-            data={viewer.flatStories}
-            scrollEnabled={false}
-            keyExtractor={(item) => item.key}
-            getItemLayout={(_data, index) => ({ length: width, offset: width * index, index })}
-            initialScrollIndex={viewer.currentFlatIndex}
-            renderItem={({ item }) => <StorySlide story={item.story} width={width} height={contentHeight} />}
-            style={styles.slider}
-            removeClippedSubviews
-            initialNumToRender={1}
-            maxToRenderPerBatch={2}
-            windowSize={3}
-          />
-
-          <View style={styles.bottomArea}>
-            <ReactionBar
-              activeReaction={localReaction}
-              reactionCount={localReactionCount}
-              onReact={(type) => void onReact(type)}
-            />
-            <Text style={[styles.replyCount, { color: colors.textMuted }]}>{comments.length} replies</Text>
-            <Pressable
-              onPress={() => navigation.navigate("StoryDiscussion", { storyId: activeStory.id, placeId: params.placeId })}
-            >
-              <Text style={[styles.discussionLink, { color: colors.primary }]}>View discussion</Text>
-            </Pressable>
-            <ReplyInput submitting={replyMutation.isPending} onSubmit={onReply} />
-          </View>
-        </View>
-      </GestureDetector>
+        </GestureDetector>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

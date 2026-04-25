@@ -31,18 +31,19 @@ export const useReactToStory = () => {
         .maybeSingle();
 
       if (fetchError) throw fetchError;
+      const existingReaction = existing as { id: string; type: StoryReactionType } | null;
 
-      if (existing?.type === type) {
+      if (existingReaction?.type === type) {
         const { error } = await supabase
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tables are new and not yet in generated types
           .from("story_reactions" as any)
           .delete()
-          .eq("id", existing.id);
+          .eq("id", existingReaction.id);
         if (error) throw error;
         return { action: "removed" as const };
       }
 
-      if (existing?.id) {
+      if (existingReaction?.id) {
         const { data, error } = await supabase
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tables are new and not yet in generated types
           .from("story_reactions" as any)
@@ -51,7 +52,7 @@ export const useReactToStory = () => {
             sticker_id: type === "sticker" ? stickerId ?? null : null,
             created_at: new Date().toISOString(),
           })
-          .eq("id", existing.id)
+          .eq("id", existingReaction.id)
           .select()
           .single();
         if (error) throw error;
@@ -75,7 +76,7 @@ export const useReactToStory = () => {
     },
     onSuccess: (_result, variables) => {
       if (variables.storyId) {
-        void queryClient.invalidateQueries({ queryKey: ["stories", "place"] });
+        void queryClient.invalidateQueries({ queryKey: ["stories"] });
         void queryClient.invalidateQueries({ queryKey: ["story_reactions", "story", variables.storyId] });
       }
       if (variables.commentId) {
