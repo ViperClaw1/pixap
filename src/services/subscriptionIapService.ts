@@ -87,24 +87,21 @@ export async function startSubscriptionPurchase(productId: string, products: Pro
     throw new Error("No eligible Play subscription offer is available for this account.");
   }
 
+  const request =
+    Platform.OS === "android"
+      ? {
+          google: {
+            skus: [productId],
+            subscriptionOffers: [{ sku: productId, offerToken: androidOfferToken! }],
+          },
+        }
+      : {
+          apple: { sku: productId },
+        };
+
   await requestPurchase({
     type: "subs",
-    request: {
-      ios: Platform.OS === "ios" ? { sku: productId } : undefined,
-      android: Platform.OS === "android"
-        ? {
-            skus: [productId],
-            subscriptionOffers: androidOfferToken ? [{ sku: productId, offerToken: androidOfferToken }] : undefined,
-          }
-        : undefined,
-      apple: Platform.OS === "ios" ? { sku: productId } : undefined,
-      google: Platform.OS === "android"
-        ? {
-            skus: [productId],
-            subscriptionOffers: androidOfferToken ? [{ sku: productId, offerToken: androidOfferToken }] : undefined,
-          }
-        : undefined,
-    },
+    request,
   });
 }
 
