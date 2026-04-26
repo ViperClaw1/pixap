@@ -101,6 +101,10 @@ async function postWhatsAppMessage(payload, logMeta) {
       timestamp: new Date().toISOString(),
     }),
   );
+  return {
+    message_id: bodyJson?.messages?.[0]?.id || null,
+    response: bodyJson,
+  };
 }
 
 async function sendWhatsAppTemplate(phone, templateId, variables = []) {
@@ -124,7 +128,7 @@ async function sendWhatsAppTemplate(phone, templateId, variables = []) {
       ...(components.length > 0 ? { components } : {}),
     },
   };
-  await postWhatsAppMessage(payload, {
+  return await postWhatsAppMessage(payload, {
     action: "send_template",
     phone: to,
     template_id: templateId,
@@ -140,7 +144,7 @@ async function sendWhatsAppMessage(phone, text) {
     type: "text",
     text: { body: String(text || "") },
   };
-  await postWhatsAppMessage(payload, {
+  return await postWhatsAppMessage(payload, {
     action: "send_message",
     phone: to,
     text,
