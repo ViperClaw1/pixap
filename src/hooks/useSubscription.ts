@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Constants from "expo-constants";
@@ -25,12 +25,34 @@ async function verifyPurchaseWithBackend(accessToken: string, payload: PurchaseP
   return data as { entitlement?: Record<string, unknown>; error?: string };
 }
 
+async function syncStatusWithBackend(accessToken: string) {
+  const { data, error } = await supabase.functions.invoke("iap-sync-status", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: {},
+  });
+  if (error) throw new Error(error.message);
+  return data as { entitlement?: Record<string, unknown> | null };
+}
+
 export function useSubscription() {
   const { user, session } = useAuth();
   const queryClient = useQueryClient();
   const [iapReady, setIapReady] = useState(false);
   const [iapSupported, setIapSupported] = useState(!isExpoGoRuntime());
   const [iapService, setIapService] = useState<IapService | null>(null);
+  const iapServiceRef = useRef<IapService | null>(null);
+  const authRef = useRef<{ userId: string | null; accessToken: string | null }>({ userId: null, accessToken: null });
+
+  useEffect(() => {
+    iapServiceRef.current = iapService;
+  }, [iapService]);
+
+  useEffect(() => {
+    authRef.current = {
+      userId: user?.id ?? null,
+      accessToken: session?.access_token ?? null,
+    };
+  }, [session?.access_token, user?.id]);
 
   const productIds = useMemo(
     () => [env.pixAiMonthlySubscriptionSku].filter((sku) => sku.length > 0),
@@ -48,21 +70,23 @@ export function useSubscription() {
 
   const verifyAndRefresh = useCallback(
     async (payload: PurchasePayload, source: "purchase" | "restore" | "sync", rawPurchase?: SubscriptionPurchase) => {
-      if (!session?.access_token || !user?.id) throw new Error("Sign in required");
-      const verified = await verifyPurchaseWithBackend(session.access_token, payload, source);
+      const { accessToken, userId } = authRef.current;
+      if (!accessToken || !userId) throw new Error("Sign in required");
+      const verified = await verifyPurchaseWithBackend(accessToken, payload, source);
       if (verified?.error) throw new Error(verified.error);
-      if (rawPurchase && iapService) {
-        await iapService.acknowledgePurchase(rawPurchase);
+      if (rawPurchase && iapServiceRef.current) {
+        await iapServiceRef.current.acknowledgePurchase(rawPurchase);
       }
-      await queryClient.invalidateQueries({ queryKey: ["subscription-entitlement", user.id] });
+      await queryClient.invalidateQueries({ queryKey: ["subscription-entitlement", userId] });
       return verified;
     },
-    [iapService, queryClient, session?.access_token, user?.id],
+    [queryClient],
   );
 
   useEffect(() => {
     let unsubscribe: () => void = () => {};
     let mounted = true;
+    let serviceInstance: IapService | null = null;
 
     void (async () => {
       if (isExpoGoRuntime()) {
@@ -73,6 +97,7 @@ export function useSubscription() {
         const service = await import("@/services/subscriptionIapService");
         if (!mounted) return;
         setIapService(service);
+        serviceInstance = service;
         await service.initIapConnection();
         if (!mounted) return;
         setIapSupported(true);
@@ -104,11 +129,22 @@ export function useSubscription() {
     return () => {
       mounted = false;
       unsubscribe();
-      if (iapService) {
-        void iapService.endIapConnection();
+      if (serviceInstance) {
+        void serviceInstance.endIapConnection();
       }
     };
-  }, [iapService, verifyAndRefresh]);
+  }, [verifyAndRefresh]);
+
+  useEffect(() => {
+    if (!session?.access_token || !user?.id) return;
+    void syncStatusWithBackend(session.access_token)
+      .then(() => queryClient.invalidateQueries({ queryKey: ["subscription-entitlement", user.id] }))
+      .catch((error) => {
+        if (__DEV__) {
+          console.warn("[subscription] sync-status failed", error);
+        }
+      });
+  }, [queryClient, session?.access_token, user?.id]);
 
   const buyMutation = useMutation({
     mutationFn: async () => {
@@ -116,7 +152,7 @@ export function useSubscription() {
       if (!iapSupported || !iapService) {
         throw new Error("In-app purchases are not available in Expo Go. Use a development or production build.");
       }
-      await iapService.startSubscriptionPurchase(productIds[0]);
+      await iapService.startSubscriptionPurchase(productIds[0], productsQuery.data ?? []);
     },
   });
 
@@ -128,7 +164,7 @@ export function useSubscription() {
       const purchases = await iapService.restorePurchases();
       if (purchases.length === 0) return;
       for (const purchase of purchases) {
-        await verifyAndRefresh(purchase, "restore");
+        await verifyAndRefresh(purchase.payload, "restore", purchase.raw);
       }
     },
   });

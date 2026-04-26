@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useEntitlement } from "@/hooks/useEntitlement";
 
 const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
 const GOOGLE_SUBSCRIPTION_URL = "https://play.google.com/store/account/subscriptions";
@@ -15,6 +16,16 @@ export default function SubscriptionPaywallScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { iapSupported, products, productsLoading, purchase, restore, purchasePending, restorePending } = useSubscription();
+  const { isActive } = useEntitlement();
+
+  useEffect(() => {
+    if (!isActive) return;
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate("AIBooking");
+  }, [isActive, navigation]);
 
   const styles = useMemo(
     () =>
