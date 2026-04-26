@@ -116,27 +116,47 @@ export default function BookingFlowScreen() {
         payment_status: price > 0 ? "pending" : "paid",
         status: "upcoming",
       });
-      if (price > 0) {
-        const createdCartItem = await createCartItem.mutateAsync({
-          business_card_id: place.id,
-          date_time: dateTime.toISOString(),
-          cost: price,
-          persons: guests,
-          is_restaurant_table: false,
-        });
-        const accessToken = session?.access_token;
-        if (accessToken && createdCartItem?.id) {
-          void supabase.functions
-            .invoke("n8n-wa-booking-start", {
-              body: { cart_item_id: createdCartItem.id },
-              headers: { Authorization: `Bearer ${accessToken}` },
-            })
-            .catch((error) => {
-              if (__DEV__) {
-                console.warn("[n8n-wa-booking-start] invoke failed", error);
+      const createdCartItem = await createCartItem.mutateAsync({
+        business_card_id: place.id,
+        date_time: dateTime.toISOString(),
+        cost: price,
+        persons: guests,
+        is_restaurant_table: false,
+      });
+      const accessToken = session?.access_token;
+      if (accessToken && createdCartItem?.id) {
+        void supabase.functions
+          .invoke("n8n-wa-booking-start", {
+            body: { cart_item_id: createdCartItem.id },
+            headers: { Authorization: `Bearer ${accessToken}` },
+          })
+          .then((res) => {
+            const { error, data } = res;
+            if (!error) return;
+            let details = error.message;
+            const rawBody = (error as { context?: { body?: string } }).context?.body;
+            if (rawBody) {
+              try {
+                const parsed = JSON.parse(rawBody) as { error?: string; step?: string; hint?: string };
+                details = `${parsed.error ?? error.message}${parsed.step ? ` [${parsed.step}]` : ""}${
+                  parsed.hint ? ` — ${parsed.hint}` : ""
+                }`;
+              } catch {
+                details = `${details} ${rawBody.slice(0, 220)}`;
               }
-            });
-        }
+            } else if (data && typeof data === "object" && data !== null && "error" in data) {
+              const parsed = data as { error?: string; step?: string; hint?: string };
+              details = `${parsed.error ?? error.message}${parsed.step ? ` [${parsed.step}]` : ""}${
+                parsed.hint ? ` — ${parsed.hint}` : ""
+              }`;
+            }
+            console.warn("[n8n-wa-booking-start] invoke failed", details);
+          })
+          .catch((error) => {
+            if (__DEV__) {
+              console.warn("[n8n-wa-booking-start] invoke failed", error);
+            }
+          });
       }
       Alert.alert(
         price > 0 ? "Draft created" : "Booking confirmed",

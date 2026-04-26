@@ -2,7 +2,7 @@ const http = require("http");
 const express = require("express");
 const bookingRoutes = require("./routes/booking");
 const whatsappRoutes = require("./routes/whatsapp");
-const { getDebugState } = require("./services/bookingService");
+const { getDebugState, getRuntimeTemplateConfig } = require("./services/bookingService");
 const { runParserSelfChecks } = require("./services/parser");
 
 /** Local default: keep off **8081** (Expo Metro / RN bundler). Production uses `PORT` from the host (e.g. Railway). */
@@ -44,7 +44,15 @@ app.get("/", (_req, res) => {
 });
 
 app.get("/health", (_req, res) => {
-  res.status(200).json({ ok: true, service: "wa-booking-service" });
+  const phoneId = (process.env.WHATSAPP_PHONE_NUMBER_ID || "").trim();
+  const templateLanguage = (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim() || "en_US";
+  res.status(200).json({
+    ok: true,
+    service: "wa-booking-service",
+    template_language: templateLanguage,
+    whatsapp_phone_number_id_suffix: phoneId ? phoneId.slice(-6) : null,
+    flow_templates: getRuntimeTemplateConfig(),
+  });
 });
 
 app.use("/webhook", bookingRoutes);
