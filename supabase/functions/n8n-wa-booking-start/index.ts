@@ -24,6 +24,24 @@ function resolveWaBookingServiceUrl(raw: string): string {
   return `${trimmed}/webhook/booking`;
 }
 
+async function fetchWaServiceHealth(bookingUrl: string): Promise<{ url: string; status?: number; bodyPreview?: string } | null> {
+  try {
+    const parsed = new URL(bookingUrl);
+    const healthUrl = `${parsed.origin}/health`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort("timeout"), 2500);
+    try {
+      const res = await fetch(healthUrl, { method: "GET", signal: controller.signal });
+      const body = (await res.text().catch(() => "")).slice(0, 400);
+      return { url: healthUrl, status: res.status, bodyPreview: body || undefined };
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 204, headers: corsHeaders });
@@ -86,7 +104,9 @@ Deno.serve(async (req) => {
 
   const cartItemId = typeof body.cart_item_id === "string" ? body.cart_item_id.trim() : "";
   if (!cartItemId) {
-    return new Response(JSON.stringify({ error: "Missing cart_item_id", step: "input_validation", hint: "Provide cart_item_id." }), {
+    const payload = { error: "Missing cart_item_id", step: "input_validation", hint: "Provide cart_item_id." };
+    console.warn("[n8n-wa-booking-start] validation_failed", payload);
+    return new Response(JSON.stringify(payload), {
       status: 400,
       headers: jsonHeaders(),
     });
@@ -125,14 +145,16 @@ Deno.serve(async (req) => {
   const bc = row.business_card as { name?: string | null; contact_whatsapp?: string | null } | null;
   const venueWhatsapp = (bc?.contact_whatsapp ?? "").trim();
   if (!venueWhatsapp) {
+    const payload = {
+      error: "Venue has no contact_whatsapp",
+      step: "venue_validation",
+      cart_item_id: row.id,
+      business_card_id: row.business_card_id,
+      hint: "Set business_cards.contact_whatsapp for this venue, then retry.",
+    };
+    console.warn("[n8n-wa-booking-start] validation_failed", payload);
     return new Response(
-      JSON.stringify({
-        error: "Venue has no contact_whatsapp",
-        step: "venue_validation",
-        cart_item_id: row.id,
-        business_card_id: row.business_card_id,
-        hint: "Set business_cards.contact_whatsapp for this venue, then retry.",
-      }),
+      JSON.stringify(payload),
       {
       status: 400,
       headers: jsonHeaders(),
@@ -212,13 +234,20 @@ Deno.serve(async (req) => {
   if (!waRes.ok) {
     const text = await waRes.text();
     const preview = text.slice(0, 400);
-    console.warn("[n8n-wa-booking-start] wa_booking_upstream", waRes.status, preview);
+    const healthProbe = await fetchWaServiceHealth(waBookingUrl);
+    console.warn("[n8n-wa-booking-start] wa_booking_upstream", waRes.status, {
+      wa_booking_url: waBookingUrl,
+      wa_booking_body_preview: preview,
+      wa_service_health: healthProbe,
+    });
     return new Response(
       JSON.stringify({
         error: "wa_booking_service_failed",
         step: "wa_booking_fetch",
+        wa_booking_url: waBookingUrl,
         wa_booking_status: waRes.status,
         wa_booking_body_preview: preview || undefined,
+        wa_service_health: healthProbe ?? undefined,
         hint:
           waRes.status === 404
             ? "WA_BOOKING_SERVICE_URL may be wrong (expected base URL or full .../webhook/booking path)."

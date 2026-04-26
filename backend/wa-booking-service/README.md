@@ -37,6 +37,9 @@ Service listens on **port 8787** by default (avoids **8081**, which Expo Metro u
 - `WHATSAPP_GRAPH_VERSION` (optional): default `v22.0`.
 - `WHATSAPP_GRAPH_BASE_URL` (optional): default `https://graph.facebook.com`.
 - `WHATSAPP_TEMPLATE_LANGUAGE` (optional): default `en_US`.
+- `WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL` (required only if the `check_availability` template header format is **IMAGE**): public HTTPS image URL used for the header image parameter.
+- `WHATSAPP_TEMPLATE_<TEMPLATE_NAME>_HEADER_IMAGE_URL` (optional): per-template header image URL override (template name uppercased, e.g. `WHATSAPP_TEMPLATE_CHECK_AVAILABILITY_HEADER_IMAGE_URL`).
+- `WHATSAPP_TEMPLATE_HEADER_IMAGE_URL` (optional): fallback header image URL used when a template-specific one is not set.
 - `APP_CALLBACK_URL` (optional): default `https://example.com/api/update-booking` — used only for bookings **without** `supabase_callback_url` / `supabase_callback_token` in the POST body
 - `APP_NOTIFY_RETRIES` (optional): default `3`
 - `APP_NOTIFY_TIMEOUT_MS` (optional): default `5000`

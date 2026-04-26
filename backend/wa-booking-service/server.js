@@ -3,6 +3,7 @@ const express = require("express");
 const bookingRoutes = require("./routes/booking");
 const whatsappRoutes = require("./routes/whatsapp");
 const { getDebugState, getRuntimeTemplateConfig } = require("./services/bookingService");
+const { templateHeaderImageUrl } = require("./services/whatsapp");
 const { runParserSelfChecks } = require("./services/parser");
 
 /** Local default: keep off **8081** (Expo Metro / RN bundler). Production uses `PORT` from the host (e.g. Railway). */
@@ -52,6 +53,7 @@ app.get("/health", (_req, res) => {
     template_language: templateLanguage,
     whatsapp_phone_number_id_suffix: phoneId ? phoneId.slice(-6) : null,
     flow_templates: getRuntimeTemplateConfig(),
+    check_availability_header_image_configured: Boolean(templateHeaderImageUrl("check_availability")),
   });
 });
 
