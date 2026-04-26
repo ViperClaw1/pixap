@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import type { StoryReactionType } from "@/types/stories";
 import type { FeedStoryItem } from "@/hooks/useStoriesFeed";
+import { isAuthRequiredError } from "@/lib/authRequired";
 import { ReactionBar } from "./ReactionBar";
 import { CommentPreview } from "./CommentPreview";
 
@@ -16,6 +17,7 @@ interface FeedStoryCardProps {
   onPressUser: () => void;
   onToggleFollow: (isCurrentlyFollowing: boolean) => Promise<void>;
   onReact: (type: StoryReactionType) => Promise<void>;
+  onAuthRequired: () => void;
 }
 
 function FeedStoryCardComponent({
@@ -27,6 +29,7 @@ function FeedStoryCardComponent({
   onPressUser,
   onToggleFollow,
   onReact,
+  onAuthRequired,
 }: FeedStoryCardProps) {
   const { colors } = useAppTheme();
   const [localReaction, setLocalReaction] = useState<StoryReactionType | null>(story.my_reaction);
@@ -53,7 +56,23 @@ function FeedStoryCardComponent({
     } catch (error) {
       setLocalReaction(previousReaction);
       setLocalReactionCount(story.reaction_count);
+      if (isAuthRequiredError(error)) {
+        onAuthRequired();
+        return;
+      }
       Alert.alert("Could not react", error instanceof Error ? error.message : "Please try again.");
+    }
+  };
+
+  const onFollowPress = async () => {
+    try {
+      await onToggleFollow(story.is_followed_author);
+    } catch (error) {
+      if (isAuthRequiredError(error)) {
+        onAuthRequired();
+        return;
+      }
+      Alert.alert("Could not follow", error instanceof Error ? error.message : "Please try again.");
     }
   };
 
@@ -85,7 +104,7 @@ function FeedStoryCardComponent({
 
         {canFollow ? (
           <Pressable
-            onPress={() => void onToggleFollow(story.is_followed_author)}
+            onPress={() => void onFollowPress()}
             disabled={followPending}
             style={[
               styles.followBtn,

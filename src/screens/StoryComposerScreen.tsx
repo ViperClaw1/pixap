@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
 import { SmartImage } from "@/components/SmartImage";
@@ -23,6 +24,7 @@ import type { BrowseFlowParamList } from "@/navigation/types";
 import { useCreateStory } from "@/hooks/useCreateStory";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
 
 type ComposerRoute = RouteProp<BrowseFlowParamList, "StoryComposer">;
@@ -50,7 +52,7 @@ export default function StoryComposerScreen() {
 
   const uploadStoryPhoto = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!user?.id) {
-      Alert.alert("Login required", "Please login to upload a story photo.");
+      navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
       return;
     }
     setUploadingPhoto(true);
@@ -79,6 +81,10 @@ export default function StoryComposerScreen() {
       const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
       setMediaUrl(data.publicUrl);
     } catch (error) {
+      if (isAuthRequiredError(error)) {
+        navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+        return;
+      }
       const message = error instanceof Error ? error.message : "Could not upload story photo.";
       Alert.alert("Upload failed", message);
     } finally {
@@ -139,6 +145,10 @@ export default function StoryComposerScreen() {
       });
       navigation.goBack();
     } catch (error) {
+      if (isAuthRequiredError(error)) {
+        navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+        return;
+      }
       Alert.alert("Failed", error instanceof Error ? error.message : "Could not create story");
     }
   };

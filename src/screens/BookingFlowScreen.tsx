@@ -1,15 +1,69 @@
 import { useState, useMemo } from "react";
 import { View, Text, Pressable, StyleSheet, ScrollView, Alert } from "react-native";
-import { useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
+import { CommonActions, useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useBusinessCard } from "@/hooks/useBusinessCards";
 import { useCreateCartItem } from "@/hooks/useCartItems";
+import { useCreateBooking } from "@/hooks/useBookings";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import type { BrowseFlowParamList } from "@/navigation/types";
-import { navigateToCartMain } from "@/navigation/navigationHelpers";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
+import { useAppTheme } from "@/contexts/ThemeContext";
 
 const timeSlots = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
+const CALENDAR_MONTHS_AHEAD = 6;
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+type CalendarCell = { kind: "pad" } | { kind: "day"; ymd: string; day: number };
+
+function startOfLocalDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function toYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function fromYmd(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+function monthKey(d: Date): number {
+  return d.getFullYear() * 12 + d.getMonth();
+}
+
+function firstOfMonthContaining(d: Date): Date {
+  const x = startOfLocalDay(d);
+  return new Date(x.getFullYear(), x.getMonth(), 1);
+}
+
+function buildMonthCells(year: number, month: number): CalendarCell[] {
+  const lead = new Date(year, month, 1).getDay();
+  const dim = new Date(year, month + 1, 0).getDate();
+  const cells: CalendarCell[] = [];
+  for (let i = 0; i < lead; i++) cells.push({ kind: "pad" });
+  for (let d = 1; d <= dim; d++) {
+    cells.push({ kind: "day", day: d, ymd: toYmd(new Date(year, month, d)) });
+  }
+  while (cells.length % 7 !== 0) cells.push({ kind: "pad" });
+  return cells;
+}
+
+function chunkCells<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 
 type R = RouteProp<BrowseFlowParamList, "BookingFlow">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "BookingFlow">;
@@ -18,51 +72,95 @@ export default function BookingFlowScreen() {
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+  const { session } = useAuth();
   const { data: place } = useBusinessCard(id);
   const createCartItem = useCreateCartItem();
-
-  const dates = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
-      return d;
-    });
-  }, []);
+  const createBooking = useCreateBooking();
 
   const [step, setStep] = useState(0);
-  const [selectedDate, setSelectedDate] = useState(dates[0]);
+  const [selectedDateYmd, setSelectedDateYmd] = useState(() => toYmd(new Date()));
+  const [visibleCalendarMonth, setVisibleCalendarMonth] = useState<Date>(() => firstOfMonthContaining(new Date()));
   const [selectedTime, setSelectedTime] = useState("");
   const [guests, setGuests] = useState(2);
+  const selectedDate = useMemo(() => fromYmd(selectedDateYmd), [selectedDateYmd]);
 
   if (!place) return null;
 
   const totalSteps = 2;
-
-  const isRestaurantBooking =
-    (place.tags ?? []).some((t) => /restaurant/i.test(String(t))) ||
-    (place.category?.name?.toLowerCase().includes("restaurant") ?? false);
+  const todayYmd = toYmd(startOfLocalDay(new Date()));
+  const earliestBookableMonth = firstOfMonthContaining(new Date());
+  const latestBookableMonth = new Date(
+    earliestBookableMonth.getFullYear(),
+    earliestBookableMonth.getMonth() + CALENDAR_MONTHS_AHEAD,
+    1,
+  );
+  const canGoPrevMonth = monthKey(visibleCalendarMonth) > monthKey(earliestBookableMonth);
+  const canGoNextMonth = monthKey(visibleCalendarMonth) < monthKey(latestBookableMonth);
+  const calendarCells = useMemo(
+    () => buildMonthCells(visibleCalendarMonth.getFullYear(), visibleCalendarMonth.getMonth()),
+    [visibleCalendarMonth],
+  );
 
   const handleConfirm = async () => {
     const dateTime = new Date(selectedDate);
     const [h, m] = selectedTime.split(":").map(Number);
     dateTime.setHours(h, m, 0, 0);
     try {
-      await createCartItem.mutateAsync({
+      const price = Number(place.booking_price);
+      await createBooking.mutateAsync({
         business_card_id: place.id,
         date_time: dateTime.toISOString(),
-        cost: Number(place.booking_price),
+        cost: price,
         persons: guests,
-        is_restaurant_table: isRestaurantBooking,
+        payment_status: price > 0 ? "pending" : "paid",
+        status: "upcoming",
       });
-      Alert.alert("Added to cart");
-      navigateToCartMain(navigation);
-    } catch {
+      if (price > 0) {
+        const createdCartItem = await createCartItem.mutateAsync({
+          business_card_id: place.id,
+          date_time: dateTime.toISOString(),
+          cost: price,
+          persons: guests,
+          is_restaurant_table: false,
+        });
+        const accessToken = session?.access_token;
+        if (accessToken && createdCartItem?.id) {
+          void supabase.functions
+            .invoke("n8n-wa-booking-start", {
+              body: { cart_item_id: createdCartItem.id },
+              headers: { Authorization: `Bearer ${accessToken}` },
+            })
+            .catch((error) => {
+              if (__DEV__) {
+                console.warn("[n8n-wa-booking-start] invoke failed", error);
+              }
+            });
+        }
+      }
+      Alert.alert(
+        price > 0 ? "Draft created" : "Booking confirmed",
+        price > 0
+          ? "Draft booking was added to Bookings. Venue check is started in background."
+          : "Your booking is now in Bookings.",
+      );
+      navigation.getParent()?.dispatch(
+        CommonActions.navigate({
+          name: "Bookings",
+          params: { screen: "BookingsMain" },
+        }),
+      );
+    } catch (error) {
+      if (isAuthRequiredError(error)) {
+        navigateToAuthScreen(navigation);
+        return;
+      }
       Alert.alert("Failed to add to cart");
     }
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
         <Pressable onPress={() => (step > 0 ? setStep(step - 1) : navigation.goBack())}>
           <Text style={styles.back}>←</Text>
@@ -94,23 +192,81 @@ export default function BookingFlowScreen() {
         {step === 1 && (
           <View>
             <Text style={styles.section}>Select date & time</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {dates.map((d) => {
-                const sel = d.toDateString() === selectedDate.toDateString();
-                return (
-                  <Pressable
-                    key={d.toISOString()}
-                    style={[styles.datePill, sel && styles.datePillSel]}
-                    onPress={() => setSelectedDate(d)}
-                  >
-                    <Text style={[styles.datePillSmall, sel && styles.datePillTextSel]}>
-                      {d.toLocaleDateString("en", { weekday: "short" })}
-                    </Text>
-                    <Text style={[styles.datePillNum, sel && styles.datePillTextSel]}>{d.getDate()}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            <View style={styles.calendarPanel}>
+              <View style={styles.calendarNav}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous month"
+                  disabled={!canGoPrevMonth}
+                  onPress={() =>
+                    setVisibleCalendarMonth((prev) => {
+                      const y = prev.getFullYear();
+                      const m = prev.getMonth();
+                      return new Date(y, m - 1, 1);
+                    })
+                  }
+                  style={[styles.calendarNavBtn, !canGoPrevMonth && styles.calendarNavBtnDisabled]}
+                >
+                  <Ionicons name="chevron-back" size={22} color={colors.text} />
+                </Pressable>
+                <Text style={[styles.calendarMonthTitle, { color: colors.text }]}>
+                  {visibleCalendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Next month"
+                  disabled={!canGoNextMonth}
+                  onPress={() =>
+                    setVisibleCalendarMonth((prev) => {
+                      const y = prev.getFullYear();
+                      const m = prev.getMonth();
+                      return new Date(y, m + 1, 1);
+                    })
+                  }
+                  style={[styles.calendarNavBtn, !canGoNextMonth && styles.calendarNavBtnDisabled]}
+                >
+                  <Ionicons name="chevron-forward" size={22} color={colors.text} />
+                </Pressable>
+              </View>
+              <View style={styles.calendarDowRow}>
+                {WEEKDAY_LABELS.map((label) => (
+                  <Text key={label} style={styles.calendarDowCell}>
+                    {label}
+                  </Text>
+                ))}
+              </View>
+              {chunkCells(calendarCells, 7).map((row, rowIdx) => (
+                <View key={`w-${rowIdx}`} style={styles.calendarWeekRow}>
+                  {row.map((cell, colIdx) => {
+                    if (cell.kind === "pad") {
+                      return <View key={`p-${rowIdx}-${colIdx}`} style={styles.calendarCell} />;
+                    }
+                    const { ymd, day } = cell;
+                    const isSelected = selectedDateYmd === ymd;
+                    const isToday = ymd === todayYmd;
+                    const isPast = ymd < todayYmd;
+                    return (
+                      <View key={ymd} style={styles.calendarCell}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${ymd}`}
+                          disabled={isPast}
+                          onPress={() => setSelectedDateYmd(ymd)}
+                          style={[
+                            styles.calendarCellDayInner,
+                            isToday && styles.calendarCellToday,
+                            isSelected && styles.calendarCellSelected,
+                            isPast && styles.calendarCellPast,
+                          ]}
+                        >
+                          <Text style={styles.calendarCellDayText}>{day}</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
             <View style={styles.timeGrid}>
               {timeSlots.map((t) => (
                 <Pressable
@@ -131,7 +287,7 @@ export default function BookingFlowScreen() {
             <Text>
               {guests} guests · {selectedDate.toDateString()} {selectedTime}
             </Text>
-            <Text style={{ marginTop: 8 }}>{Number(place.booking_price).toLocaleString()} ₸</Text>
+            <Text style={{ marginTop: 8 }}>{Number(place.booking_price).toLocaleString()} $</Text>
           </View>
         )}
       </ScrollView>
@@ -152,7 +308,7 @@ export default function BookingFlowScreen() {
           </Pressable>
         ) : (
           <Pressable style={styles.primary} onPress={() => void handleConfirm()}>
-            <Text style={styles.primaryText}>Add to cart</Text>
+            <Text style={styles.primaryText}>Confirm booking</Text>
           </Pressable>
         )}
       </View>
@@ -178,18 +334,45 @@ const styles = StyleSheet.create({
   },
   guestBtnText: { fontSize: 22 },
   guestCount: { fontSize: 40, fontWeight: "800", width: 48, textAlign: "center" },
-  datePill: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: "#f5f5f5",
-    marginRight: 8,
-    alignItems: "center",
+  calendarPanel: {
+    borderRadius: 10,
+    padding: 8,
+    marginTop: 4,
+    backgroundColor: "#fff",
   },
-  datePillSel: { backgroundColor: "#111" },
-  datePillSmall: { fontSize: 10, textTransform: "uppercase" },
-  datePillNum: { fontSize: 18, fontWeight: "700" },
-  datePillTextSel: { color: "#fff" },
+  calendarNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  calendarNavBtn: { padding: 8, borderRadius: 8 },
+  calendarNavBtnDisabled: { opacity: 0.35 },
+  calendarMonthTitle: { fontWeight: "800", fontSize: 16 },
+  calendarDowRow: { flexDirection: "row", marginBottom: 4 },
+  calendarDowCell: {
+    flex: 1,
+    textAlign: "center",
+    color: "#9ca3af",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  calendarWeekRow: { flexDirection: "row", alignItems: "center" },
+  calendarCell: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 4 },
+  calendarCellDayInner: {
+    minWidth: 38,
+    minHeight: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  calendarCellDayText: { color: "#111", fontSize: 15, fontWeight: "700" },
+  calendarCellToday: { borderStyle: "dashed", borderColor: "#d1d5db" },
+  calendarCellSelected: { borderColor: "#111", backgroundColor: "#f3f4f6" },
+  calendarCellPast: { opacity: 0.38 },
   timeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 16 },
   timeCell: {
     width: "22%",

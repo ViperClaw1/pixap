@@ -1,13 +1,14 @@
 import { useMemo } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, type NavigationProp, type ParamListBase, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import type { BrowseFlowParamList } from "@/navigation/types";
 import { useStoryComments } from "@/hooks/useStoryComments";
 import { useReplyToStory } from "@/hooks/useReplyToStory";
 import { ReplyInput } from "@/components/stories/ReplyInput";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 
 type DiscussionRoute = RouteProp<BrowseFlowParamList, "StoryDiscussion">;
 type DiscussionNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryDiscussion">;
@@ -69,7 +70,15 @@ export default function StoryDiscussionScreen() {
         >
           <ReplyInput
             submitting={replyMutation.isPending}
-            onSubmit={(value) => replyMutation.mutateAsync({ storyId: params.storyId, content: value })}
+            onSubmit={async (value) => {
+              try {
+                await replyMutation.mutateAsync({ storyId: params.storyId, content: value });
+              } catch (error) {
+                if (isAuthRequiredError(error)) {
+                  navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+                }
+              }
+            }}
           />
         </View>
       </KeyboardAvoidingView>

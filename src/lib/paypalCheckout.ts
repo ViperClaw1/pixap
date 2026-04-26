@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { env } from "@/lib/env";
+import { safeRefreshSession } from "@/lib/supabaseAuth";
 import * as Linking from "expo-linking";
 
 type CheckoutBody = Record<string, unknown>;
@@ -25,15 +26,16 @@ async function withAuth<T>(
     let { data: sessionData } = await supabase.auth.getSession();
     let token = sessionData.session?.access_token;
     if (!token) {
-      const { data: refreshed } = await supabase.auth.refreshSession();
-      token = refreshed.session?.access_token;
+      await safeRefreshSession();
+      ({ data: sessionData } = await supabase.auth.getSession());
+      token = sessionData.session?.access_token;
     }
     return run(token);
   };
 
   let out = await postOnce();
   if (out.unauthorized) {
-    await supabase.auth.refreshSession();
+    await safeRefreshSession();
     out = await postOnce();
   }
   if (out.data) return out.data;

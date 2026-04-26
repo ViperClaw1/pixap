@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { PixAISlot } from "@/hooks/usePixAI";
 import { buildSlotsFromBookingTimes, localDayBoundsIso } from "@/lib/bookingSlots";
+import { safeRefreshSession } from "@/lib/supabaseAuth";
 
 function isFunctionsUnauthorized(error: unknown): boolean {
   const ctx =
@@ -37,8 +38,9 @@ async function invokeGetAvailableSlots(businessId: string, dateYmd: string) {
     let { data: sessionData } = await supabase.auth.getSession();
     let token = sessionData.session?.access_token;
     if (!token) {
-      const { data: refreshed } = await supabase.auth.refreshSession();
-      token = refreshed.session?.access_token ?? undefined;
+      await safeRefreshSession();
+      ({ data: sessionData } = await supabase.auth.getSession());
+      token = sessionData.session?.access_token ?? undefined;
     }
     return supabase.functions.invoke("get-available-slots", {
       body: { business_id: businessId, date: dateYmd },
@@ -48,7 +50,7 @@ async function invokeGetAvailableSlots(businessId: string, dateYmd: string) {
 
   let { data, error } = await invokeOnce();
   if (error && isFunctionsUnauthorized(error)) {
-    await supabase.auth.refreshSession();
+    await safeRefreshSession();
     ({ data, error } = await invokeOnce());
   }
   return { data, error };

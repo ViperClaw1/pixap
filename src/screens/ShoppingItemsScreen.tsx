@@ -26,6 +26,7 @@ import type { BrowseFlowParamList } from "@/navigation/types";
 import { navigateToProfileAuth } from "@/navigation/navigationHelpers";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
+import { isAuthRequiredError } from "@/lib/authRequired";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
 
 type R = RouteProp<BrowseFlowParamList, "ShoppingItems">;
@@ -134,7 +135,11 @@ export default function ShoppingItemsScreen() {
       Alert.alert("Added to cart", item.name);
       setModalOpen(false);
       setSelectedItem(null);
-    } catch {
+    } catch (error) {
+      if (isAuthRequiredError(error)) {
+        navigateToProfileAuth(navigation);
+        return;
+      }
       Alert.alert("Failed to add");
     }
   };

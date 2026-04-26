@@ -1,13 +1,14 @@
 import { useMemo, useState, useEffect } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView, ActivityIndicator } from "react-native";
 import { SmartImage } from "@/components/SmartImage";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/integrations/supabase/client";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import { AUTH_PRIMARY_COLOR, primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
 
 const PHONE_VALIDATION_PATTERN = /^\d-\(\d{3}\)-\d{3}-\d{4}$/;
@@ -40,6 +41,7 @@ function EditProfileScreenContent() {
   const { data: profile } = useProfile();
   const update = useUpdateProfile();
   const queryClient = useQueryClient();
+  const authNavigation = navigation as unknown as NavigationProp<ParamListBase>;
   const [first, setFirst] = useState(profile?.first_name ?? "");
   const [last, setLast] = useState(profile?.last_name ?? "");
   const [phone, setPhone] = useState(formatPhoneMask(profile?.phone ?? ""));
@@ -109,7 +111,10 @@ function EditProfileScreenContent() {
   };
 
   const uploadAvatar = async (asset: ImagePicker.ImagePickerAsset) => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      navigateToAuthScreen(authNavigation);
+      return;
+    }
     setUploadingAvatar(true);
     try {
       let fileBytes: ArrayBuffer | Uint8Array;
@@ -148,6 +153,10 @@ function EditProfileScreenContent() {
       }
       await queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
     } catch (error: unknown) {
+      if (isAuthRequiredError(error)) {
+        navigateToAuthScreen(authNavigation);
+        return;
+      }
       const message = error instanceof Error ? error.message : "Could not upload avatar. Please try again.";
       Alert.alert("Upload failed", message);
     } finally {
@@ -171,6 +180,10 @@ function EditProfileScreenContent() {
       Alert.alert("Saved");
       navigation.goBack();
     } catch (error: unknown) {
+      if (isAuthRequiredError(error)) {
+        navigateToAuthScreen(authNavigation);
+        return;
+      }
       const message = error instanceof Error ? error.message : "Failed to save";
       Alert.alert("Failed to save", message);
     }

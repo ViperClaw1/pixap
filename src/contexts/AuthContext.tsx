@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { env } from "@/lib/env";
+import { isInvalidRefreshTokenError } from "@/lib/supabaseAuth";
 import { registerNativePushToken } from "@/services/pushNotifications";
 
 interface SignInResult {
@@ -45,16 +46,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let active = true;
-
-    const isInvalidRefreshTokenError = (error: unknown) => {
-      if (!(error instanceof Error)) return false;
-      const message = error.message.toLowerCase();
-      return (
-        message.includes("invalid refresh token") ||
-        message.includes("refresh token not found") ||
-        message.includes("jwt expired")
-      );
-    };
 
     const applySession = (next: Session | null) => {
       if (!active) return;
@@ -150,7 +141,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error && isInvalidRefreshTokenError(error)) {
+      await supabase.auth.signOut({ scope: "local" });
+      return;
+    }
+    if (error) throw error;
   };
 
   const resetPassword = async (email: string) => {

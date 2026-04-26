@@ -21,6 +21,7 @@ export type BrowseFlowParamList = {
 /** Home tab stack */
 export type HomeStackParamList = {
   HomeMain: undefined;
+  SearchMain: undefined;
   OAuthCallback: undefined;
 } & BrowseFlowParamList;
 
@@ -61,8 +62,8 @@ export type ProfileStackParamList = {
 export type RootTabParamList = {
   Home: NavigatorScreenParams<HomeStackParamList>;
   Feed: NavigatorScreenParams<FeedStackParamList>;
-  Cart: NavigatorScreenParams<CartStackParamList>;
   Bookings: NavigatorScreenParams<BookingsStackParamList>;
+  Cart: NavigatorScreenParams<CartStackParamList>;
   Profile: NavigatorScreenParams<ProfileStackParamList>;
 };
 
