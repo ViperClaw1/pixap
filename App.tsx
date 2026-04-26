@@ -14,16 +14,10 @@ import PermissionsOnboardingScreen from "@/screens/PermissionsOnboardingScreen";
 import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/lib/permissionsStorage";
 import { supabaseConfigError } from "@/integrations/supabase/client";
 import { logStartupDiagnostics } from "@/lib/startupDiagnostics";
-import { useSubscription } from "@/hooks/useSubscription";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 const queryClient = new QueryClient();
-
-function SubscriptionBootstrap() {
-  useSubscription();
-  return null;
-}
 
 function NavigationRoot() {
   const { colors, isDark } = useAppTheme();
@@ -84,7 +78,6 @@ export default function App() {
         <ThemeProvider>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              <SubscriptionBootstrap />
               {!ready ? null : bootError || supabaseConfigError ? (
                 <View style={{ flex: 1, backgroundColor: "#111", alignItems: "center", justifyContent: "center", padding: 20 }}>
                   <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>Configuration error</Text>
