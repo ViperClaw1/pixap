@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
 
   const cartItemId = typeof body.cart_item_id === "string" ? body.cart_item_id.trim() : "";
   if (!cartItemId) {
-    return new Response(JSON.stringify({ error: "Missing cart_item_id" }), {
+    return new Response(JSON.stringify({ error: "Missing cart_item_id", step: "input_validation", hint: "Provide cart_item_id." }), {
       status: 400,
       headers: jsonHeaders(),
     });
@@ -125,10 +125,19 @@ Deno.serve(async (req) => {
   const bc = row.business_card as { name?: string | null; contact_whatsapp?: string | null } | null;
   const venueWhatsapp = (bc?.contact_whatsapp ?? "").trim();
   if (!venueWhatsapp) {
-    return new Response(JSON.stringify({ error: "Venue has no contact_whatsapp" }), {
+    return new Response(
+      JSON.stringify({
+        error: "Venue has no contact_whatsapp",
+        step: "venue_validation",
+        cart_item_id: row.id,
+        business_card_id: row.business_card_id,
+        hint: "Set business_cards.contact_whatsapp for this venue, then retry.",
+      }),
+      {
       status: 400,
       headers: jsonHeaders(),
-    });
+      },
+    );
   }
 
   if (row.wa_n8n_started_at) {

@@ -83,8 +83,8 @@ function requireStringField(payload, fieldName) {
   return value.trim();
 }
 
-const TEMPLATE_BOOK_AVAILABILITY = "check_is_free";
-const TEMPLATE_BOOK_IS_FREE = "check_availability";
+const TEMPLATE_BOOK_AVAILABILITY = "check_availability";
+const TEMPLATE_BOOK_IS_FREE = "check_is_free";
 const TEMPLATE_BOOK_GET_PAYMENT_LINK = "get_payment_link";
 
 function hasSupabaseCartIntegration(booking) {
@@ -465,10 +465,19 @@ function getDebugState() {
   };
 }
 
+function getRuntimeTemplateConfig() {
+  return {
+    availability_template: TEMPLATE_BOOK_AVAILABILITY,
+    is_free_template: TEMPLATE_BOOK_IS_FREE,
+    payment_link_template: TEMPLATE_BOOK_GET_PAYMENT_LINK,
+  };
+}
+
 module.exports = {
   createBooking,
   processIncomingWhatsApp,
   getDebugState,
+  getRuntimeTemplateConfig,
   /** @deprecated use syncCartOrLegacy via createBooking; kept for ad-hoc tests */
   notifyApp: notifyLegacyApp,
 };
