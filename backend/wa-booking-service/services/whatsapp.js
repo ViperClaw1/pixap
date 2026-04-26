@@ -26,6 +26,34 @@ function buildTemplateComponents(variables) {
   ];
 }
 
+function buildHeaderImageComponent(imageUrl) {
+  const url = String(imageUrl || "").trim();
+  if (!url) return undefined;
+  return {
+    type: "header",
+    parameters: [
+      {
+        type: "image",
+        image: { link: url },
+      },
+    ],
+  };
+}
+
+function templateHeaderImageUrl(templateId) {
+  const specific = process.env[`WHATSAPP_TEMPLATE_${String(templateId).toUpperCase()}_HEADER_IMAGE_URL`];
+  if (specific && String(specific).trim()) return String(specific).trim();
+  const byName =
+    String(templateId) === "check_availability" ? process.env.WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL : undefined;
+  if (byName && String(byName).trim()) return String(byName).trim();
+  const fallback = process.env.WHATSAPP_TEMPLATE_HEADER_IMAGE_URL;
+  return fallback && String(fallback).trim() ? String(fallback).trim() : undefined;
+}
+
+function templateRequiresImageHeader(templateId) {
+  return String(templateId) === "check_availability";
+}
+
 async function postWhatsAppMessage(payload, logMeta) {
   const phoneNumberId = requireEnv("WHATSAPP_PHONE_NUMBER_ID");
   const accessToken = requireEnv("WHATSAPP_ACCESS_TOKEN");
@@ -77,15 +105,23 @@ async function postWhatsAppMessage(payload, logMeta) {
 
 async function sendWhatsAppTemplate(phone, templateId, variables = []) {
   const to = normalizeRecipient(phone);
-  const components = buildTemplateComponents(variables);
+  const bodyComponent = buildTemplateComponents(variables)?.[0];
+  const headerImageUrl = templateHeaderImageUrl(templateId);
+  if (templateRequiresImageHeader(templateId) && !headerImageUrl) {
+    throw new Error(
+      `Missing image header URL for template "${templateId}". Set WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL or WHATSAPP_TEMPLATE_${String(templateId).toUpperCase()}_HEADER_IMAGE_URL.`,
+    );
+  }
+  const headerComponent = buildHeaderImageComponent(headerImageUrl);
+  const components = [headerComponent, bodyComponent].filter(Boolean);
   const payload = {
     messaging_product: "whatsapp",
     to,
     type: "template",
     template: {
       name: String(templateId),
-      language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US" },
-      ...(components ? { components } : {}),
+      language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en" },
+      ...(components.length > 0 ? { components } : {}),
     },
   };
   await postWhatsAppMessage(payload, {
@@ -114,4 +150,5 @@ async function sendWhatsAppMessage(phone, text) {
 module.exports = {
   sendWhatsAppTemplate,
   sendWhatsAppMessage,
+  templateHeaderImageUrl,
 };
