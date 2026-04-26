@@ -28,6 +28,11 @@ export type PurchasePayload = {
   purchase: Record<string, unknown>;
 };
 
+export type RestoredPurchase = {
+  payload: PurchasePayload;
+  raw: SubscriptionPurchase;
+};
+
 function getPlatform(): PurchasePlatform {
   return Platform.OS === "ios" ? "ios" : "android";
 }
@@ -46,6 +51,20 @@ function normalizePurchase(purchase: SubscriptionPurchase): PurchasePayload {
   };
 }
 
+function resolveAndroidOfferToken(product: ProductSubscription | undefined): string | null {
+  if (!product || product.platform !== "android") return null;
+
+  const standardizedOffers = product.subscriptionOffers ?? [];
+  const firstStandardized = standardizedOffers.find((offer) => typeof offer.offerTokenAndroid === "string");
+  if (firstStandardized?.offerTokenAndroid) return firstStandardized.offerTokenAndroid;
+
+  const legacyOffers = product.subscriptionOfferDetailsAndroid ?? [];
+  const firstLegacy = legacyOffers.find((offer) => typeof offer.offerToken === "string");
+  if (firstLegacy?.offerToken) return firstLegacy.offerToken;
+
+  return null;
+}
+
 export async function initIapConnection(): Promise<void> {
   await initConnection();
   if (Platform.OS === "ios") await clearTransactionIOS().catch(() => undefined);
@@ -61,21 +80,40 @@ export async function fetchSubscriptionProducts(skus: string[]): Promise<Product
   return (products ?? []) as ProductSubscription[];
 }
 
-export async function startSubscriptionPurchase(productId: string): Promise<void> {
+export async function startSubscriptionPurchase(productId: string, products: ProductSubscription[] = []): Promise<void> {
+  const selectedProduct = products.find((product) => product.id === productId);
+  const androidOfferToken = resolveAndroidOfferToken(selectedProduct);
+  if (Platform.OS === "android" && !androidOfferToken) {
+    throw new Error("No eligible Play subscription offer is available for this account.");
+  }
+
   await requestPurchase({
     type: "subs",
     request: {
       ios: Platform.OS === "ios" ? { sku: productId } : undefined,
-      android: Platform.OS === "android" ? { skus: [productId] } : undefined,
+      android: Platform.OS === "android"
+        ? {
+            skus: [productId],
+            subscriptionOffers: androidOfferToken ? [{ sku: productId, offerToken: androidOfferToken }] : undefined,
+          }
+        : undefined,
       apple: Platform.OS === "ios" ? { sku: productId } : undefined,
-      google: Platform.OS === "android" ? { skus: [productId] } : undefined,
+      google: Platform.OS === "android"
+        ? {
+            skus: [productId],
+            subscriptionOffers: androidOfferToken ? [{ sku: productId, offerToken: androidOfferToken }] : undefined,
+          }
+        : undefined,
     },
   });
 }
 
-export async function restorePurchases(): Promise<PurchasePayload[]> {
+export async function restorePurchases(): Promise<RestoredPurchase[]> {
   const purchases = await getAvailablePurchases({ onlyIncludeActiveItemsIOS: false });
-  return purchases.map(normalizePurchase);
+  return purchases.map((purchase) => ({
+    payload: normalizePurchase(purchase),
+    raw: purchase,
+  }));
 }
 
 export function startPurchaseListeners(options: {
