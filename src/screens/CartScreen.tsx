@@ -31,6 +31,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CartStackParamList } from "@/navigation/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import {
   buildAvailabilityMessage,
   openWhatsAppAvailability,
@@ -51,11 +52,13 @@ function ServiceCartRow({
   stylesThemed,
   onConfirmBooking,
   onPayBooking,
+  onAuthRequired,
 }: {
   item: CartItem;
   stylesThemed: ReturnType<typeof createCartStyles>;
   onConfirmBooking: (item: CartItem) => Promise<void>;
   onPayBooking: (item: CartItem) => Promise<void>;
+  onAuthRequired: () => void;
 }) {
   const deleteCartItem = useDeleteCartItem();
   const [confirming, setConfirming] = useState(false);
@@ -64,6 +67,18 @@ function ServiceCartRow({
   const paymentLink = item.wa_payment_link?.trim() || null;
   const canPay = canConfirm && Boolean(paymentLink);
   const hasVenueWa = Boolean(item.business_card?.contact_whatsapp?.trim());
+
+  const onRemoveServiceItem = async () => {
+    try {
+      await deleteCartItem.mutateAsync(item.id);
+    } catch (error) {
+      if (isAuthRequiredError(error)) {
+        onAuthRequired();
+        return;
+      }
+      Alert.alert("Failed", "Could not remove this item from your cart.");
+    }
+  };
 
   return (
     <View style={stylesThemed.card}>
@@ -126,7 +141,7 @@ function ServiceCartRow({
           >
             <Text style={stylesThemed.smallBtnOutlineText}>{confirming ? "Saving…" : "Confirm"}</Text>
           </Pressable>
-          <Pressable style={stylesThemed.smallBtnDanger} onPress={() => void deleteCartItem.mutateAsync(item.id)}>
+          <Pressable style={stylesThemed.smallBtnDanger} onPress={() => void onRemoveServiceItem()}>
             <Text style={stylesThemed.dangerBtnText}>Remove</Text>
           </Pressable>
         </View>
@@ -258,10 +273,12 @@ function ShopRow({
   item,
   stylesThemed,
   labelColor,
+  onAuthRequired,
 }: {
   item: ShoppingCartItem;
   stylesThemed: ReturnType<typeof createCartStyles>;
   labelColor: string;
+  onAuthRequired: () => void;
 }) {
   const { colors } = useAppTheme();
   const updateQty = useUpdateShoppingCartQuantity();
@@ -273,8 +290,40 @@ function ShopRow({
   const onRemoveLine = async () => {
     try {
       await removeItem.mutateAsync(item.id);
-    } catch {
+    } catch (error) {
+      if (isAuthRequiredError(error)) {
+        onAuthRequired();
+        return;
+      }
       Alert.alert("Failed", "Could not remove this item from your cart.");
+    }
+  };
+
+  const onDecreaseQty = async () => {
+    try {
+      if (item.quantity <= 1) {
+        await removeItem.mutateAsync(item.id);
+        return;
+      }
+      await updateQty.mutateAsync({ id: item.id, quantity: item.quantity - 1 });
+    } catch (error) {
+      if (isAuthRequiredError(error)) {
+        onAuthRequired();
+        return;
+      }
+      Alert.alert("Failed", "Could not update quantity.");
+    }
+  };
+
+  const onIncreaseQty = async () => {
+    try {
+      await updateQty.mutateAsync({ id: item.id, quantity: item.quantity + 1 });
+    } catch (error) {
+      if (isAuthRequiredError(error)) {
+        onAuthRequired();
+        return;
+      }
+      Alert.alert("Failed", "Could not update quantity.");
     }
   };
 
@@ -314,16 +363,12 @@ function ShopRow({
         </View>
         <View style={stylesThemed.qtyRow}>
           <Pressable
-            onPress={() =>
-              item.quantity <= 1
-                ? void removeItem.mutateAsync(item.id)
-                : void updateQty.mutateAsync({ id: item.id, quantity: item.quantity - 1 })
-            }
+            onPress={() => void onDecreaseQty()}
           >
             <Text style={stylesThemed.qtyBtn}>−</Text>
           </Pressable>
           <Text style={{ color: labelColor, fontWeight: "600" }}>{item.quantity}</Text>
-          <Pressable onPress={() => void updateQty.mutateAsync({ id: item.id, quantity: item.quantity + 1 })}>
+          <Pressable onPress={() => void onIncreaseQty()}>
             <Text style={stylesThemed.qtyBtn}>+</Text>
           </Pressable>
         </View>
@@ -354,12 +399,21 @@ export default function CartScreen() {
   const { data: shoppingItems = [], isLoading: sl } = useShoppingCart();
   const n8nStartingRef = useRef(new Set<string>());
   const n8nStartFailedRef = useRef(new Set<string>());
+  const handleAuthRequired = () => navigateToAuthScreen(navigation);
+  const paidServiceDrafts = useMemo(
+    () => cartItems.filter((item) => item.status === "created" && Number(item.cost ?? 0) > 0),
+    [cartItems],
+  );
+  const paymentAwaitingServices = useMemo(
+    () => paidServiceDrafts.filter((item) => (item.wa_payment_link?.trim()?.length ?? 0) > 0),
+    [paidServiceDrafts],
+  );
 
   useEffect(() => {
     if (tab !== "services" || loading || !user) return;
     const accessToken = session?.access_token;
     if (!accessToken) return;
-    for (const item of cartItems) {
+    for (const item of paidServiceDrafts) {
       if (item.wa_n8n_started_at) continue;
       if (n8nStartFailedRef.current.has(item.id)) continue;
       if (n8nStartingRef.current.has(item.id)) continue;
@@ -415,7 +469,7 @@ export default function CartScreen() {
           void queryClient.invalidateQueries({ queryKey: ["cart_items", user.id] });
         });
     }
-  }, [tab, cartItems, loading, user, session?.access_token, queryClient]);
+  }, [tab, paidServiceDrafts, loading, user, session?.access_token, queryClient]);
 
   if (loading) {
     return (
@@ -448,6 +502,10 @@ export default function CartScreen() {
         }),
       );
     } catch (e: unknown) {
+      if (isAuthRequiredError(e)) {
+        handleAuthRequired();
+        return;
+      }
       Alert.alert("Could not confirm", e instanceof Error ? e.message : "Unknown error");
     }
   };
@@ -548,6 +606,10 @@ export default function CartScreen() {
     try {
       await runPaypalCheckout();
     } catch (e: unknown) {
+      if (isAuthRequiredError(e)) {
+        handleAuthRequired();
+        return;
+      }
       Alert.alert("Checkout failed", e instanceof Error ? e.message : "Unknown error");
     } finally {
       setIsPayingShopping(false);
@@ -571,7 +633,7 @@ export default function CartScreen() {
           <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
         ) : (
           <FlatList
-            data={cartItems}
+            data={paymentAwaitingServices}
             keyExtractor={(i) => i.id}
             contentContainerStyle={{ padding: 16, paddingBottom: 100 + insets.bottom }}
             refreshControl={
@@ -585,13 +647,14 @@ export default function CartScreen() {
                 tintColor={colors.primary}
               />
             }
-            ListEmptyComponent={<Text style={stylesThemed.empty}>No service bookings in cart</Text>}
+            ListEmptyComponent={<Text style={stylesThemed.empty}>No payment awaiting bookings in cart</Text>}
             renderItem={({ item }) => (
               <ServiceCartRow
                 item={item}
                 stylesThemed={stylesThemed}
                 onConfirmBooking={handleConfirmServiceBooking}
                 onPayBooking={handlePayServiceBooking}
+                onAuthRequired={handleAuthRequired}
               />
             )}
           />
@@ -604,7 +667,13 @@ export default function CartScreen() {
             <Text style={stylesThemed.empty}>No shopping items</Text>
           ) : (
             shoppingItems.map((item) => (
-              <ShopRow key={item.id} item={item} stylesThemed={stylesThemed} labelColor={colors.text} />
+              <ShopRow
+                key={item.id}
+                item={item}
+                stylesThemed={stylesThemed}
+                labelColor={colors.text}
+                onAuthRequired={handleAuthRequired}
+              />
             ))
           )}
           {shoppingItems.length > 0 ? (

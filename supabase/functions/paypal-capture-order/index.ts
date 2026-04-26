@@ -376,36 +376,38 @@ Deno.serve(async (req) => {
     }
 
     const serviceRow = row as ServiceCartRow;
-    const { data: insertedBookings, error: bookErr } = await db
+    let bookingId: string | undefined;
+    const { data: foundPending } = await db
       .from("bookings")
-      .insert({
-        user_id: meta.userId,
-        business_card_id: serviceRow.business_card_id,
-        date_time: serviceRow.date_time,
-        cost: serviceRow.cost,
-        persons: serviceRow.persons,
-        customer_name: serviceRow.customer_name,
-        customer_phone: serviceRow.customer_phone,
-        customer_email: serviceRow.customer_email,
-        comment: serviceRow.comment,
-        status: "upcoming",
-        payment_status: "paid",
-      })
-      .select("id");
-    if (bookErr) throw bookErr;
+      .select("id")
+      .eq("user_id", meta.userId)
+      .eq("business_card_id", serviceRow.business_card_id)
+      .eq("date_time", serviceRow.date_time)
+      .eq("payment_status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    bookingId = foundPending?.[0]?.id;
 
-    let bookingId = insertedBookings?.[0]?.id;
     if (!bookingId) {
-      const { data: found } = await db
+      const { data: insertedBookings, error: bookErr } = await db
         .from("bookings")
+        .insert({
+          user_id: meta.userId,
+          business_card_id: serviceRow.business_card_id,
+          date_time: serviceRow.date_time,
+          cost: serviceRow.cost,
+          persons: serviceRow.persons,
+          customer_name: serviceRow.customer_name,
+          customer_phone: serviceRow.customer_phone,
+          customer_email: serviceRow.customer_email,
+          comment: serviceRow.comment,
+          status: "upcoming",
+          payment_status: "paid",
+        })
         .select("id")
-        .eq("user_id", meta.userId)
-        .eq("business_card_id", serviceRow.business_card_id)
-        .eq("date_time", serviceRow.date_time)
-        .eq("payment_status", "pending")
-        .order("created_at", { ascending: false })
         .limit(1);
-      bookingId = found?.[0]?.id;
+      if (bookErr) throw bookErr;
+      bookingId = insertedBookings?.[0]?.id;
     }
     if (bookingId) {
       const { error: paidBookingErr } = await db

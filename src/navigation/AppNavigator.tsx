@@ -37,6 +37,7 @@ import StoryComposerScreen from "@/screens/StoryComposerScreen";
 import StoryDiscussionScreen from "@/screens/StoryDiscussionScreen";
 import StoriesFeedScreen from "@/screens/StoriesFeedScreen";
 import SubscriptionPaywallScreen from "@/screens/SubscriptionPaywallScreen";
+import SearchScreen from "@/screens/SearchScreen";
 
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const FeedStack = createNativeStackNavigator<FeedStackParamList>();
@@ -51,6 +52,7 @@ function HomeStackNavigator() {
   return (
     <HomeStack.Navigator initialRouteName="HomeMain" screenOptions={stackScreenOptions}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
+      <HomeStack.Screen name="SearchMain" component={SearchScreen} />
       <HomeStack.Screen name="PlaceDetail" component={PlaceDetailScreen} />
       <HomeStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: "fullScreenModal" }} />
       <HomeStack.Screen name="StoryComposer" component={StoryComposerScreen} options={{ presentation: "fullScreenModal" }} />
@@ -189,8 +191,8 @@ export default function AppNavigator() {
     >
       <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: "Home" }} />
       <Tab.Screen name="Feed" component={FeedStackNavigator} options={{ title: "Feed" }} />
-      <Tab.Screen name="Cart" component={CartStackNavigator} options={{ title: "Cart" }} />
       <Tab.Screen name="Bookings" component={BookingsStackNavigator} options={{ title: "Bookings" }} />
+      <Tab.Screen name="Cart" component={CartStackNavigator} options={{ title: "Cart" }} />
       <Tab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: "Profile" }} />
     </Tab.Navigator>
   );

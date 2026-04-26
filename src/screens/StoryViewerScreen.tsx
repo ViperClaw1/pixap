@@ -11,7 +11,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, type NavigationProp, type ParamListBase, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -24,6 +24,7 @@ import { useStoryProgress } from "@/hooks/useStoryProgress";
 import { useReactToStory } from "@/hooks/useReactToStory";
 import { useReplyToStory } from "@/hooks/useReplyToStory";
 import { useStoryComments } from "@/hooks/useStoryComments";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import type { StoryItem, StoryReactionType } from "@/types/stories";
 import { StorySlide } from "@/components/stories/StorySlide";
 import { StoryProgressBar } from "@/components/stories/StoryProgressBar";
@@ -105,6 +106,13 @@ export default function StoryViewerScreen() {
     if (nextGroup) void Image.prefetch(nextGroup);
   }, [params.groups, viewer.currentFlatIndex, viewer.currentGroupIndex, viewer.flatStories]);
 
+  const closeViewerAndRouteToAuth = useCallback(() => {
+    navigation.goBack();
+    setTimeout(() => {
+      navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+    }, 0);
+  }, [navigation]);
+
   const onReact = useCallback(
     async (type: StoryReactionType) => {
       if (!activeStory) return;
@@ -121,18 +129,30 @@ export default function StoryViewerScreen() {
       } catch (error) {
         setLocalReaction(previousReaction);
         setLocalReactionCount(activeStory.reaction_count);
+        if (isAuthRequiredError(error)) {
+          closeViewerAndRouteToAuth();
+          return;
+        }
         Alert.alert("Failed", error instanceof Error ? error.message : "Could not react to story");
       }
     },
-    [activeStory, localReaction, reactMutation],
+    [activeStory, closeViewerAndRouteToAuth, localReaction, reactMutation],
   );
 
   const onReply = useCallback(
     async (value: string) => {
       if (!activeStory) return;
-      await replyMutation.mutateAsync({ storyId: activeStory.id, content: value });
+      try {
+        await replyMutation.mutateAsync({ storyId: activeStory.id, content: value });
+      } catch (error) {
+        if (isAuthRequiredError(error)) {
+          closeViewerAndRouteToAuth();
+          return;
+        }
+        Alert.alert("Failed", error instanceof Error ? error.message : "Could not send reply");
+      }
     },
-    [activeStory, replyMutation],
+    [activeStory, closeViewerAndRouteToAuth, replyMutation],
   );
 
   const tapGesture = useMemo(
@@ -156,7 +176,8 @@ export default function StoryViewerScreen() {
   const panGesture = useMemo(
     () =>
       Gesture.Pan().onEnd((event) => {
-        if (event.translationY > 120) {
+        const isVerticalDismiss = event.translationY > 100 && Math.abs(event.translationY) > Math.abs(event.translationX);
+        if (isVerticalDismiss) {
           runOnJS(navigation.goBack)();
           return;
         }
@@ -176,7 +197,11 @@ export default function StoryViewerScreen() {
     [longPressGesture, panGesture, tapGesture],
   );
 
-  const contentHeight = Math.max(260, height - insets.top - insets.bottom - 220);
+  const contentHeight = Math.max(220, height - insets.top - insets.bottom - 320);
+  const authorName = (activeStory?.profile?.first_name ?? activeGroup?.profile?.first_name ?? "U").trim();
+  const authorAvatarUrl = activeStory?.profile?.avatar_url ?? activeGroup?.profile?.avatar_url ?? null;
+  const authorAvatarSize = Math.max(64, Math.min(92, Math.round(contentHeight * 0.18)));
+  const authorAvatarRadius = authorAvatarSize / 2;
 
   if (!activeStory || !activeGroup) {
     return (
@@ -192,14 +217,24 @@ export default function StoryViewerScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.root, { backgroundColor: "rgba(0,0,0,0.45)" }]}>
       <KeyboardAvoidingView
         style={styles.root}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Math.max(insets.top, 8)}
       >
         <GestureDetector gesture={composedGesture}>
-          <View style={styles.gestureSurface}>
+          <View
+            style={[
+              styles.gestureSurface,
+              {
+                backgroundColor: colors.background,
+                borderTopLeftRadius: 18,
+                borderTopRightRadius: 18,
+                marginTop: 10,
+              },
+            ]}
+          >
             <View style={styles.topArea}>
               <StoryProgressBar
                 count={activeGroup.stories.length}
@@ -231,7 +266,39 @@ export default function StoryViewerScreen() {
               windowSize={3}
             />
 
-            <View style={[styles.bottomArea, { paddingBottom: Math.max(8, insets.bottom) }]}>
+            <View
+              style={[
+                styles.bottomArea,
+                {
+                  backgroundColor: colors.card,
+                  paddingBottom: Math.max(8, insets.bottom),
+                  paddingTop: Math.max(38, Math.round(authorAvatarSize * 0.55)),
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.authorAvatarWrap,
+                  {
+                    top: -authorAvatarRadius,
+                    left: 16,
+                    width: authorAvatarSize,
+                    height: authorAvatarSize,
+                    borderRadius: authorAvatarRadius,
+                    borderColor: colors.card,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              >
+                {authorAvatarUrl ? (
+                  <Image source={{ uri: authorAvatarUrl }} style={styles.authorAvatarImage} contentFit="cover" />
+                ) : (
+                  <Text style={[styles.authorAvatarFallback, { color: colors.text }]}>{authorName.charAt(0).toUpperCase()}</Text>
+                )}
+              </View>
+              <Text style={[styles.postText, { color: "#000" }]} numberOfLines={6} ellipsizeMode="tail">
+                {activeStory.content}
+              </Text>
               <ReactionBar
                 activeReaction={localReaction}
                 reactionCount={localReactionCount}
@@ -258,6 +325,7 @@ const styles = StyleSheet.create({
   },
   gestureSurface: {
     flex: 1,
+    overflow: "hidden",
   },
   topArea: {
     paddingHorizontal: 12,
@@ -279,11 +347,38 @@ const styles = StyleSheet.create({
   },
   slider: {
     flexGrow: 0,
+    marginTop: 10,
   },
   bottomArea: {
     paddingHorizontal: 14,
-    paddingTop: 10,
+    paddingTop: 44,
     paddingBottom: 8,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -18,
+    zIndex: 3,
+  },
+  authorAvatarWrap: {
+    position: "absolute",
+    borderWidth: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    zIndex: 5,
+  },
+  authorAvatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  authorAvatarFallback: {
+    fontSize: 24,
+    fontWeight: "700",
+  },
+  postText: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: "600",
+    marginBottom: 10,
   },
   replyCount: {
     marginTop: 8,

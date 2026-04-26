@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { SmartImage } from "@/components/SmartImage";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import type { StoryItem } from "@/types/stories";
@@ -21,17 +21,15 @@ function StorySlideComponent({ story, width, height }: StorySlideProps) {
           uri={story.media_url}
           style={styles.media}
           contentFit="cover"
-          transition={160}
+          allowDownscaling={false}
+          cachePolicy="memory-disk"
+          priority="high"
+          transition={120}
           recyclingKey={`story-media-${story.id}`}
         />
       ) : (
         <View style={[styles.mediaFallback, { backgroundColor: colors.card }]} />
       )}
-      <View style={styles.overlay}>
-        <Text style={styles.content} numberOfLines={6}>
-          {story.content}
-        </Text>
-      </View>
     </View>
   );
 }
@@ -49,20 +47,5 @@ const styles = StyleSheet.create({
   mediaFallback: {
     width: "100%",
     height: "100%",
-  },
-  overlay: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    bottom: 18,
-  },
-  content: {
-    color: "#fff",
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: "600",
-    textShadowColor: "rgba(0,0,0,0.7)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
   },
 });

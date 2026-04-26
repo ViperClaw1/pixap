@@ -58,7 +58,7 @@ export default function CategoryScreen() {
           <SmartImage uri={getLatestBusinessCardImage(item.images)} recyclingKey={item.id} style={styles.img} contentFit="cover" />
           <View style={{ flex: 1 }}>
             <Text style={stylesThemed.name}>{item.name}</Text>
-            <Text style={stylesThemed.meta}>{Number(item.booking_price).toLocaleString()} ₸</Text>
+            <Text style={stylesThemed.meta}>{Number(item.booking_price).toLocaleString()} $</Text>
           </View>
         </Pressable>
       )}

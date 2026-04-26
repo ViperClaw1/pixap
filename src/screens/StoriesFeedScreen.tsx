@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Alert, StyleSheet, View } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/contexts/ThemeContext";
@@ -10,6 +10,7 @@ import { useStoriesFeed, type FeedStoryItem } from "@/hooks/useStoriesFeed";
 import { useReactToStory } from "@/hooks/useReactToStory";
 import { useToggleFollow } from "@/hooks/useUserFollows";
 import { useAuth } from "@/contexts/AuthContext";
+import { navigateToAuthScreen } from "@/lib/authRequired";
 import { FeedList } from "@/components/stories/FeedList";
 
 type FeedNav = NativeStackNavigationProp<BrowseFlowParamList>;
@@ -29,6 +30,7 @@ export default function StoriesFeedScreen() {
   } = useStoriesFeed();
   const reactMutation = useReactToStory();
   const followMutation = useToggleFollow();
+  const onAuthRequired = () => navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
 
   const groupedStories = useMemo(() => {
     const grouped = new Map<string, StoryGroup>();
@@ -108,6 +110,7 @@ export default function StoriesFeedScreen() {
           onPressUser={onPressUser}
           onToggleFollow={onToggleFollow}
           onReact={onReact}
+          onAuthRequired={onAuthRequired}
         />
       </View>
     </SafeAreaView>

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { BusinessCard } from "@/hooks/useBusinessCards";
 import { normalizeBusinessCardImages } from "@/lib/businessCardImages";
+import { safeRefreshSession } from "@/lib/supabaseAuth";
 
 export type PixAIPlace = Pick<BusinessCard, "id" | "name" | "address" | "city" | "rating" | "booking_price" | "images">;
 
@@ -83,14 +84,14 @@ async function ensureFreshAccessTokenForFunctions(): Promise<void> {
   } = await supabase.auth.getSession();
   if (!session) return;
   if (!session.access_token) {
-    await supabase.auth.refreshSession();
+    await safeRefreshSession();
     return;
   }
   const exp = session.expires_at;
   if (typeof exp !== "number") return;
   const expiresAtMs = exp * 1000;
   if (expiresAtMs >= Date.now() + 60_000) return;
-  await supabase.auth.refreshSession();
+  await safeRefreshSession();
 }
 
 async function logEdgeInvokeFailure(error: unknown): Promise<void> {
@@ -124,9 +125,16 @@ async function invokePixaiOrchestrateWithAuth(body: object): Promise<{ data: unk
 
   let { data, error } = await invokeOnce();
   if (error && isFunctionsUnauthorized(error)) {
-    const { error: refErr } = await supabase.auth.refreshSession();
-    if (__DEV__ && refErr) {
-      console.warn("[PixAI] refreshSession after orchestrate 401 failed:", refErr.message);
+    try {
+      const refreshed = await safeRefreshSession();
+      if (__DEV__ && !refreshed) {
+        console.warn("[PixAI] refreshSession after orchestrate 401 skipped (missing/invalid refresh token).");
+      }
+    } catch (refErr) {
+      if (__DEV__) {
+        const msg = refErr instanceof Error ? refErr.message : String(refErr);
+        console.warn("[PixAI] refreshSession after orchestrate 401 failed:", msg);
+      }
     }
     ({ data, error } = await invokeOnce());
   }

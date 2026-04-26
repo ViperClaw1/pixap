@@ -13,15 +13,16 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
+import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/contexts/ThemeContext";
-import { useCreateCartItem, useCartItems } from "@/hooks/useCartItems";
+import { useCartItems, useCreateCartItem } from "@/hooks/useCartItems";
+import { useCreateBooking } from "@/hooks/useBookings";
 import { useAvailableSlots } from "@/hooks/useAvailableSlots";
 import { usePixAI, type PixAIFlowPayload, type PixAIPlace, type PixAISlot } from "@/hooks/usePixAI";
 import { useAuth } from "@/contexts/AuthContext";
 import AuthScreen from "@/screens/AuthScreen";
-import { navigateToCartMain } from "@/navigation/navigationHelpers";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { ALL_CITIES_OPTION, useAvailableCities } from "@/hooks/useBusinessCards";
 import { useCategories } from "@/hooks/useCategories";
@@ -31,6 +32,14 @@ import { SmartImage } from "@/components/SmartImage";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 import { useEntitlement } from "@/hooks/useEntitlement";
 import SubscriptionPaywallScreen from "@/screens/SubscriptionPaywallScreen";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  SHARED_PRESSABLE_HEIGHT,
+  SHARED_PRESSABLE_RADIUS,
+  primaryPressableStyle,
+  primaryPressableTextStyle,
+} from "@/theme/primaryPressable";
 
 type DraftForm = {
   persons: string;
@@ -116,14 +125,16 @@ function formatPhoneMask(raw: string) {
 export default function AIBookingScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { isActive, isLoading: entitlementLoading } = useEntitlement();
+  const shouldEnforcePaywall = !__DEV__ && Constants.appOwnership !== "expo";
   const navigation = useNavigation();
   const { messages, runFlow, isLoading } = usePixAI();
   const { data: profile } = useProfile();
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
   const { data: categories = [] } = useCategories();
   const createCartItem = useCreateCartItem();
+  const createBooking = useCreateBooking();
   const { data: cartItems = [] } = useCartItems();
   const [currentStep, setCurrentStep] = useState<FlowStep>("city");
   const [selectedCity, setSelectedCity] = useState<string>("");
@@ -307,24 +318,24 @@ export default function AIBookingScreen() {
           gap: 8,
         },
         row: { flexDirection: "row", alignItems: "center", gap: 8 },
+        primaryBtn: {
+          ...primaryPressableStyle,
+        },
+        primaryBtnDisabled: {
+          opacity: 0.5,
+        },
+        primaryBtnText: primaryPressableTextStyle,
+        inlineValidationText: { color: colors.textMuted, fontSize: 12 },
         secondaryBtn: {
+          minHeight: SHARED_PRESSABLE_HEIGHT,
+          borderRadius: SHARED_PRESSABLE_RADIUS,
           borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 12,
+          borderColor: colors.primary,
           alignItems: "center",
           justifyContent: "center",
-          paddingVertical: 11,
-          backgroundColor: colors.background,
+          backgroundColor: "transparent",
         },
-        secondaryBtnText: { color: colors.text, fontWeight: "700" },
-        draftBtn: {
-          backgroundColor: colors.primary,
-          borderRadius: 12,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingVertical: 12,
-        },
-        draftBtnText: { color: colors.onPrimary, fontWeight: "700" },
+        secondaryBtnText: { color: colors.primary, fontWeight: "700" },
         dropdownTrigger: {
           flexDirection: "row",
           alignItems: "center",
@@ -431,6 +442,13 @@ export default function AIBookingScreen() {
   ]
     .filter(Boolean)
     .join("\n");
+  const canContinueFromCategory = selectedCity !== "" && selectedCity !== ALL_CITIES_OPTION && selectedCategoryId.trim().length > 0;
+  const continueValidationHint =
+    selectedCity === "" || selectedCity === ALL_CITIES_OPTION
+      ? "Select your city to continue."
+      : selectedCategoryId.trim().length === 0
+        ? "Select a service or table to continue."
+        : null;
 
   const onRequestNearbyPermission = async () => {
     const permission = await Location.requestForegroundPermissionsAsync();
@@ -472,9 +490,17 @@ export default function AIBookingScreen() {
       limit: 8,
     };
 
-    await runFlow(payload);
-    setHasSearched(true);
-    setCurrentStep("places");
+    try {
+      await runFlow(payload);
+      setHasSearched(true);
+      setCurrentStep("places");
+    } catch (error) {
+      if (isAuthRequiredError(error)) {
+        navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+        return;
+      }
+      Alert.alert("Failed", error instanceof Error ? error.message : "Could not search places.");
+    }
   };
 
   const onSelectPlace = (place: PixAIPlace) => {
@@ -509,20 +535,62 @@ export default function AIBookingScreen() {
     }
 
     try {
-      await createCartItem.mutateAsync({
+      const price = Number(selectedPlace.booking_price ?? 0);
+      await createBooking.mutateAsync({
         business_card_id: selectedPlace.id,
         date_time: selectedSlot.dateTimeIso,
-        cost: Number(selectedPlace.booking_price ?? 0),
+        cost: price,
         persons,
         customer_name: form.customer_name.trim(),
         customer_phone: form.customer_phone.trim(),
         customer_email: form.customer_email.trim(),
         comment: form.comment.trim() || null,
-        is_restaurant_table: isRestaurantTable,
+        payment_status: price > 0 ? "pending" : "paid",
+        status: "upcoming",
       });
-      Alert.alert("Added to cart", "Your AI booking draft is ready for confirmation in Cart.");
-      navigateToCartMain(navigation as unknown as NavigationProp<ParamListBase>);
-    } catch {
+      if (price > 0) {
+        const createdCartItem = await createCartItem.mutateAsync({
+          business_card_id: selectedPlace.id,
+          date_time: selectedSlot.dateTimeIso,
+          cost: price,
+          persons,
+          customer_name: form.customer_name.trim(),
+          customer_phone: form.customer_phone.trim(),
+          customer_email: form.customer_email.trim(),
+          comment: form.comment.trim() || null,
+          is_restaurant_table: isRestaurantTable,
+        });
+        const accessToken = session?.access_token;
+        if (accessToken && createdCartItem?.id) {
+          void supabase.functions
+            .invoke("n8n-wa-booking-start", {
+              body: { cart_item_id: createdCartItem.id },
+              headers: { Authorization: `Bearer ${accessToken}` },
+            })
+            .catch((error) => {
+              if (__DEV__) {
+                console.warn("[n8n-wa-booking-start] invoke failed", error);
+              }
+            });
+        }
+      }
+      Alert.alert(
+        price > 0 ? "Draft created" : "Booking confirmed",
+        price > 0
+          ? "Draft booking was added to Bookings. Venue check is started in background."
+          : "Your booking is now in Bookings.",
+      );
+      navigation.getParent()?.dispatch(
+        CommonActions.navigate({
+          name: "Bookings",
+          params: { screen: "BookingsMain" },
+        }),
+      );
+    } catch (error) {
+      if (isAuthRequiredError(error)) {
+        navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+        return;
+      }
       Alert.alert("Failed", "Could not create booking draft.");
     }
   };
@@ -535,7 +603,7 @@ export default function AIBookingScreen() {
       </View>
     );
   }
-  if (!isActive) return <SubscriptionPaywallScreen />;
+  if (shouldEnforcePaywall && !isActive) return <SubscriptionPaywallScreen />;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={stylesThemed.root}>
@@ -601,9 +669,16 @@ export default function AIBookingScreen() {
               placeholder="Optional comment (preferences, budget, atmosphere...)"
               placeholderTextColor={colors.textMuted}
             />
-            <Pressable style={stylesThemed.draftBtn} onPress={() => setCurrentStep("scope")}>
-              <Text style={stylesThemed.draftBtnText}>Continue</Text>
+            <Pressable
+              disabled={!canContinueFromCategory}
+              style={[stylesThemed.primaryBtn, !canContinueFromCategory && stylesThemed.primaryBtnDisabled]}
+              onPress={() => setCurrentStep("scope")}
+            >
+              <Text style={stylesThemed.primaryBtnText}>Continue</Text>
             </Pressable>
+            {!canContinueFromCategory && continueValidationHint ? (
+              <Text style={stylesThemed.inlineValidationText}>{continueValidationHint}</Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -625,8 +700,8 @@ export default function AIBookingScreen() {
             <Text style={stylesThemed.helperText}>
               Nearby search will ask for fine location permission only when you start search.
             </Text>
-            <Pressable style={stylesThemed.draftBtn} onPress={() => void onSearchPlaces()}>
-              <Text style={stylesThemed.draftBtnText}>{isLoading ? "Searching..." : "Search places"}</Text>
+            <Pressable style={stylesThemed.primaryBtn} onPress={() => void onSearchPlaces()}>
+              <Text style={stylesThemed.primaryBtnText}>{isLoading ? "Searching..." : "Search places"}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -843,8 +918,10 @@ export default function AIBookingScreen() {
                   placeholderTextColor={colors.textMuted}
                 />
               </View>
-              <Pressable style={stylesThemed.draftBtn} onPress={() => void onCreateDraft()}>
-                <Text style={stylesThemed.draftBtnText}>Add booking draft to cart</Text>
+              <Pressable style={stylesThemed.primaryBtn} onPress={() => void onCreateDraft()}>
+                <Text style={stylesThemed.primaryBtnText}>
+                  {Number(selectedPlace?.booking_price ?? 0) > 0 ? "Create draft booking" : "Confirm booking"}
+                </Text>
               </Pressable>
             </View>
           </>
@@ -923,8 +1000,8 @@ export default function AIBookingScreen() {
             </Pressable>
           ) : null}
           {currentStep === "places" ? (
-            <Pressable style={[stylesThemed.draftBtn, { flex: 1 }]} onPress={() => setCurrentStep("scope")}>
-              <Text style={stylesThemed.draftBtnText}>Refine search</Text>
+            <Pressable style={[stylesThemed.primaryBtn, { flex: 1 }]} onPress={() => setCurrentStep("scope")}>
+              <Text style={stylesThemed.primaryBtnText}>Refine search</Text>
             </Pressable>
           ) : null}
         </View>
