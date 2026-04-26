@@ -1,5 +1,5 @@
 const express = require("express");
-const { processIncomingWhatsApp } = require("../services/bookingService");
+const { processIncomingWhatsApp, processWhatsAppWebhook } = require("../services/bookingService");
 const { handleMetaWebhookVerify } = require("../utils/metaWebhookVerify");
 
 const router = express.Router();
@@ -15,7 +15,9 @@ router.get("/whatsapp", (req, res) => {
 
 router.post("/whatsapp", async (req, res) => {
   try {
-    const result = await processIncomingWhatsApp(req.body || {});
+    const body = req.body || {};
+    const isMetaWebhook = Array.isArray(body?.entry);
+    const result = isMetaWebhook ? await processWhatsAppWebhook(body) : await processIncomingWhatsApp(body);
     return res.status(200).json(result);
   } catch (error) {
     console.error("[route:/webhook/whatsapp] error", error);

@@ -7,6 +7,7 @@ const APP_NOTIFY_TIMEOUT_MS = Number.parseInt(process.env.APP_NOTIFY_TIMEOUT_MS 
 
 const bookingsById = new Map();
 const activeBookingIdsByPhone = new Map();
+const outboundMessageToBookingId = new Map();
 
 function log(action, details) {
   console.log(
@@ -59,6 +60,21 @@ function getLatestActiveBookingByPhone(phone) {
     }
   }
   return null;
+}
+
+function trackOutboundMessage(booking, messageId) {
+  const id = String(messageId || "").trim();
+  if (!id) return;
+  outboundMessageToBookingId.set(id, booking.id);
+}
+
+function deliveryStatusLine(status, details) {
+  const s = String(status || "").toLowerCase();
+  if (s === "sent") return "WhatsApp message sent to venue.";
+  if (s === "delivered") return "WhatsApp message delivered to venue.";
+  if (s === "read") return "Venue read the WhatsApp message.";
+  if (s === "failed") return details ? `WhatsApp delivery failed: ${details}` : "WhatsApp delivery failed.";
+  return `WhatsApp status: ${status}`;
 }
 
 function makeBookingSnapshot(booking) {
@@ -278,13 +294,14 @@ async function createBooking(payload) {
   addActiveBooking(ownerPhone, bookingId);
 
   log("booking_created", { booking_id: bookingId, owner_phone: ownerPhone, step: booking.step });
-  await sendWhatsAppTemplate(ownerPhone, TEMPLATE_BOOK_AVAILABILITY, [
+  const sendResult = await sendWhatsAppTemplate(ownerPhone, TEMPLATE_BOOK_AVAILABILITY, [
     booking.customer_name ?? "Client",
     booking.customer_phone ?? "—",
     venueName,
     date,
     time,
   ]);
+  trackOutboundMessage(booking, sendResult?.message_id);
 
   await syncCartOrLegacy(
     booking,
@@ -307,7 +324,8 @@ async function handleAvailabilityStep(booking, messageText) {
     booking.updated_at = new Date().toISOString();
     removeActiveBooking(booking.owner_phone, booking.id);
 
-    await sendWhatsAppMessage(booking.owner_phone, "Booking marked unavailable. Flow closed.");
+    const sendResult = await sendWhatsAppMessage(booking.owner_phone, "Booking marked unavailable. Flow closed.");
+    trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
       { status_lines: ["Venue declined this slot."], confirmable: false, payment_link: null },
@@ -321,7 +339,8 @@ async function handleAvailabilityStep(booking, messageText) {
     booking.step = "pricing";
     booking.updated_at = new Date().toISOString();
 
-    await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_IS_FREE);
+    const sendResult = await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_IS_FREE);
+    trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
       {
@@ -334,7 +353,8 @@ async function handleAvailabilityStep(booking, messageText) {
     return;
   }
 
-  await sendWhatsAppMessage(booking.owner_phone, "Please reply YES or NO.");
+  const sendResult = await sendWhatsAppMessage(booking.owner_phone, "Please reply YES or NO.");
+  trackOutboundMessage(booking, sendResult?.message_id);
 }
 
 async function handlePricingStep(booking, messageText) {
@@ -347,7 +367,8 @@ async function handlePricingStep(booking, messageText) {
     booking.updated_at = new Date().toISOString();
     removeActiveBooking(booking.owner_phone, booking.id);
 
-    await sendWhatsAppMessage(booking.owner_phone, "Marked as free. Customer can now confirm.");
+    const sendResult = await sendWhatsAppMessage(booking.owner_phone, "Marked as free. Customer can now confirm.");
+    trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
       {
@@ -367,7 +388,8 @@ async function handlePricingStep(booking, messageText) {
     booking.step = "pricing_payment_link_input";
     booking.updated_at = new Date().toISOString();
 
-    await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
+    const sendResult = await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
+    trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
       {
@@ -380,14 +402,17 @@ async function handlePricingStep(booking, messageText) {
     return;
   }
 
-  await sendWhatsAppMessage(booking.owner_phone, "Please reply YES or NO.");
+  const sendResult = await sendWhatsAppMessage(booking.owner_phone, "Please reply YES or NO.");
+  trackOutboundMessage(booking, sendResult?.message_id);
 }
 
 async function handlePricingPaymentLinkInputStep(booking, messageText) {
   const paymentLink = parsePaymentLink(messageText);
   if (paymentLink == null) {
-    await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
-    await sendWhatsAppMessage(booking.owner_phone, "Please send a valid http/https payment link.");
+    const sendResultTemplate = await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
+    trackOutboundMessage(booking, sendResultTemplate?.message_id);
+    const sendResultMessage = await sendWhatsAppMessage(booking.owner_phone, "Please send a valid http/https payment link.");
+    trackOutboundMessage(booking, sendResultMessage?.message_id);
     await syncCartOrLegacy(
       booking,
       {
@@ -406,7 +431,8 @@ async function handlePricingPaymentLinkInputStep(booking, messageText) {
   booking.updated_at = new Date().toISOString();
   removeActiveBooking(booking.owner_phone, booking.id);
 
-  await sendWhatsAppMessage(booking.owner_phone, "Got it. Payment link recorded.");
+  const sendResult = await sendWhatsAppMessage(booking.owner_phone, "Got it. Payment link recorded.");
+  trackOutboundMessage(booking, sendResult?.message_id);
   await syncCartOrLegacy(
     booking,
     {
@@ -457,11 +483,104 @@ async function processIncomingWhatsApp(payload) {
   };
 }
 
+async function processDeliveryStatus(payload) {
+  const messageId = String(payload?.id || "").trim();
+  const status = String(payload?.status || "").trim();
+  if (!messageId || !status) {
+    return { ok: true, ignored: true, reason: "Missing message id or status" };
+  }
+  const bookingId = outboundMessageToBookingId.get(messageId);
+  if (!bookingId) {
+    log("delivery_status_unmatched", { message_id: messageId, status });
+    return { ok: true, ignored: true, reason: "Unknown outbound message id", message_id: messageId };
+  }
+  const booking = bookingsById.get(bookingId);
+  if (!booking) {
+    log("delivery_status_orphan_booking", { booking_id: bookingId, message_id: messageId, status });
+    return { ok: true, ignored: true, reason: "Booking not in memory", booking_id: bookingId };
+  }
+
+  const errorDetails = Array.isArray(payload?.errors)
+    ? payload.errors
+        .map((e) => String(e?.title || e?.message || e?.error_data?.details || "").trim())
+        .filter(Boolean)
+        .join("; ")
+    : "";
+
+  const line = deliveryStatusLine(status, errorDetails);
+  booking.updated_at = new Date().toISOString();
+  log("delivery_status_ingested", { booking_id: booking.id, message_id: messageId, status, error_details: errorDetails || null });
+
+  await syncCartOrLegacy(
+    booking,
+    {
+      status_lines: [line],
+      confirmable: booking.status === "confirmed_free" || booking.status === "awaiting_payment",
+      confirmed_price: booking.status === "confirmed_free" ? "0" : undefined,
+      payment_link: booking.payment_link ?? null,
+    },
+    { booking_id: booking.id, status: booking.status, step: booking.step, delivery_status: status },
+  );
+
+  return { ok: true, delivery_status: status, booking_id: booking.id };
+}
+
+function extractInboundText(message) {
+  if (!message || typeof message !== "object") return null;
+  if (typeof message.text?.body === "string" && message.text.body.trim()) return message.text.body.trim();
+  if (typeof message.button?.text === "string" && message.button.text.trim()) return message.button.text.trim();
+  if (typeof message.interactive?.button_reply?.title === "string" && message.interactive.button_reply.title.trim()) {
+    return message.interactive.button_reply.title.trim();
+  }
+  return null;
+}
+
+async function processWhatsAppWebhook(payload) {
+  const statuses = [];
+  const inbound = [];
+
+  const entries = Array.isArray(payload?.entry) ? payload.entry : [];
+  for (const entry of entries) {
+    const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+    for (const change of changes) {
+      const value = change?.value ?? {};
+      if (Array.isArray(value.statuses)) {
+        statuses.push(...value.statuses);
+      }
+      if (Array.isArray(value.messages)) {
+        for (const message of value.messages) {
+          const text = extractInboundText(message);
+          const from = String(message?.from || "").trim();
+          if (from && text) inbound.push({ from, message: text });
+        }
+      }
+    }
+  }
+
+  const results = [];
+  for (const st of statuses) {
+    results.push(await processDeliveryStatus(st));
+  }
+  for (const msg of inbound) {
+    results.push(await processIncomingWhatsApp(msg));
+  }
+
+  return {
+    ok: true,
+    ingested: {
+      statuses: statuses.length,
+      inbound_messages: inbound.length,
+    },
+    results,
+  };
+}
+
 function getDebugState() {
   const bookings = Array.from(bookingsById.values()).map(makeBookingSnapshot);
   return {
     bookings,
     activeBookingIdsByPhone: Object.fromEntries(activeBookingIdsByPhone.entries()),
+    outboundMessageToBookingId: Object.fromEntries(outboundMessageToBookingId.entries()),
   };
 }
 
@@ -476,6 +595,7 @@ function getRuntimeTemplateConfig() {
 module.exports = {
   createBooking,
   processIncomingWhatsApp,
+  processWhatsAppWebhook,
   getDebugState,
   getRuntimeTemplateConfig,
   /** @deprecated use syncCartOrLegacy via createBooking; kept for ad-hoc tests */
