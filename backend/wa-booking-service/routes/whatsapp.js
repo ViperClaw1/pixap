@@ -17,6 +17,18 @@ router.post("/whatsapp", async (req, res) => {
   try {
     const body = req.body || {};
     const isMetaWebhook = Array.isArray(body?.entry);
+    console.log(
+      JSON.stringify({
+        scope: "route_whatsapp",
+        action: "incoming_webhook",
+        path: "/webhook/whatsapp",
+        is_meta_webhook: isMetaWebhook,
+        has_from: typeof body?.from === "string",
+        has_message: typeof body?.message === "string",
+        entry_count: isMetaWebhook ? body.entry.length : 0,
+        timestamp: new Date().toISOString(),
+      }),
+    );
     const result = isMetaWebhook ? await processWhatsAppWebhook(body) : await processIncomingWhatsApp(body);
     return res.status(200).json(result);
   } catch (error) {

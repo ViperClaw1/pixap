@@ -19,6 +19,18 @@ router.post("/booking", async (req, res) => {
     const body = req.body || {};
     const isMetaWebhook = Array.isArray(body?.entry);
     const isSimplifiedInbound = typeof body?.from === "string" && typeof body?.message === "string";
+    console.log(
+      JSON.stringify({
+        scope: "route_booking",
+        action: "incoming_post",
+        path: "/webhook/booking",
+        is_meta_webhook: isMetaWebhook,
+        is_simplified_inbound: isSimplifiedInbound,
+        has_booking_id: typeof body?.booking_id === "string",
+        entry_count: isMetaWebhook ? body.entry.length : 0,
+        timestamp: new Date().toISOString(),
+      }),
+    );
     if (isMetaWebhook || isSimplifiedInbound) {
       const result = isMetaWebhook ? await processWhatsAppWebhook(body) : await processIncomingWhatsApp(body);
       return res.status(200).json(result);
