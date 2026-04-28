@@ -24,6 +24,10 @@ function sanitizePhone(phone) {
   return String(phone || "").trim();
 }
 
+function phoneLookupKey(phone) {
+  return String(phone || "").replace(/\D+/g, "");
+}
+
 function optionalTrimString(payload, key) {
   const value = payload[key];
   if (typeof value !== "string") return null;
@@ -32,7 +36,7 @@ function optionalTrimString(payload, key) {
 }
 
 function addActiveBooking(phone, bookingId) {
-  const normalizedPhone = sanitizePhone(phone);
+  const normalizedPhone = phoneLookupKey(phone);
   const existing = activeBookingIdsByPhone.get(normalizedPhone) || [];
   const updated = existing.filter((id) => id !== bookingId);
   updated.push(bookingId);
@@ -40,7 +44,7 @@ function addActiveBooking(phone, bookingId) {
 }
 
 function removeActiveBooking(phone, bookingId) {
-  const normalizedPhone = sanitizePhone(phone);
+  const normalizedPhone = phoneLookupKey(phone);
   const existing = activeBookingIdsByPhone.get(normalizedPhone) || [];
   const updated = existing.filter((id) => id !== bookingId);
   if (updated.length === 0) {
@@ -51,7 +55,7 @@ function removeActiveBooking(phone, bookingId) {
 }
 
 function getLatestActiveBookingByPhone(phone) {
-  const normalizedPhone = sanitizePhone(phone);
+  const normalizedPhone = phoneLookupKey(phone);
   const ids = activeBookingIdsByPhone.get(normalizedPhone) || [];
   for (let idx = ids.length - 1; idx >= 0; idx -= 1) {
     const booking = bookingsById.get(ids[idx]);
@@ -461,7 +465,12 @@ async function processIncomingWhatsApp(payload) {
 
   const booking = getLatestActiveBookingByPhone(from);
   if (!booking) {
-    log("no_active_booking_for_phone", { from, message });
+    log("no_active_booking_for_phone", {
+      from,
+      from_lookup_key: phoneLookupKey(from),
+      message,
+      active_lookup_keys: Array.from(activeBookingIdsByPhone.keys()),
+    });
     return {
       ok: true,
       ignored: true,
