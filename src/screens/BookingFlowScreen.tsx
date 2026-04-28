@@ -67,6 +67,12 @@ function chunkCells<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
+function profileString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 type R = RouteProp<BrowseFlowParamList, "BookingFlow">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "BookingFlow">;
 
@@ -117,6 +123,14 @@ export default function BookingFlowScreen() {
     const dateTime = new Date(selectedDate);
     const [h, m] = selectedTime.split(":").map(Number);
     dateTime.setHours(h, m, 0, 0);
+    const customerName =
+      profileString(user?.user_metadata?.full_name) ??
+      profileString(user?.email?.split("@")[0]) ??
+      "Client";
+    const customerPhone =
+      profileString(user?.user_metadata?.phone) ??
+      profileString(user?.phone) ??
+      null;
     try {
       const price = Number(place.booking_price);
       await createBooking.mutateAsync({
@@ -124,6 +138,8 @@ export default function BookingFlowScreen() {
         date_time: dateTime.toISOString(),
         cost: price,
         persons: guests,
+        customer_name: customerName,
+        customer_phone: customerPhone,
         payment_status: price > 0 ? "pending" : "paid",
         status: "upcoming",
       });
@@ -132,6 +148,8 @@ export default function BookingFlowScreen() {
         date_time: dateTime.toISOString(),
         cost: price,
         persons: guests,
+        customer_name: customerName,
+        customer_phone: customerPhone,
         is_restaurant_table: false,
       });
       const accessToken = session?.access_token;
