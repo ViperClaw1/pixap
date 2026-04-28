@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { PixelRatio, View, Text, Pressable, StyleSheet } from "react-native";
 import { SmartImage } from "@/components/SmartImage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
@@ -161,12 +161,19 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
   const tags = place.tags ?? [];
   const displayTags = tags.length > 0 ? tags : [];
   const imageUrisRaw = useMemo(() => normalizeBusinessCardImages(place.images), [place.images]);
+  const targetDensity = Math.min(2, PixelRatio.get());
   const imageUris = useMemo(
     () =>
       imageUrisRaw.map(
-        (url) => getOptimizedImageUrl(url, variant === "horizontal" ? 192 : 400, variant === "horizontal" ? 192 : 280) || url,
+        (url) =>
+          getOptimizedImageUrl(
+            url,
+            Math.round((variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_W) * targetDensity),
+            Math.round((variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_H) * targetDensity),
+            68,
+          ) || url,
       ),
-    [imageUrisRaw, variant],
+    [imageUrisRaw, targetDensity, variant],
   );
 
   if (variant === "horizontal") {

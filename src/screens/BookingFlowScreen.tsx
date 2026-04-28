@@ -11,13 +11,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { BrowseFlowParamList } from "@/navigation/types";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
+import { navigateToProfileAuth } from "@/navigation/navigationHelpers";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import { useIsFavorite, useToggleFavorite } from "@/hooks/useFavorites";
+import { BookingFlowPlacePanel } from "@/components/booking/BookingFlowPlacePanel";
 
 const timeSlots = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
 const CALENDAR_MONTHS_AHEAD = 6;
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
-
 type CalendarCell = { kind: "pad" } | { kind: "day"; ymd: string; day: number };
 
 function startOfLocalDay(d: Date): Date {
@@ -73,8 +75,10 @@ export default function BookingFlowScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const { data: place } = useBusinessCard(id);
+  const isFavorite = useIsFavorite(id);
+  const toggleFavorite = useToggleFavorite();
   const createCartItem = useCreateCartItem();
   const createBooking = useCreateBooking();
 
@@ -101,6 +105,13 @@ export default function BookingFlowScreen() {
     () => buildMonthCells(visibleCalendarMonth.getFullYear(), visibleCalendarMonth.getMonth()),
     [visibleCalendarMonth],
   );
+  const onFavoritePress = () => {
+    if (!user) {
+      navigateToProfileAuth(navigation);
+      return;
+    }
+    toggleFavorite.mutate({ businessCardId: place.id, isFavorite });
+  };
 
   const handleConfirm = async () => {
     const dateTime = new Date(selectedDate);
@@ -181,36 +192,54 @@ export default function BookingFlowScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
-        <Pressable onPress={() => (step > 0 ? setStep(step - 1) : navigation.goBack())}>
-          <Text style={styles.back}>←</Text>
-        </Pressable>
-        <View>
-          <Text style={styles.title}>Book {place.name}</Text>
-          <Text style={styles.stepText}>
-            Step {step + 1} of {totalSteps + 1}
-          </Text>
+      {step === 1 ? (
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
+          <Pressable onPress={() => setStep(step - 1)}>
+            <Text style={styles.back}>←</Text>
+          </Pressable>
+          <View>
+            <Text style={styles.title}>Book {place.name}</Text>
+            <Text style={styles.stepText}>
+              Step {step + 1} of {totalSteps + 1}
+            </Text>
+          </View>
         </View>
-      </View>
+      ) : null}
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 + insets.bottom }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
         {step === 0 && (
           <View>
-            <Text style={styles.section}>Number of guests</Text>
-            <View style={styles.guestRow}>
-              <Pressable style={styles.guestBtn} onPress={() => setGuests(Math.max(1, guests - 1))}>
-                <Text style={styles.guestBtnText}>−</Text>
-              </Pressable>
-              <Text style={styles.guestCount}>{guests}</Text>
-              <Pressable style={styles.guestBtn} onPress={() => setGuests(Math.min(20, guests + 1))}>
-                <Text style={styles.guestBtnText}>+</Text>
-              </Pressable>
-            </View>
+            <BookingFlowPlacePanel
+              place={{
+                id: place.id,
+                name: place.name,
+                address: place.address,
+                rating: place.rating,
+                booking_price: place.booking_price,
+                images: place.images,
+              }}
+              colors={colors}
+              heroTopInset={Math.max(insets.top, 10)}
+              isFavorite={isFavorite}
+              onPressFavorite={onFavoritePress}
+              onPressBack={() => navigation.goBack()}
+            >
+              <Text style={styles.section}>Number of guests</Text>
+              <View style={styles.guestRow}>
+                <Pressable style={styles.guestBtn} onPress={() => setGuests(Math.max(1, guests - 1))}>
+                  <Text style={styles.guestBtnText}>−</Text>
+                </Pressable>
+                <Text style={styles.guestCount}>{guests}</Text>
+                <Pressable style={styles.guestBtn} onPress={() => setGuests(Math.min(20, guests + 1))}>
+                  <Text style={styles.guestBtnText}>+</Text>
+                </Pressable>
+              </View>
+            </BookingFlowPlacePanel>
           </View>
         )}
 
         {step === 1 && (
-          <View>
+          <View style={styles.stepContent}>
             <Text style={styles.section}>Select date & time</Text>
             <View style={styles.calendarPanel}>
               <View style={styles.calendarNav}>
@@ -303,11 +332,27 @@ export default function BookingFlowScreen() {
 
         {step === 2 && (
           <View>
-            <Text style={styles.section}>Confirm</Text>
-            <Text>
-              {guests} guests · {selectedDate.toDateString()} {selectedTime}
-            </Text>
-            <Text style={{ marginTop: 8 }}>{Number(place.booking_price).toLocaleString()} $</Text>
+            <BookingFlowPlacePanel
+              place={{
+                id: place.id,
+                name: place.name,
+                address: place.address,
+                rating: place.rating,
+                booking_price: place.booking_price,
+                images: place.images,
+              }}
+              colors={colors}
+              heroTopInset={Math.max(insets.top, 10)}
+              isFavorite={isFavorite}
+              onPressFavorite={onFavoritePress}
+              onPressBack={() => setStep(step - 1)}
+            >
+              <Text style={styles.section}>Confirm</Text>
+              <Text>
+                {guests} guests · {selectedDate.toDateString()} {selectedTime}
+              </Text>
+              <Text style={{ marginTop: 8 }}>{Number(place.booking_price).toLocaleString()} $</Text>
+            </BookingFlowPlacePanel>
           </View>
         )}
       </ScrollView>
@@ -339,6 +384,7 @@ export default function BookingFlowScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#fff" },
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
+  stepContent: { paddingHorizontal: 16, paddingTop: 16 },
   back: { fontSize: 22 },
   title: { fontSize: 18, fontWeight: "700" },
   stepText: { fontSize: 12, color: "#888" },

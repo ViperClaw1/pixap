@@ -2,10 +2,11 @@ import type { ExpoConfig, ConfigContext } from "expo/config";
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const googleMapsWebApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY?.trim();
   const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
   const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.0";
-  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "15";
-  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "16");
+  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "16";
+  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "17");
   const androidVersionCode = Number.parseInt(androidVersionCodeRaw, 10);
   const nativeOAuthRedirectUri =
     oauthMobileRedirectUri && !oauthMobileRedirectUri.startsWith("exp://") ? oauthMobileRedirectUri : undefined;
@@ -108,6 +109,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     oauthMobileRedirectUri: nativeOAuthRedirectUri,
     stripeReturnScheme: (process.env.EXPO_PUBLIC_STRIPE_RETURN_SCHEME ?? "pixap").toLowerCase(),
     googleMapsApiKey,
+    googleMapsWebApiKey,
     pixappApiUrl: process.env.EXPO_PUBLIC_PIXAPP_API_URL,
     pixAiMonthlySubscriptionSku: process.env.EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU ?? "pixai_premium_monthly",
     eas: {

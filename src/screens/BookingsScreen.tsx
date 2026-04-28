@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { View, Text, Pressable, StyleSheet, FlatList, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet, FlatList, Alert, useWindowDimensions } from "react-native";
 import { SmartImage } from "@/components/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -36,12 +36,14 @@ function formatBookingDateTime(value: string): string {
 export default function BookingsScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { colors } = useAppTheme();
   const { user, loading } = useAuth();
   const [filter, setFilter] = useState<BookingDisplayStatus>("draft");
   const { data: bookings = [] } = useBookings();
   const { data: cartItems = [] } = useCartItems();
   const cancelBooking = useCancelBooking();
+  const isCompact = windowWidth < 400;
 
   const items = useMemo(() => {
     const cartMap = new Map(cartItems.map((item) => [`${item.business_card_id}|${item.date_time}`, item]));
@@ -74,7 +76,7 @@ export default function BookingsScreen() {
           borderWidth: 1,
           borderColor: colors.border,
         },
-        name: { fontWeight: "700", color: colors.text },
+        name: { fontWeight: "700", color: colors.text, flexShrink: 1 },
         meta: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
         badge: { marginTop: 8, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
         badgeText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
@@ -93,6 +95,7 @@ export default function BookingsScreen() {
         },
         empty: { textAlign: "center", color: colors.textMuted, marginTop: 32 },
         rowHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 },
+        rowHeadLeft: { flex: 1, minWidth: 0, paddingRight: 4 },
         cancelBtn: {
           borderWidth: 1,
           borderColor: colors.danger,
@@ -100,6 +103,9 @@ export default function BookingsScreen() {
           paddingHorizontal: 10,
           paddingVertical: 5,
           alignSelf: "flex-start",
+          flexShrink: 0,
+          minWidth: 72,
+          alignItems: "center",
         },
         cancelBtnText: { color: colors.danger, fontSize: 12, fontWeight: "700" },
       }),
@@ -145,12 +151,16 @@ export default function BookingsScreen() {
         <SmartImage
           uri={getLatestBusinessCardImage(item.business_card?.images)}
           recyclingKey={item.id}
-          style={styles.thumb}
+          style={[styles.thumb, isCompact ? styles.thumbCompact : null]}
           contentFit="cover"
         />
         <View style={{ flex: 1 }}>
           <View style={stylesThemed.rowHead}>
-            <Text style={stylesThemed.name}>{item.business_card?.name}</Text>
+            <View style={stylesThemed.rowHeadLeft}>
+              <Text style={stylesThemed.name} numberOfLines={isCompact ? 2 : 1}>
+                {item.business_card?.name}
+              </Text>
+            </View>
             {canCancel ? (
               <Pressable
                 style={stylesThemed.cancelBtn}
@@ -219,4 +229,5 @@ export default function BookingsScreen() {
 
 const styles = StyleSheet.create({
   thumb: { width: 64, height: 64, borderRadius: 8 },
+  thumbCompact: { width: 56, height: 56 },
 });

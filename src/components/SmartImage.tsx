@@ -67,5 +67,15 @@ export function SmartImage({ uri, fallbackUri, onError, recyclingKey, ...rest }:
 
   const rk = recyclingKey ?? (chainKey ? `${chainKey}#${attempt}` : "smartimg-fallback");
 
-  return <Image {...rest} recyclingKey={rk} source={source} onError={handleError} />;
+  return (
+    <Image
+      {...rest}
+      recyclingKey={rk}
+      source={source}
+      onError={handleError}
+      cachePolicy="memory-disk"
+      placeholder={FALLBACK}
+      placeholderContentFit={rest.contentFit ?? "cover"}
+    />
+  );
 }
