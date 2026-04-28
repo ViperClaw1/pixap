@@ -42,6 +42,7 @@ function FeedListComponent({
 }: FeedListProps) {
   const { colors, isDark } = useAppTheme();
   const skeletonMediaWidth = Dimensions.get("window").width - 48;
+  const contentPaddingBottom = 20;
 
   if (loading && !stories.length) {
     return (
@@ -76,7 +77,7 @@ function FeedListComponent({
     <FlatList
       data={stories}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
       renderItem={({ item }) => (
         <FeedStoryCard
           story={item}
@@ -127,7 +128,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 12,
-    paddingBottom: 22,
   },
   emptyWrap: {
     alignItems: "center",

@@ -26,28 +26,62 @@ type GoogleDirectionsResponse = {
 
 type GoogleGeocodeResponse = {
   status: string;
+  error_message?: string;
   results?: Array<{ geometry: { location: { lat: number; lng: number } } }>;
 };
 
 const BASE = "https://maps.googleapis.com/maps/api";
 
+function debugMapsApi(event: string, payload?: unknown) {
+  if (!__DEV__) return;
+  if (payload === undefined) {
+    console.log(`[MapsApi][debug] ${event}`);
+    return;
+  }
+  console.log(`[MapsApi][debug] ${event}`, payload);
+}
+
 /**
  * Geocode a free-text address to coordinates (for destination pin / map center).
  * REQUIRES: Geocoding API enabled for the key.
  */
-export async function geocodeAddress(address: string, apiKey: string): Promise<LatLng | null> {
+export type GeocodeAddressResult =
+  | { ok: true; location: LatLng }
+  | { ok: false; status: string; message?: string };
+
+export async function geocodeAddressDetailed(
+  address: string,
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<GeocodeAddressResult> {
   const q = new URLSearchParams({
     address,
     key: apiKey,
   });
   const url = `${BASE}/geocode/json?${q.toString()}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal });
   const data = (await res.json()) as GoogleGeocodeResponse;
+  debugMapsApi("geocode:response", {
+    httpOk: res.ok,
+    httpStatus: res.status,
+    status: data.status,
+    errorMessage: data.error_message,
+    hasResult: Boolean(data.results?.[0]),
+  });
   if (data.status !== "OK" || !data.results?.[0]) {
-    return null;
+    return {
+      ok: false,
+      status: data.status,
+      message: data.error_message ?? data.status,
+    };
   }
   const loc = data.results[0].geometry.location;
-  return { latitude: loc.lat, longitude: loc.lng };
+  return { ok: true, location: { latitude: loc.lat, longitude: loc.lng } };
+}
+
+export async function geocodeAddress(address: string, apiKey: string): Promise<LatLng | null> {
+  const result = await geocodeAddressDetailed(address, apiKey);
+  return result.ok ? result.location : null;
 }
 
 /**
@@ -59,8 +93,9 @@ export async function fetchDirections(params: {
   origin: LatLng;
   destination: string;
   mode: TravelMode;
+  signal?: AbortSignal;
 }): Promise<{ ok: true; data: DirectionsResult } | { ok: false; status: string; message?: string }> {
-  const { apiKey, origin, destination, mode } = params;
+  const { apiKey, origin, destination, mode, signal } = params;
   const q = new URLSearchParams({
     origin: `${origin.latitude},${origin.longitude}`,
     destination,
@@ -69,8 +104,15 @@ export async function fetchDirections(params: {
   });
 
   const url = `${BASE}/directions/json?${q.toString()}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal });
   const data = (await res.json()) as GoogleDirectionsResponse;
+  debugMapsApi("directions:response", {
+    httpOk: res.ok,
+    httpStatus: res.status,
+    status: data.status,
+    errorMessage: data.error_message,
+    hasRoute: Boolean(data.routes?.[0]),
+  });
 
   if (data.status !== "OK" || !data.routes?.[0]) {
     return {
@@ -82,12 +124,23 @@ export async function fetchDirections(params: {
 
   const route = data.routes[0];
   const encoded = route.overview_polyline?.points;
-  if (!encoded) {
-    return { ok: false, status: "NO_POLYLINE", message: "No route geometry" };
-  }
-
-  const coordinates = decodeGooglePolyline(encoded);
   const leg = route.legs?.[0];
+  let coordinates: LatLng[] = [];
+  if (encoded) {
+    try {
+      coordinates = decodeGooglePolyline(encoded);
+    } catch (e) {
+      if (__DEV__) {
+        console.log("[MapsApi][debug] directions:polyline_decode_error", {
+          error: e instanceof Error ? e.message : String(e),
+          encodedLength: encoded.length,
+        });
+      }
+      coordinates = [];
+    }
+  } else if (__DEV__) {
+    console.log("[MapsApi][debug] directions:no_polyline");
+  }
   let durationText: string | null = null;
   let distanceText: string | null = null;
   let startLocation: LatLng | null = null;
@@ -102,6 +155,17 @@ export async function fetchDirections(params: {
     if (leg.end_location) {
       endLocation = { latitude: leg.end_location.lat, longitude: leg.end_location.lng };
     }
+  }
+  if (__DEV__) {
+    console.log("[MapsApi][debug] directions:payload_summary", {
+      mode,
+      coordinatesCount: coordinates.length,
+      hasLeg: Boolean(leg),
+      hasStart: Boolean(startLocation),
+      hasEnd: Boolean(endLocation),
+      durationText,
+      distanceText,
+    });
   }
 
   return {

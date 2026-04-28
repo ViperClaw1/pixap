@@ -94,7 +94,7 @@ export default function StoriesFeedScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
       <View style={styles.root}>
         <FeedList
           stories={stories}

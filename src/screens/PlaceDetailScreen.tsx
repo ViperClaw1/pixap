@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import {
+  Platform,
   View,
   Text,
   Pressable,
@@ -204,6 +205,7 @@ export default function PlaceDetailScreen() {
   };
 
   const heroTop = Math.max(insets.top, 12);
+  const bottomScrollPadding = Platform.OS === "ios" ? Math.max(insets.bottom, 24) : 20;
   const legacyImage = (place as unknown as { image?: string | null }).image;
   const heroImagesRaw = [
     ...normalizeBusinessCardImages(place.images),
@@ -215,7 +217,7 @@ export default function PlaceDetailScreen() {
   return (
     <ScrollView
       style={stylesThemed.root}
-      contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}
+      contentContainerStyle={{ paddingBottom: bottomScrollPadding }}
     >
       <View>
         {heroImages.length > 1 ? (

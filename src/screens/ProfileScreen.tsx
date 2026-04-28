@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, StyleSheet, ScrollView, Modal, ActivityIndicator, Linking, Platform } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import type { CompositeNavigationProp } from "@react-navigation/native";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,12 +12,15 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useBookings } from "@/hooks/useBookings";
-import type { ProfileStackParamList } from "@/navigation/types";
+import type { ProfileStackParamList, RootTabParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { SmartImage } from "@/components/SmartImage";
 import { useEntitlement } from "@/hooks/useEntitlement";
 
-type Nav = NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">;
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">,
+  BottomTabNavigationProp<RootTabParamList>
+>;
 const PRIVACY_URL = "https://pixapp.kz/privacy";
 const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
 const GOOGLE_SUBSCRIPTION_URL = "https://play.google.com/store/account/subscriptions";
@@ -250,10 +255,15 @@ function ProfileScreenContent() {
         </View>
       </View>
       <View style={stylesThemed.statRow}>
-        <View style={stylesThemed.statCard}>
+        <Pressable
+          style={stylesThemed.statCard}
+          onPress={() => navigation.navigate("Bookings", { screen: "BookingsMain" })}
+          accessibilityRole="button"
+          accessibilityLabel="Open bookings"
+        >
           <Text style={stylesThemed.statValue}>{bookings.length}</Text>
           <Text style={stylesThemed.statLabel}>Bookings</Text>
-        </View>
+        </Pressable>
         <View style={stylesThemed.statCard}>
           <Text style={stylesThemed.statValue}>0</Text>
           <Text style={stylesThemed.statLabel}>Reviews</Text>

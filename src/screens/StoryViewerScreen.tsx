@@ -205,7 +205,10 @@ export default function StoryViewerScreen() {
 
   if (!activeStory || !activeGroup) {
     return (
-      <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.root, { backgroundColor: colors.background }]}
+        edges={Platform.OS === "ios" ? ["top", "bottom"] : ["top"]}
+      >
         <View style={styles.emptyWrap}>
           <Text style={{ color: colors.text }}>No stories available.</Text>
           <Pressable onPress={() => navigation.goBack()}>
@@ -217,7 +220,10 @@ export default function StoryViewerScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: "rgba(0,0,0,0.45)" }]}>
+    <SafeAreaView
+      style={[styles.root, { backgroundColor: "rgba(0,0,0,0.45)" }]}
+      edges={Platform.OS === "ios" ? ["top", "bottom"] : ["top"]}
+    >
       <KeyboardAvoidingView
         style={styles.root}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -271,7 +277,7 @@ export default function StoryViewerScreen() {
                 styles.bottomArea,
                 {
                   backgroundColor: colors.card,
-                  paddingBottom: Math.max(8, insets.bottom),
+                  paddingBottom: Platform.OS === "ios" ? Math.max(8, insets.bottom) : 8,
                   paddingTop: Math.max(38, Math.round(authorAvatarSize * 0.55)),
                 },
               ]}

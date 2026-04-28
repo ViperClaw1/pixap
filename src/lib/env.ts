@@ -13,6 +13,8 @@ type Extra = {
   paypalCaptureOrderUrl?: string;
   /** Maps SDK + Directions/Geocoding REST (same key if APIs enabled in Google Cloud) */
   googleMapsApiKey?: string;
+  /** Optional dedicated key for Google Geocoding/Directions web-service requests. */
+  googleMapsWebApiKey?: string;
   /** Digits-only E.164 for PixAI WhatsApp fallback (availability messages). */
   pixaiWhatsAppE164?: string;
   /** Store product id for PixAI monthly subscription. */
@@ -56,6 +58,18 @@ export const env = {
   /** Set `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` — enable Maps SDK, Directions API, Geocoding API. */
   get googleMapsApiKey(): string | undefined {
     const v = getExtra().googleMapsApiKey ?? process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+    return v && v.length > 0 ? v : undefined;
+  },
+  /**
+   * Optional `EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY` for REST calls (Directions/Geocoding).
+   * Falls back to `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` when unset.
+   */
+  get googleMapsWebApiKey(): string | undefined {
+    const v =
+      getExtra().googleMapsWebApiKey ??
+      process.env.EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY ??
+      getExtra().googleMapsApiKey ??
+      process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
     return v && v.length > 0 ? v : undefined;
   },
   /** Default +971525235996 when unset; store digits only for wa.me. */
