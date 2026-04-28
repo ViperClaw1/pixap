@@ -91,6 +91,17 @@ function makeBookingSnapshot(booking) {
   };
 }
 
+function normalizeDecisionInput(text) {
+  if (typeof text !== "string") return "";
+  return text.trim().replace(/[_-]+/g, " ");
+}
+
+function parseOwnerYesNo(text) {
+  const normalized = normalizeDecisionInput(text);
+  if (!normalized) return null;
+  return parseYesNo(normalized);
+}
+
 function requireStringField(payload, fieldName) {
   const value = payload[fieldName];
   if (typeof value !== "string" || !value.trim()) {
@@ -317,7 +328,7 @@ async function createBooking(payload) {
 }
 
 async function handleAvailabilityStep(booking, messageText) {
-  const yesNo = parseYesNo(messageText);
+  const yesNo = parseOwnerYesNo(messageText);
   if (yesNo === "no") {
     booking.status = "rejected";
     booking.step = "completed";
@@ -358,7 +369,7 @@ async function handleAvailabilityStep(booking, messageText) {
 }
 
 async function handlePricingStep(booking, messageText) {
-  const yesNo = parseYesNo(messageText);
+  const yesNo = parseOwnerYesNo(messageText);
   if (yesNo === "yes") {
     booking.is_free = true;
     booking.price = 0;
@@ -529,8 +540,18 @@ function extractInboundText(message) {
   if (!message || typeof message !== "object") return null;
   if (typeof message.text?.body === "string" && message.text.body.trim()) return message.text.body.trim();
   if (typeof message.button?.text === "string" && message.button.text.trim()) return message.button.text.trim();
+  if (typeof message.button?.payload === "string" && message.button.payload.trim()) return message.button.payload.trim();
   if (typeof message.interactive?.button_reply?.title === "string" && message.interactive.button_reply.title.trim()) {
     return message.interactive.button_reply.title.trim();
+  }
+  if (typeof message.interactive?.button_reply?.id === "string" && message.interactive.button_reply.id.trim()) {
+    return message.interactive.button_reply.id.trim();
+  }
+  if (typeof message.interactive?.list_reply?.title === "string" && message.interactive.list_reply.title.trim()) {
+    return message.interactive.list_reply.title.trim();
+  }
+  if (typeof message.interactive?.list_reply?.id === "string" && message.interactive.list_reply.id.trim()) {
+    return message.interactive.list_reply.id.trim();
   }
   return null;
 }
@@ -558,11 +579,11 @@ async function processWhatsAppWebhook(payload) {
   }
 
   const results = [];
-  for (const st of statuses) {
-    results.push(await processDeliveryStatus(st));
-  }
   for (const msg of inbound) {
     results.push(await processIncomingWhatsApp(msg));
+  }
+  for (const st of statuses) {
+    results.push(await processDeliveryStatus(st));
   }
 
   return {

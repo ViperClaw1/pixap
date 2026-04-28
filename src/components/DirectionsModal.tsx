@@ -59,15 +59,6 @@ function buildGeocodeCandidates(address: string, placeName: string): string[] {
   );
 }
 
-function debugDirectionsLog(event: string, payload?: unknown) {
-  if (!__DEV__) return;
-  if (payload === undefined) {
-    console.log(`[DirectionsModal][debug] ${event}`);
-    return;
-  }
-  console.log(`[DirectionsModal][debug] ${event}`, payload);
-}
-
 function isFiniteCoordinate(value: LatLng | null | undefined): value is LatLng {
   return Boolean(
     value &&
@@ -298,66 +289,39 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
     setDistanceText(null);
 
     try {
-      debugDirectionsLog("loadRoute:start", {
-        placeName,
-        address: trimmed,
-        travelMode,
-        apiKeyLength: apiKey.length,
-        apiKeyPrefix: apiKey.slice(0, 7),
-        apiKeySuffix: apiKey.slice(-4),
-      });
-
       let dest: LatLng | null = destCoord;
       let lastGeocodeStatus: string | null = null;
       let lastGeocodeMessage: string | undefined;
       let geocodeCandidates: string[] = [];
       if (!dest) {
         geocodeCandidates = buildGeocodeCandidates(trimmed, placeName);
-        debugDirectionsLog("geocode:candidates", geocodeCandidates);
         for (const candidate of geocodeCandidates) {
-          debugDirectionsLog("geocode:try", { candidate });
           const geocodeResult = await geocodeAddressDetailed(candidate, apiKey, controller.signal);
           if (geocodeResult.ok) {
             dest = geocodeResult.location;
-            debugDirectionsLog("geocode:success", { candidate, dest });
             break;
           }
           lastGeocodeStatus = geocodeResult.status;
           lastGeocodeMessage = geocodeResult.message;
-          debugDirectionsLog("geocode:fail", {
-            candidate,
-            status: geocodeResult.status,
-            message: geocodeResult.message,
-          });
         }
 
         if (!dest) {
           for (const candidate of geocodeCandidates) {
             try {
-              debugDirectionsLog("expoGeocode:try", { candidate });
               const fallback = await Location.geocodeAsync(candidate);
               const first = fallback[0];
               if (!first) continue;
               dest = { latitude: first.latitude, longitude: first.longitude };
-              debugDirectionsLog("expoGeocode:success", { candidate, dest });
               break;
             } catch {
-              debugDirectionsLog("expoGeocode:error", { candidate });
               // no-op; keep trying next candidate
             }
           }
         }
-      } else {
-        debugDirectionsLog("geocode:reuse_cached_dest", dest);
       }
 
       if (stale()) return;
       if (!dest) {
-        debugDirectionsLog("geocode:all_failed", {
-          lastGeocodeStatus,
-          lastGeocodeMessage,
-          candidates: geocodeCandidates,
-        });
         if (lastGeocodeStatus === "REQUEST_DENIED") {
           setError("Geocoding request denied. Check key restrictions, billing, and Geocoding API access.");
         } else if (lastGeocodeStatus === "OVER_QUERY_LIMIT") {
@@ -402,8 +366,6 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
           longitude: pos.coords.longitude,
         };
         setUserLoc(origin);
-      } else {
-        debugDirectionsLog("location:reuse_cached_origin", origin);
       }
       if (routeCoords.length < 2 && isFiniteCoordinate(origin) && isFiniteCoordinate(dest)) {
         setRouteCoords([origin, dest]);
@@ -417,7 +379,6 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
         signal: controller.signal,
       });
       if (stale()) return;
-      debugDirectionsLog("directions:result", result.ok ? { ok: true } : result);
 
       if (!result.ok) {
         const hint =
@@ -440,14 +401,6 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
           : isFiniteCoordinate(startCoord) && isFiniteCoordinate(endCoord)
             ? [startCoord, endCoord]
             : [];
-      debugDirectionsLog("directions:assign_route", {
-        travelMode,
-        startCoord,
-        endCoord,
-        decodedPoints: result.data.coordinates.length,
-        renderedPoints: decodedRoute.length,
-        assignedPoints: resolvedRouteCoords.length,
-      });
 
       setError(null);
       setDestCoord(endCoord);
@@ -503,15 +456,6 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
     setPermissionDenied(false);
     void loadRoute();
   }, [loadRoute]);
-
-  useEffect(() => {
-    debugDirectionsLog("state:routeCoords_changed", {
-      travelMode,
-      points: routeCoords.length,
-      first: routeCoords[0] ?? null,
-      last: routeCoords[routeCoords.length - 1] ?? null,
-    });
-  }, [routeCoords, travelMode]);
 
   useEffect(() => {
     if (!visible) {
@@ -613,9 +557,6 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
               style={styles.map}
               initialRegion={initialRegion}
               region={mapRegion ?? initialRegion}
-              onMapReady={() => {
-                debugDirectionsLog("map:onMapReady", { travelMode });
-              }}
               showsUserLocation={!permissionDenied && !!userLoc}
               showsMyLocationButton={false}
             >
