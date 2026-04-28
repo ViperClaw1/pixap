@@ -1,5 +1,6 @@
 const express = require("express");
 const { createBooking } = require("../services/bookingService");
+const { processIncomingWhatsApp, processWhatsAppWebhook } = require("../services/bookingService");
 const { handleMetaWebhookVerify } = require("../utils/metaWebhookVerify");
 
 const router = express.Router();
@@ -15,7 +16,15 @@ router.get("/booking", (req, res) => {
 
 router.post("/booking", async (req, res) => {
   try {
-    const booking = await createBooking(req.body || {});
+    const body = req.body || {};
+    const isMetaWebhook = Array.isArray(body?.entry);
+    const isSimplifiedInbound = typeof body?.from === "string" && typeof body?.message === "string";
+    if (isMetaWebhook || isSimplifiedInbound) {
+      const result = isMetaWebhook ? await processWhatsAppWebhook(body) : await processIncomingWhatsApp(body);
+      return res.status(200).json(result);
+    }
+
+    const booking = await createBooking(body);
     return res.status(202).json({
       ok: true,
       booking,
