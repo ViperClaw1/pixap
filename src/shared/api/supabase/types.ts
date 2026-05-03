@@ -309,6 +309,7 @@ export type Database = {
           phone: string | null
           promo_codes: string[] | null
           updated_at: string
+          vibe_preferences: Json
         }
         Insert: {
           avatar_url?: string | null
@@ -322,6 +323,7 @@ export type Database = {
           phone?: string | null
           promo_codes?: string[] | null
           updated_at?: string
+          vibe_preferences?: Json
         }
         Update: {
           avatar_url?: string | null
@@ -335,6 +337,7 @@ export type Database = {
           phone?: string | null
           promo_codes?: string[] | null
           updated_at?: string
+          vibe_preferences?: Json
         }
         Relationships: []
       }
@@ -585,6 +588,22 @@ export type Database = {
           name: string
           rating: number
           tags: string[] | null
+        }[]
+      }
+      search_by_vibe: {
+        Args: {
+          p_city: string
+          p_limit?: number
+          p_mood: string
+          p_timeline: string
+        }
+        Returns: {
+          booking_price: number
+          description: string
+          is_restaurant_table: boolean
+          name: string
+          venue_id: string
+          vibe_score: number
         }[]
       }
     }

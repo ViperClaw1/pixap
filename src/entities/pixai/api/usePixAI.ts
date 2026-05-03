@@ -4,7 +4,7 @@ import { supabase } from "@/shared/api/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { BusinessCard } from "@/entities/business-card";
 import { normalizeBusinessCardImages } from "@/lib/businessCardImages";
-import { safeRefreshSession } from "@/shared/lib/supabaseAuth";
+import { invokePixaiOrchestrateWithAuth, logPixaiOrchestrateInvokeFailure } from "./invokePixaiOrchestrate";
 
 export type PixAIPlace = Pick<BusinessCard, "id" | "name" | "address" | "city" | "rating" | "booking_price" | "images">;
 
@@ -39,14 +39,71 @@ export type PixAIMessage = {
   toolResult?: PixAIToolResult;
 };
 
+export type PixAIVibeTimeline = "evening" | "night" | "late_night";
+
+export type PixAIVibePayload = {
+  mood: string;
+  timeline: PixAIVibeTimeline;
+  city?: string;
+  limit?: number;
+};
+
+export type VibePlanStop = {
+  venue_id: string;
+  name: string;
+  time_slot: string;
+  vibe_score: number;
+  description: string;
+  booking_price: number;
+  is_restaurant_table: boolean;
+  address?: string;
+  city?: string;
+  rating?: number;
+  images?: string[];
+};
+
+export type VibePlanResult = {
+  assistant: string;
+  plan: VibePlanStop[];
+};
+
 type OrchestratorResponse = {
   assistant: string;
   places?: PixAIPlace[];
   slots?: PixAISlot[];
   draft?: PixAIBookingDraft;
+  plan?: unknown;
 };
 
 type FlowRunResult = OrchestratorResponse & { catalogFallback?: boolean };
+
+function parseVibeStops(raw: unknown): VibePlanStop[] {
+  if (!Array.isArray(raw)) return [];
+  const out: VibePlanStop[] = [];
+  for (const row of raw) {
+    const r = row as Record<string, unknown>;
+    const id = r.venue_id ?? r.id;
+    if (id == null) continue;
+    const imagesRaw = r.images;
+    const images = Array.isArray(imagesRaw)
+      ? (imagesRaw as unknown[]).filter((x): x is string => typeof x === "string")
+      : undefined;
+    out.push({
+      venue_id: String(id),
+      name: String(r.name ?? ""),
+      time_slot: String(r.time_slot ?? ""),
+      vibe_score: Number(r.vibe_score ?? 0),
+      description: String(r.description ?? ""),
+      booking_price: Number(r.booking_price ?? 0),
+      is_restaurant_table: Boolean(r.is_restaurant_table),
+      address: r.address != null ? String(r.address) : undefined,
+      city: r.city != null ? String(r.city) : undefined,
+      rating: r.rating != null ? Number(r.rating) : undefined,
+      images,
+    });
+  }
+  return out;
+}
 
 function buildFlowUserSummary(flow: PixAIFlowPayload): string {
   const summaryParts = [
@@ -67,78 +124,6 @@ function buildAssistantFromFlow(flow: PixAIFlowPayload, placeCount: number): str
   const requestType = flow.isRestaurantTable ? "restaurant tables" : "services";
   const scopeText = flow.mode === "nearby" ? "near you" : `in ${cityLabel}`;
   return `I found ${placeCount} ${requestType} ${scopeText}. Pick one and I will suggest the best available slots.`;
-}
-
-function isFunctionsUnauthorized(error: unknown): boolean {
-  const ctx =
-    error && typeof error === "object" && "context" in error
-      ? (error as { context: unknown }).context
-      : undefined;
-  return ctx instanceof Response && ctx.status === 401;
-}
-
-/** Proactively refresh so the Functions gateway does not reject an expired access_token as Invalid JWT. */
-async function ensureFreshAccessTokenForFunctions(): Promise<void> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return;
-  if (!session.access_token) {
-    await safeRefreshSession();
-    return;
-  }
-  const exp = session.expires_at;
-  if (typeof exp !== "number") return;
-  const expiresAtMs = exp * 1000;
-  if (expiresAtMs >= Date.now() + 60_000) return;
-  await safeRefreshSession();
-}
-
-async function logEdgeInvokeFailure(error: unknown): Promise<void> {
-  if (!__DEV__) return;
-  console.warn("[PixAI] pixai-orchestrate invoke failed:", error);
-  const ctx =
-    error && typeof error === "object" && "context" in error
-      ? (error as { context: unknown }).context
-      : undefined;
-  if (ctx instanceof Response) {
-    try {
-      const text = await ctx.clone().text();
-      if (text) console.warn("[PixAI] edge response body:", text.slice(0, 800));
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-/**
- * Edge gateway validates the `Authorization` JWT before the function runs.
- * Do not pass a custom Authorization header: supabase-js `fetchWithAuth` will set it from
- * `getAccessToken()`, but only when the header is absent. A manual Bearer token blocks that
- * and keeps sending an expired access_token → `{"code":401,"message":"Invalid JWT"}`.
- */
-async function invokePixaiOrchestrateWithAuth(body: object): Promise<{ data: unknown; error: unknown }> {
-  const invokeOnce = async () => {
-    await ensureFreshAccessTokenForFunctions();
-    return supabase.functions.invoke("pixai-orchestrate", { body });
-  };
-
-  let { data, error } = await invokeOnce();
-  if (error && isFunctionsUnauthorized(error)) {
-    try {
-      const refreshed = await safeRefreshSession();
-      if (__DEV__ && !refreshed) {
-        console.warn("[PixAI] refreshSession after orchestrate 401 skipped (missing/invalid refresh token).");
-      }
-    } catch (refErr) {
-      if (__DEV__) {
-        const msg = refErr instanceof Error ? refErr.message : String(refErr);
-        console.warn("[PixAI] refreshSession after orchestrate 401 failed:", msg);
-      }
-    }
-    ({ data, error } = await invokeOnce());
-  }
-  return { data, error };
 }
 
 export type PixAISearchMode = "nearby" | "city";
@@ -291,7 +276,7 @@ export function usePixAI() {
       if (!error && data != null) {
         return { ...(data as OrchestratorResponse), catalogFallback: false };
       }
-      await logEdgeInvokeFailure(error);
+      await logPixaiOrchestrateInvokeFailure(error);
       const places = await fetchPlacesWhenOrchestratorFails(flow);
       if (places.length > 0) {
         if (__DEV__) {
@@ -343,6 +328,28 @@ export function usePixAI() {
     },
   });
 
+  const vibeMutation = useMutation({
+    mutationFn: async (vibe: PixAIVibePayload): Promise<VibePlanResult> => {
+      const { data, error } = await invokePixaiOrchestrateWithAuth({
+        vibe: {
+          mood: vibe.mood.trim(),
+          timeline: vibe.timeline,
+          ...(vibe.city?.trim() ? { city: vibe.city.trim() } : {}),
+          ...(vibe.limit != null ? { limit: vibe.limit } : {}),
+        },
+      });
+      if (error) {
+        await logPixaiOrchestrateInvokeFailure(error);
+        throw error;
+      }
+      const o = (data ?? {}) as OrchestratorResponse;
+      return {
+        assistant: typeof o.assistant === "string" ? o.assistant : "",
+        plan: parseVibeStops(o.plan),
+      };
+    },
+  });
+
   const runFlow = useCallback(
     async (flow: PixAIFlowPayload) => {
       await flowMutation.mutateAsync(flow);
@@ -350,12 +357,37 @@ export function usePixAI() {
     [flowMutation],
   );
 
+  const runVibePlan = useCallback(
+    async (vibe: PixAIVibePayload) => {
+      await vibeMutation.mutateAsync(vibe);
+    },
+    [vibeMutation],
+  );
+
+  const resetVibePlan = useCallback(() => {
+    vibeMutation.reset();
+  }, [vibeMutation]);
+
   return useMemo(
     () => ({
       messages,
       runFlow,
       isLoading: flowMutation.isPending,
+      runVibePlan,
+      isVibeLoading: vibeMutation.isPending,
+      vibeResult: vibeMutation.data ?? null,
+      vibeError: vibeMutation.error,
+      resetVibePlan,
     }),
-    [flowMutation.isPending, messages, runFlow],
+    [
+      flowMutation.isPending,
+      messages,
+      resetVibePlan,
+      runFlow,
+      runVibePlan,
+      vibeMutation.data,
+      vibeMutation.error,
+      vibeMutation.isPending,
+    ],
   );
 }

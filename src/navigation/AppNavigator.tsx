@@ -21,6 +21,7 @@ import CategoryScreen from "@/pages/category";
 import ShoppingItemsScreen from "@/pages/shopping-items";
 import BookingFlowScreen from "@/pages/booking-flow";
 import AIBookingScreen from "@/pages/ai-booking";
+import VibeMatchScreen from "@/pages/vibe-match";
 import AuthScreen from "@/pages/auth";
 import ResetPasswordScreen from "@/pages/reset-password";
 import OAuthCallbackScreen from "@/pages/oauth-callback";
@@ -61,6 +62,7 @@ function HomeStackNavigator() {
       <HomeStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <HomeStack.Screen name="BookingFlow" component={BookingFlowScreen} />
       <HomeStack.Screen name="AIBooking" component={AIBookingScreen} />
+      <HomeStack.Screen name="VibeMatch" component={VibeMatchScreen} />
       <HomeStack.Screen name="SubscriptionPaywall" component={SubscriptionPaywallScreen} />
       <HomeStack.Screen name="OAuthCallback" component={OAuthCallbackScreen} />
     </HomeStack.Navigator>
@@ -79,6 +81,7 @@ function FeedStackNavigator() {
       <FeedStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <FeedStack.Screen name="BookingFlow" component={BookingFlowScreen} />
       <FeedStack.Screen name="AIBooking" component={AIBookingScreen} />
+      <FeedStack.Screen name="VibeMatch" component={VibeMatchScreen} />
       <FeedStack.Screen name="SubscriptionPaywall" component={SubscriptionPaywallScreen} />
     </FeedStack.Navigator>
   );
@@ -106,6 +109,7 @@ function BookingsStackNavigator() {
       <BookingsStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <BookingsStack.Screen name="BookingFlow" component={BookingFlowScreen} />
       <BookingsStack.Screen name="AIBooking" component={AIBookingScreen} />
+      <BookingsStack.Screen name="VibeMatch" component={VibeMatchScreen} />
       <BookingsStack.Screen name="SubscriptionPaywall" component={SubscriptionPaywallScreen} />
     </BookingsStack.Navigator>
   );
@@ -131,6 +135,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="ShoppingItems" component={ShoppingItemsScreen} />
       <ProfileStack.Screen name="BookingFlow" component={BookingFlowScreen} />
       <ProfileStack.Screen name="AIBooking" component={AIBookingScreen} />
+      <ProfileStack.Screen name="VibeMatch" component={VibeMatchScreen} />
       <ProfileStack.Screen name="SubscriptionPaywall" component={SubscriptionPaywallScreen} />
     </ProfileStack.Navigator>
   );

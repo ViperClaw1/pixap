@@ -25,6 +25,7 @@ export const linkingConfig = {
         ShoppingItems: "shop/:id",
         BookingFlow: "book/:id",
         AIBooking: "pixai",
+        VibeMatch: "vibe-match",
         OAuthCallback: "~oauth/callback",
       },
     },
@@ -37,6 +38,7 @@ export const linkingConfig = {
         ShoppingItems: "shop/:id",
         BookingFlow: "book/:id",
         AIBooking: "pixai",
+        VibeMatch: "vibe-match",
       },
     },
     Cart: {
@@ -58,6 +60,7 @@ export const linkingConfig = {
         BookingsMain: "",
         PlaceDetail: "booking-place/:id",
         AIBooking: "pixai",
+        VibeMatch: "vibe-match",
       },
     },
     Profile: {
@@ -72,6 +75,7 @@ export const linkingConfig = {
         NotFound: "*",
         AdminImageUpload: "partner-upload",
         AIBooking: "pixai",
+        VibeMatch: "vibe-match",
       },
     },
   },

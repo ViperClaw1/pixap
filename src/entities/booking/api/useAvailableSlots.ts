@@ -60,7 +60,7 @@ async function invokeGetAvailableSlots(businessId: string, dateYmd: string) {
  * Prefer DB RPC (no Edge deploy dependency, avoids gateway/404 issues).
  * Falls back to get-available-slots Edge Function if RPC is missing or errors.
  */
-async function fetchSlotsWithFallback(businessId: string, dateYmd: string): Promise<PixAISlot[]> {
+export async function fetchAvailableSlotsForDay(businessId: string, dateYmd: string): Promise<PixAISlot[]> {
   const bounds = localDayBoundsIso(dateYmd);
   const { data: rpcData, error: rpcError } = await supabase.rpc("get_bookings_datetimes_for_availability", {
     p_business_id: businessId,
@@ -90,7 +90,7 @@ async function fetchSlotsWithFallback(businessId: string, dateYmd: string): Prom
 export function useAvailableSlots(businessCardId: string | null, dateYmd: string | null) {
   return useQuery({
     queryKey: ["available_slots", businessCardId, dateYmd],
-    queryFn: async () => fetchSlotsWithFallback(businessCardId!, dateYmd!),
+    queryFn: async () => fetchAvailableSlotsForDay(businessCardId!, dateYmd!),
     enabled: !!businessCardId && !!dateYmd,
   });
 }
