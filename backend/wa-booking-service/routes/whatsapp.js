@@ -4,16 +4,16 @@ const { handleMetaWebhookVerify } = require("../utils/metaWebhookVerify");
 
 const router = express.Router();
 
-router.get("/whatsapp", (req, res) => {
+function handleGetVerify(req, res) {
   if (handleMetaWebhookVerify(req, res)) return;
   res.status(405).set("Allow", "GET (Meta verify), POST").json({
     ok: false,
     error: "Method Not Allowed",
     hint: "POST JSON here (WhatsApp inbound). Meta dashboard verification sends GET with hub.* query params.",
   });
-});
+}
 
-router.post("/whatsapp", async (req, res) => {
+async function handleInbound(req, res) {
   try {
     const body = req.body || {};
     const isMetaWebhook = Array.isArray(body?.entry);
@@ -21,7 +21,7 @@ router.post("/whatsapp", async (req, res) => {
       JSON.stringify({
         scope: "route_whatsapp",
         action: "incoming_webhook",
-        path: "/webhook/whatsapp",
+        path: req.originalUrl,
         is_meta_webhook: isMetaWebhook,
         has_from: typeof body?.from === "string",
         has_message: typeof body?.message === "string",
@@ -38,6 +38,11 @@ router.post("/whatsapp", async (req, res) => {
       error: error.message || "Invalid WhatsApp webhook payload",
     });
   }
-});
+}
+
+router.get("/whatsapp", handleGetVerify);
+router.get("/", handleGetVerify);
+router.post("/whatsapp", handleInbound);
+router.post("/", handleInbound);
 
 module.exports = router;
