@@ -40,6 +40,23 @@ runParserSelfChecks();
 
 app.use(express.json({ limit: "1mb" }));
 
+app.use((req, _res, next) => {
+  if (req.path.startsWith("/webhook")) {
+    console.log(
+      JSON.stringify({
+        scope: "http_ingress",
+        action: "webhook_request",
+        method: req.method,
+        path: req.originalUrl,
+        content_type: req.headers["content-type"] || null,
+        user_agent: req.headers["user-agent"] || null,
+        timestamp: new Date().toISOString(),
+      }),
+    );
+  }
+  next();
+});
+
 app.get("/", (_req, res) => {
   res.status(200).json({ ok: true, service: "wa-booking-service", message: "Use GET /health for probes." });
 });
