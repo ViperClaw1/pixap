@@ -1,6 +1,6 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/shared/api/supabase/client";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

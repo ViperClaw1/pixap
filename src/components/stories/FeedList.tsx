@@ -2,9 +2,9 @@ import { memo } from "react";
 import { ActivityIndicator, Dimensions, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import type { StoryReactionType } from "@/types/stories";
-import type { FeedStoryItem } from "@/hooks/useStoriesFeed";
-import { ShimmerProvider } from "@/components/shimmer/ShimmerProvider";
-import { ShimmerSurface } from "@/components/shimmer/ShimmerSurface";
+import type { FeedStoryItem } from "@/entities/story";
+import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
+import { ShimmerSurface } from "@/shared/ui/shimmer/ShimmerSurface";
 import { FeedStoryCard } from "./FeedStoryCard";
 
 interface FeedListProps {

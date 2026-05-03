@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SmartImage } from "@/components/SmartImage";
+import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import type { StoryGroup } from "@/types/stories";
 

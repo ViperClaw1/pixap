@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, type ViewStyle } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import type { SharedValue } from "react-native-reanimated";
 
@@ -22,7 +22,7 @@ function ProgressSegment({
     let width = "0%";
     if (index < currentIndex) width = "100%";
     else if (index === currentIndex) width = `${Math.min(100, Math.max(0, progress.value * 100))}%`;
-    return { width };
+    return { width } as ViewStyle;
   }, [currentIndex, index, progress]);
 
   return (

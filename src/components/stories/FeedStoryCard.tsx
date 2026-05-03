@@ -3,7 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import type { StoryReactionType } from "@/types/stories";
-import type { FeedStoryItem } from "@/hooks/useStoriesFeed";
+import type { FeedStoryItem } from "@/entities/story";
 import { isAuthRequiredError } from "@/lib/authRequired";
 import { ReactionBar } from "./ReactionBar";
 import { CommentPreview } from "./CommentPreview";

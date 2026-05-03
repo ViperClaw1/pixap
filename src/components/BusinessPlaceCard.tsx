@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import { PixelRatio, View, Text, Pressable, StyleSheet } from "react-native";
-import { SmartImage } from "@/components/SmartImage";
+import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
-import type { BusinessCard } from "@/hooks/useBusinessCards";
+import type { BusinessCard } from "@/entities/business-card";
 import { useAuth } from "@/contexts/AuthContext";
-import { useIsFavorite, useToggleFavorite } from "@/hooks/useFavorites";
-import { getOptimizedImageUrl } from "@/lib/imageUtils";
+import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { navigateToProfileAuth } from "@/navigation/navigationHelpers";
-import type { ThemeColors } from "@/theme/palettes";
+import type { ThemeColors } from "@/shared/theme/palettes";
 import Carousel from "react-native-reanimated-carousel";
 import { normalizeBusinessCardImages } from "@/lib/businessCardImages";
 

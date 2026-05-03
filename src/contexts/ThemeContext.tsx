@@ -9,8 +9,8 @@ import {
 } from "react";
 import { useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { ThemeColors } from "@/theme/palettes";
-import { darkColors, lightColors } from "@/theme/palettes";
+import type { ThemeColors } from "@/shared/theme/palettes";
+import { darkColors, lightColors } from "@/shared/theme/palettes";
 
 const STORAGE_KEY = "@pixapp/ui_theme_mode";
 

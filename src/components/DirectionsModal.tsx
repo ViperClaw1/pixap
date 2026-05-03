@@ -17,10 +17,10 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { env } from "@/lib/env";
-import { fetchDirections, geocodeAddressDetailed, type TravelMode } from "@/lib/directionsApi";
-import type { LatLng } from "@/lib/polylineDecode";
-import { regionAroundPoint, regionFromCoordinates, type MapRegion } from "@/lib/mapRegion";
+import { env } from "@/shared/lib/env";
+import { fetchDirections, geocodeAddressDetailed, type TravelMode } from "@/shared/lib/directionsApi";
+import type { LatLng } from "@/shared/lib/polylineDecode";
+import { regionAroundPoint, regionFromCoordinates, type MapRegion } from "@/shared/lib/mapRegion";
 import { useAppTheme } from "@/contexts/ThemeContext";
 
 type Props = {
