@@ -120,6 +120,16 @@ export default function HomeScreen() {
           fontWeight: "800",
           letterSpacing: 0.2,
         },
+        vibeMatchBtn: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+          alignItems: "center",
+          justifyContent: "center",
+        },
         searchBtn: {
           backgroundColor: colors.border,
           padding: 14,
@@ -187,6 +197,14 @@ export default function HomeScreen() {
               <Text style={stylesThemed.aiBookingBtnText} numberOfLines={1}>
                 PixAI Smart Booking
               </Text>
+            </Pressable>
+            <Pressable
+              style={stylesThemed.vibeMatchBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Open PixAI Vibe Match"
+              onPress={() => navigation.navigate("VibeMatch")}
+            >
+              <Ionicons name="color-filter" size={20} color={colors.primary} />
             </Pressable>
             <ThemeToggle />
           </View>

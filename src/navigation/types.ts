@@ -15,6 +15,7 @@ export type BrowseFlowParamList = {
   ShoppingItems: { id: string };
   BookingFlow: { id: string };
   AIBooking: { id?: string } | undefined;
+  VibeMatch: undefined;
   SubscriptionPaywall: undefined;
 };
 
