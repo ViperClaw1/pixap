@@ -1,6 +1,6 @@
-import { supabase } from "@/integrations/supabase/client";
-import { env } from "@/lib/env";
-import { safeRefreshSession } from "@/lib/supabaseAuth";
+import { supabase } from "@/shared/api/supabase/client";
+import { env } from "@/shared/lib/env";
+import { safeRefreshSession } from "@/shared/lib/supabaseAuth";
 import * as Linking from "expo-linking";
 
 type CheckoutBody = Record<string, unknown>;

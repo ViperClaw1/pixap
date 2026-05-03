@@ -1,6 +1,6 @@
 import { Alert, Linking } from "react-native";
-import { env } from "@/lib/env";
-import type { ShoppingCartItem } from "@/hooks/useShoppingItems";
+import { env } from "@/shared/lib/env";
+import type { ShoppingCartItem } from "@/entities/shopping";
 
 export type WhatsAppAvailabilityKind = "restaurant" | "service" | "goods";
 

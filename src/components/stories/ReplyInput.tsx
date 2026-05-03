@@ -2,8 +2,8 @@ import { memo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import { useAppTheme } from "@/contexts/ThemeContext";
-import { SHARED_PRESSABLE_HEIGHT, primaryPressableStyle, primaryPressableTextStyle } from "@/theme/primaryPressable";
-import { RichTextarea } from "@/components/RichTextarea";
+import { SHARED_PRESSABLE_HEIGHT, primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
+import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 
 interface ReplyInputProps {
   submitting: boolean;

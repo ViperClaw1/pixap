@@ -1,7 +1,7 @@
 import type { LinkingOptions } from "@react-navigation/native";
 import { getStateFromPath as getStateFromPathInternal } from "@react-navigation/native";
 import * as Linking from "expo-linking";
-import { linkingConfig, linkingPrefixes } from "@/lib/linking";
+import { linkingConfig, linkingPrefixes } from "@/shared/lib/linking";
 import type { RootTabParamList } from "./types";
 
 const prefixes = [...linkingPrefixes, Linking.createURL("/")];

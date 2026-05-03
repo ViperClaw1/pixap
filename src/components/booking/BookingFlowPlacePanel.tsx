@@ -1,10 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Carousel from "react-native-reanimated-carousel";
-import { SmartImage } from "@/components/SmartImage";
-import type { ThemeColors } from "@/theme/palettes";
+import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import type { ThemeColors } from "@/shared/theme/palettes";
 import { getLatestBusinessCardImage, normalizeBusinessCardImages } from "@/lib/businessCardImages";
-import { getOptimizedImageUrl } from "@/lib/imageUtils";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 
 type Props = {
   place: {

@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
-import { env } from "@/lib/env";
-import { isInvalidRefreshTokenError } from "@/lib/supabaseAuth";
+import { supabase } from "@/shared/api/supabase/client";
+import { env } from "@/shared/lib/env";
+import { isInvalidRefreshTokenError } from "@/shared/lib/supabaseAuth";
 import { registerNativePushToken } from "@/services/pushNotifications";
 
 interface SignInResult {

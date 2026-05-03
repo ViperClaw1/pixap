@@ -1,8 +1,8 @@
-import type { PixAISlot } from "@/hooks/usePixAI";
+import type { PixAISlot } from "@/entities/pixai";
 
 const SLOT_HOURS = [10, 11, 12, 13, 14, 16, 17, 18] as const;
 
-/** Local calendar day [start, end) as ISO strings (matches AIBookingScreen `toYmd`). */
+/** Local calendar day [start, end) as ISO strings (matches AIBookingPage `toYmd`). */
 export function localDayBoundsIso(ymd: string): { start: string; endExclusive: string } {
   const [y, m, d] = ymd.split("-").map(Number);
   if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {

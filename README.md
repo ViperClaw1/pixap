@@ -82,7 +82,7 @@ flowchart TB
 |------|------|
 | `App.tsx` | Root: gesture handler, safe area, theme, React Query, auth, splash, permissions gate, navigation. |
 | `app.config.ts` | Expo config: app id, scheme `pixap`, iOS/Android, `extra` env passthrough, Google Maps keys, associated domains. |
-| `src/screens/` | Feature screens (home, place detail, booking, cart, stories, profile, auth, paywall, etc.). |
+| `src/pages/` | Route-level UI (FSD pages): home, place detail, booking, cart, stories, profile, auth, paywall, etc. |
 | `src/navigation/` | Tab + stack navigators, deep linking config, route types. |
 | `src/contexts/` | `AuthContext`, `ThemeContext`. |
 | `src/hooks/` | TanStack Query hooks: business cards, cart, bookings, stories, PixAI, slots, subscription, etc. |
@@ -160,8 +160,8 @@ Exact columns and RLS live in `supabase/migrations/`; regenerate client types wh
 
 ### 2. Manual booking flow
 
-- User picks slot/cost and customer details ’ **`cart_items`** row (`status: "created"`) via `useCreateCartItem` or related flows.
-- Optional **WhatsApp venue confirmation**: client invokes **`n8n-wa-booking-start`** with `cart_item_id`. That Edge Function loads the row (with venue `contact_whatsapp`), ensures a **`wa_n8n_callback_token`**, and **POSTs** a payload to **`wa-booking-service` `POST /webhook/booking`**, which starts the **availability ’ pricing ’ payment link / free** state machine and notifies **`n8n-wa-booking-callback`** to patch the same `cart_items` row.
+- User picks slot/cost and customer details ï¿½ **`cart_items`** row (`status: "created"`) via `useCreateCartItem` or related flows.
+- Optional **WhatsApp venue confirmation**: client invokes **`n8n-wa-booking-start`** with `cart_item_id`. That Edge Function loads the row (with venue `contact_whatsapp`), ensures a **`wa_n8n_callback_token`**, and **POSTs** a payload to **`wa-booking-service` `POST /webhook/booking`**, which starts the **availability ï¿½ pricing ï¿½ payment link / free** state machine and notifies **`n8n-wa-booking-callback`** to patch the same `cart_items` row.
 - When `wa_confirmable` is true, the user calls **`confirm-service-cart-booking`** with `action: "confirm"` (free) or `"pay"` (priced path inserts `bookings` with `payment_status: "pending"` until settled elsewhere).
 
 ### 3. PixAI-assisted booking
@@ -192,8 +192,8 @@ Exact columns and RLS live in `supabase/migrations/`; regenerate client types wh
 
 ### Typical authenticated read/write
 
-1. User signs in ’ **GoTrue** returns JWT ’ `supabase-js` attaches it to PostgREST and (when not overridden) to **`functions.invoke`**.
-2. Hook runs `queryFn` ’ `supabase.from("...").select(...)` ’ **RLS** allows or denies rows.
+1. User signs in ï¿½ **GoTrue** returns JWT ï¿½ `supabase-js` attaches it to PostgREST and (when not overridden) to **`functions.invoke`**.
+2. Hook runs `queryFn` ï¿½ `supabase.from("...").select(...)` ï¿½ **RLS** allows or denies rows.
 3. Optional **Realtime** channel invalidates React Query caches on `UPDATE`.
 
 ### WhatsApp booking chain
@@ -206,9 +206,9 @@ Exact columns and RLS live in `supabase/migrations/`; regenerate client types wh
 
 ### PayPal chain
 
-1. Mobile `createPaypalOrder` ’ **POST** `paypal-create-order` (or proxy) with Bearer JWT.
-2. User approves in browser / PayPal sheet ’ returns to app deep link.
-3. Mobile `capturePaypalOrder` ’ **POST** `paypal-capture-order`.
+1. Mobile `createPaypalOrder` ï¿½ **POST** `paypal-create-order` (or proxy) with Bearer JWT.
+2. User approves in browser / PayPal sheet ï¿½ returns to app deep link.
+3. Mobile `capturePaypalOrder` ï¿½ **POST** `paypal-capture-order`.
 
 ---
 
@@ -235,8 +235,8 @@ Send **`Authorization: Bearer <user_access_token>`** for user-scoped functions. 
 
 | Endpoint | Resolved from |
 |----------|----------------|
-| **Create order** | `env.paypalCreateOrderUrl` ’ default `{supabaseUrl}/functions/v1/paypal-create-order` or `{PIXAPP_API}/v1/paypal/create-order` |
-| **Capture order** | `env.paypalCaptureOrderUrl` ’ default `{supabaseUrl}/functions/v1/paypal-capture-order` or `{PIXAPP_API}/v1/paypal/capture-order` |
+| **Create order** | `env.paypalCreateOrderUrl` ï¿½ default `{supabaseUrl}/functions/v1/paypal-create-order` or `{PIXAPP_API}/v1/paypal/create-order` |
+| **Capture order** | `env.paypalCaptureOrderUrl` ï¿½ default `{supabaseUrl}/functions/v1/paypal-capture-order` or `{PIXAPP_API}/v1/paypal/capture-order` |
 
 **POST** JSON with user `Authorization` where implemented in `paypalCheckout.ts`.
 
@@ -293,7 +293,7 @@ Build-time: `app.config.ts` also reads **`APP_VERSION`**, **`IOS_BUILD_NUMBER`**
 Documented in [.env.example](.env.example) and in each functions source; commonly:
 
 - **`SUPABASE_SERVICE_ROLE_KEY`**, **`SUPABASE_URL`**, **`SUPABASE_ANON_KEY`**
-- **`WA_BOOKING_SERVICE_URL`**: Public base URL for `n8n-wa-booking-start` ’ **`wa-booking-service`**
+- **`WA_BOOKING_SERVICE_URL`**: Public base URL for `n8n-wa-booking-start` ï¿½ **`wa-booking-service`**
 - **`N8N_INBOUND_SECRET`**: Shared with **`WA_BOOKING_SUPABASE_CALLBACK_SECRET`** on the Node service
 - **PayPal**, **Lemon**, **Apple**, **Google** credentials for the respective functions
 
@@ -309,7 +309,7 @@ From the **repository root** (this Expo app, `package.json` **name** is `mobile`
 
 ```bash
 cp .env.example .env
-# Fill EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY from Supabase Dashboard ’ API
+# Fill EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY from Supabase Dashboard ï¿½ API
 
 npm install
 npx expo start
