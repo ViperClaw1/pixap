@@ -1,5 +1,6 @@
 const WA_GRAPH_BASE = (process.env.WHATSAPP_GRAPH_BASE_URL || "https://graph.facebook.com").replace(/\/$/, "");
 const WA_GRAPH_VERSION = (process.env.WHATSAPP_GRAPH_VERSION || "v22.0").trim();
+const WA_TEMPLATE_LANGUAGE = (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim();
 
 function requireEnv(name) {
   const value = (process.env[name] || "").trim();
@@ -124,7 +125,7 @@ async function sendWhatsAppTemplate(phone, templateId, variables = []) {
     type: "template",
     template: {
       name: String(templateId),
-      language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en" },
+      language: { code: WA_TEMPLATE_LANGUAGE },
       ...(components.length > 0 ? { components } : {}),
     },
   };

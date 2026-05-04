@@ -173,22 +173,57 @@ Deno.serve(async (req) => {
     );
   }
 
-  let callbackToken = row.wa_n8n_callback_token as string | null;
+  let callbackToken = typeof row.wa_n8n_callback_token === "string" ? row.wa_n8n_callback_token.trim() : "";
   if (!callbackToken) {
-    callbackToken = crypto.randomUUID();
-    const { error: tokErr } = await db
+    const generatedToken = crypto.randomUUID();
+    const { data: tokenRow, error: tokErr } = await db
       .from("cart_items")
-      .update({ wa_n8n_callback_token: callbackToken })
+      .update({ wa_n8n_callback_token: generatedToken })
       .eq("id", row.id)
       .eq("user_id", userId)
       .eq("status", "created")
-      .is("wa_n8n_started_at", null);
+      .is("wa_n8n_started_at", null)
+      .is("wa_n8n_callback_token", null)
+      .select("wa_n8n_callback_token")
+      .maybeSingle();
     if (tokErr) {
       console.error("[n8n-wa-booking-start] token update", tokErr);
       return new Response(JSON.stringify({ error: tokErr.message }), {
         status: 500,
         headers: jsonHeaders(),
       });
+    }
+    if (typeof tokenRow?.wa_n8n_callback_token === "string" && tokenRow.wa_n8n_callback_token.trim()) {
+      callbackToken = tokenRow.wa_n8n_callback_token.trim();
+    } else {
+      // Another concurrent start call likely set the token first.
+      const { data: existingTokenRow, error: existingTokenErr } = await db
+        .from("cart_items")
+        .select("wa_n8n_callback_token")
+        .eq("id", row.id)
+        .eq("user_id", userId)
+        .eq("status", "created")
+        .maybeSingle();
+      if (existingTokenErr) {
+        console.error("[n8n-wa-booking-start] token refetch", existingTokenErr);
+        return new Response(JSON.stringify({ error: existingTokenErr.message }), {
+          status: 500,
+          headers: jsonHeaders(),
+        });
+      }
+      callbackToken =
+        typeof existingTokenRow?.wa_n8n_callback_token === "string"
+          ? existingTokenRow.wa_n8n_callback_token.trim()
+          : "";
+      if (!callbackToken) {
+        return new Response(
+          JSON.stringify({
+            error: "Failed to resolve callback token",
+            step: "token_resolution",
+          }),
+          { status: 409, headers: jsonHeaders() },
+        );
+      }
     }
   }
 
