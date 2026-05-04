@@ -44,7 +44,7 @@ export default function BookingFlowPage() {
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const { session, user } = useAuth();
   const { data: place } = useBusinessCard(id);
   const isFavorite = useIsFavorite(id);
@@ -58,6 +58,55 @@ export default function BookingFlowPage() {
   const [selectedTime, setSelectedTime] = useState("");
   const [guests, setGuests] = useState(2);
   const selectedDate = useMemo(() => fromYmd(selectedDateYmd), [selectedDateYmd]);
+  const themedStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        headerBack: { color: colors.text },
+        headerTitle: { color: colors.text },
+        headerStep: { color: colors.textMuted },
+        sectionText: { color: colors.text },
+        guestButton: {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        guestButtonText: { color: colors.text },
+        guestCountText: { color: colors.text },
+        calendarPanel: {
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        calendarNavBtn: {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        calendarMonthTitle: { color: colors.text },
+        calendarDowCell: { color: colors.textMuted },
+        calendarCellDayInner: { backgroundColor: colors.card },
+        calendarCellDayText: { color: colors.text },
+        calendarCellToday: { borderColor: colors.textMuted },
+        calendarCellSelected: {
+          borderColor: colors.text,
+          backgroundColor: isDark ? "#262626" : "#f3f4f6",
+        },
+        calendarCellPast: { opacity: 0.42 },
+        calendarCellPastText: { color: colors.textMuted },
+        timeCell: {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        timeCellText: { color: colors.text },
+        timeCellSel: { backgroundColor: colors.text, borderColor: colors.text },
+        timeCellTextSel: { color: colors.background, fontWeight: "700" },
+        confirmText: { color: colors.text },
+        confirmPrice: { color: colors.textMuted },
+        footer: { borderTopColor: colors.border, backgroundColor: colors.background },
+      }),
+    [colors, isDark],
+  );
 
   if (!place) return null;
 
@@ -177,11 +226,11 @@ export default function BookingFlowPage() {
       {step === 1 ? (
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
           <Pressable onPress={() => setStep(step - 1)}>
-            <Text style={styles.back}>←</Text>
+            <Text style={[styles.back, themedStyles.headerBack]}>←</Text>
           </Pressable>
           <View>
-            <Text style={styles.title}>Book {place.name}</Text>
-            <Text style={styles.stepText}>
+            <Text style={[styles.title, themedStyles.headerTitle]}>Book {place.name}</Text>
+            <Text style={[styles.stepText, themedStyles.headerStep]}>
               Step {step + 1} of {totalSteps + 1}
             </Text>
           </View>
@@ -206,14 +255,14 @@ export default function BookingFlowPage() {
               onPressFavorite={onFavoritePress}
               onPressBack={() => navigation.goBack()}
             >
-              <Text style={styles.section}>Number of guests</Text>
+              <Text style={[styles.section, themedStyles.sectionText]}>Number of guests</Text>
               <View style={styles.guestRow}>
-                <Pressable style={styles.guestBtn} onPress={() => setGuests(Math.max(1, guests - 1))}>
-                  <Text style={styles.guestBtnText}>−</Text>
+                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.max(1, guests - 1))}>
+                  <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>−</Text>
                 </Pressable>
-                <Text style={styles.guestCount}>{guests}</Text>
-                <Pressable style={styles.guestBtn} onPress={() => setGuests(Math.min(20, guests + 1))}>
-                  <Text style={styles.guestBtnText}>+</Text>
+                <Text style={[styles.guestCount, themedStyles.guestCountText]}>{guests}</Text>
+                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.min(20, guests + 1))}>
+                  <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>+</Text>
                 </Pressable>
               </View>
             </BookingFlowPlacePanel>
@@ -222,8 +271,8 @@ export default function BookingFlowPage() {
 
         {step === 1 && (
           <View style={styles.stepContent}>
-            <Text style={styles.section}>Select date & time</Text>
-            <View style={styles.calendarPanel}>
+            <Text style={[styles.section, themedStyles.sectionText]}>Select date & time</Text>
+            <View style={[styles.calendarPanel, themedStyles.calendarPanel]}>
               <View style={styles.calendarNav}>
                 <Pressable
                   accessibilityRole="button"
@@ -236,11 +285,11 @@ export default function BookingFlowPage() {
                       return new Date(y, m - 1, 1);
                     })
                   }
-                  style={[styles.calendarNavBtn, !canGoPrevMonth && styles.calendarNavBtnDisabled]}
+                  style={[styles.calendarNavBtn, themedStyles.calendarNavBtn, !canGoPrevMonth && styles.calendarNavBtnDisabled]}
                 >
-                  <Ionicons name="chevron-back" size={22} color={colors.text} />
+                  <Ionicons name="chevron-back" size={22} color={canGoPrevMonth ? colors.text : colors.textMuted} />
                 </Pressable>
-                <Text style={[styles.calendarMonthTitle, { color: colors.text }]}>
+                <Text style={[styles.calendarMonthTitle, themedStyles.calendarMonthTitle]}>
                   {visibleCalendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
                 </Text>
                 <Pressable
@@ -254,14 +303,14 @@ export default function BookingFlowPage() {
                       return new Date(y, m + 1, 1);
                     })
                   }
-                  style={[styles.calendarNavBtn, !canGoNextMonth && styles.calendarNavBtnDisabled]}
+                  style={[styles.calendarNavBtn, themedStyles.calendarNavBtn, !canGoNextMonth && styles.calendarNavBtnDisabled]}
                 >
-                  <Ionicons name="chevron-forward" size={22} color={colors.text} />
+                  <Ionicons name="chevron-forward" size={22} color={canGoNextMonth ? colors.text : colors.textMuted} />
                 </Pressable>
               </View>
               <View style={styles.calendarDowRow}>
                 {WEEKDAY_LABELS.map((label) => (
-                  <Text key={label} style={styles.calendarDowCell}>
+                  <Text key={label} style={[styles.calendarDowCell, themedStyles.calendarDowCell]}>
                     {label}
                   </Text>
                 ))}
@@ -285,12 +334,18 @@ export default function BookingFlowPage() {
                           onPress={() => setSelectedDateYmd(ymd)}
                           style={[
                             styles.calendarCellDayInner,
+                            themedStyles.calendarCellDayInner,
                             isToday && styles.calendarCellToday,
+                            isToday && themedStyles.calendarCellToday,
                             isSelected && styles.calendarCellSelected,
+                            isSelected && themedStyles.calendarCellSelected,
                             isPast && styles.calendarCellPast,
+                            isPast && themedStyles.calendarCellPast,
                           ]}
                         >
-                          <Text style={styles.calendarCellDayText}>{day}</Text>
+                          <Text style={[styles.calendarCellDayText, themedStyles.calendarCellDayText, isPast && themedStyles.calendarCellPastText]}>
+                            {day}
+                          </Text>
                         </Pressable>
                       </View>
                     );
@@ -302,10 +357,12 @@ export default function BookingFlowPage() {
               {timeSlots.map((t) => (
                 <Pressable
                   key={t}
-                  style={[styles.timeCell, selectedTime === t && styles.timeCellSel]}
+                  style={[styles.timeCell, themedStyles.timeCell, selectedTime === t && styles.timeCellSel, selectedTime === t && themedStyles.timeCellSel]}
                   onPress={() => setSelectedTime(t)}
                 >
-                  <Text style={selectedTime === t ? styles.timeCellTextSel : undefined}>{t}</Text>
+                  <Text style={[themedStyles.timeCellText, selectedTime === t && styles.timeCellTextSel, selectedTime === t && themedStyles.timeCellTextSel]}>
+                    {t}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -329,17 +386,17 @@ export default function BookingFlowPage() {
               onPressFavorite={onFavoritePress}
               onPressBack={() => setStep(step - 1)}
             >
-              <Text style={styles.section}>Confirm</Text>
-              <Text>
+              <Text style={[styles.section, themedStyles.sectionText]}>Confirm</Text>
+              <Text style={themedStyles.confirmText}>
                 {guests} guests · {selectedDate.toDateString()} {selectedTime}
               </Text>
-              <Text style={{ marginTop: 8 }}>{Number(place.booking_price).toLocaleString()} $</Text>
+              <Text style={[{ marginTop: 8 }, themedStyles.confirmPrice]}>{Number(place.booking_price).toLocaleString()} $</Text>
             </BookingFlowPlacePanel>
           </View>
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[styles.footer, themedStyles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         {step < totalSteps ? (
           <Pressable
             style={styles.primary}
