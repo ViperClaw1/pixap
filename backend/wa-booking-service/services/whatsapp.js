@@ -57,7 +57,15 @@ function templateHeaderImageUrl(templateId) {
 }
 
 function templateRequiresImageHeader(templateId) {
-  return ["check_availability", "check_is_free", "get_payment_link"].includes(String(templateId));
+  const explicitList = String(process.env.WHATSAPP_IMAGE_HEADER_REQUIRED_TEMPLATES || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (explicitList.length > 0) {
+    return explicitList.includes(String(templateId));
+  }
+  // Backward compatible default: only availability template requires IMAGE header.
+  return String(templateId) === "check_availability";
 }
 
 async function postWhatsAppMessage(payload, logMeta) {
