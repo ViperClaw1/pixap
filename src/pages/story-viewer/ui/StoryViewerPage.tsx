@@ -42,6 +42,23 @@ function formatStoryTime(value: string) {
   return date.toLocaleString();
 }
 
+function parseStoryMediaUrl(raw?: string | null): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  if (value.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        const first = parsed.find((item) => typeof item === "string" && item.trim().length > 0);
+        return typeof first === "string" ? first : null;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return value;
+}
+
 export default function StoryViewerScreen() {
   const { params } = useRoute<StoryViewerRoute>();
   const navigation = useNavigation<StoryViewerNav>();
@@ -100,8 +117,8 @@ export default function StoryViewerScreen() {
   }, [viewer.currentFlatIndex]);
 
   useEffect(() => {
-    const next = viewer.flatStories[viewer.currentFlatIndex + 1]?.story.media_url;
-    const nextGroup = params.groups[viewer.currentGroupIndex + 1]?.stories[0]?.media_url;
+    const next = parseStoryMediaUrl(viewer.flatStories[viewer.currentFlatIndex + 1]?.story.media_url);
+    const nextGroup = parseStoryMediaUrl(params.groups[viewer.currentGroupIndex + 1]?.stories[0]?.media_url);
     if (next) void Image.prefetch(next);
     if (nextGroup) void Image.prefetch(nextGroup);
   }, [params.groups, viewer.currentFlatIndex, viewer.currentGroupIndex, viewer.flatStories]);
@@ -222,7 +239,7 @@ export default function StoryViewerScreen() {
   return (
     <SafeAreaView
       style={[styles.root, { backgroundColor: "rgba(0,0,0,0.45)" }]}
-      edges={Platform.OS === "ios" ? ["top", "bottom"] : ["top"]}
+      edges={["top"]}
     >
       <KeyboardAvoidingView
         style={styles.root}
@@ -242,6 +259,9 @@ export default function StoryViewerScreen() {
             ]}
           >
             <View style={styles.topArea}>
+              <View style={styles.sheetHandleWrap}>
+                <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+              </View>
               <StoryProgressBar
                 count={activeGroup.stories.length}
                 currentIndex={viewer.currentStoryIndex}
@@ -335,8 +355,19 @@ const styles = StyleSheet.create({
   },
   topArea: {
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: 4,
     gap: 8,
+  },
+  sheetHandleWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: 12,
+  },
+  sheetHandle: {
+    width: 44,
+    height: 4,
+    borderRadius: 999,
+    opacity: 0.9,
   },
   headerRow: {
     flexDirection: "row",

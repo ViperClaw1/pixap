@@ -47,6 +47,7 @@ export default function HomeScreen() {
   /** Horizontal padding 16 + 16 from `content` — matches full-width recommended cards */
   const recommendedCardWidth = windowWidth - 32;
   const homeQueriesLoading = lc || lf || lr;
+  const isCompactAiButton = windowWidth < 400;
 
   useEffect(() => {
     const cityFromProfile = profile?.city?.trim();
@@ -112,6 +113,14 @@ export default function HomeScreen() {
           shadowOpacity: isDark ? 0.45 : 0.35,
           shadowRadius: 6,
           elevation: 5,
+        },
+        aiBookingBtnCompact: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          paddingHorizontal: 0,
+          paddingVertical: 0,
+          justifyContent: "center",
         },
         aiBookingBtnText: {
           flexShrink: 1,
@@ -188,15 +197,17 @@ export default function HomeScreen() {
               </View>
             ) : null}
             <Pressable
-              style={stylesThemed.aiBookingBtn}
+              style={[stylesThemed.aiBookingBtn, isCompactAiButton ? stylesThemed.aiBookingBtnCompact : null]}
               accessibilityRole="button"
               accessibilityLabel="Open PixAI Smart Booking"
               onPress={() => navigation.navigate("AIBooking")}
             >
               <Ionicons name="sparkles" size={18} color={isDark ? "#0a0a0a" : "#ffffff"} />
-              <Text style={stylesThemed.aiBookingBtnText} numberOfLines={1}>
-                PixAI Smart Booking
-              </Text>
+              {!isCompactAiButton ? (
+                <Text style={stylesThemed.aiBookingBtnText} numberOfLines={1}>
+                  PixAI Smart Booking
+                </Text>
+              ) : null}
             </Pressable>
             <Pressable
               style={stylesThemed.vibeMatchBtn}

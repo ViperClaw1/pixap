@@ -1,5 +1,17 @@
-import { useMemo, useState } from "react";
-import { View, Text, Pressable, StyleSheet, FlatList, Alert, useWindowDimensions, ActivityIndicator } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  FlatList,
+  Alert,
+  useWindowDimensions,
+  ActivityIndicator,
+  Linking,
+  Platform,
+  ToastAndroid,
+} from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -46,21 +58,39 @@ export default function BookingsScreen() {
     navigation: navigation as unknown as NavigationProp<ParamListBase>,
   });
   const [filter, setFilter] = useState<BookingDisplayStatus>("draft");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { data: bookings = [] } = useBookings();
   const { data: cartItems = [] } = useCartItems();
   const cancelBooking = useCancelBooking();
   const isCompact = windowWidth < 400;
+  const prevStatusesRef = useRef<Map<string, BookingDisplayStatus>>(new Map());
 
   const items = useMemo(() => {
     const cartMap = new Map(cartItems.map((item) => [`${item.business_card_id}|${item.date_time}`, item]));
     return bookings
-      .map((booking) => ({
-        ...booking,
-        displayStatus: deriveBookingDisplayStatus(booking, cartMap.get(`${booking.business_card_id}|${booking.date_time}`)),
-      }))
+      .map((booking) => {
+        const linkedCartItem = cartMap.get(`${booking.business_card_id}|${booking.date_time}`);
+        return {
+          ...booking,
+          waPaymentLink: linkedCartItem?.wa_payment_link?.trim() || null,
+          displayStatus: deriveBookingDisplayStatus(booking, linkedCartItem),
+        };
+      })
       .filter((item) => item.displayStatus === filter)
       .sort((a, b) => new Date(b.date_time).getTime() - new Date(a.date_time).getTime());
   }, [bookings, cartItems, filter]);
+
+  const bookingStatuses = useMemo(() => {
+    const cartMap = new Map(cartItems.map((item) => [`${item.business_card_id}|${item.date_time}`, item]));
+    return bookings.map((booking) => {
+      const linkedCartItem = cartMap.get(`${booking.business_card_id}|${booking.date_time}`);
+      return {
+        id: booking.id,
+        venueName: booking.business_card?.name ?? "Booking",
+        status: deriveBookingDisplayStatus(booking, linkedCartItem),
+      };
+    });
+  }, [bookings, cartItems]);
 
   const stylesThemed = useMemo(
     () =>
@@ -114,9 +144,55 @@ export default function BookingsScreen() {
           alignItems: "center",
         },
         cancelBtnText: { color: colors.danger, fontSize: 12, fontWeight: "700" },
+        payBtn: {
+          marginTop: 10,
+          alignSelf: "flex-start",
+          backgroundColor: colors.primary,
+          borderRadius: 8,
+          paddingHorizontal: 12,
+          paddingVertical: 7,
+        },
+        payBtnText: { color: colors.onPrimary, fontSize: 12, fontWeight: "700" },
+        toastWrap: {
+          position: "absolute",
+          left: 16,
+          right: 16,
+          bottom: 24 + insets.bottom,
+          zIndex: 100,
+        },
+        toastCard: {
+          backgroundColor: colors.text,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+        },
+        toastText: { color: colors.background, fontSize: 12, fontWeight: "600" },
       }),
-    [colors],
+    [colors, insets.bottom],
   );
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 2500);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
+  useEffect(() => {
+    const prev = prevStatusesRef.current;
+    for (const current of bookingStatuses) {
+      const previousStatus = prev.get(current.id);
+      if (!previousStatus) continue;
+      if (previousStatus !== current.status) {
+        const message = `${current.venueName}: ${previousStatus} -> ${current.status}`;
+        if (Platform.OS === "android") {
+          ToastAndroid.show(message, ToastAndroid.SHORT);
+        } else {
+          setToastMessage(message);
+        }
+      }
+    }
+    prevStatusesRef.current = new Map(bookingStatuses.map((x) => [x.id, x.status]));
+  }, [bookingStatuses]);
 
   if (loading) {
     return (
@@ -150,9 +226,30 @@ export default function BookingsScreen() {
     }
   };
 
-  const renderItem = ({ item }: { item: Booking & { displayStatus: BookingDisplayStatus } }) => {
+  const openPaymentLink = async (paymentLink: string | null) => {
+    if (!paymentLink) {
+      Alert.alert("Payment link is missing", "Venue has not provided payment URL yet.");
+      return;
+    }
+    try {
+      const canOpen = await Linking.canOpenURL(paymentLink);
+      if (!canOpen) {
+        Alert.alert("Cannot open payment link", paymentLink);
+        return;
+      }
+      await Linking.openURL(paymentLink);
+    } catch (error) {
+      Alert.alert("Cannot open payment link", error instanceof Error ? error.message : "Unknown error");
+    }
+  };
+
+  const renderItem = ({ item }: { item: Booking & { displayStatus: BookingDisplayStatus; waPaymentLink: string | null } }) => {
     const palette = statusPalette(item.displayStatus);
     const canCancel = item.displayStatus !== "cancelled" && item.displayStatus !== "completed";
+    const canPay =
+      (item.displayStatus === "confirmed" || item.displayStatus === "payment awaiting") &&
+      item.payment_status === "pending" &&
+      Boolean(item.waPaymentLink);
     return (
       <Pressable
         style={stylesThemed.card}
@@ -199,6 +296,17 @@ export default function BookingsScreen() {
               Payment: {item.payment_status === "pending" ? "Pending" : "Paid"}
             </Text>
           ) : null}
+          {canPay ? (
+            <Pressable
+              style={stylesThemed.payBtn}
+              onPress={(event) => {
+                event.stopPropagation?.();
+                void openPaymentLink(item.waPaymentLink);
+              }}
+            >
+              <Text style={stylesThemed.payBtnText}>Pay</Text>
+            </Pressable>
+          ) : null}
           {item.displayStatus === "draft" ? (
             <View style={stylesThemed.waitingBadge}>
               <Text style={stylesThemed.waitingBadgeText}>Waiting for venue response</Text>
@@ -233,6 +341,13 @@ export default function BookingsScreen() {
         ListEmptyComponent={<Text style={stylesThemed.empty}>No bookings</Text>}
         renderItem={renderItem}
       />
+      {toastMessage ? (
+        <View pointerEvents="none" style={stylesThemed.toastWrap}>
+          <View style={stylesThemed.toastCard}>
+            <Text style={stylesThemed.toastText}>{toastMessage}</Text>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }

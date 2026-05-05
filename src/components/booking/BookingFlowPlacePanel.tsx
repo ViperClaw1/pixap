@@ -21,6 +21,7 @@ type Props = {
   onPressBack: () => void;
   onPressFavorite: () => void;
   children?: ReactNode;
+  useMonotoneDarkBackground?: boolean;
 };
 
 const HERO_HEIGHT = 260;
@@ -33,6 +34,7 @@ export function BookingFlowPlacePanel({
   onPressBack,
   onPressFavorite,
   children,
+  useMonotoneDarkBackground = false,
 }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const [heroSlide, setHeroSlide] = useState(0);
@@ -98,9 +100,9 @@ export function BookingFlowPlacePanel({
           marginTop: -24,
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
+          borderWidth: useMonotoneDarkBackground ? 0 : 1,
+          borderColor: useMonotoneDarkBackground ? colors.background : colors.border,
+          backgroundColor: useMonotoneDarkBackground ? colors.background : colors.card,
           padding: 20,
         },
         title: {
@@ -121,7 +123,7 @@ export function BookingFlowPlacePanel({
           marginTop: 14,
         },
       }),
-    [colors, heroTopInset, heroWidth],
+    [colors, heroTopInset, heroWidth, useMonotoneDarkBackground],
   );
 
   const heroImagesRaw = useMemo(

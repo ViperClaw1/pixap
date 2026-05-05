@@ -42,8 +42,6 @@ function FeedListComponent({
 }: FeedListProps) {
   const { colors, isDark } = useAppTheme();
   const skeletonMediaWidth = Dimensions.get("window").width - 48;
-  const contentPaddingBottom = 20;
-
   if (loading && !stories.length) {
     return (
       <ShimmerProvider active>
@@ -77,7 +75,7 @@ function FeedListComponent({
     <FlatList
       data={stories}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
+      contentContainerStyle={styles.content}
       renderItem={({ item }) => (
         <FeedStoryCard
           story={item}
@@ -127,7 +125,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   content: {
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 0,
   },
   emptyWrap: {
     alignItems: "center",

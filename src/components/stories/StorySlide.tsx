@@ -10,15 +10,33 @@ interface StorySlideProps {
   height: number;
 }
 
+function parseStoryMediaUrl(raw?: string | null): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  if (value.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        const first = parsed.find((item) => typeof item === "string" && item.trim().length > 0);
+        return typeof first === "string" ? first : null;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return value;
+}
+
 function StorySlideComponent({ story, width, height }: StorySlideProps) {
   const { colors } = useAppTheme();
-  const hasMedia = !!story.media_url;
+  const mediaUrl = parseStoryMediaUrl(story.media_url);
+  const hasMedia = !!mediaUrl;
 
   return (
     <View style={[styles.container, { width, height, backgroundColor: colors.background }]}>
       {hasMedia ? (
         <SmartImage
-          uri={story.media_url}
+          uri={mediaUrl}
           style={styles.media}
           contentFit="cover"
           allowDownscaling={false}
