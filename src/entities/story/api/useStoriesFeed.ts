@@ -4,6 +4,7 @@ import { supabase } from "@/shared/api/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { StoryItem, StoryProfile, StoryReactionType } from "@/types/stories";
 import { useMyFollowing } from "@/entities/user";
+import { normalizeBusinessCardImages } from "@/lib/businessCardImages";
 
 type StoryRow = {
   id: string;
@@ -12,11 +13,13 @@ type StoryRow = {
   content: string;
   media_url: string | null;
   created_at: string;
+  expiry_time: string;
 };
 
 type PlaceRow = {
   id: string;
   name: string;
+  images: unknown;
 };
 
 type ProfileRow = {
@@ -28,6 +31,11 @@ type ProfileRow = {
 
 export type FeedStoryItem = StoryItem & {
   place_name: string;
+  business_card: {
+    id: string;
+    name: string;
+    images: string[];
+  } | null;
   comment_preview: Array<{ id: string; content: string; created_at: string }>;
   is_followed_author: boolean;
 };
@@ -99,7 +107,8 @@ export function useStoriesFeed() {
       const { data: storiesData, error: storiesError } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table types are not yet regenerated
         .from("stories" as any)
-        .select("id, user_id, place_id, content, media_url, created_at")
+        .select("id, user_id, place_id, content, media_url, created_at, expiry_time")
+        .gt("expiry_time", new Date().toISOString())
         .order("created_at", { ascending: false })
         .limit(fetchLimit);
       if (storiesError) throw storiesError;
@@ -116,7 +125,7 @@ export function useStoriesFeed() {
           supabase
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table types are not yet regenerated
             .from("business_cards" as any)
-            .select("id, name")
+            .select("id, name, images")
             .in("id", placeIds),
           supabase
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table types are not yet regenerated
@@ -126,13 +135,13 @@ export function useStoriesFeed() {
           supabase
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table types are not yet regenerated
             .from("story_comments" as any)
-            .select("id, story_id, content, created_at")
+            .select("id, story_id, parent_id, content, created_at")
             .in("story_id", storyIds)
             .order("created_at", { ascending: false }),
           supabase
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table types are not yet regenerated
             .from("story_reactions" as any)
-            .select("story_id")
+            .select("story_id, type")
             .in("story_id", storyIds),
           user?.id
             ? supabase
@@ -156,7 +165,8 @@ export function useStoriesFeed() {
 
       const commentsByStory = new Map<string, Array<{ id: string; content: string; created_at: string }>>();
       const commentCountByStory = new Map<string, number>();
-      for (const row of (commentsData ?? []) as unknown as Array<{ id: string; story_id: string; content: string; created_at: string }>) {
+      for (const row of (commentsData ?? []) as unknown as Array<{ id: string; story_id: string; parent_id: string | null; content: string; created_at: string }>) {
+        if (row.parent_id) continue;
         commentCountByStory.set(row.story_id, (commentCountByStory.get(row.story_id) ?? 0) + 1);
         if (!commentsByStory.has(row.story_id)) commentsByStory.set(row.story_id, []);
         const existing = commentsByStory.get(row.story_id)!;
@@ -164,7 +174,8 @@ export function useStoriesFeed() {
       }
 
       const reactionCountByStory = new Map<string, number>();
-      for (const row of (reactionsData ?? []) as unknown as Array<{ story_id: string }>) {
+      for (const row of (reactionsData ?? []) as unknown as Array<{ story_id: string; type: StoryReactionType }>) {
+        if (row.type !== "like") continue;
         reactionCountByStory.set(row.story_id, (reactionCountByStory.get(row.story_id) ?? 0) + 1);
       }
 
@@ -182,6 +193,13 @@ export function useStoriesFeed() {
           user_id: row.user_id,
           place_id: row.place_id,
           place_name: places.get(row.place_id)?.name ?? "Unknown place",
+          business_card: places.get(row.place_id)
+            ? {
+                id: places.get(row.place_id)!.id,
+                name: places.get(row.place_id)!.name,
+                images: normalizeBusinessCardImages(places.get(row.place_id)!.images),
+              }
+            : null,
           content: row.content,
           media_url: row.media_url,
           created_at: row.created_at,

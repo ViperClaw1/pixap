@@ -6,6 +6,7 @@ interface CreateStoryInput {
   placeId: string;
   content: string;
   mediaUrl?: string | null;
+  expiryTime?: string;
 }
 
 export const useCreateStory = () => {
@@ -13,7 +14,7 @@ export const useCreateStory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ placeId, content, mediaUrl }: CreateStoryInput) => {
+    mutationFn: async ({ placeId, content, mediaUrl, expiryTime }: CreateStoryInput) => {
       if (!user?.id) throw new Error("Authentication required");
       const text = content.trim();
       if (!text) throw new Error("Story content cannot be empty");
@@ -26,6 +27,7 @@ export const useCreateStory = () => {
           place_id: placeId,
           content: text,
           media_url: mediaUrl?.trim() ? mediaUrl.trim() : null,
+          expiry_time: expiryTime ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         })
         .select()
         .single();
@@ -35,6 +37,9 @@ export const useCreateStory = () => {
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["stories", "place", variables.placeId] });
+      void queryClient.invalidateQueries({ queryKey: ["stories", "strip"] });
+      void queryClient.invalidateQueries({ queryKey: ["stories", "feed"] });
+      void queryClient.invalidateQueries({ queryKey: ["stories"] });
     },
   });
 };

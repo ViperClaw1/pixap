@@ -57,6 +57,7 @@ export default function BookingFlowPage() {
   const [visibleCalendarMonth, setVisibleCalendarMonth] = useState<Date>(() => firstOfMonthContaining(new Date()));
   const [selectedTime, setSelectedTime] = useState("");
   const [guests, setGuests] = useState(2);
+  const useMonotoneDarkBackground = isDark && (step === 0 || step === 2);
   const selectedDate = useMemo(() => fromYmd(selectedDateYmd), [selectedDateYmd]);
   const themedStyles = useMemo(
     () =>
@@ -107,6 +108,10 @@ export default function BookingFlowPage() {
       }),
     [colors, isDark],
   );
+  const calendarCells = useMemo(
+    () => buildMonthCells(visibleCalendarMonth.getFullYear(), visibleCalendarMonth.getMonth()),
+    [visibleCalendarMonth],
+  );
 
   if (!place) return null;
 
@@ -120,10 +125,6 @@ export default function BookingFlowPage() {
   );
   const canGoPrevMonth = monthKey(visibleCalendarMonth) > monthKey(earliestBookableMonth);
   const canGoNextMonth = monthKey(visibleCalendarMonth) < monthKey(latestBookableMonth);
-  const calendarCells = useMemo(
-    () => buildMonthCells(visibleCalendarMonth.getFullYear(), visibleCalendarMonth.getMonth()),
-    [visibleCalendarMonth],
-  );
   const onFavoritePress = () => {
     if (!user) {
       navigateToProfileAuth(navigation);
@@ -254,6 +255,7 @@ export default function BookingFlowPage() {
               isFavorite={isFavorite}
               onPressFavorite={onFavoritePress}
               onPressBack={() => navigation.goBack()}
+              useMonotoneDarkBackground={useMonotoneDarkBackground}
             >
               <Text style={[styles.section, themedStyles.sectionText]}>Number of guests</Text>
               <View style={styles.guestRow}>
@@ -385,6 +387,7 @@ export default function BookingFlowPage() {
               isFavorite={isFavorite}
               onPressFavorite={onFavoritePress}
               onPressBack={() => setStep(step - 1)}
+              useMonotoneDarkBackground={useMonotoneDarkBackground}
             >
               <Text style={[styles.section, themedStyles.sectionText]}>Confirm</Text>
               <Text style={themedStyles.confirmText}>

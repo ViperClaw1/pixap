@@ -48,7 +48,10 @@ export function deriveBookingDisplayStatus(booking: Booking, linkedCartItem?: Ca
     return "cancelled";
   }
   if (booking.payment_status === "pending") {
-    if (linkedCartItem?.wa_confirmable || (linkedCartItem?.wa_payment_link?.trim()?.length ?? 0) > 0) {
+    if ((linkedCartItem?.wa_payment_link?.trim()?.length ?? 0) > 0) {
+      return "payment awaiting";
+    }
+    if (linkedCartItem?.wa_confirmable) {
       return "confirmed";
     }
     return "draft";

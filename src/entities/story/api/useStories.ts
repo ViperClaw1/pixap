@@ -11,6 +11,7 @@ type StoryRow = {
   content: string;
   media_url: string | null;
   created_at: string;
+  expiry_time: string;
 };
 
 type ProfileRow = {
@@ -70,8 +71,9 @@ export const useStories = (placeId: string) => {
       const { data: storiesData, error: storiesError } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table types are not yet regenerated
         .from("stories" as any)
-        .select("id, user_id, place_id, content, media_url, created_at")
+        .select("id, user_id, place_id, content, media_url, created_at, expiry_time")
         .eq("place_id", placeId)
+        .gt("expiry_time", new Date().toISOString())
         .order("created_at", { ascending: false });
 
       if (storiesError) throw storiesError;

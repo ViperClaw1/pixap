@@ -28,7 +28,12 @@ export type HomeStackParamList = {
 
 /** Feed tab stack (same detail flows as Home for consistent `navigate` calls). */
 export type FeedStackParamList = {
-  FeedMain: undefined;
+  FeedMain:
+    | {
+        focusPostId?: string;
+        focusStoryId?: string;
+      }
+    | undefined;
 } & BrowseFlowParamList;
 
 /** Legacy type kept for compatibility with existing SearchScreen typings. */
