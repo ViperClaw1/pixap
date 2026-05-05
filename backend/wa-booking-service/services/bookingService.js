@@ -434,13 +434,12 @@ async function handlePricingStep(booking, messageText) {
   }
 
   if (yesNo === "no") {
+    const sendResult = await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
+    trackOutboundMessage(booking, sendResult?.message_id);
     booking.is_free = false;
     booking.status = "payment_link_requested";
     booking.step = "pricing_payment_link_input";
     booking.updated_at = new Date().toISOString();
-
-    const sendResult = await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
-    trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
       {
