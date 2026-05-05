@@ -29,7 +29,29 @@ async function handleInbound(req, res) {
         timestamp: new Date().toISOString(),
       }),
     );
-    const result = isMetaWebhook ? await processWhatsAppWebhook(body) : await processIncomingWhatsApp(body);
+    if (isMetaWebhook) {
+      // Meta retries aggressively when webhook processing is slow; ACK first, process async.
+      res.status(200).json({ ok: true, accepted: true });
+      void processWhatsAppWebhook(body)
+        .then((result) => {
+          console.log(
+            JSON.stringify({
+              scope: "route_whatsapp",
+              action: "meta_webhook_processed",
+              path: req.originalUrl,
+              statuses_ingested: result?.ingested?.statuses ?? null,
+              inbound_ingested: result?.ingested?.inbound_messages ?? null,
+              timestamp: new Date().toISOString(),
+            }),
+          );
+        })
+        .catch((error) => {
+          console.error("[route:/webhook/whatsapp] async meta processing error", error);
+        });
+      return;
+    }
+
+    const result = await processIncomingWhatsApp(body);
     return res.status(200).json(result);
   } catch (error) {
     console.error("[route:/webhook/whatsapp] error", error);

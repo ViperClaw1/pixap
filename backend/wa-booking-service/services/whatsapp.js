@@ -42,17 +42,22 @@ function buildHeaderImageComponent(imageUrl) {
 }
 
 function templateHeaderImageUrl(templateId) {
-  const specific = process.env[`WHATSAPP_TEMPLATE_${String(templateId).toUpperCase()}_HEADER_IMAGE_URL`];
+  const templateName = String(templateId);
+  const specific = process.env[`WHATSAPP_TEMPLATE_${templateName.toUpperCase()}_HEADER_IMAGE_URL`];
   if (specific && String(specific).trim()) return String(specific).trim();
-  const byName =
-    String(templateId) === "check_availability" ? process.env.WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL : undefined;
+  const legacyByNameMap = {
+    check_availability: process.env.WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL,
+    check_is_free: process.env.WHATSAPP_CHECK_IS_FREE_HEADER_IMAGE_URL,
+    get_payment_link: process.env.WHATSAPP_GET_PAYMENT_LINK_HEADER_IMAGE_URL,
+  };
+  const byName = legacyByNameMap[templateName];
   if (byName && String(byName).trim()) return String(byName).trim();
   const fallback = process.env.WHATSAPP_TEMPLATE_HEADER_IMAGE_URL;
   return fallback && String(fallback).trim() ? String(fallback).trim() : undefined;
 }
 
 function templateRequiresImageHeader(templateId) {
-  return String(templateId) === "check_availability";
+  return ["check_availability", "check_is_free", "get_payment_link"].includes(String(templateId));
 }
 
 async function postWhatsAppMessage(payload, logMeta) {
@@ -98,6 +103,8 @@ async function postWhatsAppMessage(payload, logMeta) {
       action: "meta_send_ok",
       status: response.status,
       message_id: bodyJson?.messages?.[0]?.id || null,
+      message_status: bodyJson?.messages?.[0]?.message_status || null,
+      recipient_wa_id: bodyJson?.contacts?.[0]?.wa_id || null,
       ...logMeta,
       timestamp: new Date().toISOString(),
     }),
@@ -114,7 +121,7 @@ async function sendWhatsAppTemplate(phone, templateId, variables = []) {
   const headerImageUrl = templateHeaderImageUrl(templateId);
   if (templateRequiresImageHeader(templateId) && !headerImageUrl) {
     throw new Error(
-      `Missing image header URL for template "${templateId}". Set WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL or WHATSAPP_TEMPLATE_${String(templateId).toUpperCase()}_HEADER_IMAGE_URL.`,
+      `Missing image header URL for template "${templateId}". Set WHATSAPP_TEMPLATE_${String(templateId).toUpperCase()}_HEADER_IMAGE_URL, legacy WHATSAPP_${String(templateId).toUpperCase()}_HEADER_IMAGE_URL, or WHATSAPP_TEMPLATE_HEADER_IMAGE_URL.`,
     );
   }
   const headerComponent = buildHeaderImageComponent(headerImageUrl);

@@ -31,8 +31,30 @@ router.post("/booking", async (req, res) => {
         timestamp: new Date().toISOString(),
       }),
     );
-    if (isMetaWebhook || isSimplifiedInbound) {
-      const result = isMetaWebhook ? await processWhatsAppWebhook(body) : await processIncomingWhatsApp(body);
+    if (isMetaWebhook) {
+      // Meta retries aggressively when webhook processing is slow; ACK first, process async.
+      res.status(200).json({ ok: true, accepted: true });
+      void processWhatsAppWebhook(body)
+        .then((result) => {
+          console.log(
+            JSON.stringify({
+              scope: "route_booking",
+              action: "meta_webhook_processed",
+              path: "/webhook/booking",
+              statuses_ingested: result?.ingested?.statuses ?? null,
+              inbound_ingested: result?.ingested?.inbound_messages ?? null,
+              timestamp: new Date().toISOString(),
+            }),
+          );
+        })
+        .catch((error) => {
+          console.error("[route:/webhook/booking] async meta processing error", error);
+        });
+      return;
+    }
+
+    if (isSimplifiedInbound) {
+      const result = await processIncomingWhatsApp(body);
       return res.status(200).json(result);
     }
 
