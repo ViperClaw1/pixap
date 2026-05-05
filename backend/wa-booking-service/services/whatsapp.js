@@ -52,6 +52,8 @@ function templateHeaderImageUrl(templateId) {
   };
   const byName = legacyByNameMap[templateName];
   if (byName && String(byName).trim()) return String(byName).trim();
+  const availabilityLegacy = process.env.WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL;
+  if (availabilityLegacy && String(availabilityLegacy).trim()) return String(availabilityLegacy).trim();
   const fallback = process.env.WHATSAPP_TEMPLATE_HEADER_IMAGE_URL;
   return fallback && String(fallback).trim() ? String(fallback).trim() : undefined;
 }
