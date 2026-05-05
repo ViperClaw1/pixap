@@ -8,6 +8,8 @@ const APP_NOTIFY_TIMEOUT_MS = Number.parseInt(process.env.APP_NOTIFY_TIMEOUT_MS 
 const bookingsById = new Map();
 const activeBookingIdsByPhone = new Map();
 const outboundMessageToBookingId = new Map();
+const processedInboundMessageIds = new Map();
+const INBOUND_DEDUPE_TTL_MS = Number.parseInt(process.env.WA_INBOUND_DEDUPE_TTL_MS || String(60 * 60 * 1000), 10);
 
 function log(action, details) {
   console.log(
@@ -18,6 +20,26 @@ function log(action, details) {
       timestamp: new Date().toISOString(),
     }),
   );
+}
+
+function cleanupProcessedInboundMessageIds(nowMs) {
+  for (const [messageId, seenAtMs] of processedInboundMessageIds.entries()) {
+    if (nowMs - seenAtMs > INBOUND_DEDUPE_TTL_MS) {
+      processedInboundMessageIds.delete(messageId);
+    }
+  }
+}
+
+function markInboundMessageId(messageId) {
+  const id = String(messageId || "").trim();
+  if (!id) return { ok: true, duplicate: false };
+  const nowMs = Date.now();
+  cleanupProcessedInboundMessageIds(nowMs);
+  if (processedInboundMessageIds.has(id)) {
+    return { ok: true, duplicate: true };
+  }
+  processedInboundMessageIds.set(id, nowMs);
+  return { ok: true, duplicate: false };
 }
 
 function sanitizePhone(phone) {
@@ -104,6 +126,21 @@ function parseOwnerYesNo(text) {
   const normalized = normalizeDecisionInput(text);
   if (!normalized) return null;
   return parseYesNo(normalized);
+}
+
+function parsePricingDecision(text) {
+  const normalized = normalizeDecisionInput(text);
+  if (!normalized) return null;
+
+  const yesNo = parseYesNo(normalized);
+  const hasFreeSignal = /\bfree\b/.test(normalized);
+  const hasPaidSignal = /\bpaid\b|\bnot free\b/.test(normalized);
+
+  // Pricing step expects decision about "free vs paid", not "available vs unavailable".
+  if (yesNo === "yes" && hasFreeSignal) return "yes";
+  if (yesNo === "no" && (hasFreeSignal || hasPaidSignal)) return "no";
+  if (yesNo === "no" && hasPaidSignal) return "no";
+  return null;
 }
 
 function requireStringField(payload, fieldName) {
@@ -321,7 +358,7 @@ async function createBooking(payload) {
   await syncCartOrLegacy(
     booking,
     {
-      status_lines: ["Message sent to venue.", "Waiting for availability…"],
+      status_lines: ["Template accepted by WhatsApp API.", "Waiting for delivery status from Meta webhook…"],
       confirmable: false,
       payment_link: null,
     },
@@ -350,12 +387,11 @@ async function handleAvailabilityStep(booking, messageText) {
   }
 
   if (yesNo === "yes") {
+    const sendResult = await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_IS_FREE);
+    trackOutboundMessage(booking, sendResult?.message_id);
     booking.status = "available";
     booking.step = "pricing";
     booking.updated_at = new Date().toISOString();
-
-    const sendResult = await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_IS_FREE);
-    trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
       {
@@ -373,7 +409,7 @@ async function handleAvailabilityStep(booking, messageText) {
 }
 
 async function handlePricingStep(booking, messageText) {
-  const yesNo = parseOwnerYesNo(messageText);
+  const yesNo = parsePricingDecision(messageText);
   if (yesNo === "yes") {
     booking.is_free = true;
     booking.price = 0;
@@ -417,7 +453,10 @@ async function handlePricingStep(booking, messageText) {
     return;
   }
 
-  const sendResult = await sendWhatsAppMessage(booking.owner_phone, "Please reply YES or NO.");
+  const sendResult = await sendWhatsAppMessage(
+    booking.owner_phone,
+    "Please reply with FREE or PAID decision (for example: 'Yes, free' or 'No, paid').",
+  );
   trackOutboundMessage(booking, sendResult?.message_id);
 }
 
@@ -462,6 +501,18 @@ async function handlePricingPaymentLinkInputStep(booking, messageText) {
 async function processIncomingWhatsApp(payload) {
   const from = sanitizePhone(requireStringField(payload, "from"));
   const message = requireStringField(payload, "message");
+  const inboundMessageId = String(payload?.message_id || "").trim();
+
+  const dedupe = markInboundMessageId(inboundMessageId);
+  if (dedupe.duplicate) {
+    log("incoming_message_duplicate_ignored", { from, message_id: inboundMessageId, message });
+    return {
+      ok: true,
+      ignored: true,
+      reason: "Duplicate inbound message id",
+      message_id: inboundMessageId,
+    };
+  }
 
   const booking = getLatestActiveBookingByPhone(from);
   if (!booking) {
@@ -481,6 +532,7 @@ async function processIncomingWhatsApp(payload) {
   log("incoming_message", {
     booking_id: booking.id,
     from,
+    message_id: inboundMessageId || null,
     step: booking.step,
     status: booking.status,
     message,
@@ -581,7 +633,8 @@ async function processWhatsAppWebhook(payload) {
         for (const message of value.messages) {
           const text = extractInboundText(message);
           const from = String(message?.from || "").trim();
-          if (from && text) inbound.push({ from, message: text });
+          const messageId = String(message?.id || "").trim();
+          if (from && text) inbound.push({ from, message: text, message_id: messageId });
         }
       }
     }
