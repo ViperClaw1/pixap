@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import Toast from "react-native-toast-message";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { AppProviders } from "@/app";
 import AppNavigator from "@/navigation/AppNavigator";
@@ -31,10 +32,50 @@ function NavigationRoot() {
     },
   };
 
+  const toastConfig = {
+    success: (props: any) => (
+      <View
+        style={{
+          width: "auto",
+          alignSelf: "stretch",
+          marginHorizontal: 14,
+          borderRadius: 12,
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: "#ec6544",
+        }}
+      >
+        {props.text1 ? <Text style={{ color: colors.text, fontSize: 14, fontWeight: "700" }}>{props.text1}</Text> : null}
+        {props.text2 ? <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>{props.text2}</Text> : null}
+      </View>
+    ),
+    error: (props: any) => (
+      <View
+        style={{
+          width: "auto",
+          alignSelf: "stretch",
+          marginHorizontal: 14,
+          borderRadius: 12,
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: "#ec6544",
+        }}
+      >
+        {props.text1 ? <Text style={{ color: colors.danger, fontSize: 14, fontWeight: "700" }}>{props.text1}</Text> : null}
+        {props.text2 ? <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>{props.text2}</Text> : null}
+      </View>
+    ),
+  };
+
   return (
     <NavigationContainer linking={linking} theme={navigationTheme}>
       <AppNavigator />
       <StatusBar style={isDark ? "light" : "dark"} />
+      <Toast config={toastConfig as any} />
     </NavigationContainer>
   );
 }

@@ -43,6 +43,13 @@ export type SearchStackParamList = {
 
 export type CartStackParamList = {
   CartMain: undefined;
+  MessageThread: {
+    threadId: string;
+    peerId: string;
+    peerFirstName?: string | null;
+    peerLastName?: string | null;
+    peerAvatarUrl?: string | null;
+  };
   PaymentSuccess: { next?: "bookings" } | undefined;
   PaymentCanceled: undefined;
 };

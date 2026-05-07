@@ -8,6 +8,9 @@ export interface Profile {
   last_name: string;
   email: string;
   avatar_url: string | null;
+  username: string | null;
+  bio: string | null;
+  followers: string[] | null;
   phone: string | null;
   city: string | null;
   is_verified: boolean;

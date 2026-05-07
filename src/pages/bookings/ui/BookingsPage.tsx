@@ -10,8 +10,9 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
-  ToastAndroid,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import Toast from "react-native-toast-message";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -30,6 +31,8 @@ import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 import { useCartItems } from "@/entities/cart";
+import type { ThemeMode } from "@/contexts/ThemeContext";
+import { bookingStatusNotificationText, useCreateNotification } from "@/entities/notification";
 
 type Nav = NativeStackNavigationProp<BookingsStackParamList, "BookingsMain">;
 
@@ -50,7 +53,7 @@ export default function BookingsScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const { colors } = useAppTheme();
+  const { colors, mode, setMode } = useAppTheme();
   const { user, loading } = useAuth();
   useAuthSessionRedirect({
     authLoading: loading,
@@ -58,12 +61,16 @@ export default function BookingsScreen() {
     navigation: navigation as unknown as NavigationProp<ParamListBase>,
   });
   const [filter, setFilter] = useState<BookingDisplayStatus>("draft");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { data: bookings = [] } = useBookings();
   const { data: cartItems = [] } = useCartItems();
   const cancelBooking = useCancelBooking();
+  const createNotification = useCreateNotification();
   const isCompact = windowWidth < 400;
   const prevStatusesRef = useRef<Map<string, BookingDisplayStatus>>(new Map());
+  const toggleThemeMode = () => {
+    const nextMode: ThemeMode = mode === "dark" ? "light" : "dark";
+    setMode(nextMode);
+  };
 
   const items = useMemo(() => {
     const cartMap = new Map(cartItems.map((item) => [`${item.business_card_id}|${item.date_time}`, item]));
@@ -87,6 +94,7 @@ export default function BookingsScreen() {
       return {
         id: booking.id,
         venueName: booking.business_card?.name ?? "Booking",
+        businessCardId: booking.business_card_id,
         status: deriveBookingDisplayStatus(booking, linkedCartItem),
       };
     });
@@ -96,23 +104,46 @@ export default function BookingsScreen() {
     () =>
       StyleSheet.create({
         root: { flex: 1, backgroundColor: colors.background },
-        header: { fontSize: 22, fontWeight: "800", paddingHorizontal: 16, color: colors.text },
-        filters: { flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 16 },
-        fpill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.border },
-        fpillActive: { backgroundColor: colors.primary },
-        fpillText: { fontSize: 12, textTransform: "capitalize", color: colors.text },
-        fpillTextA: { fontSize: 12, color: colors.onPrimary, fontWeight: "700", textTransform: "capitalize" },
+        header: { fontSize: 32, fontWeight: "800", paddingHorizontal: 16, color: colors.text, letterSpacing: -0.3 },
+        headerRow: {
+          paddingHorizontal: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        },
+        headerActionBtn: {
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        filters: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
+        fpill: {
+          paddingHorizontal: 12,
+          paddingVertical: 7,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+        },
+        fpillActive: { backgroundColor: colors.text, borderColor: colors.text },
+        fpillText: { fontSize: 11, textTransform: "capitalize", color: colors.text, fontWeight: "600" },
+        fpillTextA: { fontSize: 11, color: colors.background, fontWeight: "700", textTransform: "capitalize" },
         card: {
           flexDirection: "row",
           gap: 12,
           padding: 12,
           backgroundColor: colors.card,
-          borderRadius: 12,
+          borderRadius: 14,
           marginBottom: 12,
           borderWidth: 1,
           borderColor: colors.border,
         },
-        name: { fontWeight: "700", color: colors.text, flexShrink: 1 },
+        name: { fontWeight: "700", color: colors.text, flexShrink: 1, fontSize: 15 },
         meta: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
         badge: { marginTop: 8, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
         badgeText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
@@ -135,47 +166,27 @@ export default function BookingsScreen() {
         cancelBtn: {
           borderWidth: 1,
           borderColor: colors.danger,
-          borderRadius: 8,
+          borderRadius: 999,
           paddingHorizontal: 10,
-          paddingVertical: 5,
+          paddingVertical: 4,
           alignSelf: "flex-start",
           flexShrink: 0,
-          minWidth: 72,
+          minWidth: 64,
           alignItems: "center",
         },
-        cancelBtnText: { color: colors.danger, fontSize: 12, fontWeight: "700" },
+        cancelBtnText: { color: colors.danger, fontSize: 11, fontWeight: "700" },
         payBtn: {
           marginTop: 10,
           alignSelf: "flex-start",
           backgroundColor: colors.primary,
-          borderRadius: 8,
+          borderRadius: 999,
           paddingHorizontal: 12,
           paddingVertical: 7,
         },
         payBtnText: { color: colors.onPrimary, fontSize: 12, fontWeight: "700" },
-        toastWrap: {
-          position: "absolute",
-          left: 16,
-          right: 16,
-          bottom: 24 + insets.bottom,
-          zIndex: 100,
-        },
-        toastCard: {
-          backgroundColor: colors.text,
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-        },
-        toastText: { color: colors.background, fontSize: 12, fontWeight: "600" },
       }),
     [colors, insets.bottom],
   );
-
-  useEffect(() => {
-    if (!toastMessage) return;
-    const timer = setTimeout(() => setToastMessage(null), 2500);
-    return () => clearTimeout(timer);
-  }, [toastMessage]);
 
   useEffect(() => {
     const prev = prevStatusesRef.current;
@@ -183,16 +194,20 @@ export default function BookingsScreen() {
       const previousStatus = prev.get(current.id);
       if (!previousStatus) continue;
       if (previousStatus !== current.status) {
-        const message = `${current.venueName}: ${previousStatus} -> ${current.status}`;
-        if (Platform.OS === "android") {
-          ToastAndroid.show(message, ToastAndroid.SHORT);
-        } else {
-          setToastMessage(message);
-        }
+        const text = bookingStatusNotificationText(current.venueName, current.status);
+        Toast.show({
+          type: "success",
+          text1: "Booking status updated",
+          text2: text,
+        });
+        createNotification.mutate({
+          text,
+          businessCardId: current.businessCardId,
+        });
       }
     }
     prevStatusesRef.current = new Map(bookingStatuses.map((x) => [x.id, x.status]));
-  }, [bookingStatuses]);
+  }, [bookingStatuses, createNotification]);
 
   if (loading) {
     return (
@@ -322,7 +337,12 @@ export default function BookingsScreen() {
 
   return (
     <View style={stylesThemed.root}>
-      <Text style={[stylesThemed.header, { paddingTop: Math.max(insets.top, 12) }]}>Bookings</Text>
+      <View style={[stylesThemed.headerRow, { paddingTop: Math.max(insets.top, 12) }]}>
+        <Text style={stylesThemed.header}>Bookings</Text>
+        <Pressable style={stylesThemed.headerActionBtn} onPress={toggleThemeMode}>
+          <Ionicons name={mode === "dark" ? "sunny-outline" : "moon-outline"} size={18} color={colors.text} />
+        </Pressable>
+      </View>
       <View style={stylesThemed.filters}>
         {filters.map((f) => (
           <Pressable
@@ -341,13 +361,6 @@ export default function BookingsScreen() {
         ListEmptyComponent={<Text style={stylesThemed.empty}>No bookings</Text>}
         renderItem={renderItem}
       />
-      {toastMessage ? (
-        <View pointerEvents="none" style={stylesThemed.toastWrap}>
-          <View style={stylesThemed.toastCard}>
-            <Text style={stylesThemed.toastText}>{toastMessage}</Text>
-          </View>
-        </View>
-      ) : null}
     </View>
   );
 }

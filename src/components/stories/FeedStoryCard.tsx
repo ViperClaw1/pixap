@@ -77,10 +77,7 @@ function FeedStoryCardComponent({
   };
 
   return (
-    <Pressable
-      style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}
-      onPress={onPressStory}
-    >
+    <Pressable style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={onPressStory}>
       <View style={styles.header}>
         <Pressable style={styles.userRow} onPress={onPressUser}>
           <View style={[styles.avatar, { borderColor: colors.border }]}>
@@ -109,8 +106,8 @@ function FeedStoryCardComponent({
             style={[
               styles.followBtn,
               {
-                borderColor: story.is_followed_author ? colors.border : colors.primary,
-                backgroundColor: story.is_followed_author ? colors.card : colors.primary,
+                borderColor: story.is_followed_author ? colors.border : "#ec6544",
+                backgroundColor: story.is_followed_author ? colors.card : "#ec6544",
               },
             ]}
           >
@@ -151,12 +148,12 @@ export const FeedStoryCard = memo(FeedStoryCardComponent);
 
 const styles = StyleSheet.create({
   card: {
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingTop: 14,
-    paddingHorizontal: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 18,
+    paddingTop: 12,
+    paddingHorizontal: 12,
     paddingBottom: 10,
-    gap: 8,
+    gap: 10,
   },
   header: {
     flexDirection: "row",
@@ -171,9 +168,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
     overflow: "hidden",
     alignItems: "center",
@@ -184,7 +181,7 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   avatarFallback: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
   },
   userText: {
@@ -199,7 +196,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   followBtn: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 999,
     borderWidth: 1,
@@ -209,12 +206,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   content: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 21,
   },
   media: {
     width: "100%",
-    height: 200,
-    borderRadius: 12,
+    height: 210,
+    borderRadius: 14,
   },
 });

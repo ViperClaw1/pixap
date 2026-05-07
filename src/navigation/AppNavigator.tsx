@@ -13,7 +13,8 @@ import type {
 } from "./types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import HomeScreen from "@/pages/home";
-import CartScreen from "@/pages/cart";
+import MessagesScreen from "@/pages/messages";
+import MessageThreadScreen from "@/pages/message-thread";
 import BookingsScreen from "@/pages/bookings";
 import ProfileScreen from "@/pages/profile";
 import PlaceDetailScreen from "@/pages/place-detail";
@@ -90,7 +91,8 @@ function FeedStackNavigator() {
 function CartStackNavigator() {
   return (
     <CartStack.Navigator initialRouteName="CartMain" screenOptions={stackScreenOptions}>
-      <CartStack.Screen name="CartMain" component={CartScreen} />
+      <CartStack.Screen name="CartMain" component={MessagesScreen} />
+      <CartStack.Screen name="MessageThread" component={MessageThreadScreen} />
       <CartStack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
       <CartStack.Screen name="PaymentCanceled" component={PaymentCanceledScreen} />
     </CartStack.Navigator>
@@ -164,7 +166,7 @@ export default function AppNavigator() {
           minHeight: 52 + tabBottomPadding,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
-        tabBarHideOnKeyboard: true,
+        tabBarHideOnKeyboard: false,
         tabBarIcon: ({ focused, color }) => {
           const iconColor = color;
           switch (route.name) {
@@ -178,7 +180,7 @@ export default function AppNavigator() {
               );
             case "Cart":
               return (
-                <Ionicons name={focused ? "cart" : "cart-outline"} size={TAB_ICON_SIZE} color={iconColor} />
+                <Ionicons name={focused ? "chatbubbles" : "chatbubbles-outline"} size={TAB_ICON_SIZE} color={iconColor} />
               );
             case "Bookings":
               return (
@@ -194,10 +196,10 @@ export default function AppNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: "Home" }} />
       <Tab.Screen name="Feed" component={FeedStackNavigator} options={{ title: "Feed" }} />
       <Tab.Screen name="Bookings" component={BookingsStackNavigator} options={{ title: "Bookings" }} />
-      <Tab.Screen name="Cart" component={CartStackNavigator} options={{ title: "Cart" }} />
+      <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: "Home" }} />
+      <Tab.Screen name="Cart" component={CartStackNavigator} options={{ title: "Messages" }} />
       <Tab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: "Profile" }} />
     </Tab.Navigator>
   );

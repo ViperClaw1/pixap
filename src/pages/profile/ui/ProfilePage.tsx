@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView, Modal, ActivityIndicator, Linking, Platform, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Linking, Platform, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -10,6 +10,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/entities/user";
 import { useUserRole } from "@/entities/user";
+import { useProfileSocialMetrics, useSuggestedProfiles, useToggleFollow } from "@/entities/user";
 import { useBusinessCards } from "@/entities/business-card";
 import { useNotifications } from "@/entities/notification";
 import { useFavorites } from "@/entities/favorite";
@@ -24,6 +25,7 @@ import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSh
 import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
 import { supabase } from "@/shared/api/supabase/client";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
+import type { ThemeMode } from "@/contexts/ThemeContext";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">,
@@ -49,10 +51,14 @@ type ActionItem = {
   onPress: () => void;
 };
 
+function fullName(first?: string | null, last?: string | null) {
+  return `${first?.trim() ?? ""} ${last?.trim() ?? ""}`.trim() || "Unknown user";
+}
+
 function ProfileScreenContent() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const { colors } = useAppTheme();
+  const { colors, mode, setMode } = useAppTheme();
   const { user, loading, signOut } = useAuth();
   const { data: profile } = useProfile();
   const { data: notifications = [], isLoading: loadingNotifications } = useNotifications();
@@ -60,6 +66,9 @@ function ProfileScreenContent() {
   const { data: bookings = [] } = useBookings();
   const { data: businessCards = [] } = useBusinessCards();
   const { role } = useUserRole();
+  const { postsCount, followersCount, followingCount } = useProfileSocialMetrics();
+  const { suggestions } = useSuggestedProfiles(12);
+  const toggleFollow = useToggleFollow();
   const { status: subscriptionStatus, isTrial, expiresAt, isActive } = useEntitlement();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -79,6 +88,10 @@ function ProfileScreenContent() {
   const [uploadingStory, setUploadingStory] = useState(false);
   const createPost = useCreatePost();
   const createStory = useCreateStory();
+  const toggleThemeMode = () => {
+    const nextMode: ThemeMode = mode === "dark" ? "light" : "dark";
+    setMode(nextMode);
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -98,9 +111,9 @@ function ProfileScreenContent() {
           marginBottom: 14,
         },
         headerActionBtn: {
-          width: 34,
-          height: 34,
-          borderRadius: 17,
+          width: 32,
+          height: 32,
+          borderRadius: 16,
           borderWidth: 1,
           borderColor: colors.border,
           alignItems: "center",
@@ -113,7 +126,7 @@ function ProfileScreenContent() {
           right: 0,
           pointerEvents: "none",
           textAlign: "center",
-          fontSize: 28,
+          fontSize: 34,
           fontWeight: "800",
           color: colors.text,
         },
@@ -346,8 +359,8 @@ function ProfileScreenContent() {
         },
         card: {
           backgroundColor: colors.card,
-          borderRadius: 20,
-          borderWidth: 1,
+          borderRadius: 16,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
           marginBottom: 16,
           padding: 16,
@@ -363,7 +376,7 @@ function ProfileScreenContent() {
         },
         avatarText: { color: colors.primary, fontSize: 24, fontWeight: "700" },
         name: { fontSize: 18, fontWeight: "700", color: colors.text },
-        email: { color: colors.textMuted, marginTop: 2, fontSize: 16 },
+        email: { color: colors.textMuted, marginTop: 2, fontSize: 13 },
         settingsBtn: {
           marginLeft: "auto",
           width: 34,
@@ -374,27 +387,121 @@ function ProfileScreenContent() {
           alignItems: "center",
           justifyContent: "center",
         },
-        statRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
+        statRow: { flexDirection: "row", gap: 6, marginBottom: 6 },
         statCard: {
           flex: 1,
           backgroundColor: colors.card,
-          borderRadius: 14,
-          borderWidth: 1,
+          borderRadius: 12,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
-          paddingVertical: 14,
+          paddingVertical: 12,
           alignItems: "center",
         },
-        statValue: { color: colors.text, fontSize: 24, fontWeight: "700" },
-        statLabel: { color: colors.textMuted, fontSize: 12 },
+        statValue: { color: colors.text, fontSize: 22, fontWeight: "700" },
+        statLabel: { color: colors.textMuted, fontSize: 11 },
+        bioCard: {
+          backgroundColor: colors.card,
+          borderRadius: 12,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          marginBottom: 16,
+        },
+        bioLabel: {
+          color: colors.textMuted,
+          fontSize: 12,
+          fontWeight: "700",
+          textTransform: "uppercase",
+          letterSpacing: 0.25,
+          marginBottom: 6,
+        },
+        bioText: {
+          color: colors.text,
+          fontSize: 14,
+          lineHeight: 20,
+        },
+        suggestionsSection: {
+          marginBottom: 16,
+        },
+        suggestionsHeader: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 10,
+        },
+        suggestionsTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "700",
+        },
+        suggestionsSubtitle: {
+          color: colors.textMuted,
+          fontSize: 12,
+        },
+        suggestionScrollContent: {
+          paddingRight: 2,
+          gap: 10,
+        },
+        suggestionCard: {
+          width: 168,
+          borderRadius: 14,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+          padding: 12,
+        },
+        suggestionAvatarWrap: {
+          width: 66,
+          height: 66,
+          borderRadius: 33,
+          overflow: "hidden",
+          alignSelf: "center",
+          backgroundColor: colors.surface,
+        },
+        suggestionAvatarFallback: {
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        suggestionAvatarFallbackText: {
+          color: colors.text,
+          fontSize: 20,
+          fontWeight: "700",
+        },
+        suggestionName: {
+          marginTop: 10,
+          color: colors.text,
+          fontSize: 15,
+          fontWeight: "700",
+          textAlign: "center",
+        },
+        suggestionReason: {
+          marginTop: 4,
+          color: colors.textMuted,
+          fontSize: 12,
+          textAlign: "center",
+          minHeight: 16,
+        },
+        suggestionFollowBtn: {
+          marginTop: 10,
+          ...primaryPressableStyle,
+          minHeight: 38,
+          borderRadius: 10,
+        },
+        suggestionFollowBtnText: {
+          ...primaryPressableTextStyle,
+          fontSize: 14,
+        },
         actionsCard: {
           backgroundColor: colors.card,
-          borderRadius: 20,
-          borderWidth: 1,
+          borderRadius: 16,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
           overflow: "hidden",
         },
         link: {
-          paddingVertical: 15,
+          paddingVertical: 14,
           paddingHorizontal: 14,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
@@ -404,11 +511,7 @@ function ProfileScreenContent() {
         },
         linkText: { color: colors.text, fontSize: 14 },
         linkRight: { marginLeft: "auto" },
-        signOut: {
-          ...primaryPressableStyle,
-          marginTop: 16,
-          marginBottom: 16,
-        },
+        signOut: { ...primaryPressableStyle, marginTop: 16, marginBottom: 16, borderRadius: 10, minHeight: 44 },
         signOutText: {
           ...primaryPressableTextStyle,
           fontSize: 16,
@@ -649,11 +752,11 @@ function ProfileScreenContent() {
     if (createPost.isPending || uploadingPostPhotos) return;
     try {
       const mediaUrl = await uploadPostPhotos();
-      const created = await createPost.mutateAsync({
+      const created = (await createPost.mutateAsync({
         placeId: createPlaceId,
         content: trimmedPostInput,
         mediaUrl,
-      });
+      })) as unknown as { id: string | number };
       resetPostComposer();
       goToFeedWithFocus({ postId: String(created.id) });
     } catch (error) {
@@ -673,12 +776,12 @@ function ProfileScreenContent() {
     if (createStory.isPending || uploadingStory) return;
     try {
       const mediaUrl = await uploadStoryPhotos();
-      const created = await createStory.mutateAsync({
+      const created = (await createStory.mutateAsync({
         placeId: selectedStoryPlaceId,
         content: "New story",
         mediaUrl,
         expiryTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      });
+      })) as unknown as { id: string | number };
       resetPostComposer();
       goToFeedWithFocus({ storyId: String(created.id) });
     } catch (error) {
@@ -720,7 +823,9 @@ function ProfileScreenContent() {
           <Ionicons name="add" size={22} color={colors.text} />
         </Pressable>
         <Text style={stylesThemed.headerTitle}>Profile</Text>
-        <View style={[stylesThemed.headerActionBtn, { opacity: 0 }]} />
+        <Pressable style={stylesThemed.headerActionBtn} onPress={toggleThemeMode}>
+          <Ionicons name={mode === "dark" ? "sunny-outline" : "moon-outline"} size={18} color={colors.text} />
+        </Pressable>
       </View>
       <View style={stylesThemed.card}>
         <View style={stylesThemed.profileRow}>
@@ -764,14 +869,76 @@ function ProfileScreenContent() {
           <Text style={stylesThemed.statValue}>{bookings.length}</Text>
           <Text style={stylesThemed.statLabel}>Bookings</Text>
         </Pressable>
-        <View style={stylesThemed.statCard}>
-          <Text style={stylesThemed.statValue}>0</Text>
-          <Text style={stylesThemed.statLabel}>Reviews</Text>
-        </View>
+        
         <View style={stylesThemed.statCard}>
           <Text style={stylesThemed.statValue}>{favorites.length}</Text>
           <Text style={stylesThemed.statLabel}>Favorites</Text>
         </View>
+        <View style={stylesThemed.statCard}>
+          <Text style={stylesThemed.statValue}>0</Text>
+          <Text style={stylesThemed.statLabel}>Reviews</Text>
+        </View>
+      </View>
+      <View style={stylesThemed.statRow}>
+        <View style={stylesThemed.statCard}>
+          <Text style={stylesThemed.statValue}>{postsCount}</Text>
+          <Text style={stylesThemed.statLabel}>Posts</Text>
+        </View>
+        <View style={stylesThemed.statCard}>
+          <Text style={stylesThemed.statValue}>{followersCount}</Text>
+          <Text style={stylesThemed.statLabel}>Followed</Text>
+        </View>
+        <View style={stylesThemed.statCard}>
+          <Text style={stylesThemed.statValue}>{followingCount}</Text>
+          <Text style={stylesThemed.statLabel}>Following</Text>
+        </View>
+        
+      </View>
+      <View style={stylesThemed.suggestionsSection}>
+        <View style={stylesThemed.suggestionsHeader}>
+          <Text style={stylesThemed.suggestionsTitle}>Suggestions</Text>
+          <Text style={stylesThemed.suggestionsSubtitle}>Follow some accounts</Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={stylesThemed.suggestionScrollContent}>
+          {suggestions.length ? (
+            suggestions.map((item) => (
+              <View key={item.id} style={stylesThemed.suggestionCard}>
+                <View style={stylesThemed.suggestionAvatarWrap}>
+                  {item.avatar_url ? (
+                    <SmartImage uri={item.avatar_url} style={{ width: 66, height: 66 }} contentFit="cover" />
+                  ) : (
+                    <View style={stylesThemed.suggestionAvatarFallback}>
+                      <Text style={stylesThemed.suggestionAvatarFallbackText}>
+                        {fullName(item.first_name, item.last_name).charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={stylesThemed.suggestionName} numberOfLines={1}>
+                  {fullName(item.first_name, item.last_name)}
+                </Text>
+                <Text style={stylesThemed.suggestionReason} numberOfLines={1}>
+                  {item.reason}
+                </Text>
+                <Pressable
+                  style={stylesThemed.suggestionFollowBtn}
+                  onPress={() => void toggleFollow.mutateAsync({ followingId: item.id, isFollowing: false })}
+                  disabled={toggleFollow.isPending}
+                >
+                  <Text style={stylesThemed.suggestionFollowBtnText}>Follow</Text>
+                </Pressable>
+              </View>
+            ))
+          ) : (
+            <View style={[stylesThemed.suggestionCard, { width: 220 }]}>
+              <Text style={stylesThemed.suggestionReason}>No suggestions yet</Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+      <View style={stylesThemed.bioCard}>
+        <Text style={stylesThemed.bioLabel}>Bio</Text>
+        <Text style={stylesThemed.bioText}>{profile?.bio?.trim() || "Tell people about yourself in Edit Profile."}</Text>
       </View>
 
       <View style={stylesThemed.actionsCard}>
@@ -1021,38 +1188,20 @@ function ProfileScreenContent() {
         )}
       </BottomSheetPickerModal>
 
-      {/* Notifications Modal */}
-      <Modal
-        visible={notificationsOpen}
-        animationType="slide"
-        transparent
-        presentationStyle="overFullScreen"
-        statusBarTranslucent
-        onRequestClose={() => setNotificationsOpen(false)}
-      >
-        <View style={stylesThemed.modalBackdrop}>
-          <View style={[stylesThemed.modalContent, stylesThemed.modalContentLarge]}>
-            <View style={stylesThemed.modalHeader}>
-              <Text style={stylesThemed.modalTitle}>Notifications</Text>
-              <Pressable style={stylesThemed.closeBtn} onPress={() => setNotificationsOpen(false)}>
-                <Text style={stylesThemed.closeText}>Close</Text>
-              </Pressable>
+      <BottomSheetPickerModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} title="Notifications" maxHeightFraction={0.75}>
+        <View style={stylesThemed.modalBody}>
+          {loadingNotifications ? <ActivityIndicator color={colors.primary} /> : null}
+          {!loadingNotifications && notifications.length === 0 ? (
+            <Text style={stylesThemed.emptyText}>No notifications yet.</Text>
+          ) : null}
+          {notifications.map((n) => (
+            <View key={n.id} style={stylesThemed.notificationCard}>
+              <Text style={stylesThemed.notificationText}>{n.text}</Text>
+              <Text style={stylesThemed.notificationDate}>{new Date(n.created_at).toLocaleString()}</Text>
             </View>
-            <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={stylesThemed.modalBody}>
-              {loadingNotifications ? <ActivityIndicator color={colors.primary} /> : null}
-              {!loadingNotifications && notifications.length === 0 ? (
-                <Text style={stylesThemed.emptyText}>No notifications yet.</Text>
-              ) : null}
-              {notifications.map((n) => (
-                <View key={n.id} style={stylesThemed.notificationCard}>
-                  <Text style={stylesThemed.notificationText}>{n.text}</Text>
-                  <Text style={stylesThemed.notificationDate}>{new Date(n.created_at).toLocaleString()}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
+          ))}
         </View>
-      </Modal>
+      </BottomSheetPickerModal>
     </ScrollView>
   );
 }

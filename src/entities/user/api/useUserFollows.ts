@@ -55,7 +55,7 @@ export function useToggleFollow() {
       const { error } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- migration is newer than generated types
         .from("user_follows" as any)
-        .insert({
+        .upsert({
           follower_id: user.id,
           following_id: followingId,
         });
@@ -65,6 +65,8 @@ export function useToggleFollow() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [USER_FOLLOWS_QUERY_KEY] });
       void queryClient.invalidateQueries({ queryKey: ["stories", "feed"] });
+      void queryClient.invalidateQueries({ queryKey: ["profile", "social-metrics"] });
+      void queryClient.invalidateQueries({ queryKey: ["profile", "suggestions"] });
     },
   });
 }

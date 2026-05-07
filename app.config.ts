@@ -64,9 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     package: "com.pixap.pixap",
     adaptiveIcon: {
       backgroundColor: "#1a0a2e",
-      foregroundImage: "./assets/android-icon-foreground.png",
-      backgroundImage: "./assets/android-icon-background.png",
-      monochromeImage: "./assets/android-icon-monochrome.png",
+      foregroundImage: "./assets/icon.png",
     },
     intentFilters: [
       {

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { useSubscription } from "@/entities/subscription";
 import { useEntitlement } from "@/entities/subscription";
+import { env } from "@/shared/lib/env";
 
 const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
 const GOOGLE_SUBSCRIPTION_URL = "https://play.google.com/store/account/subscriptions";
@@ -68,8 +69,20 @@ export default function SubscriptionPaywallScreen() {
     [colors, insets.bottom, insets.top],
   );
 
-  const primaryLabel = products[0]?.displayPrice
-    ? `Start 7-day free trial, then ${products[0].displayPrice}/month`
+  const monthlyProduct = products.find((product) => {
+    const productRecord = product as unknown as { id?: string; productId?: string };
+    return (
+      productRecord.id === env.pixAiMonthlySubscriptionSku ||
+      productRecord.productId === env.pixAiMonthlySubscriptionSku
+    );
+  });
+  const monthlyPrice =
+    monthlyProduct?.displayPrice ??
+    monthlyProduct?.localizedPrice ??
+    (typeof monthlyProduct?.price === "string" ? monthlyProduct.price : undefined);
+
+  const primaryLabel = monthlyPrice
+    ? `Start 7-day free trial, then ${monthlyPrice}/month`
     : "Start 7-day free trial";
 
   return (
