@@ -25,9 +25,6 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
   resendVerification: (email: string) => Promise<{ error: string | null }>;
-  /** Supabase email confirmation / magic links */
-  getEmailRedirectBase: () => string;
-  getPasswordResetRedirectUrl: () => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,10 +35,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const initializedRef = useRef(false);
 
-  const getEmailRedirectBase = useCallback(() => env.oauthRedirectBase.replace(/\/$/, ""), []);
-  const getPasswordResetRedirectUrl = useCallback(
-    () => `${getEmailRedirectBase()}/reset-password`,
-    [getEmailRedirectBase],
+  const getEmailCallbackRedirectUrl = useCallback(
+    () => `${env.oauthRedirectBase.replace(/\/$/, "")}/profile/auth-email-callback`,
+    [],
   );
 
   useEffect(() => {
@@ -110,21 +106,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user?.id]);
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { first_name: firstName, last_name: lastName },
-        emailRedirectTo: getEmailRedirectBase(),
+    const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-signup", {
+      body: {
+        email,
+        password,
+        firstName,
+        lastName,
+        redirectTo: getEmailCallbackRedirectUrl(),
       },
     });
-
     if (error) return { error: error.message };
-
-    if (data.user && data.user.identities && data.user.identities.length === 0) {
-      return { error: "User already registered" };
-    }
-
+    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
     return { error: null };
   };
 
@@ -150,10 +142,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: getPasswordResetRedirectUrl(),
+    const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-recovery", {
+      body: {
+        email,
+        redirectTo: getEmailCallbackRedirectUrl(),
+      },
     });
-    return { error: error?.message ?? null };
+    if (error) return { error: error.message };
+    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+    return { error: null };
   };
 
   const updatePassword = async (newPassword: string) => {
@@ -178,8 +175,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         resetPassword,
         updatePassword,
         resendVerification,
-        getEmailRedirectBase,
-        getPasswordResetRedirectUrl,
       }}
     >
       {children}

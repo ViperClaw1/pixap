@@ -62,6 +62,7 @@ export type ProfileStackParamList = {
   ProfileMain: undefined;
   MyPurchases: undefined;
   Auth: undefined;
+  AuthEmailCallback: undefined;
   ResetPassword: undefined;
   EditProfile: undefined;
   Favorites: undefined;

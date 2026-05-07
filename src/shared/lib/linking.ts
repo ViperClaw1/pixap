@@ -68,6 +68,7 @@ export const linkingConfig = {
       screens: {
         ProfileMain: "",
         Auth: "auth",
+        AuthEmailCallback: "auth-email-callback",
         ResetPassword: "reset-password",
         EditProfile: "edit",
         Favorites: "favorites",
