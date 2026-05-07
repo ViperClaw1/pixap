@@ -6,6 +6,8 @@ export interface PublicProfileItem {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  username: string | null;
+  bio: string | null;
 }
 
 export const usePublicProfiles = (search: string) => {
@@ -15,11 +17,11 @@ export const usePublicProfiles = (search: string) => {
       const value = search.trim();
       let query = supabase
         .from("public_profiles" as any)
-        .select("id, first_name, last_name, avatar_url")
+        .select("id, first_name, last_name, avatar_url, username, bio")
         .limit(60);
 
       if (value.length) {
-        query = query.or(`first_name.ilike.%${value}%,last_name.ilike.%${value}%`);
+        query = query.or(`first_name.ilike.%${value}%,last_name.ilike.%${value}%,username.ilike.%${value}%`);
       }
 
       const { data, error } = await query;

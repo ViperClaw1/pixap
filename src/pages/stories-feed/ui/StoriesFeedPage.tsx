@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
@@ -17,7 +17,7 @@ import { CommentsBottomSheet } from "@/shared/ui/comments-bottom-sheet/CommentsB
 import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomSheet";
 import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
 import { ShimmerSurface } from "@/shared/ui/shimmer/ShimmerSurface";
-import type { BrowseFlowParamList, FeedStackParamList } from "@/navigation/types";
+import type { BrowseFlowParamList, FeedStackParamList, RootTabParamList } from "@/navigation/types";
 import * as ImagePicker from "expo-image-picker";
 import type { StoryGroup } from "@/types/stories";
 
@@ -83,6 +83,7 @@ function getPostImages(post: FeedPostItem) {
 export default function StoriesFeedScreen() {
   const { colors, isDark } = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<BrowseFlowParamList>>();
+  const rootNavigation = useNavigation<NavigationProp<RootTabParamList>>();
   const route = useRoute<RouteProp<FeedStackParamList, "FeedMain">>();
   const { user } = useAuth();
   const { width, height } = useWindowDimensions();
@@ -131,6 +132,13 @@ export default function StoriesFeedScreen() {
     if (!target) return storiesStrip;
     return [target, ...storiesStrip.filter((story) => story.id !== focusStoryId)];
   }, [focusStoryId, storiesStrip]);
+  const currentUserAvatarUrl = useMemo(() => {
+    const metadataAvatar =
+      typeof user?.user_metadata === "object" && user?.user_metadata && "avatar_url" in user.user_metadata
+        ? String((user.user_metadata as Record<string, unknown>).avatar_url ?? "")
+        : "";
+    return profileAvatar(myProfile?.avatar_url) ?? profileAvatar(metadataAvatar);
+  }, [myProfile?.avatar_url, user?.user_metadata]);
   const storyGroups = useMemo<StoryGroup[]>(() => {
     const grouped = new Map<string, StoryGroup>();
     for (const story of feedStories) {
@@ -160,11 +168,25 @@ export default function StoriesFeedScreen() {
     });
   };
 
+  const redirectToAuth = () => {
+    rootNavigation.navigate("Profile", { screen: "Auth" });
+  };
+
+  const runAuthedAction = (action: () => void) => {
+    if (!user) {
+      redirectToAuth();
+      return;
+    }
+    action();
+  };
+
   const openComments = (postId: string) => {
-    setSelectedPostId(postId);
-    setReplyTargetCommentId(null);
-    setExpandedCommentIds({});
-    setIsCommentsModalVisible(true);
+    runAuthedAction(() => {
+      setSelectedPostId(postId);
+      setReplyTargetCommentId(null);
+      setExpandedCommentIds({});
+      setIsCommentsModalVisible(true);
+    });
   };
   const canSendComment = commentInput.trim().length > 0 && !createPostComment.isPending;
 
@@ -281,12 +303,14 @@ export default function StoriesFeedScreen() {
                 style={styles.storyBubble}
                 disabled={!createStoryPlaceId || uploadingStory}
                 onPress={() => {
-                  if (!createStoryPlaceId) return;
-                  Alert.alert("Add story", "Choose source", [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Camera", onPress: () => void pickStoryFromCamera() },
-                    { text: "Gallery", onPress: () => void pickStoryFromGallery() },
-                  ]);
+                  runAuthedAction(() => {
+                    if (!createStoryPlaceId) return;
+                    Alert.alert("Add story", "Choose source", [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Camera", onPress: () => void pickStoryFromCamera() },
+                      { text: "Gallery", onPress: () => void pickStoryFromGallery() },
+                    ]);
+                  });
                 }}
               >
                 <View style={[styles.storyBubbleRing, { borderColor: colors.border }]}>
@@ -405,28 +429,30 @@ export default function StoriesFeedScreen() {
                   <Pressable
                     style={styles.actionBtn}
                     onPress={() => {
-                      const wasLiked = !!likedPostIds[item.id];
-                      setLikedPostIds((prev) => {
-                        if (wasLiked) {
-                          const { [item.id]: _removed, ...rest } = prev;
-                          return rest;
-                        }
-                        return { ...prev, [item.id]: true };
-                      });
-                      setLikeCountByPostId((prev) => ({
-                        ...prev,
-                        [item.id]: Math.max(0, (prev[item.id] ?? item.reaction_count) + (wasLiked ? -1 : 1)),
-                      }));
-                      void reactToPost.mutateAsync({ postId: item.id, type: "like" }).catch(() => {
+                      runAuthedAction(() => {
+                        const wasLiked = !!likedPostIds[item.id];
                         setLikedPostIds((prev) => {
-                          if (wasLiked) return { ...prev, [item.id]: true };
-                          const { [item.id]: _removed, ...rest } = prev;
-                          return rest;
+                          if (wasLiked) {
+                            const { [item.id]: _removed, ...rest } = prev;
+                            return rest;
+                          }
+                          return { ...prev, [item.id]: true };
                         });
                         setLikeCountByPostId((prev) => ({
                           ...prev,
-                          [item.id]: Math.max(0, (prev[item.id] ?? item.reaction_count) + (wasLiked ? 1 : -1)),
+                          [item.id]: Math.max(0, (prev[item.id] ?? item.reaction_count) + (wasLiked ? -1 : 1)),
                         }));
+                        void reactToPost.mutateAsync({ postId: item.id, type: "like" }).catch(() => {
+                          setLikedPostIds((prev) => {
+                            if (wasLiked) return { ...prev, [item.id]: true };
+                            const { [item.id]: _removed, ...rest } = prev;
+                            return rest;
+                          });
+                          setLikeCountByPostId((prev) => ({
+                            ...prev,
+                            [item.id]: Math.max(0, (prev[item.id] ?? item.reaction_count) + (wasLiked ? 1 : -1)),
+                          }));
+                        });
                       });
                     }}
                   >
@@ -441,13 +467,17 @@ export default function StoriesFeedScreen() {
                   </Pressable>
                   <Pressable
                     style={[styles.bookBtn, { backgroundColor: "#ec6544" }]}
-                    onPress={() => navigation.navigate("BookingFlow", { id: item.place_id })}
+                    onPress={() =>
+                      runAuthedAction(() => {
+                        navigation.navigate("BookingFlow", { id: item.place_id });
+                      })
+                    }
                   >
                     <Ionicons name="calendar-outline" size={14} color="#fff" />
                     <Text style={[styles.bookBtnText, { color: "#fff" }]}>Book</Text>
                   </Pressable>
                 </View>
-                <Pressable style={styles.shareBtn} onPress={() => setShareVisible(true)}>
+                <Pressable style={styles.shareBtn} onPress={() => runAuthedAction(() => setShareVisible(true))}>
                   <FontAwesome6 name="share" size={20} color={colors.text} />
                 </Pressable>
               </View>
@@ -513,22 +543,26 @@ export default function StoriesFeedScreen() {
         commentInput={commentInput}
         canSendComment={canSendComment}
         submittingComment={createPostComment.isPending}
-        currentUserAvatarUrl={profileAvatar(myProfile?.avatar_url)}
+        currentUserAvatarUrl={currentUserAvatarUrl}
         resolveAvatarUri={profileAvatar}
         formatRelativeTime={formatRelativeTime}
         onToggleReplies={toggleReplies}
-        onReplyPress={setReplyTargetCommentId}
+        onReplyPress={(commentId) => {
+          runAuthedAction(() => setReplyTargetCommentId(commentId));
+        }}
         onCancelReply={() => setReplyTargetCommentId(null)}
         onChangeCommentInput={setCommentInput}
         onSubmitComment={() => {
-          if (!canSendComment || !selectedPost) return;
-          void createPostComment.mutateAsync({
-            postId: selectedPost.id,
-            parentCommentId: replyTargetCommentId,
-            content: commentInput,
+          runAuthedAction(() => {
+            if (!canSendComment || !selectedPost) return;
+            void createPostComment.mutateAsync({
+              postId: selectedPost.id,
+              parentCommentId: replyTargetCommentId,
+              content: commentInput,
+            });
+            setCommentInput("");
+            setReplyTargetCommentId(null);
           });
-          setCommentInput("");
-          setReplyTargetCommentId(null);
         }}
       />
 
