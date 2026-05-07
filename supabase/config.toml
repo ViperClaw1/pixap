@@ -13,3 +13,9 @@ verify_jwt = false
 
 [functions.confirm-service-cart-booking]
 verify_jwt = false
+
+[functions.auth-email-signup]
+verify_jwt = false
+
+[functions.auth-email-recovery]
+verify_jwt = false

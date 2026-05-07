@@ -41,7 +41,7 @@ type Nav = NativeStackNavigationProp<ProfileStackParamList, "Auth">;
 export default function AuthScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const { colors } = useAppTheme();
+  const { colors, mode: themeMode } = useAppTheme();
   const { user, loading: authLoading, signIn, signUp, resetPassword } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
@@ -236,13 +236,13 @@ export default function AuthScreen() {
           Alert.alert("Sign up failed", error);
           return;
         }
-        Alert.alert("Check your email", "We sent a verification link.");
+        Alert.alert("Check your email", "Confirmation letter was sent to your email.");
         setMode("login");
         return;
       }
       const { error } = await resetPassword(email);
       if (error) Alert.alert("Error", error);
-      else Alert.alert("Sent", "Check your email for a reset link.");
+      else Alert.alert("Sent", "Reset link was sent to your email.");
     } finally {
       setLoading(false);
     }
@@ -353,7 +353,7 @@ export default function AuthScreen() {
             <Text style={stylesThemed.outlineText}>Continue with Google</Text>
           </Pressable>
           <Pressable style={stylesThemed.outline} onPress={() => void social("apple")} disabled={loading}>
-            <FontAwesome6 name="apple" size={18} color="#fff" />
+            <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? "#fff" : "#ec6544"} />
             <Text style={stylesThemed.outlineText}>Continue with Apple</Text>
           </Pressable>
         </>

@@ -24,6 +24,7 @@ import BookingFlowScreen from "@/pages/booking-flow";
 import AIBookingScreen from "@/pages/ai-booking";
 import VibeMatchScreen from "@/pages/vibe-match";
 import AuthScreen from "@/pages/auth";
+import AuthEmailCallbackScreen from "@/pages/auth-email-callback";
 import ResetPasswordScreen from "@/pages/reset-password";
 import OAuthCallbackScreen from "@/pages/oauth-callback";
 import PaymentSuccessScreen from "@/pages/payment-success";
@@ -123,6 +124,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} />
       <ProfileStack.Screen name="MyPurchases" component={MyPurchasesScreen} />
       <ProfileStack.Screen name="Auth" component={AuthScreen} />
+      <ProfileStack.Screen name="AuthEmailCallback" component={AuthEmailCallbackScreen} />
       <ProfileStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
       <ProfileStack.Screen name="Favorites" component={FavoritesScreen} />
