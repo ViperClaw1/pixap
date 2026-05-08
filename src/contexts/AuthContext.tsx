@@ -9,7 +9,6 @@ import { registerNativePushToken } from "@/services/pushNotifications";
 
 interface SignInResult {
   error: string | null;
-  isUnverified?: boolean;
 }
 
 interface AuthContextType {
@@ -146,13 +145,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = async (email: string, password: string): Promise<SignInResult> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (!error) return { error: null };
-
-    const msg = error.message ?? "";
-    if (msg.toLowerCase().includes("email not confirmed")) {
-      return { error: msg, isUnverified: true };
-    }
-
-    return { error: msg };
+    return { error: error.message ?? "Sign in failed" };
   };
 
   const signOut = async () => {
@@ -182,8 +175,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resendVerification = async (email: string) => {
-    const { error } = await supabase.auth.resend({ type: "signup", email });
-    return { error: error?.message ?? null };
+    const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-verify", {
+      body: {
+        email,
+        redirectTo: getEmailCallbackRedirectUrl(),
+      },
+    });
+    if (error) return { error: error.message };
+    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+    return { error: null };
   };
 
   return (

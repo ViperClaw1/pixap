@@ -50,13 +50,19 @@ export default function AuthEmailCallbackPage() {
       Alert.alert("Session expired", "Verification link is invalid or expired. Please log in again.");
     };
 
-    const hasValidSession = async () => {
+    const getVerifiedUserId = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session?.access_token || !session.user) return false;
+      if (!session?.access_token || !session.user) return null;
       const { data, error } = await supabase.auth.getUser();
-      return Boolean(data.user && !error);
+      if (!data.user || error) return null;
+      return data.user.id;
+    };
+
+    const markProfileAsVerified = async (userId: string) => {
+      const { error } = await supabase.from("profiles").update({ is_verified: true }).eq("id", userId);
+      return !error;
     };
 
     const run = async (href: string | null) => {
@@ -70,8 +76,13 @@ export default function AuthEmailCallbackPage() {
         openResetPassword();
         return;
       }
-      const validSession = await hasValidSession();
-      if (!validSession) {
+      const verifiedUserId = await getVerifiedUserId();
+      if (!verifiedUserId) {
+        openInvalidSessionFallback();
+        return;
+      }
+      const verified = await markProfileAsVerified(verifiedUserId);
+      if (!verified) {
         openInvalidSessionFallback();
         return;
       }

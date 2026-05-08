@@ -28,6 +28,7 @@ import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { ALL_CITIES_OPTION, useAvailableCities } from "@/entities/business-card";
 import { useCategories } from "@/entities/category";
 import { useProfile } from "@/entities/user";
+import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
@@ -135,6 +136,22 @@ export default function AIBookingPage() {
     customer_email: "",
     comment: "",
   });
+
+  const redirectToEditProfile = () => {
+    navigation.getParent()?.dispatch(
+      CommonActions.navigate({
+        name: "Profile",
+        params: { screen: "EditProfile" },
+      }),
+    );
+  };
+
+  const ensureProfileComplete = () => {
+    if (isProfileComplete(profile)) return true;
+    Alert.alert("Profile incomplete", "Please, fill out all your profile data before booking.");
+    redirectToEditProfile();
+    return false;
+  };
 
   const stylesThemed = useMemo(
     () =>
@@ -440,6 +457,7 @@ export default function AIBookingPage() {
   };
 
   const onSearchPlaces = async () => {
+    if (!ensureProfileComplete()) return;
     if (!selectedCity || selectedCity === ALL_CITIES_OPTION) {
       Alert.alert("Choose city", "Select your city before searching.");
       return;
@@ -489,6 +507,7 @@ export default function AIBookingPage() {
   };
 
   const onCreateDraft = async () => {
+    if (!ensureProfileComplete()) return;
     if (!selectedPlace || !selectedSlot) {
       Alert.alert("Missing selection", "Choose a place and a slot first.");
       return;

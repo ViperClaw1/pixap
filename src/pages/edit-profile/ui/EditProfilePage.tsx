@@ -27,10 +27,41 @@ import { supabase } from "@/shared/api/supabase/client";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import { AUTH_PRIMARY_COLOR, primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
+import { PhoneNumberUtil } from "google-libphonenumber";
+import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 
-const PHONE_VALIDATION_PATTERN = /^\d-\(\d{3}\)-\d{3}-\d{4}$/;
 const AVATARS_BUCKET = "avatars";
 const KEYBOARD_GAP = 16;
+const phoneUtil = PhoneNumberUtil.getInstance();
+
+type CountryOption = {
+  region: string;
+  callingCode: string;
+  flag: string;
+};
+
+function regionToFlagEmoji(region: string): string {
+  if (!region || region.length !== 2) return "🏳️";
+  const codePoints = region
+    .toUpperCase()
+    .split("")
+    .map((char) => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+
+function buildCountryOptions(): CountryOption[] {
+  const options: CountryOption[] = [];
+  for (const region of Array.from(phoneUtil.getSupportedRegions()).sort()) {
+    try {
+      const callingCode = phoneUtil.getCountryCodeForRegion(region).toString();
+      if (!callingCode) continue;
+      options.push({ region, callingCode, flag: regionToFlagEmoji(region) });
+    } catch {
+      // ignore unsupported regions
+    }
+  }
+  return options;
+}
 
 function bytesFromBase64(base64: string): Uint8Array {
   const binary = globalThis.atob(base64);
@@ -40,17 +71,6 @@ function bytesFromBase64(base64: string): Uint8Array {
   }
   return bytes;
 }
-
-const formatPhoneMask = (raw: string) => {
-  const digits = raw.replace(/\D/g, "").slice(0, 11);
-  if (digits.length === 0) return "";
-  let masked = digits[0];
-  if (digits.length > 1) masked += "-(" + digits.slice(1, Math.min(4, digits.length));
-  // Close the area-code parenthesis only when enough digits exist to avoid sticky backspace behavior.
-  if (digits.length > 4) masked += ")-" + digits.slice(4, Math.min(7, digits.length));
-  if (digits.length > 7) masked += "-" + digits.slice(7, 11);
-  return masked;
-};
 
 function EditProfileScreenContent() {
   const navigation = useNavigation();
@@ -64,13 +84,27 @@ function EditProfileScreenContent() {
   const queryClient = useQueryClient();
   const authNavigation = navigation as unknown as NavigationProp<ParamListBase>;
   const scrollRef = useRef<ScrollView>(null);
+  const stackNavigation = navigation as unknown as NavigationProp<ParamListBase>;
   const [first, setFirst] = useState(profile?.first_name ?? "");
   const [last, setLast] = useState(profile?.last_name ?? "");
-  const [phone, setPhone] = useState(formatPhoneMask(profile?.phone ?? ""));
+  const [countryCode, setCountryCode] = useState("US");
+  const [callingCode, setCallingCode] = useState("1");
+  const [phone, setPhone] = useState("");
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [avatarUrl, setAvatarUrl] = useState<string>(profile?.avatar_url ?? ((user?.user_metadata?.avatar_url as string) ?? ""));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [firstError, setFirstError] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [bioError, setBioError] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [countryPickerOpen, setCountryPickerOpen] = useState(false);
+  const countryOptions = useMemo(() => buildCountryOptions(), []);
+  const selectedCountry = useMemo(
+    () => countryOptions.find((option) => option.region === countryCode && option.callingCode === callingCode),
+    [callingCode, countryCode, countryOptions],
+  );
 
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
@@ -80,7 +114,24 @@ function EditProfileScreenContent() {
     if (!profile) return;
     setFirst(profile.first_name ?? "");
     setLast(profile.last_name ?? "");
-    setPhone(formatPhoneMask(profile.phone ?? ""));
+    const storedPhone = (profile.phone ?? "").trim();
+    if (storedPhone.startsWith("+")) {
+      try {
+        const parsed = phoneUtil.parse(storedPhone);
+        const region = phoneUtil.getRegionCodeForNumber(parsed);
+        const detectedCountryCode = parsed.getCountryCodeOrDefault().toString();
+        const national = parsed.getNationalNumberOrDefault().toString();
+        if (region) {
+          setCountryCode(region);
+        }
+        setCallingCode(detectedCountryCode || "1");
+        setPhone(national);
+      } catch {
+        setPhone(storedPhone.replace(/\D/g, ""));
+      }
+    } else {
+      setPhone(storedPhone.replace(/\D/g, ""));
+    }
     setBio(profile.bio ?? "");
     setAvatarUrl(profile.avatar_url ?? ((user?.user_metadata?.avatar_url as string) ?? ""));
   }, [profile, user]);
@@ -134,9 +185,25 @@ function EditProfileScreenContent() {
     };
   }, [insets.bottom, keyboardInsetAnim, tabBarHeight]);
 
+  const validatePhone = (value: string) => {
+    const normalizedLocal = value.replace(/\D/g, "");
+    if (!normalizedLocal) return "Phone is required.";
+    const fullPhone = `+${callingCode}${normalizedLocal}`;
+    try {
+      const parsed = phoneUtil.parse(fullPhone, countryCode);
+      if (!phoneUtil.isValidNumber(parsed)) {
+        return "Please enter a valid phone number.";
+      }
+    } catch {
+      return "Please enter a valid phone number.";
+    }
+    return null;
+  };
+
   const handlePhoneChange = (value: string) => {
-    setPhone(formatPhoneMask(value));
-    setPhoneError(null);
+    setPhone(value.replace(/\D/g, ""));
+    if (!phoneTouched) return;
+    setPhoneError(validatePhone(value.replace(/\D/g, "")));
   };
 
   const pickAvatar = () => {
@@ -213,6 +280,7 @@ function EditProfileScreenContent() {
       const { data } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(path);
       const nextAvatarUrl = data.publicUrl;
       setAvatarUrl(nextAvatarUrl);
+      setAvatarError(null);
 
       // Persist immediately so avatar does not get lost if user navigates away.
       const { error: profileUpdateError } = await supabase
@@ -236,21 +304,35 @@ function EditProfileScreenContent() {
   };
 
   const save = async () => {
-    if (phone && !PHONE_VALIDATION_PATTERN.test(phone)) {
-      setPhoneError("Phone must match X-(XXX)-XXX-XXXX");
+    const trimmedFirst = first.trim();
+    const trimmedLast = last.trim();
+    const trimmedBio = bio.trim();
+    const trimmedAvatar = avatarUrl.trim();
+    const nextPhoneError = validatePhone(phone);
+
+    setFirstError(trimmedFirst ? null : "First name is required.");
+    setLastError(trimmedLast ? null : "Last name is required.");
+    setBioError(null);
+    setAvatarError(null);
+    setPhoneError(nextPhoneError);
+    setPhoneTouched(true);
+
+    if (!trimmedFirst || !trimmedLast || nextPhoneError) {
       return;
     }
-    const phoneToSave = phone.trim() ? phone.trim() : null;
+    const phoneToSave = `+${callingCode}${phone.replace(/\D/g, "")}`.trim() || null;
     try {
       await update.mutateAsync({
-        first_name: first.trim(),
-        last_name: last.trim(),
+        first_name: trimmedFirst,
+        last_name: trimmedLast,
         phone: phoneToSave,
-        bio: bio.trim() || null,
-        avatar_url: avatarUrl || null,
+        bio: trimmedBio || null,
+        avatar_url: trimmedAvatar || null,
       });
       Alert.alert("Saved");
-      navigation.goBack();
+      stackNavigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
+      const rootNavigation = stackNavigation.getParent<NavigationProp<ParamListBase>>();
+      rootNavigation?.navigate("Profile", { screen: "ProfileMain" });
     } catch (error: unknown) {
       if (isAuthRequiredError(error)) {
         navigateToAuthScreen(authNavigation);
@@ -334,6 +416,70 @@ function EditProfileScreenContent() {
         disabledInput: { backgroundColor: colors.surface, color: colors.textMuted },
         inputError: { borderColor: colors.danger },
         errorText: { color: colors.danger, marginTop: 6, fontSize: 12 },
+        phoneInputContainer: {
+          marginTop: 6,
+          width: "100%",
+          height: 58,
+          flexDirection: "row",
+          alignItems: "center",
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 10,
+          backgroundColor: colors.card,
+        },
+        phoneInputContainerError: {
+          borderColor: colors.danger,
+        },
+        phoneCountryButton: {
+          width: 92,
+          height: "100%",
+          alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "row",
+          gap: 8,
+          borderRightWidth: 1,
+          borderRightColor: colors.border,
+          backgroundColor: colors.card,
+        },
+        phoneCountryFlag: {
+          fontSize: 20,
+          lineHeight: 22,
+        },
+        phoneCountryCodeText: {
+          color: colors.text,
+          fontSize: 12,
+          fontWeight: "700",
+        },
+        phoneInputField: {
+          flex: 1,
+          height: 56,
+          paddingHorizontal: 12,
+          color: colors.text,
+          fontSize: 14,
+          backgroundColor: colors.card,
+        },
+        phoneCallingCodeText: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: "600",
+          marginLeft: 10,
+        },
+        countryPickerRow: {
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+        },
+        countryPickerText: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: "600",
+          flex: 1,
+        },
         btn: {
           marginTop: 24,
           ...primaryPressableStyle,
@@ -396,32 +542,90 @@ function EditProfileScreenContent() {
         </View>
 
         <Text style={stylesThemed.label}>First name</Text>
-        <TextInput style={stylesThemed.input} value={first} onChangeText={setFirst} placeholderTextColor={colors.textMuted} />
+        <TextInput
+          style={[stylesThemed.input, firstError ? stylesThemed.inputError : null]}
+          value={first}
+          onChangeText={(value) => {
+            setFirst(value);
+            if (firstError && value.trim()) setFirstError(null);
+          }}
+          placeholderTextColor={colors.textMuted}
+        />
+        {firstError ? <Text style={stylesThemed.errorText}>{firstError}</Text> : null}
         <Text style={stylesThemed.label}>Last name</Text>
-        <TextInput style={stylesThemed.input} value={last} onChangeText={setLast} placeholderTextColor={colors.textMuted} />
+        <TextInput
+          style={[stylesThemed.input, lastError ? stylesThemed.inputError : null]}
+          value={last}
+          onChangeText={(value) => {
+            setLast(value);
+            if (lastError && value.trim()) setLastError(null);
+          }}
+          placeholderTextColor={colors.textMuted}
+        />
+        {lastError ? <Text style={stylesThemed.errorText}>{lastError}</Text> : null}
         <Text style={stylesThemed.label}>Email</Text>
         <TextInput style={[stylesThemed.input, stylesThemed.disabledInput]} value={profile?.email ?? user?.email ?? ""} editable={false} />
         <Text style={stylesThemed.label}>Phone</Text>
-        <TextInput
-          style={[stylesThemed.input, phoneError ? stylesThemed.inputError : null]}
-          value={phone}
-          onChangeText={handlePhoneChange}
-          keyboardType="phone-pad"
-          placeholder="X-(XXX)-XXX-XXXX"
-          placeholderTextColor={colors.textMuted}
-        />
+        <View style={[stylesThemed.phoneInputContainer, phoneError ? stylesThemed.phoneInputContainerError : null]}>
+          <Pressable style={stylesThemed.phoneCountryButton} onPress={() => setCountryPickerOpen(true)} hitSlop={10}>
+            <Text style={stylesThemed.phoneCountryFlag}>{selectedCountry?.flag ?? regionToFlagEmoji(countryCode)}</Text>
+            <Text style={stylesThemed.phoneCountryCodeText}>{countryCode}</Text>
+            <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+          </Pressable>
+          <Text style={stylesThemed.phoneCallingCodeText}>+{callingCode}</Text>
+          <TextInput
+            style={stylesThemed.phoneInputField}
+            value={phone}
+            onChangeText={handlePhoneChange}
+            keyboardType="phone-pad"
+            placeholder="Phone Number"
+            placeholderTextColor={colors.textMuted}
+            onBlur={() => {
+              setPhoneTouched(true);
+              setPhoneError(validatePhone(phone));
+            }}
+          />
+        </View>
         {phoneError ? <Text style={stylesThemed.errorText}>{phoneError}</Text> : null}
         <Text style={stylesThemed.label}>Bio</Text>
         <RichTextarea
           value={bio}
-          onChangeText={setBio}
+          onChangeText={(value) => {
+            setBio(value);
+            if (bioError && value.trim()) setBioError(null);
+          }}
           placeholder="Tell people about yourself..."
           placeholderTextColor={colors.textMuted}
-          style={[stylesThemed.input, { minHeight: 96, maxHeight: 180 }]}
+          style={[stylesThemed.input, { minHeight: 96, maxHeight: 180 }, bioError ? stylesThemed.inputError : null]}
         />
+        {bioError ? <Text style={stylesThemed.errorText}>{bioError}</Text> : null}
+        {avatarError ? <Text style={stylesThemed.errorText}>{avatarError}</Text> : null}
         <Pressable style={stylesThemed.btn} onPress={() => void save()} disabled={update.isPending || uploadingAvatar}>
           <Text style={stylesThemed.btnText}>{update.isPending ? "Saving..." : "Save"}</Text>
         </Pressable>
+        <BottomSheetPickerModal visible={countryPickerOpen} onClose={() => setCountryPickerOpen(false)} title="Select country">
+          {countryOptions.map((option, index) => (
+            <Pressable
+              key={`${option.region}-${option.callingCode}`}
+              style={[stylesThemed.countryPickerRow, index === countryOptions.length - 1 ? { borderBottomWidth: 0 } : null]}
+              onPress={() => {
+                setCountryCode(option.region);
+                setCallingCode(option.callingCode);
+                if (phoneTouched) {
+                  setPhoneError(validatePhone(phone));
+                }
+                setCountryPickerOpen(false);
+              }}
+            >
+              <Text style={stylesThemed.countryPickerText}>
+                {option.flag} {option.region} (+{option.callingCode})
+              </Text>
+              {countryCode === option.region && callingCode === option.callingCode ? (
+                <Ionicons name="checkmark" size={16} color={colors.primary} />
+              ) : null}
+            </Pressable>
+          ))}
+        </BottomSheetPickerModal>
       </ScrollView>
       </Animated.View>
     </View>

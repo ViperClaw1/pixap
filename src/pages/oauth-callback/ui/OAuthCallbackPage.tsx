@@ -58,13 +58,19 @@ export default function OAuthCallbackScreen() {
       Alert.alert("Session invalid", "Verification link is invalid or expired. Please sign in.");
     };
 
-    const hasValidSession = async () => {
+    const getVerifiedUserId = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session?.access_token || !session.user) return false;
+      if (!session?.access_token || !session.user) return null;
       const { data, error } = await supabase.auth.getUser();
-      return Boolean(data.user && !error);
+      if (!data.user || error) return null;
+      return data.user.id;
+    };
+
+    const markProfileAsVerified = async (userId: string) => {
+      const { error } = await supabase.from("profiles").update({ is_verified: true }).eq("id", userId);
+      return !error;
     };
 
     let timeoutId: ReturnType<typeof setTimeout>;
@@ -102,8 +108,13 @@ export default function OAuthCallbackScreen() {
         openResetPassword();
         return;
       }
-      const validSession = await hasValidSession();
-      if (!validSession) {
+      const verifiedUserId = await getVerifiedUserId();
+      if (!verifiedUserId) {
+        openLoginFallback();
+        return;
+      }
+      const verified = await markProfileAsVerified(verifiedUserId);
+      if (!verified) {
         openLoginFallback();
         return;
       }
