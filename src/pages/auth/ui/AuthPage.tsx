@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Keyboard,
+  Dimensions,
 } from "react-native";
 import { Ionicons, FontAwesome, FontAwesome6 } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
@@ -37,19 +39,36 @@ WebBrowser.maybeCompleteAuthSession();
 type Mode = "login" | "signup" | "forgot";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Auth">;
+const KEYBOARD_GAP = Platform.OS === "android" ? 48 : 24;
 
 export default function AuthScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { colors, mode: themeMode } = useAppTheme();
   const { user, loading: authLoading, signIn, signUp, resetPassword } = useAuth();
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollOffsetYRef = useRef(0);
+  const activeInputRef = useRef<TextInput | null>(null);
+  const keyboardTopRef = useRef<number | null>(null);
+  const isKeyboardVisibleRef = useRef(false);
+  const firstNameInputRef = useRef<TextInput>(null);
+  const lastNameInputRef = useRef<TextInput>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const stylesThemed = useMemo(
     () =>
@@ -68,6 +87,9 @@ export default function AuthScreen() {
           alignItems: "center",
           paddingHorizontal: 14,
           minHeight: 58,
+        },
+        fieldWrapError: {
+          borderColor: "#ec6544",
         },
         fieldIcon: { marginRight: 10 },
         input: {
@@ -102,9 +124,85 @@ export default function AuthScreen() {
         bottomSwitch: { marginTop: 12, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 },
         bottomSwitchText: { color: colors.textMuted, fontSize: 14 },
         bottomSwitchLink: { color: AUTH_PRIMARY_COLOR, fontSize: 14, fontWeight: "700" },
+        inlineError: { marginTop: -4, marginBottom: 10, color: colors.danger, fontSize: 12 },
+        passwordRules: { marginTop: -2, marginBottom: 8, gap: 4 },
+        passwordRuleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+        passwordRuleText: { fontSize: 14, color: colors.textMuted },
       }),
     [colors],
   );
+
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  const hasMinPasswordLength = password.length >= 8;
+  const hasPasswordDigit = /\d/.test(password);
+  const hasPasswordSpecial = /[^A-Za-z0-9]/.test(password);
+  const isPasswordPolicyValid = hasMinPasswordLength && hasPasswordDigit && hasPasswordSpecial;
+  const isEmailEmpty = email.trim().length === 0;
+  const showEmailRequiredError = emailTouched && isEmailEmpty;
+  const showEmailInvalidError = emailTouched && !isEmailEmpty && !isValidEmail(email);
+  const arePasswordsMatching = password === confirmPassword;
+  const showPasswordsMismatch = mode === "signup" && confirmPasswordTouched && confirmPassword.length > 0 && !arePasswordsMatching;
+  const showPasswordPolicyError = mode === "signup" && passwordTouched && password.length > 0 && !isPasswordPolicyValid;
+
+  const ensureFocusedInputVisible = (keyboardTop: number) => {
+    const focusedField = activeInputRef.current;
+    if (!focusedField || typeof focusedField.measureInWindow !== "function") return;
+    focusedField.measureInWindow((_x, y, _w, h) => {
+      const overlap = Math.max(0, y + h + KEYBOARD_GAP - keyboardTop);
+      if (overlap <= 0) return;
+      scrollRef.current?.scrollTo({
+        y: scrollOffsetYRef.current + overlap,
+        animated: true,
+      });
+    });
+  };
+
+  const onInputFocus = (ref: { current: TextInput | null }) => {
+    activeInputRef.current = ref.current;
+    const keyboardTop = keyboardTopRef.current;
+    if (!isKeyboardVisibleRef.current || keyboardTop == null || !ref.current) return;
+    ensureFocusedInputVisible(keyboardTop);
+  };
+
+  useEffect(() => {
+    const onKeyboardFrameChange = (event: { endCoordinates: { height: number; screenY?: number }; duration?: number }) => {
+      const windowHeight = Dimensions.get("window").height;
+      const keyboardTop = event.endCoordinates.screenY ?? windowHeight - event.endCoordinates.height;
+      if (Platform.OS === "ios") return;
+      isKeyboardVisibleRef.current = true;
+      keyboardTopRef.current = keyboardTop;
+      setKeyboardHeight(event.endCoordinates.height);
+      ensureFocusedInputVisible(keyboardTop);
+    };
+
+    const onKeyboardWillShow = (event: { endCoordinates: { height: number; screenY?: number }; duration?: number }) => {
+      if (Platform.OS !== "ios") return;
+      const windowHeight = Dimensions.get("window").height;
+      const keyboardTop = event.endCoordinates.screenY ?? windowHeight - event.endCoordinates.height;
+      isKeyboardVisibleRef.current = true;
+      keyboardTopRef.current = keyboardTop;
+      setKeyboardHeight(event.endCoordinates.height);
+      ensureFocusedInputVisible(keyboardTop);
+    };
+
+    const onKeyboardHide = () => {
+      isKeyboardVisibleRef.current = false;
+      keyboardTopRef.current = null;
+      setKeyboardHeight(0);
+    };
+
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const frameEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
+    const frameSub = Keyboard.addListener(frameEvent, onKeyboardFrameChange);
+    const showSub = Platform.OS === "ios" ? Keyboard.addListener("keyboardWillShow", onKeyboardWillShow) : null;
+    const hideSub = Keyboard.addListener(hideEvent, onKeyboardHide);
+
+    return () => {
+      frameSub.remove();
+      showSub?.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -219,11 +317,7 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       if (mode === "login") {
-        const { error, isUnverified } = await signIn(email, password);
-        if (isUnverified) {
-          Alert.alert("Verify email", "Check your inbox to verify before signing in.");
-          return;
-        }
+        const { error } = await signIn(email, password);
         if (error) {
           Alert.alert("Sign in failed", error);
           return;
@@ -231,6 +325,25 @@ export default function AuthScreen() {
         return;
       }
       if (mode === "signup") {
+        setEmailTouched(true);
+        setPasswordTouched(true);
+        setConfirmPasswordTouched(true);
+        if (isEmailEmpty) {
+          Alert.alert("Validation error", "Email is required.");
+          return;
+        }
+        if (!isValidEmail(email)) {
+          Alert.alert("Validation error", "Please enter a valid email address.");
+          return;
+        }
+        if (!isPasswordPolicyValid) {
+          Alert.alert("Validation error", "Password does not meet security requirements.");
+          return;
+        }
+        if (!arePasswordsMatching) {
+          Alert.alert("Validation error", "Passwords do not match.");
+          return;
+        }
         const { error, isUserAlreadyExists } = await signUp(email, password, firstName, lastName);
         if (error) {
           if (isUserAlreadyExists) {
@@ -240,7 +353,22 @@ export default function AuthScreen() {
           Alert.alert("Sign up failed", error);
           return;
         }
-        navigation.replace("AuthEmailSent", { email });
+        const signInResult = await signIn(email, password);
+        if (signInResult.error) {
+          Alert.alert("Sign up completed", "Account was created, but auto sign in failed. Please log in manually.");
+          setMode("login");
+          return;
+        }
+        navigation.reset({ index: 0, routes: [{ name: "EditProfile" }] });
+        return;
+      }
+      setEmailTouched(true);
+      if (isEmailEmpty) {
+        Alert.alert("Validation error", "Email is required.");
+        return;
+      }
+      if (!isValidEmail(email)) {
+        Alert.alert("Validation error", "Please enter a valid email address.");
         return;
       }
       const { error } = await resetPassword(email);
@@ -255,12 +383,19 @@ export default function AuthScreen() {
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={stylesThemed.root}
       contentContainerStyle={{
         ...stylesThemed.content,
         paddingTop: Math.max(insets.top, 22),
-        paddingBottom: Math.max(insets.bottom, 48),
+        paddingBottom: Math.max(insets.bottom, 48) + keyboardHeight + KEYBOARD_GAP,
       }}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+      onScroll={(event) => {
+        scrollOffsetYRef.current = event.nativeEvent.contentOffset.y;
+      }}
+      scrollEventThrottle={16}
     >
       <Text style={stylesThemed.title}>
         {mode === "login" ? "Welcome back" : mode === "signup" ? "Create account" : "Reset password"}
@@ -274,53 +409,132 @@ export default function AuthScreen() {
           <View style={stylesThemed.fieldWrap}>
             <Ionicons name="person-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
             <TextInput
+              ref={firstNameInputRef}
               style={stylesThemed.input}
               placeholder="First name"
               placeholderTextColor={ph}
               value={firstName}
               onChangeText={setFirstName}
+              onFocus={() => onInputFocus(firstNameInputRef)}
             />
           </View>
           <View style={stylesThemed.fieldWrap}>
             <Ionicons name="person-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
             <TextInput
+              ref={lastNameInputRef}
               style={stylesThemed.input}
               placeholder="Last name"
               placeholderTextColor={ph}
               value={lastName}
               onChangeText={setLastName}
+              onFocus={() => onInputFocus(lastNameInputRef)}
             />
           </View>
         </>
       )}
 
-      <View style={stylesThemed.fieldWrap}>
+      <View style={[stylesThemed.fieldWrap, (showEmailRequiredError || showEmailInvalidError) ? stylesThemed.fieldWrapError : null]}>
         <Ionicons name="mail-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
         <TextInput
+          ref={emailInputRef}
           style={stylesThemed.input}
           placeholder="Email address"
           placeholderTextColor={ph}
           value={email}
           onChangeText={setEmail}
+          onFocus={() => onInputFocus(emailInputRef)}
+          onBlur={() => {
+            setEmailTouched(true);
+            if (activeInputRef.current === emailInputRef.current) activeInputRef.current = null;
+          }}
           autoCapitalize="none"
           keyboardType="email-address"
         />
       </View>
+      {showEmailRequiredError ? <Text style={stylesThemed.inlineError}>Email is required.</Text> : null}
+      {showEmailInvalidError ? <Text style={stylesThemed.inlineError}>Please enter a valid email address.</Text> : null}
       {mode !== "forgot" && (
-        <View style={stylesThemed.fieldWrap}>
-          <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
-          <TextInput
-            style={stylesThemed.input}
-            placeholder="Password"
-            placeholderTextColor={ph}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-          />
-          <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
-            <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
-          </Pressable>
-        </View>
+        <>
+          <View style={[stylesThemed.fieldWrap, showPasswordPolicyError ? stylesThemed.fieldWrapError : null]}>
+            <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
+            <TextInput
+              ref={passwordInputRef}
+              style={stylesThemed.input}
+              placeholder="Password"
+              placeholderTextColor={ph}
+              value={password}
+              onChangeText={setPassword}
+              onFocus={() => onInputFocus(passwordInputRef)}
+              onBlur={() => {
+                setPasswordTouched(true);
+                if (activeInputRef.current === passwordInputRef.current) activeInputRef.current = null;
+              }}
+              secureTextEntry={!showPassword}
+            />
+            <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
+              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+          {mode === "signup" && passwordTouched ? (
+            <View style={stylesThemed.passwordRules}>
+              <View style={stylesThemed.passwordRuleRow}>
+                <Ionicons
+                  name={hasMinPasswordLength ? "checkmark-circle-outline" : "close-circle-outline"}
+                  size={16}
+                  color={hasMinPasswordLength ? colors.primary : colors.danger}
+                />
+                <Text style={[stylesThemed.passwordRuleText, hasMinPasswordLength ? { color: colors.primary } : { color: colors.textMuted }]}>
+                  At least 8 characters
+                </Text>
+              </View>
+              <View style={stylesThemed.passwordRuleRow}>
+                <Ionicons
+                  name={hasPasswordDigit ? "checkmark-circle-outline" : "close-circle-outline"}
+                  size={16}
+                  color={hasPasswordDigit ? colors.primary : colors.danger}
+                />
+                <Text style={[stylesThemed.passwordRuleText, hasPasswordDigit ? { color: colors.primary } : { color: colors.textMuted }]}>
+                  At least one digit
+                </Text>
+              </View>
+              <View style={stylesThemed.passwordRuleRow}>
+                <Ionicons
+                  name={hasPasswordSpecial ? "checkmark-circle-outline" : "close-circle-outline"}
+                  size={16}
+                  color={hasPasswordSpecial ? colors.primary : colors.danger}
+                />
+                <Text style={[stylesThemed.passwordRuleText, hasPasswordSpecial ? { color: colors.primary } : { color: colors.textMuted }]}>
+                  At least one special character
+                </Text>
+              </View>
+            </View>
+          ) : null}
+          {mode === "signup" ? (
+            <>
+              <View style={[stylesThemed.fieldWrap, showPasswordsMismatch ? stylesThemed.fieldWrapError : null]}>
+                <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
+                <TextInput
+                  ref={confirmPasswordInputRef}
+                  style={stylesThemed.input}
+                  placeholder="Confirm password"
+                  placeholderTextColor={ph}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  onFocus={() => onInputFocus(confirmPasswordInputRef)}
+                  onBlur={() => {
+                    setConfirmPasswordTouched(true);
+                    if (activeInputRef.current === confirmPasswordInputRef.current) activeInputRef.current = null;
+                  }}
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <Pressable onPress={() => setShowConfirmPassword((v) => !v)} hitSlop={8}>
+                  <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
+                </Pressable>
+              </View>
+              {showPasswordsMismatch ? <Text style={stylesThemed.inlineError}>Passwords do not match.</Text> : null}
+            </>
+          ) : null}
+        </>
       )}
 
       {loading ? (
@@ -352,7 +566,7 @@ export default function AuthScreen() {
             <View style={stylesThemed.orLine} />
           </View>
           <Pressable style={stylesThemed.outline} onPress={() => void social("google")} disabled={loading}>
-            <FontAwesome name="google" size={18} color="#4285F4" />
+            <FontAwesome name="google" size={18} color="#ec6544" />
             <Text style={stylesThemed.outlineText}>Continue with Google</Text>
           </Pressable>
           <Pressable style={stylesThemed.outline} onPress={() => void social("apple")} disabled={loading}>

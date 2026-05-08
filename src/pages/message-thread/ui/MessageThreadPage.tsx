@@ -20,7 +20,6 @@ import { useNavigation, useRoute, type RouteProp } from "@react-navigation/nativ
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import WhatsAppStickers from "react-native-whatsapp-stickers";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
@@ -497,11 +496,6 @@ export default function MessageThreadPage() {
   };
 
   const toggleStickerPanel = async () => {
-    try {
-      await WhatsAppStickers?.isWhatsAppAvailable?.();
-    } catch {
-      // Keep in-app stickers available even if native bridge is unavailable.
-    }
     setStickerPanelOpen((prev) => !prev);
   };
 

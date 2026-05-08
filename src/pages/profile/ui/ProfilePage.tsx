@@ -26,6 +26,7 @@ import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
 import { supabase } from "@/shared/api/supabase/client";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import type { ThemeMode } from "@/contexts/ThemeContext";
+import Toast from "react-native-toast-message";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">,
@@ -59,7 +60,7 @@ function ProfileScreenContent() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { colors, mode, setMode } = useAppTheme();
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, resendVerification } = useAuth();
   const { data: profile } = useProfile();
   const { data: notifications = [], isLoading: loadingNotifications } = useNotifications();
   const { data: favorites = [] } = useFavorites();
@@ -377,6 +378,41 @@ function ProfileScreenContent() {
         avatarText: { color: colors.primary, fontSize: 24, fontWeight: "700" },
         name: { fontSize: 18, fontWeight: "700", color: colors.text },
         email: { color: colors.textMuted, marginTop: 2, fontSize: 13 },
+        emailVerificationRow: {
+          marginTop: 10,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+          flexWrap: "wrap",
+        },
+        emailBadge: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          borderWidth: 1,
+          borderRadius: 999,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+        },
+        emailBadgeText: {
+          fontSize: 12,
+          fontWeight: "700",
+        },
+        verifyBtn: {
+          minHeight: 32,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: colors.primary,
+          paddingHorizontal: 12,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.background,
+        },
+        verifyBtnText: {
+          color: colors.primary,
+          fontSize: 12,
+          fontWeight: "700",
+        },
         settingsBtn: {
           marginLeft: "auto",
           width: 34,
@@ -569,6 +605,26 @@ function ProfileScreenContent() {
   );
 
   const userName = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || "User";
+  const isEmailVerified = Boolean(profile?.is_verified);
+  const emailForVerification = (profile?.email ?? user?.email ?? "").trim();
+  const warningColor = "#f59e0b";
+
+  const handleSendVerification = async () => {
+    if (!emailForVerification) {
+      Toast.show({ type: "error", text1: "Verification failed", text2: "Email is missing for this account." });
+      return;
+    }
+    const { error } = await resendVerification(emailForVerification);
+    if (error) {
+      Toast.show({ type: "error", text1: "Verification failed", text2: error });
+      return;
+    }
+    Toast.show({
+      type: "success",
+      text1: "Verification sent",
+      text2: "Please check your email and open the verification link.",
+    });
+  };
   const openPrivacy = () => {
     void Linking.openURL(PRIVACY_URL);
   };
@@ -844,6 +900,27 @@ function ProfileScreenContent() {
           <View style={{ marginLeft: 12, flex: 1 }}>
             <Text style={stylesThemed.name}>{userName}</Text>
             <Text style={stylesThemed.email}>{profile?.email ?? user?.email}</Text>
+            <View style={stylesThemed.emailVerificationRow}>
+              <View
+                style={[
+                  stylesThemed.emailBadge,
+                  {
+                    borderColor: isEmailVerified ? "#22c55e" : warningColor,
+                    backgroundColor: isEmailVerified ? "rgba(34,197,94,0.1)" : "rgba(245,158,11,0.12)",
+                  },
+                ]}
+              >
+                <Ionicons name={isEmailVerified ? "checkmark-circle-outline" : "alert-circle-outline"} size={14} color={isEmailVerified ? "#22c55e" : warningColor} />
+                <Text style={[stylesThemed.emailBadgeText, { color: isEmailVerified ? "#22c55e" : warningColor }]}>
+                  {isEmailVerified ? "Email verified" : "Email not verified"}
+                </Text>
+              </View>
+              {!isEmailVerified ? (
+                <Pressable style={stylesThemed.verifyBtn} onPress={() => void handleSendVerification()}>
+                  <Text style={stylesThemed.verifyBtnText}>Verify</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
           <Pressable style={stylesThemed.settingsBtn} onPress={() => navigation.navigate("EditProfile")}>
             <Ionicons name="settings-outline" size={16} color={colors.text} />

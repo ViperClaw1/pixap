@@ -8,6 +8,7 @@ import { useBusinessCard } from "@/entities/business-card";
 import { useCreateCartItem } from "@/entities/cart";
 import { useCreateBooking } from "@/entities/booking";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/entities/user";
 import { supabase } from "@/shared/api/supabase/client";
 import type { BrowseFlowParamList } from "@/navigation/types";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
@@ -16,6 +17,7 @@ import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { BookingFlowPlacePanel } from "@/components/booking/BookingFlowPlacePanel";
+import { isProfileComplete } from "@/shared/lib/profileCompletion";
 
 import {
   CALENDAR_MONTHS_AHEAD,
@@ -46,6 +48,7 @@ export default function BookingFlowPage() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const { session, user } = useAuth();
+  const { data: profile } = useProfile();
   const { data: place } = useBusinessCard(id);
   const isFavorite = useIsFavorite(id);
   const toggleFavorite = useToggleFavorite();
@@ -134,6 +137,16 @@ export default function BookingFlowPage() {
   };
 
   const handleConfirm = async () => {
+    if (!isProfileComplete(profile)) {
+      Alert.alert("Profile incomplete", "Please, fill out all your profile data before booking.");
+      navigation.getParent()?.dispatch(
+        CommonActions.navigate({
+          name: "Profile",
+          params: { screen: "EditProfile" },
+        }),
+      );
+      return;
+    }
     const dateTime = new Date(selectedDate);
     const [h, m] = selectedTime.split(":").map(Number);
     dateTime.setHours(h, m, 0, 0);
@@ -404,6 +417,16 @@ export default function BookingFlowPage() {
           <Pressable
             style={styles.primary}
             onPress={() => {
+              if (step === 0 && !isProfileComplete(profile)) {
+                Alert.alert("Profile incomplete", "Please, fill out all your profile data before booking.");
+                navigation.getParent()?.dispatch(
+                  CommonActions.navigate({
+                    name: "Profile",
+                    params: { screen: "EditProfile" },
+                  }),
+                );
+                return;
+              }
               if (step === 1 && !selectedTime) {
                 Alert.alert("Pick a time");
                 return;
