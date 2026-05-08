@@ -12,6 +12,7 @@ import type {
   RootTabParamList,
 } from "./types";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
 import HomeScreen from "@/pages/home";
 import MessagesScreen from "@/pages/messages";
 import MessageThreadScreen from "@/pages/message-thread";
@@ -24,6 +25,7 @@ import BookingFlowScreen from "@/pages/booking-flow";
 import AIBookingScreen from "@/pages/ai-booking";
 import VibeMatchScreen from "@/pages/vibe-match";
 import AuthScreen from "@/pages/auth";
+import AuthEmailSentScreen from "@/pages/auth-email-sent";
 import AuthEmailCallbackScreen from "@/pages/auth-email-callback";
 import ResetPasswordScreen from "@/pages/reset-password";
 import OAuthCallbackScreen from "@/pages/oauth-callback";
@@ -124,6 +126,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} />
       <ProfileStack.Screen name="MyPurchases" component={MyPurchasesScreen} />
       <ProfileStack.Screen name="Auth" component={AuthScreen} />
+      <ProfileStack.Screen name="AuthEmailSent" component={AuthEmailSentScreen} />
       <ProfileStack.Screen name="AuthEmailCallback" component={AuthEmailCallbackScreen} />
       <ProfileStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
@@ -150,6 +153,8 @@ const TAB_ICON_SIZE = 24;
 export default function AppNavigator() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
+  const { user } = useAuth();
+  const isAuthorized = Boolean(user);
   const androidTabLift = Platform.OS === "android" ? 8 : 0;
   const tabBottomPadding = Math.max(insets.bottom, 6) + androidTabLift;
 
@@ -199,9 +204,9 @@ export default function AppNavigator() {
       })}
     >
       <Tab.Screen name="Feed" component={FeedStackNavigator} options={{ title: "Feed" }} />
-      <Tab.Screen name="Bookings" component={BookingsStackNavigator} options={{ title: "Bookings" }} />
+      {isAuthorized ? <Tab.Screen name="Bookings" component={BookingsStackNavigator} options={{ title: "Bookings" }} /> : null}
       <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: "Home" }} />
-      <Tab.Screen name="Cart" component={CartStackNavigator} options={{ title: "Messages" }} />
+      {isAuthorized ? <Tab.Screen name="Cart" component={CartStackNavigator} options={{ title: "Messages" }} /> : null}
       <Tab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: "Profile" }} />
     </Tab.Navigator>
   );

@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import * as Linking from "expo-linking";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession";
+import { supabase } from "@/shared/api/supabase/client";
 import type { ProfileStackParamList, RootTabParamList } from "@/navigation/types";
 
 const CALLBACK_TIMEOUT_MS = 15000;
@@ -28,12 +29,12 @@ export default function AuthEmailCallbackPage() {
   const done = useRef(false);
 
   useEffect(() => {
-    const openHome = () => {
+    const openEditProfile = () => {
       if (done.current) return;
       done.current = true;
       const root = navigation.getParent<RootNav>();
-      root?.navigate("Home", { screen: "HomeMain" });
-      navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
+      root?.navigate("Profile", { screen: "EditProfile" });
+      navigation.reset({ index: 0, routes: [{ name: "EditProfile" }] });
     };
 
     const openResetPassword = () => {
@@ -42,27 +43,42 @@ export default function AuthEmailCallbackPage() {
       navigation.reset({ index: 0, routes: [{ name: "ResetPassword" }] });
     };
 
-    const openFallback = () => {
+    const openInvalidSessionFallback = () => {
       if (done.current) return;
       done.current = true;
-      openHome();
+      navigation.reset({ index: 0, routes: [{ name: "Auth" }] });
+      Alert.alert("Session expired", "Verification link is invalid or expired. Please log in again.");
+    };
+
+    const hasValidSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token || !session.user) return false;
+      const { data, error } = await supabase.auth.getUser();
+      return Boolean(data.user && !error);
     };
 
     const run = async (href: string | null) => {
       const flow = pickFlowFromUrl(href);
       const completed = await completeOAuthFromCallbackUrl(href);
       if (!completed.ok) {
-        openFallback();
+        openInvalidSessionFallback();
         return;
       }
       if (flow === "recovery") {
         openResetPassword();
         return;
       }
-      openHome();
+      const validSession = await hasValidSession();
+      if (!validSession) {
+        openInvalidSessionFallback();
+        return;
+      }
+      openEditProfile();
     };
 
-    const timeoutId = setTimeout(() => openFallback(), CALLBACK_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => openInvalidSessionFallback(), CALLBACK_TIMEOUT_MS);
     void Linking.getInitialURL().then((url) => void run(url));
     const sub = Linking.addEventListener("url", (event) => void run(event.url));
 
