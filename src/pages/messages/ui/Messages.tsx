@@ -11,9 +11,11 @@ import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import Toast from "react-native-toast-message";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 import { useMyFollowing, useToggleFollow } from "@/entities/user";
+import { usePublicProfiles } from "@/entities/user";
 import { useMarkThreadRead, useMessagesInbox, useOpenOrCreateThread, usePeopleToFollow } from "@/entities/messages";
 import type { CartStackParamList } from "@/navigation/types";
-import type { ThemeMode } from "@/contexts/ThemeContext";
+import { AppHeader } from "@/shared/ui/app-header/AppHeader";
+import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 
 function fullName(first?: string | null, last?: string | null) {
   return `${first?.trim() ?? ""} ${last?.trim() ?? ""}`.trim() || "Unknown user";
@@ -40,9 +42,11 @@ export default function MessagesPage() {
   const { colors, mode, setMode } = useAppTheme();
   const { user } = useAuth();
   const [search, setSearch] = useState("");
+  const [startChatModalOpen, setStartChatModalOpen] = useState(false);
   const [deletedThreadIds, setDeletedThreadIds] = useState<Set<string>>(new Set());
   const { threads, isLoading: inboxLoading } = useMessagesInbox(search);
   const { people, isLoading: peopleLoading } = usePeopleToFollow(search);
+  const { data: publicProfiles = [], isLoading: publicProfilesLoading } = usePublicProfiles("");
   const { followingSet } = useMyFollowing();
   const isPageLoading = inboxLoading || peopleLoading;
   const markThreadRead = useMarkThreadRead();
@@ -50,8 +54,7 @@ export default function MessagesPage() {
   const toggleFollow = useToggleFollow();
 
   const toggleThemeMode = () => {
-    const nextMode: ThemeMode = mode === "dark" ? "light" : "dark";
-    setMode(nextMode);
+    setMode(mode === "dark" ? "light" : "dark");
   };
 
   const onToggleFollower = (person: (typeof people)[number]) => {
@@ -76,10 +79,16 @@ export default function MessagesPage() {
       });
   };
 
-  const onOpenChat = (person: (typeof people)[number]) => {
+  const onOpenChat = (person: {
+    id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    avatar_url?: string | null;
+  }) => {
     void openOrCreateThread
       .mutateAsync(person.id)
       .then((result) => {
+        setStartChatModalOpen(false);
         navigation.navigate("MessageThread", {
           threadId: result.threadId,
           peerId: person.id,
@@ -134,31 +143,9 @@ export default function MessagesPage() {
         },
   
         content: {
-          paddingTop: Math.max(insets.top, 16),
+          paddingTop: 12,
           paddingHorizontal: 16,
           paddingBottom: Math.max(insets.bottom, 20),
-        },
-  
-        header: {
-          color: colors.text,
-          fontSize: 36,
-          fontWeight: "800",
-          letterSpacing: -0.6,
-        },
-        headerRow: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        },
-        headerActionBtn: {
-          width: 40,
-          height: 40,
-          borderRadius: 18,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.border,
         },
   
         // SEARCH
@@ -196,7 +183,7 @@ export default function MessagesPage() {
   
         sectionTitle: {
           color: colors.text,
-          fontSize: 24,
+          fontSize: 18,
           fontWeight: "700",
           letterSpacing: -0.2,
         },
@@ -429,17 +416,18 @@ export default function MessagesPage() {
           marginTop: 14,
         },
       }),
-    [colors, insets.bottom, insets.top],
+    [colors, insets.bottom],
   );
 
   return (
     <ScrollView style={stylesThemed.root} contentContainerStyle={stylesThemed.content}>
-      <View style={stylesThemed.headerRow}>
-        <Text style={stylesThemed.header}>Messages</Text>
-        <Pressable style={stylesThemed.headerActionBtn} onPress={toggleThemeMode}>
-          <Ionicons name={mode === "dark" ? "sunny-outline" : "moon-outline"} size={20} color={colors.text} />
-        </Pressable>
-      </View>
+      <AppHeader
+        title="Messages"
+        leftIcon="add"
+        onLeftPress={() => setStartChatModalOpen(true)}
+        rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+        onRightPress={toggleThemeMode}
+      />
 
       <View style={stylesThemed.searchWrap}>
         <Ionicons name="search-outline" size={18} color={colors.textMuted} />
@@ -601,6 +589,35 @@ export default function MessagesPage() {
       ) : (
         <Text style={stylesThemed.empty}>No users found.</Text>
       )}
+
+      <BottomSheetPickerModal visible={startChatModalOpen} onClose={() => setStartChatModalOpen(false)} title="Start chat">
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>
+          {publicProfilesLoading ? (
+            <Text style={stylesThemed.empty}>Loading...</Text>
+          ) : publicProfiles.filter((profile) => profile.id !== user?.id).length ? (
+            publicProfiles
+              .filter((profile) => profile.id !== user?.id)
+              .map((item) => (
+                <View key={item.id} style={stylesThemed.card}>
+                  <SmartImage uri={item.avatar_url} style={stylesThemed.avatar} contentFit="cover" />
+                  <View style={stylesThemed.cardMain}>
+                    <Text style={stylesThemed.title} numberOfLines={1}>
+                      {fullName(item.first_name, item.last_name)}
+                    </Text>
+                    <Text style={stylesThemed.username} numberOfLines={1}>
+                      @{item.username?.trim() || "unknown"}
+                    </Text>
+                  </View>
+                  <Pressable style={[stylesThemed.iconActionBtn, stylesThemed.chatBtn]} onPress={() => onOpenChat(item)}>
+                    <Ionicons name="chatbubble-ellipses" size={20} color="#ffffff" />
+                  </Pressable>
+                </View>
+              ))
+          ) : (
+            <Text style={stylesThemed.empty}>No users found.</Text>
+          )}
+        </ScrollView>
+      </BottomSheetPickerModal>
     </ScrollView>
   );
 }

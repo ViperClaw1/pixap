@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -8,15 +8,25 @@ import Carousel from "react-native-reanimated-carousel";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCreateStory, useStoriesFeed, useStoriesStrip } from "@/entities/story";
-import { useCreatePostComment, usePostComments, usePostsFeed, useReactToPost, type FeedPostItem } from "@/entities/post";
+import {
+  useCreatePost,
+  useCreatePostComment,
+  usePostComments,
+  usePostsFeed,
+  useReactToPost,
+  type FeedPostItem,
+} from "@/entities/post";
 import { useProfile, usePublicProfiles } from "@/entities/user";
+import { useBusinessCards } from "@/entities/business-card";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { supabase } from "@/shared/api/supabase/client";
+import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { CommentsBottomSheet } from "@/shared/ui/comments-bottom-sheet/CommentsBottomSheet";
 import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomSheet";
 import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
 import { ShimmerSurface } from "@/shared/ui/shimmer/ShimmerSurface";
+import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import type { BrowseFlowParamList, FeedStackParamList, RootTabParamList } from "@/navigation/types";
 import * as ImagePicker from "expo-image-picker";
 import type { StoryGroup } from "@/types/stories";
@@ -81,7 +91,7 @@ function getPostImages(post: FeedPostItem) {
 }
 
 export default function StoriesFeedScreen() {
-  const { colors, isDark } = useAppTheme();
+  const { colors, isDark, mode, setMode } = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<BrowseFlowParamList>>();
   const rootNavigation = useNavigation<NavigationProp<RootTabParamList>>();
   const route = useRoute<RouteProp<FeedStackParamList, "FeedMain">>();
@@ -91,6 +101,7 @@ export default function StoriesFeedScreen() {
   const { data: storiesStrip = [] } = useStoriesStrip();
   const { stories: feedStories = [] } = useStoriesFeed();
   const createStory = useCreateStory();
+  const createPost = useCreatePost();
   const reactToPost = useReactToPost();
   const { data: myProfile } = useProfile();
   const [slideIndexByPostId, setSlideIndexByPostId] = useState<Record<string, number>>({});
@@ -105,8 +116,14 @@ export default function StoriesFeedScreen() {
   const [shareVisible, setShareVisible] = useState(false);
   const [shareSearch, setShareSearch] = useState("");
   const { data: shareUsers = [], isLoading: shareUsersLoading } = usePublicProfiles(shareSearch);
+  const { data: businessCards = [] } = useBusinessCards();
   const [likedPostIds, setLikedPostIds] = useState<Record<string, true>>({});
   const [likeCountByPostId, setLikeCountByPostId] = useState<Record<string, number>>({});
+  const [createMenuVisible, setCreateMenuVisible] = useState(false);
+  const [createPostModalVisible, setCreatePostModalVisible] = useState(false);
+  const [postInput, setPostInput] = useState("");
+  const [selectedPostPlaceId, setSelectedPostPlaceId] = useState<string | null>(null);
+  const [postPlacePickerOpen, setPostPlacePickerOpen] = useState(false);
 
   const sliderHeight = Math.max(240, Math.min(360, Math.floor(height * 0.48)));
   const sortedPosts = useMemo(
@@ -155,7 +172,17 @@ export default function StoriesFeedScreen() {
     }
     return Array.from(grouped.values());
   }, [feedStories]);
-  const createStoryPlaceId = focusedPosts[0]?.place_id ?? sortedPosts[0]?.place_id ?? null;
+  const createStoryPlaceId = focusedPosts[0]?.place_id ?? sortedPosts[0]?.place_id ?? businessCards[0]?.id ?? null;
+  const postPlaceOptions = useMemo(
+    () =>
+      businessCards
+        .map((card) => ({
+          id: card.id,
+          name: card.name?.trim() || "Unknown place",
+        }))
+        .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index),
+    [businessCards],
+  );
 
   const toggleReplies = (commentId: string) => {
     setExpandedCommentIds((prev) => {
@@ -178,6 +205,9 @@ export default function StoriesFeedScreen() {
       return;
     }
     action();
+  };
+  const toggleThemeMode = () => {
+    setMode(mode === "dark" ? "light" : "dark");
   };
 
   const openComments = (postId: string) => {
@@ -255,6 +285,32 @@ export default function StoriesFeedScreen() {
     if (asset?.uri) await uploadStoryPhoto(asset);
   };
 
+  const submitPost = async () => {
+    const targetPlaceId = selectedPostPlaceId ?? postPlaceOptions[0]?.id ?? null;
+    const content = postInput.trim();
+    if (!targetPlaceId) {
+      Alert.alert("Place is required", "Please choose a place before publishing.");
+      return;
+    }
+    if (!content) {
+      Alert.alert("Content is required", "Please enter post text.");
+      return;
+    }
+    try {
+      const created = (await createPost.mutateAsync({
+        placeId: targetPlaceId,
+        content,
+      })) as unknown as { id: string | number };
+      setCreatePostModalVisible(false);
+      setPostInput("");
+      setSelectedPostPlaceId(null);
+      rootNavigation.navigate("Feed", { screen: "FeedMain", params: { focusPostId: String(created.id) } });
+    } catch (error) {
+      Alert.alert("Post failed", error instanceof Error ? error.message : "Could not publish post.");
+    }
+  };
+
+
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
@@ -279,18 +335,19 @@ export default function StoriesFeedScreen() {
     );
   }
 
-  if (!focusedPosts.length) {
-    return (
-      <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
-        <View style={styles.centered}>
-          <Text style={[styles.emptyText, { color: colors.textMuted }]}>No stories yet</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={[]}>
+      <AppHeader
+        title="Feed"
+        leftIcon="add"
+        onLeftPress={() =>
+          runAuthedAction(() => {
+            setCreateMenuVisible(true);
+          })
+        }
+        rightIcon={isDark ? "sunny-outline" : "moon-outline"}
+        onRightPress={toggleThemeMode}
+      />
       <FlatList
         data={focusedPosts}
         keyExtractor={(item) => item.id}
@@ -301,10 +358,13 @@ export default function StoriesFeedScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesHeaderContent}>
               <Pressable
                 style={styles.storyBubble}
-                disabled={!createStoryPlaceId || uploadingStory}
+                disabled={uploadingStory}
                 onPress={() => {
                   runAuthedAction(() => {
-                    if (!createStoryPlaceId) return;
+                    if (!createStoryPlaceId) {
+                      navigation.navigate("Profile", { screen: "ProfileMain", params: { openCreateStep: "story" } });
+                      return;
+                    }
                     Alert.alert("Add story", "Choose source", [
                       { text: "Cancel", style: "cancel" },
                       { text: "Camera", onPress: () => void pickStoryFromCamera() },
@@ -516,9 +576,12 @@ export default function StoriesFeedScreen() {
                       <Ionicons name="person-outline" size={18} color={colors.text} />
                     </View>
                   )}
-                  <Text style={[styles.authorName, { color: colors.text }]}>
-                    {profileName(item.profile?.first_name, item.profile?.last_name)}
-                  </Text>
+                  <View style={styles.authorNameRow}>
+                    <Text style={[styles.authorName, { color: colors.text }]}>
+                      {profileName(item.profile?.first_name, item.profile?.last_name)}
+                    </Text>
+                    {item.profile?.is_verified ? <Ionicons name="checkmark-circle" size={14} color={colors.primary} /> : null}
+                  </View>
                 </View>
                 <Pressable style={[styles.followBtn, { borderColor: colors.border }]}>
                   <Text style={[styles.followText, { color: colors.text }]}>Follow</Text>
@@ -527,6 +590,11 @@ export default function StoriesFeedScreen() {
             </View>
           );
         }}
+        ListEmptyComponent={
+          <View style={styles.centered}>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No posts yet</Text>
+          </View>
+        }
       />
 
       <CommentsBottomSheet
@@ -575,6 +643,112 @@ export default function StoriesFeedScreen() {
         onChangeSearch={setShareSearch}
         resolveAvatarUri={profileAvatar}
       />
+      <BottomSheetPickerModal visible={createMenuVisible} onClose={() => setCreateMenuVisible(false)} title="Create">
+        <View style={styles.createMenuBody}>
+          <View style={styles.createOptionGrid}>
+            <Pressable
+              style={[styles.createOptionCard, { borderColor: colors.border, backgroundColor: colors.background }]}
+              onPress={() => {
+                setCreateMenuVisible(false);
+                setCreatePostModalVisible(true);
+              }}
+            >
+              <Ionicons name="grid-outline" size={34} color={colors.text} />
+              <Text style={[styles.createOptionLabel, { color: colors.text }]}>Post</Text>
+              <Text style={[styles.createOptionHint, { color: colors.textMuted }]}>Create a new post</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.createOptionCard, { borderColor: colors.border, backgroundColor: colors.background }]}
+              onPress={() => {
+                setCreateMenuVisible(false);
+                if (!createStoryPlaceId) {
+                  Alert.alert("Place is required", "Please add or select a place first.");
+                  return;
+                }
+                Alert.alert("Add story", "Choose source", [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Camera", onPress: () => void pickStoryFromCamera() },
+                  { text: "Gallery", onPress: () => void pickStoryFromGallery() },
+                ]);
+              }}
+            >
+              <Ionicons name="add-circle-outline" size={34} color={colors.text} />
+              <Text style={[styles.createOptionLabel, { color: colors.text }]}>Story</Text>
+              <Text style={[styles.createOptionHint, { color: colors.textMuted }]}>Share a quick story</Text>
+            </Pressable>
+          </View>
+        </View>
+      </BottomSheetPickerModal>
+      <BottomSheetPickerModal
+        visible={createPostModalVisible}
+        onClose={() => {
+          setCreatePostModalVisible(false);
+          setPostPlacePickerOpen(false);
+        }}
+        title="Create post"
+      >
+        <View style={styles.createPostModalBody}>
+          <Text style={[styles.modalFieldLabel, { color: colors.textMuted }]}>Place</Text>
+          <Pressable
+            style={[styles.modalPlaceSelector, { borderColor: colors.border, backgroundColor: colors.card }]}
+            onPress={() => setPostPlacePickerOpen((prev) => !prev)}
+          >
+            <Text style={[styles.modalPlaceSelectorText, { color: colors.text }]}>
+              {selectedPostPlaceId
+                ? (postPlaceOptions.find((item) => item.id === selectedPostPlaceId)?.name ?? "Selected place")
+                : (postPlaceOptions[0]?.name ?? "Select place")}
+            </Text>
+            <Ionicons name={postPlacePickerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
+          </Pressable>
+          {postPlacePickerOpen ? (
+            <View style={[styles.modalPlaceOptions, { borderColor: colors.border, backgroundColor: colors.card }]}>
+              {postPlaceOptions.length ? (
+                postPlaceOptions.map((option) => (
+                  <Pressable
+                    key={`feed-post-place-${option.id}`}
+                    style={styles.modalPlaceOption}
+                    onPress={() => {
+                      setSelectedPostPlaceId(option.id);
+                      setPostPlacePickerOpen(false);
+                    }}
+                  >
+                    <Text style={[styles.modalPlaceOptionText, { color: colors.text }]} numberOfLines={1}>
+                      {option.name}
+                    </Text>
+                    {selectedPostPlaceId === option.id ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
+                  </Pressable>
+                ))
+              ) : (
+                <Text style={[styles.modalNoPlacesText, { color: colors.textMuted }]}>No places available</Text>
+              )}
+            </View>
+          ) : null}
+          <Text style={[styles.modalFieldLabel, { color: colors.textMuted }]}>Text</Text>
+          <TextInput
+            value={postInput}
+            onChangeText={setPostInput}
+            placeholder="Write something..."
+            placeholderTextColor={colors.textMuted}
+            multiline
+            style={[styles.modalInput, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+          />
+          <Pressable
+            style={[styles.modalPublishBtn, { backgroundColor: colors.primary, opacity: createPost.isPending ? 0.7 : 1 }]}
+            disabled={createPost.isPending}
+            onPress={() => {
+              runAuthedAction(() => {
+                void submitPost();
+              });
+            }}
+          >
+            {createPost.isPending ? (
+              <ActivityIndicator color={colors.onPrimary} />
+            ) : (
+              <Text style={[styles.modalPublishBtnText, { color: colors.onPrimary }]}>Publish post</Text>
+            )}
+          </Pressable>
+        </View>
+      </BottomSheetPickerModal>
     </SafeAreaView>
   );
 }
@@ -756,6 +930,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
+  authorNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   avatarPlaceholder: {
     width: 36,
     height: 36,
@@ -907,5 +1086,98 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     alignSelf: "flex-start",
+  },
+  createMenuBody: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  createOptionGrid: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  createOptionCard: {
+    flex: 1,
+    minHeight: 124,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  createOptionLabel: {
+    fontSize: 24,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  createOptionHint: {
+    fontSize: 14,
+    textAlign: "center",
+  },
+  createPostModalBody: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 10,
+  },
+  modalFieldLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  modalPlaceSelector: {
+    minHeight: 42,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  modalPlaceSelectorText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  modalPlaceOptions: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 6,
+  },
+  modalPlaceOption: {
+    minHeight: 36,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  modalPlaceOptionText: {
+    flex: 1,
+    fontSize: 14,
+  },
+  modalNoPlacesText: {
+    fontSize: 13,
+    textAlign: "center",
+    paddingVertical: 8,
+  },
+  modalInput: {
+    minHeight: 100,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    textAlignVertical: "top",
+    fontSize: 14,
+  },
+  modalPublishBtn: {
+    minHeight: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalPublishBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

@@ -5,6 +5,7 @@ import {
   Pressable,
   StyleSheet,
   FlatList,
+  ScrollView,
   Alert,
   useWindowDimensions,
   ActivityIndicator,
@@ -25,14 +26,16 @@ import {
   type Booking,
   type BookingDisplayStatus,
 } from "@/entities/booking";
+import { useBusinessCards } from "@/entities/business-card";
 import type { BookingsStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 import { useCartItems } from "@/entities/cart";
-import type { ThemeMode } from "@/contexts/ThemeContext";
 import { bookingStatusNotificationText, useCreateNotification } from "@/entities/notification";
+import { AppHeader } from "@/shared/ui/app-header/AppHeader";
+import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 
 type Nav = NativeStackNavigationProp<BookingsStackParamList, "BookingsMain">;
 
@@ -61,15 +64,16 @@ export default function BookingsScreen() {
     navigation: navigation as unknown as NavigationProp<ParamListBase>,
   });
   const [filter, setFilter] = useState<BookingDisplayStatus>("draft");
+  const [placePickerOpen, setPlacePickerOpen] = useState(false);
   const { data: bookings = [] } = useBookings();
+  const { data: businessCards = [] } = useBusinessCards();
   const { data: cartItems = [] } = useCartItems();
   const cancelBooking = useCancelBooking();
   const createNotification = useCreateNotification();
   const isCompact = windowWidth < 400;
   const prevStatusesRef = useRef<Map<string, BookingDisplayStatus>>(new Map());
   const toggleThemeMode = () => {
-    const nextMode: ThemeMode = mode === "dark" ? "light" : "dark";
-    setMode(nextMode);
+    setMode(mode === "dark" ? "light" : "dark");
   };
 
   const items = useMemo(() => {
@@ -104,23 +108,6 @@ export default function BookingsScreen() {
     () =>
       StyleSheet.create({
         root: { flex: 1, backgroundColor: colors.background },
-        header: { fontSize: 32, fontWeight: "800", paddingHorizontal: 16, color: colors.text, letterSpacing: -0.3 },
-        headerRow: {
-          paddingHorizontal: 16,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        },
-        headerActionBtn: {
-          width: 34,
-          height: 34,
-          borderRadius: 17,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          alignItems: "center",
-          justifyContent: "center",
-        },
         filters: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
         fpill: {
           paddingHorizontal: 12,
@@ -337,12 +324,13 @@ export default function BookingsScreen() {
 
   return (
     <View style={stylesThemed.root}>
-      <View style={[stylesThemed.headerRow, { paddingTop: Math.max(insets.top, 12) }]}>
-        <Text style={stylesThemed.header}>Bookings</Text>
-        <Pressable style={stylesThemed.headerActionBtn} onPress={toggleThemeMode}>
-          <Ionicons name={mode === "dark" ? "sunny-outline" : "moon-outline"} size={18} color={colors.text} />
-        </Pressable>
-      </View>
+      <AppHeader
+        title="Bookings"
+        leftIcon="add"
+        onLeftPress={() => setPlacePickerOpen(true)}
+        rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+        onRightPress={toggleThemeMode}
+      />
       <View style={stylesThemed.filters}>
         {filters.map((f) => (
           <Pressable
@@ -361,6 +349,41 @@ export default function BookingsScreen() {
         ListEmptyComponent={<Text style={stylesThemed.empty}>No bookings</Text>}
         renderItem={renderItem}
       />
+      <BottomSheetPickerModal visible={placePickerOpen} onClose={() => setPlacePickerOpen(false)} title="Choose place">
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>
+          {businessCards.length ? (
+            businessCards.map((item) => (
+              <View key={item.id} style={stylesThemed.card}>
+                <SmartImage
+                  uri={getLatestBusinessCardImage(item.images)}
+                  recyclingKey={`book-place-${item.id}`}
+                  style={[styles.thumb, isCompact ? styles.thumbCompact : null]}
+                  contentFit="cover"
+                />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={stylesThemed.name} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={stylesThemed.meta} numberOfLines={2}>
+                    {item.tags?.slice(0, 4).join(", ") || "No tags"}
+                  </Text>
+                </View>
+                <Pressable
+                  style={stylesThemed.payBtn}
+                  onPress={() => {
+                    setPlacePickerOpen(false);
+                    navigation.navigate("BookingFlow", { id: item.id });
+                  }}
+                >
+                  <Text style={stylesThemed.payBtnText}>Book</Text>
+                </Pressable>
+              </View>
+            ))
+          ) : (
+            <Text style={stylesThemed.empty}>No places yet</Text>
+          )}
+        </ScrollView>
+      </BottomSheetPickerModal>
     </View>
   );
 }

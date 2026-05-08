@@ -47,7 +47,6 @@ export default function HomeScreen() {
   /** Horizontal padding 16 + 16 from `content` — matches full-width recommended cards */
   const recommendedCardWidth = windowWidth - 32;
   const homeQueriesLoading = lc || lf || lr;
-  const isCompactAiButton = windowWidth < 400;
 
   useEffect(() => {
     const cityFromProfile = profile?.city?.trim();
@@ -72,9 +71,26 @@ export default function HomeScreen() {
       StyleSheet.create({
         root: { flex: 1, backgroundColor: colors.background },
         content: { padding: 14, paddingBottom: 24 },
-        header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 },
-        headerRight: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1, justifyContent: "flex-end" },
-        logo: { fontSize: 32, fontWeight: "800", color: colors.text, letterSpacing: -0.4 },
+        header: {
+          minHeight: 46,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 8,
+        },
+        headerLeft: { flexDirection: "row", alignItems: "center", zIndex: 1 },
+        headerRight: { flexDirection: "row", alignItems: "center", gap: 6, zIndex: 1 },
+        logo: {
+          position: "absolute",
+          left: 0,
+          right: 0,
+          textAlign: "center",
+          fontSize: 24,
+          fontWeight: "800",
+          color: colors.text,
+          letterSpacing: -0.4,
+          pointerEvents: "none",
+        },
         sub: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
         citySelector: {
           marginTop: 6,
@@ -98,12 +114,10 @@ export default function HomeScreen() {
         },
         badgeText: { color: colors.onPrimary, fontSize: 11, fontWeight: "700" },
         aiBookingBtn: {
-          flexDirection: "row",
+          width: 40,
+          height: 40,
           alignItems: "center",
-          gap: 6,
-          maxWidth: 190,
-          paddingHorizontal: 12,
-          paddingVertical: 8,
+          justifyContent: "center",
           borderRadius: 18,
           backgroundColor: colors.notification,
           borderWidth: 1,
@@ -113,21 +127,6 @@ export default function HomeScreen() {
           shadowOpacity: isDark ? 0.45 : 0.35,
           shadowRadius: 6,
           elevation: 5,
-        },
-        aiBookingBtnCompact: {
-          width: 40,
-          height: 40,
-          borderRadius: 18,
-          paddingHorizontal: 0,
-          paddingVertical: 0,
-          justifyContent: "center",
-        },
-        aiBookingBtnText: {
-          flexShrink: 1,
-          color: isDark ? "#0a0a0a" : "#ffffff",
-          fontSize: 12,
-          fontWeight: "800",
-          letterSpacing: 0.2,
         },
         vibeMatchBtn: {
           width: 40,
@@ -150,7 +149,7 @@ export default function HomeScreen() {
           justifyContent: "center",
         },
         searchBtnText: { color: colors.textMuted, fontSize: 14 },
-        sectionTitle: { fontSize: 20, fontWeight: "800", marginBottom: 10, color: colors.text, letterSpacing: -0.2 },
+        sectionTitle: { fontSize: 18, fontWeight: "800", marginBottom: 10, color: colors.text, letterSpacing: -0.2 },
         sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
         link: { fontSize: 12, color: colors.link, fontWeight: "600" },
         pill: {
@@ -188,31 +187,23 @@ export default function HomeScreen() {
         contentContainerStyle={[stylesThemed.content, { paddingTop: Math.max(insets.top, 12) }]}
       >
         <View style={stylesThemed.header}>
-          <View>
-            <Text style={stylesThemed.logo}>Pixap</Text>
-            <Pressable style={stylesThemed.citySelector} onPress={() => setCityModalVisible(true)}>
-              <Text style={stylesThemed.citySelectorText}>{selectedCity}</Text>
+          <View style={stylesThemed.headerLeft}>
+            <Pressable
+              style={stylesThemed.aiBookingBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Open PixAI Smart Booking"
+              onPress={() => navigation.navigate("AIBooking")}
+            >
+              <Ionicons name="sparkles" size={18} color={isDark ? "#0a0a0a" : "#ffffff"} />
             </Pressable>
           </View>
+          <Text style={stylesThemed.logo}>Pixap</Text>
           <View style={stylesThemed.headerRight}>
             {unread > 0 ? (
               <View style={stylesThemed.badge}>
                 <Text style={stylesThemed.badgeText}>{unread > 9 ? "9+" : unread}</Text>
               </View>
             ) : null}
-            <Pressable
-              style={[stylesThemed.aiBookingBtn, isCompactAiButton ? stylesThemed.aiBookingBtnCompact : null]}
-              accessibilityRole="button"
-              accessibilityLabel="Open PixAI Smart Booking"
-              onPress={() => navigation.navigate("AIBooking")}
-            >
-              <Ionicons name="sparkles" size={18} color={isDark ? "#0a0a0a" : "#ffffff"} />
-              {!isCompactAiButton ? (
-                <Text style={stylesThemed.aiBookingBtnText} numberOfLines={1}>
-                  PixAI Smart Booking
-                </Text>
-              ) : null}
-            </Pressable>
             <Pressable
               style={stylesThemed.vibeMatchBtn}
               accessibilityRole="button"
@@ -224,6 +215,9 @@ export default function HomeScreen() {
             <ThemeToggle />
           </View>
         </View>
+        <Pressable style={stylesThemed.citySelector} onPress={() => setCityModalVisible(true)}>
+          <Text style={stylesThemed.citySelectorText}>{selectedCity}</Text>
+        </Pressable>
 
         <Pressable style={stylesThemed.searchBtn} onPress={() => navigation.navigate("SearchMain")}>
           <Text style={stylesThemed.searchBtnText}>Search restaurants, salons, events…</Text>

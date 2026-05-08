@@ -59,7 +59,12 @@ export type BookingsStackParamList = {
 } & BrowseFlowParamList;
 
 export type ProfileStackParamList = {
-  ProfileMain: undefined;
+  ProfileMain:
+    | {
+        openCreateStep?: "post" | "story";
+        openCreateModal?: boolean;
+      }
+    | undefined;
   MyPurchases: undefined;
   Auth: undefined;
   AuthEmailSent: { email: string } | undefined;

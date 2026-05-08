@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Linking, Platform, Alert } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -23,6 +23,7 @@ import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useEntitlement } from "@/entities/subscription";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
+import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { supabase } from "@/shared/api/supabase/client";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import type { ThemeMode } from "@/contexts/ThemeContext";
@@ -58,6 +59,7 @@ function fullName(first?: string | null, last?: string | null) {
 
 function ProfileScreenContent() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<ProfileStackParamList, "ProfileMain">>();
   const insets = useSafeAreaInsets();
   const { colors, mode, setMode } = useAppTheme();
   const { user, loading, signOut, resendVerification } = useAuth();
@@ -100,37 +102,19 @@ function ProfileScreenContent() {
     }
   }, [loading, user, navigation]);
 
+  useEffect(() => {
+    const requestedCreateStep = route.params?.openCreateStep;
+    const shouldOpenCreateModal = Boolean(route.params?.openCreateModal) || Boolean(requestedCreateStep);
+    if (!shouldOpenCreateModal) return;
+    setCreateStep(requestedCreateStep ?? "menu");
+    setCreateModalOpen(true);
+    navigation.setParams({ openCreateStep: undefined, openCreateModal: undefined });
+  }, [navigation, route.params?.openCreateModal, route.params?.openCreateStep]);
+
   const stylesThemed = useMemo(
     () =>
       StyleSheet.create({
         root: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16 },
-        headerRow: {
-          height: 44,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 14,
-        },
-        headerActionBtn: {
-          width: 32,
-          height: 32,
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: colors.border,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.card,
-        },
-        headerTitle: {
-          position: "absolute",
-          left: 0,
-          right: 0,
-          pointerEvents: "none",
-          textAlign: "center",
-          fontSize: 34,
-          fontWeight: "800",
-          color: colors.text,
-        },
         createMenuBody: {
           paddingHorizontal: 12,
           paddingVertical: 12,
@@ -866,23 +850,18 @@ function ProfileScreenContent() {
   return (
     <ScrollView
       style={stylesThemed.root}
-      contentContainerStyle={{ paddingTop: Math.max(insets.top, 12), paddingBottom: Math.max(insets.bottom, 24) }}
+      contentContainerStyle={{ paddingTop: 12, paddingBottom: Math.max(insets.bottom, 24) }}
     >
-      <View style={stylesThemed.headerRow}>
-        <Pressable
-          style={stylesThemed.headerActionBtn}
-          onPress={() => {
-            setCreateStep("menu");
-            setCreateModalOpen(true);
-          }}
-        >
-          <Ionicons name="add" size={22} color={colors.text} />
-        </Pressable>
-        <Text style={stylesThemed.headerTitle}>Profile</Text>
-        <Pressable style={stylesThemed.headerActionBtn} onPress={toggleThemeMode}>
-          <Ionicons name={mode === "dark" ? "sunny-outline" : "moon-outline"} size={18} color={colors.text} />
-        </Pressable>
-      </View>
+      <AppHeader
+        title="Profile"
+        leftIcon="add"
+        onLeftPress={() => {
+          setCreateStep("menu");
+          setCreateModalOpen(true);
+        }}
+        rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+        onRightPress={toggleThemeMode}
+      />
       <View style={stylesThemed.card}>
         <View style={stylesThemed.profileRow}>
           <View style={stylesThemed.avatarWrap}>
