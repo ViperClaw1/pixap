@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import Constants from "expo-constants";
+import * as Linking from "expo-linking";
 import { supabase } from "@/shared/api/supabase/client";
 import { env } from "@/shared/lib/env";
 import { isInvalidRefreshTokenError } from "@/shared/lib/supabaseAuth";
@@ -36,7 +38,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const initializedRef = useRef(false);
 
   const getEmailCallbackRedirectUrl = useCallback(
-    () => `${env.oauthRedirectBase.replace(/\/$/, "")}/profile/auth-email-callback`,
+    () => {
+      if (Constants.appOwnership === "expo") {
+        return Linking.createURL("profile/auth-email-callback");
+      }
+      return `${env.oauthRedirectBase.replace(/\/$/, "")}/profile/auth-email-callback`;
+    },
     [],
   );
 

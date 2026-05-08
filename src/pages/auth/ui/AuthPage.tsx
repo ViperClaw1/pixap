@@ -236,8 +236,7 @@ export default function AuthScreen() {
           Alert.alert("Sign up failed", error);
           return;
         }
-        Alert.alert("Check your email", "Confirmation letter was sent to your email.");
-        setMode("login");
+        navigation.replace("AuthEmailSent", { email });
         return;
       }
       const { error } = await resetPassword(email);
