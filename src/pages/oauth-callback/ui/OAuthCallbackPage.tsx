@@ -1,16 +1,27 @@
 import { useEffect, useRef } from "react";
-import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Text, ActivityIndicator, StyleSheet, Alert } from "react-native";
 import * as Linking from "expo-linking";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { supabase } from "@/shared/api/supabase/client";
 import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession";
-import type { HomeStackParamList } from "@/navigation/types";
+import type { HomeStackParamList, RootTabParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 
 const CALLBACK_TIMEOUT_MS = 15000;
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
+type RootNav = NativeStackNavigationProp<RootTabParamList>;
+
+function pickFlowFromUrl(href: string | null): "verify" | "recovery" {
+  if (!href) return "verify";
+  const parsed = Linking.parse(href);
+  const query = parsed.queryParams ?? {};
+  const flowValue = typeof query.flow === "string" ? query.flow : Array.isArray(query.flow) ? query.flow[0] : "";
+  const typeValue = typeof query.type === "string" ? query.type : Array.isArray(query.type) ? query.type[0] : "";
+  const raw = `${flowValue}`.toLowerCase() || `${typeValue}`.toLowerCase();
+  return raw === "recovery" ? "recovery" : "verify";
+}
 
 export default function OAuthCallbackScreen() {
   const navigation = useNavigation<Nav>();
@@ -18,44 +29,85 @@ export default function OAuthCallbackScreen() {
   const finished = useRef(false);
 
   useEffect(() => {
-    const finishSuccess = () => {
+    const openHome = () => {
       if (finished.current) return;
       finished.current = true;
       navigation.reset({ index: 0, routes: [{ name: "HomeMain" }] });
     };
 
-    const finishFailure = () => {
+    const openEditProfile = () => {
+      if (finished.current) return;
+      finished.current = true;
+      const root = navigation.getParent<RootNav>();
+      root?.navigate("Profile", { screen: "EditProfile" });
+      navigation.reset({ index: 0, routes: [{ name: "HomeMain" }] });
+    };
+
+    const openResetPassword = () => {
+      if (finished.current) return;
+      finished.current = true;
+      navigation.getParent()?.navigate("Profile", { screen: "ResetPassword" });
+      navigation.reset({ index: 0, routes: [{ name: "HomeMain" }] });
+    };
+
+    const openLoginFallback = () => {
       if (finished.current) return;
       finished.current = true;
       navigation.reset({ index: 0, routes: [{ name: "HomeMain" }] });
       navigation.getParent()?.navigate("Profile", { screen: "Auth" });
+      Alert.alert("Session invalid", "Verification link is invalid or expired. Please sign in.");
+    };
+
+    const hasValidSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token || !session.user) return false;
+      const { data, error } = await supabase.auth.getUser();
+      return Boolean(data.user && !error);
     };
 
     let timeoutId: ReturnType<typeof setTimeout>;
     let unsubscribe = () => {};
     let linkSub: { remove: () => void } | undefined;
 
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") && session) {
-        finishSuccess();
-      }
-    });
+    const { data } = supabase.auth.onAuthStateChange(() => undefined);
     unsubscribe = () => data.subscription.unsubscribe();
 
-    timeoutId = setTimeout(() => finishFailure(), CALLBACK_TIMEOUT_MS);
+    timeoutId = setTimeout(() => openLoginFallback(), CALLBACK_TIMEOUT_MS);
 
     const run = async (href: string | null) => {
+      const flow = pickFlowFromUrl(href);
       if (!href) {
         const { data } = await supabase.auth.getSession();
         clearTimeout(timeoutId);
-        if (data.session) finishSuccess();
-        else finishFailure();
+        if (!data.session) {
+          openLoginFallback();
+          return;
+        }
+        if (flow === "recovery") {
+          openResetPassword();
+          return;
+        }
+        openEditProfile();
         return;
       }
-      const finished = await completeOAuthFromCallbackUrl(href);
+      const completed = await completeOAuthFromCallbackUrl(href);
       clearTimeout(timeoutId);
-      if (finished.ok) finishSuccess();
-      else finishFailure();
+      if (!completed.ok) {
+        openLoginFallback();
+        return;
+      }
+      if (flow === "recovery") {
+        openResetPassword();
+        return;
+      }
+      const validSession = await hasValidSession();
+      if (!validSession) {
+        openLoginFallback();
+        return;
+      }
+      openEditProfile();
     };
 
     void Linking.getInitialURL().then((href) => void run(href));

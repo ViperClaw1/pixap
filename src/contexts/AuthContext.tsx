@@ -21,7 +21,7 @@ interface AuthContextType {
     password: string,
     firstName: string,
     lastName: string,
-  ) => Promise<{ error: string | null }>;
+  ) => Promise<{ error: string | null; isUserAlreadyExists?: boolean }>;
   signIn: (email: string, password: string) => Promise<SignInResult>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -32,6 +32,16 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const isUserAlreadyExistsError = (message: string) => {
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes("already") ||
+      normalized.includes("exists") ||
+      normalized.includes("already registered") ||
+      normalized.includes("user already")
+    );
+  };
+
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,8 +132,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         redirectTo: getEmailCallbackRedirectUrl(),
       },
     });
-    if (error) return { error: error.message };
-    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+    if (error) {
+      const message = error.message ?? "Sign up failed";
+      return { error: message, isUserAlreadyExists: isUserAlreadyExistsError(message) };
+    }
+    if (data && typeof data === "object" && "error" in data && data.error) {
+      const message = String(data.error);
+      return { error: message, isUserAlreadyExists: isUserAlreadyExistsError(message) };
+    }
     return { error: null };
   };
 

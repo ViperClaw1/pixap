@@ -231,8 +231,12 @@ export default function AuthScreen() {
         return;
       }
       if (mode === "signup") {
-        const { error } = await signUp(email, password, firstName, lastName);
+        const { error, isUserAlreadyExists } = await signUp(email, password, firstName, lastName);
         if (error) {
+          if (isUserAlreadyExists) {
+            Alert.alert("Email already registered", "Account with this email already exists. Please sign in or reset your password.");
+            return;
+          }
           Alert.alert("Sign up failed", error);
           return;
         }
