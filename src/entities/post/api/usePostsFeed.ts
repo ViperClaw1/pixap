@@ -26,6 +26,7 @@ type ProfileRow = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  is_verified: boolean | null;
 };
 
 export type FeedPostItem = PostItem & {
@@ -95,7 +96,7 @@ export function usePostsFeed() {
       const [{ data: placesData }, { data: profilesData }, { data: commentsData }, { data: reactionsData }, myReactionsResult] =
         await Promise.all([
           supabase.from("business_cards" as any).select("id, name, images").in("id", placeIds),
-          supabase.from("public_profiles" as any).select("id, first_name, last_name, avatar_url").in("id", userIds),
+          supabase.from("public_profiles" as any).select("id, first_name, last_name, avatar_url, is_verified").in("id", userIds),
           supabase
             .from("post_comments" as any)
             .select("id, post_id, parent_id, content, created_at")
@@ -111,7 +112,13 @@ export function usePostsFeed() {
       const profiles = new Map<string, PostProfile>(
         ((profilesData ?? []) as ProfileRow[]).map((row) => [
           row.id,
-          { id: row.id, first_name: row.first_name, last_name: row.last_name, avatar_url: row.avatar_url },
+          {
+            id: row.id,
+            first_name: row.first_name,
+            last_name: row.last_name,
+            avatar_url: row.avatar_url,
+            is_verified: Boolean(row.is_verified),
+          },
         ]),
       );
 

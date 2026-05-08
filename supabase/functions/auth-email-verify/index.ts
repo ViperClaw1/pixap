@@ -36,7 +36,8 @@ Deno.serve(async (req) => {
 
   const admin = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    type: "signup",
+    // Use magiclink for existing users; signup links may fail once account already exists/confirmed.
+    type: "magiclink",
     email,
     options: {
       redirectTo: withFlowQuery(redirectTo, "verify"),

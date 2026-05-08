@@ -9,13 +9,18 @@ import { useFavorites } from "@/entities/favorite";
 import type { ProfileStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
+import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Favorites">;
 
 export default function FavoritesScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const { colors } = useAppTheme();
+  const { colors, mode, setMode } = useAppTheme();
+  const toggleThemeMode = () => {
+    setMode(mode === "dark" ? "light" : "dark");
+  };
+
   const { user, loading } = useAuth();
   const { data: favorites = [] } = useFavorites();
 
@@ -50,9 +55,18 @@ export default function FavoritesScreen() {
     <FlatList
       data={favorites}
       keyExtractor={(f) => `${f.user_id}-${f.business_card_id}`}
+      ListHeaderComponent={
+        <AppHeader
+          title="Favorites"
+          leftIcon="arrow-back"
+          onLeftPress={() => navigation.goBack()}
+          rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+          onRightPress={toggleThemeMode}
+        />
+      }
       contentContainerStyle={{
         padding: 16,
-        paddingTop: Math.max(insets.top, 12),
+        paddingTop: 12,
         paddingBottom: 100 + insets.bottom,
       }}
       ListEmptyComponent={<Text style={stylesThemed.empty}>No favorites yet</Text>}

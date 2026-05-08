@@ -5,6 +5,7 @@ export interface PostProfile {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  is_verified?: boolean;
 }
 
 export interface PostItem {

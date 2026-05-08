@@ -29,6 +29,7 @@ import { AUTH_PRIMARY_COLOR, primaryPressableStyle, primaryPressableTextStyle } 
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { PhoneNumberUtil } from "google-libphonenumber";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
+import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 
 const AVATARS_BUCKET = "avatars";
 const KEYBOARD_GAP = 16;
@@ -348,38 +349,6 @@ function EditProfileScreenContent() {
       StyleSheet.create({
         root: { flex: 1, backgroundColor: colors.background },
         content: { padding: 16, paddingTop: 12, paddingBottom: 36 },
-        headerRow: {
-          paddingTop: Math.max(insets.top, 10),
-          paddingHorizontal: 16,
-          height: Math.max(insets.top, 10) + 44,
-          marginBottom: 14,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        },
-        headerTitleWrap: {
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingHorizontal: 8,
-        },
-        headerActionBtn: {
-          width: 34,
-          height: 34,
-          borderRadius: 17,
-          borderWidth: 1,
-          borderColor: colors.border,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.card,
-        },
-        headerTitle: {
-          textAlign: "center",
-          color: colors.text,
-          fontSize: 34,
-          fontWeight: "800",
-          letterSpacing: -0.3,
-        },
         avatarBlock: { alignItems: "center", marginBottom: 12 },
         avatarFrame: {
           position: "relative",
@@ -508,19 +477,13 @@ function EditProfileScreenContent() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       >
-        <View style={stylesThemed.headerRow}>
-          <Pressable style={stylesThemed.headerActionBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={18} color={colors.text} />
-          </Pressable>
-          <View style={stylesThemed.headerTitleWrap}>
-            <Text style={stylesThemed.headerTitle} numberOfLines={1}>
-              Edit profile
-            </Text>
-          </View>
-          <Pressable style={stylesThemed.headerActionBtn} onPress={toggleThemeMode}>
-            <Ionicons name={mode === "dark" ? "sunny-outline" : "moon-outline"} size={18} color={colors.text} />
-          </Pressable>
-        </View>
+        <AppHeader
+          title="Edit profile"
+          leftIcon="arrow-back"
+          onLeftPress={() => navigation.goBack()}
+          rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+          onRightPress={toggleThemeMode}
+        />
 
         <View style={stylesThemed.avatarBlock}>
           <View style={stylesThemed.avatarFrame}>
