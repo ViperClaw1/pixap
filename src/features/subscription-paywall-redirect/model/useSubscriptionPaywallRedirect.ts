@@ -6,13 +6,13 @@ type Nav = { navigate: (name: "SubscriptionPaywall") => void };
 export function useSubscriptionPaywallRedirect(params: {
   entitlementLoading: boolean;
   shouldEnforcePaywall: boolean;
-  isSubscriptionActive: boolean;
+  hasSubscriptionAccess: boolean;
   navigation: Nav;
 }): void {
-  const { entitlementLoading, shouldEnforcePaywall, isSubscriptionActive, navigation } = params;
+  const { entitlementLoading, shouldEnforcePaywall, hasSubscriptionAccess, navigation } = params;
   useLayoutEffect(() => {
     if (entitlementLoading) return;
-    if (!shouldEnforcePaywall || isSubscriptionActive) return;
+    if (!shouldEnforcePaywall || hasSubscriptionAccess) return;
     navigation.navigate("SubscriptionPaywall");
-  }, [entitlementLoading, shouldEnforcePaywall, isSubscriptionActive, navigation]);
+  }, [entitlementLoading, shouldEnforcePaywall, hasSubscriptionAccess, navigation]);
 }

@@ -21,6 +21,7 @@ export type SubscriptionEntitlement = {
 };
 
 const ACTIVE_STATUSES: EntitlementStatus[] = ["active", "trialing", "grace_period", "billing_retry"];
+const INTRO_FREE_DAYS = 7;
 
 export function useEntitlement() {
   const { user } = useAuth();
@@ -46,15 +47,25 @@ export function useEntitlement() {
     const entitlement = query.data;
     const status = entitlement?.status;
     const isActive = status ? ACTIVE_STATUSES.includes(status) : false;
+    const userCreatedAt = user?.created_at ? new Date(user.created_at) : null;
+    const userCreatedAtMs = userCreatedAt?.getTime() ?? Number.NaN;
+    const introTrialEndsAtMs = Number.isFinite(userCreatedAtMs)
+      ? userCreatedAtMs + INTRO_FREE_DAYS * 24 * 60 * 60 * 1000
+      : Number.NaN;
+    const isIntroTrialActive = Number.isFinite(introTrialEndsAtMs) && Date.now() < introTrialEndsAtMs;
+    const hasSubscriptionAccess = isActive || isIntroTrialActive;
     return {
       entitlement,
       isActive,
+      hasSubscriptionAccess,
+      isIntroTrialActive,
+      introTrialEndsAt: Number.isFinite(introTrialEndsAtMs) ? new Date(introTrialEndsAtMs).toISOString() : null,
       isTrial: entitlement?.status === "trialing" || Boolean(entitlement?.is_trial),
       expiresAt: entitlement?.expires_at ?? null,
       willRenew: entitlement?.will_renew ?? false,
       status: entitlement?.status ?? null,
     };
-  }, [query.data]);
+  }, [query.data, user?.created_at]);
 
   return {
     ...query,

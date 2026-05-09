@@ -93,7 +93,7 @@ export default function AIBookingPage() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { user, session, loading: authLoading } = useAuth();
-  const { isActive, isLoading: entitlementLoading } = useEntitlement();
+  const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
   const shouldEnforcePaywall = !__DEV__ && Constants.appOwnership !== "expo";
   const navigation = useNavigation();
   useAuthSessionRedirect({
@@ -104,7 +104,7 @@ export default function AIBookingPage() {
   useSubscriptionPaywallRedirect({
     entitlementLoading,
     shouldEnforcePaywall,
-    isSubscriptionActive: isActive,
+    hasSubscriptionAccess,
     navigation: navigation as { navigate: (name: "SubscriptionPaywall") => void },
   });
   const { messages, runFlow, isLoading } = usePixAI();
@@ -625,7 +625,7 @@ export default function AIBookingPage() {
       </View>
     );
   }
-  if (shouldEnforcePaywall && !isActive) {
+  if (shouldEnforcePaywall && !hasSubscriptionAccess) {
     return (
       <View style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}>
         <ActivityIndicator color={colors.primary} />

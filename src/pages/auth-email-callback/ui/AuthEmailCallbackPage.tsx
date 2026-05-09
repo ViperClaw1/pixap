@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import * as Linking from "expo-linking";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -7,6 +7,7 @@ import { useAppTheme } from "@/contexts/ThemeContext";
 import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession";
 import { supabase } from "@/shared/api/supabase/client";
 import type { ProfileStackParamList, RootTabParamList } from "@/navigation/types";
+import Toast from "react-native-toast-message";
 
 const CALLBACK_TIMEOUT_MS = 15000;
 
@@ -29,12 +30,18 @@ export default function AuthEmailCallbackPage() {
   const done = useRef(false);
 
   useEffect(() => {
-    const openEditProfile = () => {
+    const debugLog = (...args: unknown[]) => {
+      if (!__DEV__) return;
+      console.info("[AuthEmailCallback]", ...args);
+    };
+
+    const openProfileMain = () => {
       if (done.current) return;
       done.current = true;
       const root = navigation.getParent<RootNav>();
-      root?.navigate("Profile", { screen: "EditProfile" });
-      navigation.reset({ index: 0, routes: [{ name: "EditProfile" }] });
+      debugLog("Navigating to ProfileMain (valid session).");
+      root?.navigate("Profile", { screen: "ProfileMain" });
+      navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
     };
 
     const openResetPassword = () => {
@@ -46,28 +53,50 @@ export default function AuthEmailCallbackPage() {
     const openInvalidSessionFallback = () => {
       if (done.current) return;
       done.current = true;
+      debugLog("Invalid session. Navigating to Auth.");
       navigation.reset({ index: 0, routes: [{ name: "Auth" }] });
-      Alert.alert("Session expired", "Verification link is invalid or expired. Please log in again.");
+      Toast.show({
+        type: "error",
+        text1: "Session invalid",
+        text2: "Verification link is invalid or expired. Please sign in again.",
+      });
     };
 
     const getVerifiedUserId = async () => {
+      debugLog("Checking session before verify update...");
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session?.access_token || !session.user) return null;
+      if (!session?.access_token || !session.user) {
+        debugLog("No valid session found.");
+        return null;
+      }
       const { data, error } = await supabase.auth.getUser();
-      if (!data.user || error) return null;
+      if (!data.user || error) {
+        debugLog("getUser failed:", error?.message ?? "user is null");
+        return null;
+      }
+      debugLog("Session is valid for user:", data.user.id);
       return data.user.id;
     };
 
     const markProfileAsVerified = async (userId: string) => {
-      const { error } = await supabase.from("profiles").update({ is_verified: true }).eq("id", userId);
-      return !error;
+      debugLog("Updating is_verified for user:", userId);
+      const profileResult = await supabase.from("profiles").update({ is_verified: true }).eq("id", userId);
+      if (profileResult.error) {
+        debugLog("profiles update failed:", profileResult.error.message);
+      } else {
+        debugLog("profiles update success");
+      }
+      return !profileResult.error;
     };
 
     const run = async (href: string | null) => {
+      debugLog("Callback started. URL:", href ?? "<empty>");
       const flow = pickFlowFromUrl(href);
+      debugLog("Detected flow:", flow);
       const completed = await completeOAuthFromCallbackUrl(href);
+      debugLog("Session exchange result:", completed.ok ? "ok" : completed.message);
       if (!completed.ok) {
         openInvalidSessionFallback();
         return;
@@ -86,7 +115,7 @@ export default function AuthEmailCallbackPage() {
         openInvalidSessionFallback();
         return;
       }
-      openEditProfile();
+      openProfileMain();
     };
 
     const timeoutId = setTimeout(() => openInvalidSessionFallback(), CALLBACK_TIMEOUT_MS);

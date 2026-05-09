@@ -17,16 +17,16 @@ export default function SubscriptionPaywallScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { iapSupported, products, productsLoading, purchase, restore, purchasePending, restorePending } = useSubscription();
-  const { isActive } = useEntitlement();
+  const { hasSubscriptionAccess } = useEntitlement();
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!hasSubscriptionAccess) return;
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
     }
     navigation.navigate("AIBooking");
-  }, [isActive, navigation]);
+  }, [hasSubscriptionAccess, navigation]);
 
   const styles = useMemo(
     () =>

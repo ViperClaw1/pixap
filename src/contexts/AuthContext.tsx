@@ -175,14 +175,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resendVerification = async (email: string) => {
+    if (__DEV__) {
+      console.info("[auth][resendVerification] invoke auth-email-verify", {
+        email,
+        redirectTo: getEmailCallbackRedirectUrl(),
+      });
+    }
     const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-verify", {
       body: {
         email,
         redirectTo: getEmailCallbackRedirectUrl(),
       },
     });
-    if (error) return { error: error.message };
-    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+    if (error) {
+      if (__DEV__) console.error("[auth][resendVerification] edge invoke error:", error.message);
+      return { error: error.message };
+    }
+    if (data && typeof data === "object" && "error" in data && data.error) {
+      if (__DEV__) console.error("[auth][resendVerification] edge response error:", String(data.error));
+      return { error: String(data.error) };
+    }
+    if (__DEV__) console.info("[auth][resendVerification] edge invoke success");
     return { error: null };
   };
 

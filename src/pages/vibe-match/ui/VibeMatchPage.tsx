@@ -76,7 +76,7 @@ export default function VibeMatchPage() {
   const { colors } = useAppTheme();
   const navigation = useNavigation();
   const { user, loading: authLoading } = useAuth();
-  const { isActive, isLoading: entitlementLoading } = useEntitlement();
+  const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
   const shouldEnforcePaywall = !__DEV__ && Constants.appOwnership !== "expo";
 
   useAuthSessionRedirect({
@@ -87,7 +87,7 @@ export default function VibeMatchPage() {
   useSubscriptionPaywallRedirect({
     entitlementLoading,
     shouldEnforcePaywall,
-    isSubscriptionActive: isActive,
+    hasSubscriptionAccess,
     navigation: navigation as { navigate: (name: "SubscriptionPaywall") => void },
   });
 

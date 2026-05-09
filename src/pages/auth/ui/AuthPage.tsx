@@ -40,6 +40,7 @@ type Mode = "login" | "signup" | "forgot";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Auth">;
 const KEYBOARD_GAP = Platform.OS === "android" ? 48 : 24;
+const PASSWORD_RULE_SUCCESS_COLOR = "#22c55e";
 
 export default function AuthScreen() {
   const navigation = useNavigation<Nav>();
@@ -135,14 +136,20 @@ export default function AuthScreen() {
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   const hasMinPasswordLength = password.length >= 8;
   const hasPasswordDigit = /\d/.test(password);
+  const hasPasswordUppercase = /[A-Z]/.test(password);
   const hasPasswordSpecial = /[^A-Za-z0-9]/.test(password);
-  const isPasswordPolicyValid = hasMinPasswordLength && hasPasswordDigit && hasPasswordSpecial;
+  const isPasswordPolicyValid = hasMinPasswordLength && hasPasswordDigit && hasPasswordUppercase && hasPasswordSpecial;
   const isEmailEmpty = email.trim().length === 0;
   const showEmailRequiredError = emailTouched && isEmailEmpty;
   const showEmailInvalidError = emailTouched && !isEmailEmpty && !isValidEmail(email);
   const arePasswordsMatching = password === confirmPassword;
   const showPasswordsMismatch = mode === "signup" && confirmPasswordTouched && confirmPassword.length > 0 && !arePasswordsMatching;
   const showPasswordPolicyError = mode === "signup" && passwordTouched && password.length > 0 && !isPasswordPolicyValid;
+
+  const onPasswordChange = (value: string) => {
+    if (!passwordTouched && value.length > 0) setPasswordTouched(true);
+    setPassword(value);
+  };
 
   const ensureFocusedInputVisible = (keyboardTop: number) => {
     const focusedField = activeInputRef.current;
@@ -463,7 +470,7 @@ export default function AuthScreen() {
               placeholder="Password"
               placeholderTextColor={ph}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={onPasswordChange}
               onFocus={() => onInputFocus(passwordInputRef)}
               onBlur={() => {
                 setPasswordTouched(true);
@@ -481,29 +488,40 @@ export default function AuthScreen() {
                 <Ionicons
                   name={hasMinPasswordLength ? "checkmark-circle-outline" : "close-circle-outline"}
                   size={16}
-                  color={hasMinPasswordLength ? colors.primary : colors.danger}
+                  color={hasMinPasswordLength ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
-                <Text style={[stylesThemed.passwordRuleText, hasMinPasswordLength ? { color: colors.primary } : { color: colors.textMuted }]}>
+                <Text style={[stylesThemed.passwordRuleText, hasMinPasswordLength ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
                   At least 8 characters
+                </Text>
+              </View>
+              <View style={stylesThemed.passwordRuleRow}>
+                <Ionicons
+                  name={hasPasswordUppercase ? "checkmark-circle-outline" : "close-circle-outline"}
+                  size={16}
+                  color={hasPasswordUppercase ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
+                />
+                <Text style={[stylesThemed.passwordRuleText, hasPasswordUppercase ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
+                  At least 1 uppercase letter
                 </Text>
               </View>
               <View style={stylesThemed.passwordRuleRow}>
                 <Ionicons
                   name={hasPasswordDigit ? "checkmark-circle-outline" : "close-circle-outline"}
                   size={16}
-                  color={hasPasswordDigit ? colors.primary : colors.danger}
+                  color={hasPasswordDigit ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
-                <Text style={[stylesThemed.passwordRuleText, hasPasswordDigit ? { color: colors.primary } : { color: colors.textMuted }]}>
+                <Text style={[stylesThemed.passwordRuleText, hasPasswordDigit ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
                   At least one digit
                 </Text>
               </View>
+              
               <View style={stylesThemed.passwordRuleRow}>
                 <Ionicons
                   name={hasPasswordSpecial ? "checkmark-circle-outline" : "close-circle-outline"}
                   size={16}
-                  color={hasPasswordSpecial ? colors.primary : colors.danger}
+                  color={hasPasswordSpecial ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
-                <Text style={[stylesThemed.passwordRuleText, hasPasswordSpecial ? { color: colors.primary } : { color: colors.textMuted }]}>
+                <Text style={[stylesThemed.passwordRuleText, hasPasswordSpecial ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
                   At least one special character
                 </Text>
               </View>

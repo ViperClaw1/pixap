@@ -26,7 +26,6 @@ import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { useDeleteMessage, useReactToMessage, useSendMessage, useThreadMessages } from "@/entities/messages";
 import type { CartStackParamList } from "@/navigation/types";
 import Toast from "react-native-toast-message";
-import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 
 type MessageThreadRoute = RouteProp<CartStackParamList, "MessageThread">;
 type MessageThreadNav = NativeStackNavigationProp<CartStackParamList, "MessageThread">;
@@ -86,7 +85,7 @@ export default function MessageThreadPage() {
     stableBottomInsetRef.current = insets.bottom;
   }
   const stableBottomInset = stableBottomInsetRef.current;
-  const { colors, mode, setMode } = useAppTheme();
+  const { colors, mode } = useAppTheme();
   const tabBarHeight = useBottomTabBarHeight();
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -116,9 +115,7 @@ export default function MessageThreadPage() {
   ).current;
 
   const peerName = fullName(peer?.first_name ?? params.peerFirstName ?? null, peer?.last_name ?? params.peerLastName ?? null);
-  const toggleThemeMode = () => {
-    setMode(mode === "dark" ? "light" : "dark");
-  };
+  const peerAvatar = peer?.avatar_url ?? params.peerAvatarUrl ?? null;
 
   const rows = useMemo(() => {
     const data: RenderItem[] = [];
@@ -191,8 +188,35 @@ export default function MessageThreadPage() {
       StyleSheet.create({
         root: { flex: 1, backgroundColor: colors.background },
         content: { flex: 1 },
+        header: {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 10,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+          backgroundColor: colors.card,
+          paddingTop: Math.max(insets.top, 10),
+          paddingHorizontal: 12,
+          paddingBottom: 10,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+        },
+        backBtn: {
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        headerCenter: { flex: 1, alignItems: "center" },
+        peerName: { color: colors.text, fontSize: 16, fontWeight: "700" },
+        peerSeen: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+        peerAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surface },
         listContent: {
-          paddingTop: 10,
+          paddingTop: Math.max(insets.top, 10) + 62,
           paddingHorizontal: 12,
           paddingBottom: Math.max(stableBottomInset, 12) + 12,
           gap: 8,
@@ -472,19 +496,29 @@ export default function MessageThreadPage() {
   };
 
   const toggleStickerPanel = async () => {
+    try {
+      await WhatsAppStickers?.isWhatsAppAvailable?.();
+    } catch {
+      // Keep in-app stickers available even if native bridge is unavailable.
+    }
     setStickerPanelOpen((prev) => !prev);
   };
 
   return (
     <View style={stylesThemed.root} {...edgeSwipeResponder.panHandlers}>
       <Animated.View style={[stylesThemed.content, { paddingBottom: keyboardInsetAnim }]}>
-        <AppHeader
-          title={peerName}
-          leftIcon="arrow-back"
-          onLeftPress={() => navigation.goBack()}
-          rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
-          onRightPress={toggleThemeMode}
-        />
+        <View style={stylesThemed.header}>
+          <Pressable style={stylesThemed.backBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
+          </Pressable>
+          <View style={stylesThemed.headerCenter}>
+            <Text style={stylesThemed.peerName} numberOfLines={1}>
+              {peerName}
+            </Text>
+            <Text style={stylesThemed.peerSeen}>{formatRelativeTime(peerLastSeenAt)}</Text>
+          </View>
+          <SmartImage uri={peerAvatar} style={stylesThemed.peerAvatar} contentFit="cover" />
+        </View>
 
         <FlatList
           style={stylesThemed.list}
