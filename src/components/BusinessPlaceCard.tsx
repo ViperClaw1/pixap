@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { PixelRatio, View, Text, Pressable, StyleSheet } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,7 +9,6 @@ import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { navigateToProfileAuth } from "@/navigation/navigationHelpers";
 import type { ThemeColors } from "@/shared/theme/palettes";
-import Carousel from "react-native-reanimated-carousel";
 import { normalizeBusinessCardImages } from "@/lib/businessCardImages";
 
 type Props = {
@@ -29,8 +28,6 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
   const { user } = useAuth();
   const isFavorite = useIsFavorite(place.id);
   const toggleFavorite = useToggleFavorite();
-  const [hSlide, setHSlide] = useState(0);
-  const [vSlide, setVSlide] = useState(0);
 
   const styles = useMemo(
     () =>
@@ -54,15 +51,6 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
           flexShrink: 0,
         },
         hImage: { width: "100%", height: "100%" },
-        hDotsRow: {
-          position: "absolute",
-          bottom: 6,
-          left: 0,
-          right: 0,
-          flexDirection: "row",
-          justifyContent: "center",
-          gap: 4,
-        },
         hHeartBtn: {
           position: "absolute",
           top: 4,
@@ -100,24 +88,6 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
           backgroundColor: colors.border,
         },
         vImage: { width: "100%", height: "100%" },
-        vDotsRow: {
-          position: "absolute",
-          bottom: 8,
-          left: 0,
-          right: 0,
-          flexDirection: "row",
-          justifyContent: "center",
-          gap: 4,
-        },
-        dot: {
-          width: 6,
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: "rgba(255,255,255,0.45)",
-        },
-        dotActive: {
-          backgroundColor: "rgba(255,255,255,0.92)",
-        },
         vHeartBtn: {
           position: "absolute",
           top: 8,
@@ -162,59 +132,32 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
   const displayTags = tags.length > 0 ? tags : [];
   const imageUrisRaw = useMemo(() => normalizeBusinessCardImages(place.images), [place.images]);
   const targetDensity = Math.min(2, PixelRatio.get());
-  const imageUris = useMemo(
+  const lastImageRaw = imageUrisRaw.length > 0 ? imageUrisRaw[imageUrisRaw.length - 1] : null;
+  const lastImageOptimized = useMemo(
     () =>
-      imageUrisRaw.map(
-        (url) =>
-          getOptimizedImageUrl(
-            url,
+      lastImageRaw
+        ? getOptimizedImageUrl(
+            lastImageRaw,
             Math.round((variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_W) * targetDensity),
             Math.round((variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_H) * targetDensity),
             68,
-          ) || url,
-      ),
-    [imageUrisRaw, targetDensity, variant],
+          ) || lastImageRaw
+        : null,
+    [lastImageRaw, targetDensity, variant],
   );
 
   if (variant === "horizontal") {
     return (
       <Pressable onPress={onOpen} style={styles.hRoot}>
         <View style={styles.hImageWrap}>
-          {imageUris.length > 1 ? (
-            <>
-              <Carousel
-                width={IMAGE_HORIZONTAL}
-                height={IMAGE_HORIZONTAL}
-                data={imageUris}
-                loop={false}
-                onSnapToItem={setHSlide}
-                renderItem={({ item, index }) => (
-                  <SmartImage
-                    uri={item}
-                    fallbackUri={imageUrisRaw[index] ?? null}
-                    recyclingKey={`${place.id}-h-${index}`}
-                    style={styles.hImage}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                )}
-              />
-              <View style={styles.hDotsRow}>
-                {imageUris.map((_, idx) => (
-                  <View key={`${place.id}-h-dot-${idx}`} style={[styles.dot, hSlide === idx && styles.dotActive]} />
-                ))}
-              </View>
-            </>
-          ) : (
-            <SmartImage
-              uri={imageUris[0] ?? null}
-              fallbackUri={imageUrisRaw[0] ?? null}
-              recyclingKey={`${place.id}-h`}
-              style={styles.hImage}
-              contentFit="cover"
-              transition={200}
-            />
-          )}
+          <SmartImage
+            uri={lastImageOptimized}
+            fallbackUri={lastImageRaw}
+            recyclingKey={`${place.id}-h`}
+            style={styles.hImage}
+            contentFit="cover"
+            transition={200}
+          />
           <Pressable style={styles.hHeartBtn} onPress={onFavoritePress} hitSlop={8}>
             <Ionicons
               name={isFavorite ? "heart" : "heart-outline"}
@@ -251,41 +194,14 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
   return (
     <Pressable onPress={onOpen} style={styles.vRoot}>
       <View style={styles.vImageBlock}>
-        {imageUris.length > 1 ? (
-          <>
-            <Carousel
-              width={IMAGE_VERTICAL_W}
-              height={IMAGE_VERTICAL_H}
-              data={imageUris}
-              loop={false}
-              onSnapToItem={setVSlide}
-              renderItem={({ item, index }) => (
-                <SmartImage
-                  uri={item}
-                  fallbackUri={imageUrisRaw[index] ?? null}
-                  recyclingKey={`${place.id}-v-${index}`}
-                  style={styles.vImage}
-                  contentFit="cover"
-                  transition={200}
-                />
-              )}
-            />
-            <View style={styles.vDotsRow}>
-              {imageUris.map((_, idx) => (
-                <View key={`${place.id}-v-dot-${idx}`} style={[styles.dot, vSlide === idx && styles.dotActive]} />
-              ))}
-            </View>
-          </>
-        ) : (
-          <SmartImage
-            uri={imageUris[0] ?? null}
-            fallbackUri={imageUrisRaw[0] ?? null}
-            recyclingKey={`${place.id}-v`}
-            style={styles.vImage}
-            contentFit="cover"
-            transition={200}
-          />
-        )}
+        <SmartImage
+          uri={lastImageOptimized}
+          fallbackUri={lastImageRaw}
+          recyclingKey={`${place.id}-v`}
+          style={styles.vImage}
+          contentFit="cover"
+          transition={200}
+        />
         <Pressable style={styles.vHeartBtn} onPress={onFavoritePress} hitSlop={8}>
           <Ionicons
             name={isFavorite ? "heart" : "heart-outline"}

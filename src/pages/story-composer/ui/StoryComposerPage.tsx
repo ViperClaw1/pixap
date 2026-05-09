@@ -26,6 +26,7 @@ import { supabase } from "@/shared/api/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
+import { StorySourcePickerModal, type StorySourceOption } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 
 type ComposerRoute = RouteProp<BrowseFlowParamList, "StoryComposer">;
 type ComposerNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryComposer">;
@@ -47,39 +48,44 @@ export default function StoryComposerScreen() {
   const { user } = useAuth();
   const createStory = useCreateStory();
   const [content, setContent] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [storySourceModalVisible, setStorySourceModalVisible] = useState(false);
 
-  const uploadStoryPhoto = async (asset: ImagePicker.ImagePickerAsset) => {
+  const uploadStoryPhotos = async (assets: ImagePicker.ImagePickerAsset[]) => {
     if (!user?.id) {
       navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
       return;
     }
     setUploadingPhoto(true);
     try {
-      let fileBytes: ArrayBuffer | Uint8Array;
-      if (asset.base64) {
-        fileBytes = bytesFromBase64(asset.base64);
-      } else {
-        const response = await fetch(asset.uri);
-        if (!response.ok) {
-          throw new Error(`Failed to read selected image (${response.status})`);
+      const uploadedUrls: string[] = [];
+      for (const asset of assets) {
+        let fileBytes: ArrayBuffer | Uint8Array;
+        if (asset.base64) {
+          fileBytes = bytesFromBase64(asset.base64);
+        } else {
+          const response = await fetch(asset.uri);
+          if (!response.ok) {
+            throw new Error(`Failed to read selected image (${response.status})`);
+          }
+          fileBytes = await response.arrayBuffer();
         }
-        fileBytes = await response.arrayBuffer();
+        if (!fileBytes.byteLength) {
+          throw new Error("Selected image is empty. Please try another image.");
+        }
+        const mimeType = asset.mimeType || "image/jpeg";
+        const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
+        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, fileBytes, {
+          upsert: true,
+          contentType: mimeType,
+        });
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
+        uploadedUrls.push(data.publicUrl);
       }
-      if (!fileBytes.byteLength) {
-        throw new Error("Selected image is empty. Please try another image.");
-      }
-      const mimeType = asset.mimeType || "image/jpeg";
-      const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
-      const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, fileBytes, {
-        upsert: true,
-        contentType: mimeType,
-      });
-      if (uploadError) throw uploadError;
-      const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
-      setMediaUrl(data.publicUrl);
+      setMediaUrls(uploadedUrls);
     } catch (error) {
       if (isAuthRequiredError(error)) {
         navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
@@ -106,7 +112,7 @@ export default function StoryComposerScreen() {
     });
     const asset = result.canceled ? null : result.assets[0];
     if (asset?.uri) {
-      await uploadStoryPhoto(asset);
+      await uploadStoryPhotos([asset]);
     }
   };
 
@@ -119,29 +125,39 @@ export default function StoryComposerScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.82,
-      allowsEditing: true,
+      allowsEditing: false,
+      allowsMultipleSelection: true,
+      selectionLimit: 0,
       base64: true,
     });
-    const asset = result.canceled ? null : result.assets[0];
-    if (asset?.uri) {
-      await uploadStoryPhoto(asset);
+    if (!result.canceled && result.assets.length > 0) {
+      await uploadStoryPhotos(result.assets);
     }
   };
 
   const pickPhoto = () => {
-    Alert.alert("Add photo", "Choose where to pick your story photo from.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Camera", onPress: () => void pickFromCamera() },
-      { text: "Gallery", onPress: () => void pickFromGallery() },
-    ]);
+    setStorySourceModalVisible(true);
+  };
+
+  const onChooseStorySource = (source: StorySourceOption) => {
+    setStorySourceModalVisible(false);
+    if (source === "camera") {
+      void pickFromCamera();
+      return;
+    }
+    void pickFromGallery();
   };
 
   const onSubmit = async () => {
+    if (!mediaUrls.length) {
+      Alert.alert("Photo is required", "Please add at least one photo for your story.");
+      return;
+    }
     try {
       await createStory.mutateAsync({
         placeId: params.placeId,
         content,
-        mediaUrl,
+        mediaUrl: JSON.stringify(mediaUrls),
       });
       navigation.goBack();
     } catch (error) {
@@ -198,10 +214,10 @@ export default function StoryComposerScreen() {
                   },
                 ]}
               >
-                {mediaUrl ? (
+                {mediaUrls[0] ? (
                   <SmartImage
-                    uri={mediaUrl}
-                    recyclingKey={mediaUrl}
+                    uri={mediaUrls[0]}
+                    recyclingKey={mediaUrls[0]}
                     style={styles.photoPreview}
                     contentFit="cover"
                     transition={180}
@@ -228,14 +244,14 @@ export default function StoryComposerScreen() {
                       <ActivityIndicator size="small" color={colors.primary} />
                     ) : (
                       <Text style={[styles.photoBtnText, { color: colors.text }]}>
-                        {mediaUrl ? "Change photo" : "Upload photo"}
+                        {mediaUrls.length ? "Change photo" : "Upload photo"}
                       </Text>
                     )}
                   </Pressable>
-                  {mediaUrl ? (
+                  {mediaUrls.length ? (
                     <Pressable
                       style={[styles.photoBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
-                      onPress={() => setMediaUrl("")}
+                      onPress={() => setMediaUrls([])}
                       disabled={uploadingPhoto}
                     >
                       <Text style={[styles.photoBtnText, { color: colors.textMuted }]}>Remove</Text>
@@ -261,6 +277,11 @@ export default function StoryComposerScreen() {
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+      <StorySourcePickerModal
+        visible={storySourceModalVisible}
+        onClose={() => setStorySourceModalVisible(false)}
+        onChoose={onChooseStorySource}
+      />
     </SafeAreaView>
   );
 }

@@ -28,6 +28,7 @@ type Nav = CompositeNavigationProp<
 >;
 
 export default function HomeScreen() {
+  const RECOMMENDED_BATCH_SIZE = 20;
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -36,6 +37,7 @@ export default function HomeScreen() {
   const updateProfile = useUpdateProfile();
   const [selectedCity, setSelectedCity] = useState(ALL_CITIES_OPTION);
   const [cityModalVisible, setCityModalVisible] = useState(false);
+  const [visibleRecommendedCount, setVisibleRecommendedCount] = useState(RECOMMENDED_BATCH_SIZE);
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
   const { data: featured = [], isLoading: lf } = useBusinessCards("featured", selectedCity);
   const { data: recommended = [], isLoading: lr } = useBusinessCards(undefined, selectedCity);
@@ -52,6 +54,10 @@ export default function HomeScreen() {
     const cityFromProfile = profile?.city?.trim();
     setSelectedCity(cityFromProfile ? cityFromProfile : ALL_CITIES_OPTION);
   }, [profile?.city]);
+
+  useEffect(() => {
+    setVisibleRecommendedCount(RECOMMENDED_BATCH_SIZE);
+  }, [recommended, selectedCity]);
 
   const handleSelectCity = async (city: string) => {
     setCityModalVisible(false);
@@ -165,6 +171,18 @@ export default function HomeScreen() {
         categoriesFlatList: { marginBottom: 12 },
         featuredCardWrap: { marginRight: 12 },
         recommendedGap: { marginBottom: 12 },
+        showMoreBtn: {
+          marginTop: 4,
+          marginBottom: 8,
+          alignSelf: "center",
+          paddingHorizontal: 18,
+          height: 44,
+          borderRadius: 12,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#ec6544",
+        },
+        showMoreBtnText: { color: "#ffffff", fontSize: 14, fontWeight: "700" },
         cityRow: {
           paddingHorizontal: 14,
           paddingVertical: 12,
@@ -179,6 +197,9 @@ export default function HomeScreen() {
       }),
     [colors, insets.bottom, isDark],
   );
+
+  const visibleRecommended = recommended.slice(0, visibleRecommendedCount);
+  const canShowMoreRecommended = visibleRecommendedCount < recommended.length;
 
   return (
     <ShimmerProvider active={homeQueriesLoading}>
@@ -275,17 +296,27 @@ export default function HomeScreen() {
         {lr ? (
           <RecommendedSkeletonList cardWidth={recommendedCardWidth} />
         ) : (
-          recommended.map((p) => (
-            <View key={p.id} style={stylesThemed.recommendedGap}>
-              <BusinessPlaceCard
-                place={p}
-                variant="horizontal"
-                colors={colors}
-                isDark={isDark}
-                onOpen={() => goPlace(p.id)}
-              />
-            </View>
-          ))
+          <>
+            {visibleRecommended.map((p) => (
+              <View key={p.id} style={stylesThemed.recommendedGap}>
+                <BusinessPlaceCard
+                  place={p}
+                  variant="horizontal"
+                  colors={colors}
+                  isDark={isDark}
+                  onOpen={() => goPlace(p.id)}
+                />
+              </View>
+            ))}
+            {canShowMoreRecommended ? (
+              <Pressable
+                style={stylesThemed.showMoreBtn}
+                onPress={() => setVisibleRecommendedCount((prev) => prev + RECOMMENDED_BATCH_SIZE)}
+              >
+                <Text style={stylesThemed.showMoreBtnText}>Show More</Text>
+              </Pressable>
+            ) : null}
+          </>
         )}
       </ScrollView>
 

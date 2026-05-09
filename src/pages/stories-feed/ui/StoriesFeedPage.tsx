@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Animated, Easing, FlatList, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import Carousel from "react-native-reanimated-carousel";
+import Reanimated, { Easing as ReanimatedEasing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCreateStory, useStoriesFeed, useStoriesStrip } from "@/entities/story";
@@ -16,22 +17,26 @@ import {
   useReactToPost,
   type FeedPostItem,
 } from "@/entities/post";
-import { useProfile, usePublicProfiles } from "@/entities/user";
+import { useMyFollowing, useProfile, usePublicProfiles, useToggleFollow } from "@/entities/user";
 import { useBusinessCards } from "@/entities/business-card";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { supabase } from "@/shared/api/supabase/client";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
+import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
 import { CommentsBottomSheet } from "@/shared/ui/comments-bottom-sheet/CommentsBottomSheet";
 import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomSheet";
 import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
 import { ShimmerSurface } from "@/shared/ui/shimmer/ShimmerSurface";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
+import { StorySourcePickerModal, type StorySourceOption } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 import type { BrowseFlowParamList, FeedStackParamList, RootTabParamList } from "@/navigation/types";
 import * as ImagePicker from "expo-image-picker";
 import type { StoryGroup } from "@/types/stories";
+import Toast from "react-native-toast-message";
 
 const STORIES_BUCKET = "stories";
+const MAX_POST_PHOTOS = 8;
 
 function bytesFromBase64(base64: string): Uint8Array {
   const binary = globalThis.atob(base64);
@@ -90,6 +95,114 @@ function getPostImages(post: FeedPostItem) {
   return Array.from(new Set(postMediaUrls.map((url) => resolveStorageUrl(url, "stories"))));
 }
 
+function PostSlideProgressSegment({
+  index,
+  count,
+  activeIndex,
+  activeProgress,
+}: {
+  index: number;
+  count: number;
+  activeIndex: Reanimated.SharedValue<number>;
+  activeProgress: Reanimated.SharedValue<number>;
+}) {
+  const fillStyle = useAnimatedStyle(() => {
+    if (count <= 0) return { width: "0%" };
+    const currentIndex = activeIndex.value;
+    let width = 0;
+    if (index < currentIndex) width = 100;
+    else if (index === currentIndex) width = activeProgress.value * 100;
+    return { width: `${Math.min(100, Math.max(0, width))}%` };
+  }, [activeIndex, activeProgress, count, index]);
+
+  return (
+    <View style={styles.sliderProgressTrack}>
+      <Reanimated.View style={[styles.sliderProgressFill, fillStyle]} />
+    </View>
+  );
+}
+
+const PostMediaCarousel = memo(function PostMediaCarousel({
+  postId,
+  postImages,
+  postImagesRaw,
+  width,
+  sliderHeight,
+}: {
+  postId: string;
+  postImages: string[];
+  postImagesRaw: string[];
+  width: number;
+  sliderHeight: number;
+}) {
+  const activeIndexShared = useSharedValue(0);
+  const activeProgressShared = useSharedValue(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    activeProgressShared.value = 0;
+    activeProgressShared.value = withTiming(1, {
+      duration: 3000,
+      easing: ReanimatedEasing.linear,
+    });
+  }, [activeProgressShared]);
+
+  return (
+    <View>
+      <Carousel
+        width={width}
+        height={sliderHeight}
+        data={postImages}
+        loop
+        autoPlay
+        autoPlayInterval={3000}
+        scrollAnimationDuration={650}
+        onSnapToItem={(idx) => {
+          setActiveIndex(idx);
+          activeIndexShared.value = idx;
+          activeProgressShared.value = 0;
+          activeProgressShared.value = withTiming(1, {
+            duration: 3000,
+            easing: ReanimatedEasing.linear,
+          });
+        }}
+        renderItem={({ item: imageUri, index }) => (
+          <SmartImage
+            uri={imageUri}
+            fallbackUri={postImagesRaw[index] ?? null}
+            recyclingKey={`${postId}-feed-slider-${index}`}
+            style={[styles.sliderImage, { height: sliderHeight }]}
+            contentFit="cover"
+            transition={200}
+          />
+        )}
+      />
+      <View style={styles.sliderProgressWrap}>
+        {postImages.map((_, idx) => (
+          <PostSlideProgressSegment
+            key={`${postId}-slide-progress-track-${idx}`}
+            index={idx}
+            count={postImages.length}
+            activeIndex={activeIndexShared}
+            activeProgress={activeProgressShared}
+          />
+        ))}
+      </View>
+      <View style={styles.sliderDots}>
+        {postImages.map((_, idx) => (
+          <View
+            key={`${postId}-dot-${idx}`}
+            style={[
+              styles.sliderDot,
+              { backgroundColor: activeIndex === idx ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)" },
+            ]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+});
+
 export default function StoriesFeedScreen() {
   const { colors, isDark, mode, setMode } = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<BrowseFlowParamList>>();
@@ -103,8 +216,9 @@ export default function StoriesFeedScreen() {
   const createStory = useCreateStory();
   const createPost = useCreatePost();
   const reactToPost = useReactToPost();
+  const { followingSet } = useMyFollowing();
+  const toggleFollow = useToggleFollow();
   const { data: myProfile } = useProfile();
-  const [slideIndexByPostId, setSlideIndexByPostId] = useState<Record<string, number>>({});
   const [expandedPostContentIds, setExpandedPostContentIds] = useState<Record<string, true>>({});
   const [isCommentsModalVisible, setIsCommentsModalVisible] = useState(false);
   const [expandedCommentIds, setExpandedCommentIds] = useState<Record<string, true>>({});
@@ -119,11 +233,29 @@ export default function StoriesFeedScreen() {
   const { data: businessCards = [] } = useBusinessCards();
   const [likedPostIds, setLikedPostIds] = useState<Record<string, true>>({});
   const [likeCountByPostId, setLikeCountByPostId] = useState<Record<string, number>>({});
-  const [createMenuVisible, setCreateMenuVisible] = useState(false);
-  const [createPostModalVisible, setCreatePostModalVisible] = useState(false);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [createStep, setCreateStep] = useState<"menu" | "post">("menu");
+  const [storySourceModalVisible, setStorySourceModalVisible] = useState(false);
   const [postInput, setPostInput] = useState("");
+  const [postInputError, setPostInputError] = useState(false);
   const [selectedPostPlaceId, setSelectedPostPlaceId] = useState<string | null>(null);
-  const [postPlacePickerOpen, setPostPlacePickerOpen] = useState(false);
+  const [postPlaceError, setPostPlaceError] = useState(false);
+  const [postPhotos, setPostPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [uploadingPostPhotos, setUploadingPostPhotos] = useState(false);
+  const [postSubmitStage, setPostSubmitStage] = useState<"uploading_photos" | "creating_post" | null>(null);
+  const [followOverrides, setFollowOverrides] = useState<Record<string, boolean>>({});
+  const createStepFade = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!createModalVisible) return;
+    createStepFade.setValue(0);
+    Animated.timing(createStepFade, {
+      toValue: 1,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [createModalVisible, createStep, createStepFade]);
 
   const sliderHeight = Math.max(240, Math.min(360, Math.floor(height * 0.48)));
   const sortedPosts = useMemo(
@@ -173,12 +305,15 @@ export default function StoriesFeedScreen() {
     return Array.from(grouped.values());
   }, [feedStories]);
   const createStoryPlaceId = focusedPosts[0]?.place_id ?? sortedPosts[0]?.place_id ?? businessCards[0]?.id ?? null;
-  const postPlaceOptions = useMemo(
+  const postPlaceCards = useMemo(
     () =>
       businessCards
         .map((card) => ({
           id: card.id,
           name: card.name?.trim() || "Unknown place",
+          address: card.address?.trim() || "Address unavailable",
+          rating: card.rating,
+          imageUrl: card.images.at(-1)?.trim() ? resolveStorageUrl(card.images.at(-1) as string, "business-cards") : null,
         }))
         .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index),
     [businessCards],
@@ -218,36 +353,65 @@ export default function StoriesFeedScreen() {
       setIsCommentsModalVisible(true);
     });
   };
+
+  const onToggleFollowAuthor = (authorId: string, displayName: string) => {
+    const isFollowing = followOverrides[authorId] ?? followingSet.has(authorId);
+    setFollowOverrides((prev) => ({ ...prev, [authorId]: !isFollowing }));
+    void toggleFollow
+      .mutateAsync({ followingId: authorId, isFollowing })
+      .then((result) => {
+        if (result.skipped) return;
+        Toast.show({
+          type: "success",
+          text1: result.nowFollowing ? "Added to followers" : "Removed from followers",
+          text2: displayName,
+        });
+      })
+      .catch((error) => {
+        setFollowOverrides((prev) => ({ ...prev, [authorId]: isFollowing }));
+        Toast.show({
+          type: "error",
+          text1: "Follow action failed",
+          text2: error instanceof Error ? error.message : "Please try again.",
+        });
+      });
+  };
   const canSendComment = commentInput.trim().length > 0 && !createPostComment.isPending;
 
-  const uploadStoryPhoto = async (asset: ImagePicker.ImagePickerAsset) => {
+  const uploadStoryPhotos = async (assets: ImagePicker.ImagePickerAsset[]) => {
     if (!createStoryPlaceId) return;
     setUploadingStory(true);
     try {
-      let fileBytes: ArrayBuffer | Uint8Array;
-      if (asset.base64) {
-        fileBytes = bytesFromBase64(asset.base64);
-      } else {
-        const response = await fetch(asset.uri);
-        if (!response.ok) throw new Error(`Failed to read selected image (${response.status})`);
-        fileBytes = await response.arrayBuffer();
+      const uploadedUrls: string[] = [];
+      for (const asset of assets) {
+        let fileBytes: ArrayBuffer | Uint8Array;
+        if (asset.base64) {
+          fileBytes = bytesFromBase64(asset.base64);
+        } else {
+          const response = await fetch(asset.uri);
+          if (!response.ok) throw new Error(`Failed to read selected image (${response.status})`);
+          fileBytes = await response.arrayBuffer();
+        }
+        const mimeType = asset.mimeType || "image/jpeg";
+        const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
+        const path = `${user?.id ?? "anonymous"}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, fileBytes, {
+          upsert: true,
+          contentType: mimeType,
+        });
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
+        uploadedUrls.push(data.publicUrl);
       }
-      const mimeType = asset.mimeType || "image/jpeg";
-      const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
-      const path = `${user?.id ?? "anonymous"}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, fileBytes, {
-        upsert: true,
-        contentType: mimeType,
-      });
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
+      if (!uploadedUrls.length) return;
       await createStory.mutateAsync({
         placeId: createStoryPlaceId,
         content: "New story",
-        mediaUrl: data.publicUrl,
+        mediaUrl: JSON.stringify(uploadedUrls),
         expiryTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       });
+    } catch (error) {
+      Alert.alert("Story failed", error instanceof Error ? error.message : "Could not upload story.");
     } finally {
       setUploadingStory(false);
     }
@@ -266,7 +430,7 @@ export default function StoriesFeedScreen() {
       base64: true,
     });
     const asset = result.canceled ? null : result.assets[0];
-    if (asset?.uri) await uploadStoryPhoto(asset);
+    if (asset?.uri) await uploadStoryPhotos([asset]);
   };
 
   const pickStoryFromGallery = async () => {
@@ -278,36 +442,104 @@ export default function StoriesFeedScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.82,
-      allowsEditing: true,
+      allowsEditing: false,
+      allowsMultipleSelection: true,
+      selectionLimit: 0,
       base64: true,
     });
-    const asset = result.canceled ? null : result.assets[0];
-    if (asset?.uri) await uploadStoryPhoto(asset);
+    if (!result.canceled && result.assets.length > 0) {
+      await uploadStoryPhotos(result.assets);
+    }
+  };
+
+  const onChooseStorySource = (source: StorySourceOption) => {
+    setStorySourceModalVisible(false);
+    if (source === "camera") {
+      void pickStoryFromCamera();
+      return;
+    }
+    void pickStoryFromGallery();
   };
 
   const submitPost = async () => {
-    const targetPlaceId = selectedPostPlaceId ?? postPlaceOptions[0]?.id ?? null;
+    const targetPlaceId = selectedPostPlaceId;
     const content = postInput.trim();
     if (!targetPlaceId) {
-      Alert.alert("Place is required", "Please choose a place before publishing.");
+      setPostPlaceError(true);
       return;
     }
     if (!content) {
-      Alert.alert("Content is required", "Please enter post text.");
+      setPostInputError(true);
       return;
     }
+    if (createPost.isPending || uploadingPostPhotos) return;
     try {
+      setUploadingPostPhotos(true);
+      setPostSubmitStage("uploading_photos");
+      const uploadedUrls: string[] = [];
+      for (let idx = 0; idx < postPhotos.length; idx += 1) {
+        const asset = postPhotos[idx];
+        let fileBytes: ArrayBuffer | Uint8Array;
+        if (asset.base64) {
+          fileBytes = bytesFromBase64(asset.base64);
+        } else {
+          const response = await fetch(asset.uri);
+          if (!response.ok) throw new Error(`Failed to read selected image (${response.status})`);
+          fileBytes = await response.arrayBuffer();
+        }
+        const mimeType = asset.mimeType || "image/jpeg";
+        const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
+        const path = `${user?.id ?? "anonymous"}/post-${Date.now()}-${idx}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, fileBytes, {
+          upsert: true,
+          contentType: mimeType,
+        });
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
+        uploadedUrls.push(data.publicUrl);
+      }
+      setPostSubmitStage("creating_post");
       const created = (await createPost.mutateAsync({
         placeId: targetPlaceId,
         content,
+        mediaUrl: uploadedUrls.length ? JSON.stringify(uploadedUrls) : null,
       })) as unknown as { id: string | number };
-      setCreatePostModalVisible(false);
+      setCreateModalVisible(false);
+      setCreateStep("menu");
       setPostInput("");
+      setPostInputError(false);
       setSelectedPostPlaceId(null);
+      setPostPlaceError(false);
+      setPostPhotos([]);
+      setPostSubmitStage(null);
       rootNavigation.navigate("Feed", { screen: "FeedMain", params: { focusPostId: String(created.id) } });
     } catch (error) {
       Alert.alert("Post failed", error instanceof Error ? error.message : "Could not publish post.");
+    } finally {
+      setUploadingPostPhotos(false);
+      setPostSubmitStage(null);
     }
+  };
+
+  const pickPostPhotos = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Storage access is required to choose photos.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.82,
+      allowsMultipleSelection: true,
+      selectionLimit: MAX_POST_PHOTOS,
+      base64: true,
+    });
+    if (result.canceled) return;
+    setPostPhotos((prev) => {
+      const merged = [...prev, ...result.assets];
+      const dedup = merged.filter((asset, index, all) => all.findIndex((candidate) => candidate.uri === asset.uri) === index);
+      return dedup.slice(0, MAX_POST_PHOTOS);
+    });
   };
 
 
@@ -342,7 +574,8 @@ export default function StoriesFeedScreen() {
         leftIcon="add"
         onLeftPress={() =>
           runAuthedAction(() => {
-            setCreateMenuVisible(true);
+            setCreateStep("menu");
+            setCreateModalVisible(true);
           })
         }
         rightIcon={isDark ? "sunny-outline" : "moon-outline"}
@@ -365,11 +598,7 @@ export default function StoriesFeedScreen() {
                       navigation.navigate("Profile", { screen: "ProfileMain", params: { openCreateStep: "story" } });
                       return;
                     }
-                    Alert.alert("Add story", "Choose source", [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Camera", onPress: () => void pickStoryFromCamera() },
-                      { text: "Gallery", onPress: () => void pickStoryFromGallery() },
-                    ]);
+                    setStorySourceModalVisible(true);
                   });
                 }}
               >
@@ -433,42 +662,18 @@ export default function StoriesFeedScreen() {
         renderItem={({ item }) => {
           const postImagesRaw = getPostImages(item);
           const postImages = postImagesRaw.map((url) => getOptimizedImageUrl(url, 900, 560) || url);
-          const slideIndex = slideIndexByPostId[item.id] ?? 0;
           const isContentExpanded = !!expandedPostContentIds[item.id];
 
           return (
             <View style={[styles.content, { backgroundColor: colors.background }]}>
               {postImages.length > 1 ? (
-                <View>
-                  <Carousel
-                    width={width}
-                    height={sliderHeight}
-                    data={postImages}
-                    loop={false}
-                    onSnapToItem={(idx) => setSlideIndexByPostId((prev) => ({ ...prev, [item.id]: idx }))}
-                    renderItem={({ item: imageUri, index }) => (
-                      <SmartImage
-                        uri={imageUri}
-                        fallbackUri={postImagesRaw[index] ?? null}
-                        recyclingKey={`${item.id}-feed-slider-${index}`}
-                        style={[styles.sliderImage, { height: sliderHeight }]}
-                        contentFit="cover"
-                        transition={200}
-                      />
-                    )}
-                  />
-                  <View style={styles.sliderDots}>
-                    {postImages.map((_, idx) => (
-                      <View
-                        key={`${item.id}-dot-${idx}`}
-                        style={[
-                          styles.sliderDot,
-                          { backgroundColor: slideIndex === idx ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)" },
-                        ]}
-                      />
-                    ))}
-                  </View>
-                </View>
+                <PostMediaCarousel
+                  postId={item.id}
+                  postImages={postImages}
+                  postImagesRaw={postImagesRaw}
+                  width={width}
+                  sliderHeight={sliderHeight}
+                />
               ) : postImages[0] ? (
                 <SmartImage
                   uri={postImages[0]}
@@ -583,9 +788,34 @@ export default function StoriesFeedScreen() {
                     {item.profile?.is_verified ? <Ionicons name="checkmark-circle" size={14} color={colors.primary} /> : null}
                   </View>
                 </View>
-                <Pressable style={[styles.followBtn, { borderColor: colors.border }]}>
-                  <Text style={[styles.followText, { color: colors.text }]}>Follow</Text>
-                </Pressable>
+                {item.user_id !== user?.id ? (
+                  <Pressable
+                    style={[
+                      styles.followBtn,
+                      {
+                        borderColor: (followOverrides[item.user_id] ?? followingSet.has(item.user_id)) ? "#ec6544" : colors.border,
+                        backgroundColor: (followOverrides[item.user_id] ?? followingSet.has(item.user_id))
+                          ? "rgba(236,101,68,0.14)"
+                          : colors.background,
+                      },
+                    ]}
+                    onPress={() =>
+                      runAuthedAction(() =>
+                        onToggleFollowAuthor(item.user_id, profileName(item.profile?.first_name, item.profile?.last_name)),
+                      )
+                    }
+                    disabled={toggleFollow.isPending}
+                  >
+                    <Text
+                      style={[
+                        styles.followText,
+                        { color: (followOverrides[item.user_id] ?? followingSet.has(item.user_id)) ? "#ec6544" : colors.text },
+                      ]}
+                    >
+                      {(followOverrides[item.user_id] ?? followingSet.has(item.user_id)) ? "Following" : "Follow"}
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
           );
@@ -643,112 +873,175 @@ export default function StoriesFeedScreen() {
         onChangeSearch={setShareSearch}
         resolveAvatarUri={profileAvatar}
       />
-      <BottomSheetPickerModal visible={createMenuVisible} onClose={() => setCreateMenuVisible(false)} title="Create">
-        <View style={styles.createMenuBody}>
-          <View style={styles.createOptionGrid}>
-            <Pressable
-              style={[styles.createOptionCard, { borderColor: colors.border, backgroundColor: colors.background }]}
-              onPress={() => {
-                setCreateMenuVisible(false);
-                setCreatePostModalVisible(true);
-              }}
-            >
-              <Ionicons name="grid-outline" size={34} color={colors.text} />
-              <Text style={[styles.createOptionLabel, { color: colors.text }]}>Post</Text>
-              <Text style={[styles.createOptionHint, { color: colors.textMuted }]}>Create a new post</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.createOptionCard, { borderColor: colors.border, backgroundColor: colors.background }]}
-              onPress={() => {
-                setCreateMenuVisible(false);
-                if (!createStoryPlaceId) {
-                  Alert.alert("Place is required", "Please add or select a place first.");
-                  return;
-                }
-                Alert.alert("Add story", "Choose source", [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Camera", onPress: () => void pickStoryFromCamera() },
-                  { text: "Gallery", onPress: () => void pickStoryFromGallery() },
-                ]);
-              }}
-            >
-              <Ionicons name="add-circle-outline" size={34} color={colors.text} />
-              <Text style={[styles.createOptionLabel, { color: colors.text }]}>Story</Text>
-              <Text style={[styles.createOptionHint, { color: colors.textMuted }]}>Share a quick story</Text>
-            </Pressable>
-          </View>
-        </View>
-      </BottomSheetPickerModal>
       <BottomSheetPickerModal
-        visible={createPostModalVisible}
+        visible={createModalVisible}
         onClose={() => {
-          setCreatePostModalVisible(false);
-          setPostPlacePickerOpen(false);
+          setCreateModalVisible(false);
+          setCreateStep("menu");
+          setPostInput("");
+          setPostInputError(false);
+          setSelectedPostPlaceId(null);
+          setPostPlaceError(false);
+          setPostPhotos([]);
+          setPostSubmitStage(null);
         }}
-        title="Create post"
+        title={createStep === "menu" ? "Create" : "Create post"}
+        maxHeightFraction={0.82}
       >
-        <View style={styles.createPostModalBody}>
-          <Text style={[styles.modalFieldLabel, { color: colors.textMuted }]}>Place</Text>
-          <Pressable
-            style={[styles.modalPlaceSelector, { borderColor: colors.border, backgroundColor: colors.card }]}
-            onPress={() => setPostPlacePickerOpen((prev) => !prev)}
-          >
-            <Text style={[styles.modalPlaceSelectorText, { color: colors.text }]}>
-              {selectedPostPlaceId
-                ? (postPlaceOptions.find((item) => item.id === selectedPostPlaceId)?.name ?? "Selected place")
-                : (postPlaceOptions[0]?.name ?? "Select place")}
-            </Text>
-            <Ionicons name={postPlacePickerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
-          </Pressable>
-          {postPlacePickerOpen ? (
-            <View style={[styles.modalPlaceOptions, { borderColor: colors.border, backgroundColor: colors.card }]}>
-              {postPlaceOptions.length ? (
-                postPlaceOptions.map((option) => (
-                  <Pressable
-                    key={`feed-post-place-${option.id}`}
-                    style={styles.modalPlaceOption}
-                    onPress={() => {
-                      setSelectedPostPlaceId(option.id);
-                      setPostPlacePickerOpen(false);
-                    }}
-                  >
-                    <Text style={[styles.modalPlaceOptionText, { color: colors.text }]} numberOfLines={1}>
-                      {option.name}
-                    </Text>
-                    {selectedPostPlaceId === option.id ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
-                  </Pressable>
-                ))
-              ) : (
-                <Text style={[styles.modalNoPlacesText, { color: colors.textMuted }]}>No places available</Text>
-              )}
+        <Animated.View style={[styles.createStepBody, { opacity: createStepFade }]}>
+          {createStep === "menu" ? (
+            <View style={styles.createMenuBody}>
+              <View style={styles.createOptionGrid}>
+                <Pressable
+                  style={[styles.createOptionCard, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  onPress={() => setCreateStep("post")}
+                >
+                  <Ionicons name="grid-outline" size={34} color={colors.text} />
+                  <Text style={[styles.createOptionLabel, { color: colors.text }]}>Post</Text>
+                  <Text style={[styles.createOptionHint, { color: colors.textMuted }]}>Create a new post</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.createOptionCard, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  onPress={() => {
+                    setCreateModalVisible(false);
+                    if (!createStoryPlaceId) {
+                      Alert.alert("Place is required", "Please add or select a place first.");
+                      return;
+                    }
+                    setStorySourceModalVisible(true);
+                  }}
+                >
+                  <Ionicons name="add-circle-outline" size={34} color={colors.text} />
+                  <Text style={[styles.createOptionLabel, { color: colors.text }]}>Story</Text>
+                  <Text style={[styles.createOptionHint, { color: colors.textMuted }]}>Share a quick story</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.createPostModalBody}>
+          {postSubmitStage ? (
+            <View style={styles.createPostLoadingOnlyWrap}>
+              <View style={styles.createPostLoadingWrap}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.createPostLoadingText, { color: colors.textMuted }]}>
+                  {postSubmitStage === "uploading_photos" ? "Uploading photos..." : "Creating post..."}
+                </Text>
+              </View>
             </View>
           ) : null}
-          <Text style={[styles.modalFieldLabel, { color: colors.textMuted }]}>Text</Text>
-          <TextInput
-            value={postInput}
-            onChangeText={setPostInput}
-            placeholder="Write something..."
-            placeholderTextColor={colors.textMuted}
-            multiline
-            style={[styles.modalInput, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
-          />
-          <Pressable
-            style={[styles.modalPublishBtn, { backgroundColor: colors.primary, opacity: createPost.isPending ? 0.7 : 1 }]}
-            disabled={createPost.isPending}
-            onPress={() => {
-              runAuthedAction(() => {
-                void submitPost();
-              });
-            }}
-          >
-            {createPost.isPending ? (
-              <ActivityIndicator color={colors.onPrimary} />
-            ) : (
-              <Text style={[styles.modalPublishBtnText, { color: colors.onPrimary }]}>Publish post</Text>
-            )}
+          {!postSubmitStage ? (
+            <>
+          <Pressable style={[styles.postUploaderBox, { borderColor: colors.border }]} onPress={() => void pickPostPhotos()}>
+            <Ionicons name="images-outline" size={22} color={colors.textMuted} />
+            <Text style={[styles.postUploaderText, { color: colors.textMuted }]}>Tap to add photos</Text>
+            <Text style={[styles.postPhotoCount, { color: colors.textMuted }]}>
+              {postPhotos.length ? `${postPhotos.length}/${MAX_POST_PHOTOS} selected` : `Up to ${MAX_POST_PHOTOS} photos`}
+            </Text>
           </Pressable>
-        </View>
+          {postPhotos.length ? (
+            <View style={styles.postPhotosList}>
+              {postPhotos.map((photo) => (
+                <View key={photo.uri} style={styles.postPhotoItem}>
+                  <SmartImage uri={photo.uri} style={styles.postPhotoThumb} contentFit="cover" />
+                  <Pressable
+                    style={[styles.postPhotoRemoveBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => {
+                      setPostPhotos((prev) => prev.filter((item) => item.uri !== photo.uri));
+                    }}
+                  >
+                    <Ionicons name="close" size={11} color={colors.text} />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          <Text style={[styles.postRequiredHint, { color: colors.textMuted }]}>Required: place and post text.</Text>
+          <Text style={[styles.postPlacesLabel, { color: colors.textMuted }]}>Tell us where have you been</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.postPlacesRow}
+          >
+            {postPlaceCards.length ? (
+              postPlaceCards.map((place) => {
+                const isSelected = selectedPostPlaceId === place.id;
+                return (
+                  <Pressable
+                    key={`feed-post-place-card-${place.id}`}
+                    style={[
+                      styles.postPlaceCard,
+                      {
+                        borderColor: isSelected ? "#ec6544" : postPlaceError ? colors.danger : colors.border,
+                        backgroundColor: colors.card,
+                      },
+                    ]}
+                    onPress={() => {
+                      setSelectedPostPlaceId((prev) => (prev === place.id ? null : place.id));
+                      setPostPlaceError(false);
+                    }}
+                  >
+                    <View style={styles.postPlaceImageWrap}>
+                      {place.imageUrl ? (
+                        <SmartImage uri={place.imageUrl} style={styles.postPlaceImage} contentFit="cover" />
+                      ) : (
+                        <View style={[styles.postPlaceImage, styles.postPlaceImageFallback, { backgroundColor: colors.background }]}>
+                          <Ionicons name="image-outline" size={18} color={colors.textMuted} />
+                        </View>
+                      )}
+                      <View style={[styles.postPlaceRatingBadge, { backgroundColor: "rgba(0,0,0,0.75)" }]}>
+                        <Ionicons name="star" size={10} color="#fbbf24" />
+                        <Text style={styles.postPlaceRatingText}>{Number.isFinite(place.rating) ? place.rating.toFixed(1) : "-"}</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.postPlaceCardTitle, { color: colors.text }]} numberOfLines={1}>
+                      {place.name}
+                    </Text>
+                    <Text style={[styles.postPlaceCardAddress, { color: colors.textMuted }]} numberOfLines={2}>
+                      {place.address}
+                    </Text>
+                  </Pressable>
+                );
+              })
+            ) : (
+              <View style={[styles.postPlaceEmptyCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                <Text style={[styles.modalNoPlacesText, { color: colors.textMuted }]}>No places available</Text>
+              </View>
+            )}
+          </ScrollView>
+          <CommentComposer
+            avatarUrl={currentUserAvatarUrl}
+            value={postInput}
+            onChangeText={(value) => {
+              setPostInput(value);
+              if (postInputError && value.trim()) setPostInputError(false);
+            }}
+            placeholder="Share an update..."
+            canSend={!createPost.isPending && !uploadingPostPhotos}
+            sending={createPost.isPending || uploadingPostPhotos}
+            onSend={() => void submitPost()}
+            minHeight={120}
+            maxHeight={220}
+            hasError={postInputError}
+          />
+          <View style={styles.createPostBackRow}>
+            <Pressable
+              style={[styles.createFlowBackBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              onPress={() => setCreateStep("menu")}
+            >
+              <Text style={[styles.createFlowBackBtnText, { color: colors.textMuted }]}>Back to create options</Text>
+            </Pressable>
+          </View>
+            </>
+          ) : null}
+            </View>
+          )}
+        </Animated.View>
       </BottomSheetPickerModal>
+      <StorySourcePickerModal
+        visible={storySourceModalVisible}
+        onClose={() => setStorySourceModalVisible(false)}
+        onChoose={onChooseStorySource}
+      />
     </SafeAreaView>
   );
 }
@@ -851,6 +1144,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 6,
+  },
+  sliderProgressWrap: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    right: 10,
+    flexDirection: "row",
+    gap: 4,
+  },
+  sliderProgressTrack: {
+    flex: 1,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.35)",
+    overflow: "hidden",
+  },
+  sliderProgressFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#fff",
   },
   sliderDot: {
     width: 7,
@@ -1091,6 +1404,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
+  createStepBody: {
+    flex: 1,
+  },
   createOptionGrid: {
     flexDirection: "row",
     gap: 10,
@@ -1119,65 +1435,160 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 10,
+    minHeight: 420,
   },
-  modalFieldLabel: {
+  postUploaderBox: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: 14,
+    minHeight: 86,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  postUploaderText: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  postPhotoCount: {
+    fontSize: 12,
+  },
+  postRequiredHint: {
+    marginTop: 6,
     fontSize: 12,
     fontWeight: "600",
   },
-  modalPlaceSelector: {
-    minHeight: 42,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  modalPlaceSelectorText: {
-    flex: 1,
-    fontSize: 14,
+  postPlacesLabel: {
+    marginTop: 2,
+    fontSize: 12,
     fontWeight: "600",
   },
-  modalPlaceOptions: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 6,
+  postPlacesRow: {
+    gap: 10,
+    paddingRight: 8,
   },
-  modalPlaceOption: {
-    minHeight: 36,
-    paddingHorizontal: 12,
+  postPlaceCard: {
+    width: 158,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 8,
+    gap: 6,
+  },
+  postPlaceImageWrap: {
+    position: "relative",
+  },
+  postPlaceImage: {
+    width: "100%",
+    height: 84,
+    borderRadius: 10,
+  },
+  postPlaceImageFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  postPlaceRatingBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    minHeight: 20,
+    paddingHorizontal: 6,
+    borderRadius: 999,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 3,
+  },
+  postPlaceRatingText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  postPlaceCardTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  postPlaceCardAddress: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  postPlaceEmptyCard: {
+    width: 220,
+    minHeight: 84,
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  postPhotosList: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
-  modalPlaceOptionText: {
-    flex: 1,
-    fontSize: 14,
+  postPhotoItem: {
+    position: "relative",
+    width: 56,
+    height: 56,
+  },
+  postPhotoThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+  },
+  postPhotoRemoveBtn: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
   },
   modalNoPlacesText: {
     fontSize: 13,
     textAlign: "center",
     paddingVertical: 8,
   },
-  modalInput: {
-    minHeight: 100,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    textAlignVertical: "top",
-    fontSize: 14,
+  createPostBackRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
-  modalPublishBtn: {
-    minHeight: 42,
-    borderRadius: 12,
+  createPostLoadingOnlyWrap: {
+    flex: 1,
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
-  modalPublishBtnText: {
-    fontSize: 14,
+  createPostLoadingWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    minHeight: 24,
+  },
+  createPostLoadingText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  createFlowBackBtn: {
+    minHeight: 48,
+    height: 48,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    flex: 1,
+  },
+  createFlowBackBtnText: {
+    fontSize: 13,
     fontWeight: "700",
   },
 });

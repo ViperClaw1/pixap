@@ -98,9 +98,8 @@ export default function StoryViewerScreen() {
   }, []);
 
   const goNext = useCallback(() => {
-    const moved = viewer.goToNextStory();
-    if (!moved) navigation.goBack();
-  }, [navigation, viewer]);
+    viewer.goToNextStory();
+  }, [viewer]);
 
   const { progress } = useStoryProgress({
     durationMs: AUTO_ADVANCE_MS,
@@ -254,27 +253,9 @@ export default function StoryViewerScreen() {
                 backgroundColor: colors.background,
                 borderTopLeftRadius: 18,
                 borderTopRightRadius: 18,
-                marginTop: 10,
               },
             ]}
           >
-            <View style={styles.topArea}>
-              <View style={styles.sheetHandleWrap}>
-                <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-              </View>
-              <StoryProgressBar
-                count={activeGroup.stories.length}
-                currentIndex={viewer.currentStoryIndex}
-                progress={progress}
-              />
-              <View style={styles.headerRow}>
-                <Text style={[styles.headerText, { color: colors.text }]}>
-                  {(activeGroup.profile?.first_name ?? "User").trim()}
-                </Text>
-                <Text style={[styles.timeText, { color: colors.textMuted }]}>{formatStoryTime(activeStory.created_at)}</Text>
-              </View>
-            </View>
-
             <FlatList
               ref={flatListRef}
               horizontal
@@ -291,6 +272,18 @@ export default function StoryViewerScreen() {
               maxToRenderPerBatch={2}
               windowSize={3}
             />
+            <View style={styles.mediaOverlayTop}>
+              <View style={styles.sheetHandleWrap}>
+                <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+              </View>
+              <View style={styles.progressWrap}>
+                <StoryProgressBar
+                  count={activeGroup.stories.length}
+                  currentIndex={viewer.currentStoryIndex}
+                  progress={progress}
+                />
+              </View>
+            </View>
 
             <View
               style={[
@@ -321,6 +314,14 @@ export default function StoryViewerScreen() {
                 ) : (
                   <Text style={[styles.authorAvatarFallback, { color: colors.text }]}>{authorName.charAt(0).toUpperCase()}</Text>
                 )}
+              </View>
+              <View style={styles.authorMeta}>
+                <Text style={[styles.authorNameText, { color: colors.text }]}>
+                  {(activeGroup.profile?.first_name ?? "User").trim()}
+                </Text>
+                <Text style={[styles.authorDateText, { color: colors.textMuted }]}>
+                  {formatStoryTime(activeStory.created_at)}
+                </Text>
               </View>
               <Text style={[styles.postText, { color: "#000" }]} numberOfLines={6} ellipsizeMode="tail">
                 {activeStory.content}
@@ -353,10 +354,17 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: "hidden",
   },
-  topArea: {
-    paddingHorizontal: 12,
+  mediaOverlayTop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 6,
     paddingTop: 4,
-    gap: 8,
+  },
+  progressWrap: {
+    paddingHorizontal: 12,
+    paddingTop: 6,
   },
   sheetHandleWrap: {
     alignItems: "center",
@@ -369,22 +377,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     opacity: 0.9,
   },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  headerText: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  timeText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
   slider: {
     flexGrow: 0,
-    marginTop: 10,
   },
   bottomArea: {
     paddingHorizontal: 14,
@@ -410,6 +404,19 @@ const styles = StyleSheet.create({
   authorAvatarFallback: {
     fontSize: 24,
     fontWeight: "700",
+  },
+  authorMeta: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  authorNameText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  authorDateText: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "500",
   },
   postText: {
     fontSize: 16,
