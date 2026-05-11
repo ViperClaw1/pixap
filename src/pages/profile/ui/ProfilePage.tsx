@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Linking, Platform, Alert } from "react-native";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
@@ -50,6 +51,7 @@ type ActionItem = {
 };
 
 function ProfileScreenContent() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<ProfileStackParamList, "ProfileMain">>();
   const insets = useSafeAreaInsets();
@@ -845,7 +847,7 @@ function ProfileScreenContent() {
       contentContainerStyle={{ paddingTop: 12, paddingBottom: Math.max(insets.bottom, 24) }}
     >
       <AppHeader
-        title="Profile"
+        title={t("header.profile")}
         leftIcon="add"
         onLeftPress={() => {
           setCreateStep("menu");

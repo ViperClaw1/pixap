@@ -1,0 +1,176 @@
+{
+  "language": {
+    "choose": "Interface language",
+    "en": "English",
+    "es": "Spanish",
+    "pt": "Portuguese",
+    "fr": "French",
+    "de": "German"
+  },
+  "header": {
+    "bookings": "Bookings",
+    "editProfile": "Edit profile",
+    "messages": "Messages",
+    "favorites": "Favorites",
+    "profile": "Profile",
+    "feed": "Feed"
+  },
+  "favorites": {
+    "empty": "No favorites yet"
+  },
+  "common": {
+    "loading": "Loading...",
+    "unknownError": "Unknown error",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "unknownUser": "Unknown user"
+  },
+  "home": {
+    "searchPlaceholder": "Search restaurants, salons, events…",
+    "categories": "Categories",
+    "featured": "Featured",
+    "seeAll": "See all",
+    "recommended": "Recommended",
+    "showMore": "Show More",
+    "chooseCity": "Choose city",
+    "citySearchPlaceholder": "Search country or city…",
+    "selected": "Selected",
+    "noCitiesMatch": "No cities match your search.",
+    "allCities": "All cities",
+    "alerts": {
+      "citySaveTitle": "Could not save city",
+      "citySaveBody": "Please try again."
+    },
+    "a11y": {
+      "openPixaiBooking": "Open PixAI Smart Booking",
+      "openPixaiVibeMatch": "Open PixAI Vibe Match"
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "goHome": "Go home"
+  },
+  "search": {
+    "placeholder": "Search…"
+  },
+  "category": {
+    "fallbackName": "Category"
+  },
+  "messages": {
+    "searchPlaceholder": "Search chats and users",
+    "myChats": "My chats",
+    "peopleToFollow": "People to follow",
+    "noChatsFound": "No chats found.",
+    "noUsersFound": "No users found.",
+    "startChatTitle": "Start chat",
+    "deleteChatTitle": "Delete chat",
+    "deleteChatMessage": "Delete chat with \"{{name}}\"?",
+    "toastChatDeleted": "Chat deleted",
+    "toastChatRemoved": "\"{{title}}\" removed from your list",
+    "toastAddedFollowers": "Added to followers",
+    "toastRemovedFollowers": "Removed from followers",
+    "toastFollowFailed": "Follow action failed",
+    "toastTryAgain": "Please try again.",
+    "toastCouldNotOpenChat": "Could not open chat",
+    "followed": "Followed"
+  },
+  "bookings": {
+    "filter": {
+      "draft": "draft",
+      "confirmed": "confirmed",
+      "cancelled": "cancelled",
+      "completed": "completed",
+      "paymentAwaiting": "payment awaiting"
+    },
+    "toastStatusUpdated": "Booking status updated",
+    "loading": "Loading...",
+    "paymentLinkMissingTitle": "Payment link is missing",
+    "paymentLinkMissingBody": "Venue has not provided payment URL yet.",
+    "cannotOpenPaymentLink": "Cannot open payment link",
+    "cancelBookingTitle": "Cancel booking",
+    "cancelBookingMessage": "Do you want to cancel this booking?",
+    "no": "No",
+    "yesCancel": "Yes, cancel",
+    "cancel": "Cancel",
+    "persons": "Persons: {{count}}",
+    "comment": "Comment: {{text}}",
+    "payment": "Payment: {{state}}",
+    "paymentPending": "Pending",
+    "paymentPaid": "Paid",
+    "pay": "Pay",
+    "waitingForVenue": "Waiting for venue response",
+    "noBookings": "No bookings",
+    "choosePlace": "Choose place",
+    "noTags": "No tags",
+    "book": "Book",
+    "noPlacesYet": "No places yet",
+    "defaultVenueName": "Booking"
+  },
+  "cart": {
+    "title": "Cart",
+    "tabServices": "Services",
+    "tabShopping": "Shopping",
+    "emptyPaymentAwaiting": "No payment awaiting bookings in cart",
+    "emptyShopping": "No shopping items",
+    "total": "Total",
+    "opening": "Opening…",
+    "checkAvailability": "Check availability with vendor",
+    "bookingConfirmedTitle": "Booking confirmed",
+    "bookingConfirmedBody": "Your booking is saved under Bookings.",
+    "couldNotConfirm": "Could not confirm",
+    "paymentLinkMissing": "Payment link missing",
+    "paymentLinkMissingBody": "Venue has not provided a payment link yet.",
+    "couldNotOpenPaymentLink": "Could not open payment link"
+  },
+  "auth": {
+    "titleLogin": "Welcome back",
+    "titleSignup": "Create account",
+    "titleForgot": "Reset password",
+    "helperForgot": "Enter your email for reset link",
+    "helperDefault": "Sign in to continue",
+    "placeholderFirstName": "First name",
+    "placeholderLastName": "Last name",
+    "placeholderEmail": "Email address",
+    "placeholderPassword": "Password",
+    "placeholderConfirmPassword": "Confirm password",
+    "inlineEmailRequired": "Email is required.",
+    "inlineEmailInvalid": "Please enter a valid email address.",
+    "inlinePasswordsMismatch": "Passwords do not match.",
+    "ruleMinLength": "At least 8 characters",
+    "ruleUppercase": "At least 1 uppercase letter",
+    "ruleDigit": "At least one digit",
+    "ruleSpecial": "At least one special character",
+    "btnSignIn": "Sign in",
+    "btnSignUp": "Sign up",
+    "btnSendReset": "Send reset link",
+    "forgotPassword": "Forgot password?",
+    "backToSignIn": "Back to sign in",
+    "or": "or",
+    "continueGoogle": "Continue with Google",
+    "continueApple": "Continue with Apple",
+    "noAccount": "Don't have an account?",
+    "signUpLink": "Sign Up",
+    "haveAccount": "Already have an account?",
+    "signInLink": "Sign In",
+    "alerts": {
+      "appleUnavailableTitle": "Apple Sign-In unavailable",
+      "appleUnavailableBody": "Apple Sign-In is not available on this device.",
+      "signInFailed": "Sign in failed",
+      "appleNoToken": "Apple did not return an identity token.",
+      "signInCancelled": "Sign in cancelled or failed",
+      "oauthError": "OAuth error",
+      "unknown": "Unknown",
+      "validationTitle": "Validation error",
+      "emailRequired": "Email is required.",
+      "emailInvalid": "Please enter a valid email address.",
+      "passwordPolicy": "Password does not meet security requirements.",
+      "passwordsMismatch": "Passwords do not match.",
+      "emailAlreadyRegisteredTitle": "Email already registered",
+      "emailAlreadyRegisteredBody": "Account with this email already exists. Please sign in or reset your password.",
+      "signUpFailed": "Sign up failed",
+      "signUpAutoSignInFailedTitle": "Sign up completed",
+      "signUpAutoSignInFailedBody": "Account was created, but auto sign in failed. Please log in manually.",
+      "errorTitle": "Error"
+    }
+  }
+}

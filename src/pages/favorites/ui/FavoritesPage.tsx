@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { FlatList, Pressable, Text, View, StyleSheet } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
@@ -15,6 +16,7 @@ import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullS
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Favorites">;
 
 export default function FavoritesScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
@@ -60,7 +62,7 @@ export default function FavoritesScreen() {
       keyExtractor={(f) => `${f.user_id}-${f.business_card_id}`}
       ListHeaderComponent={
         <AppHeader
-          title="Favorites"
+          title={t("header.favorites")}
           leftIcon="arrow-back"
           onLeftPress={() => navigation.goBack()}
           rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
@@ -72,7 +74,7 @@ export default function FavoritesScreen() {
         paddingTop: 12,
         paddingBottom: 100 + insets.bottom,
       }}
-      ListEmptyComponent={<Text style={stylesThemed.empty}>No favorites yet</Text>}
+      ListEmptyComponent={<Text style={stylesThemed.empty}>{t("favorites.empty")}</Text>}
       renderItem={({ item }) => {
         const b = item.business_card as { id: string; name: string; images: string[] | null; address: string } | null;
         if (!b) return null;

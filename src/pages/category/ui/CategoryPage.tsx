@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { FlatList, Pressable, Text, View, StyleSheet, ActivityIndicator } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +18,7 @@ type R = RouteProp<BrowseFlowParamList, "Category">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "Category">;
 
 export default function CategoryScreen() {
+  const { t } = useTranslation();
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
@@ -24,7 +26,7 @@ export default function CategoryScreen() {
   const { colors } = useAppTheme();
   const { data = [], isLoading } = useBusinessCardsByCategory(id);
   const { data: categories = [] } = useCategories();
-  const categoryName = categories.find((category) => category.id === id)?.name ?? "Category";
+  const categoryName = categories.find((category) => category.id === id)?.name ?? t("category.fallbackName");
 
   const stylesThemed = useMemo(
     () =>

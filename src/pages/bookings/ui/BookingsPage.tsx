@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
@@ -10,9 +11,7 @@ import {
   useWindowDimensions,
   ActivityIndicator,
   Linking,
-  Platform,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
@@ -41,6 +40,10 @@ type Nav = NativeStackNavigationProp<BookingsStackParamList, "BookingsMain">;
 
 const filters: readonly BookingDisplayStatus[] = ["draft", "confirmed", "cancelled", "completed", "payment awaiting"];
 
+function bookingFilterTranslationKey(status: BookingDisplayStatus): string {
+  return status === "payment awaiting" ? "bookings.filter.paymentAwaiting" : `bookings.filter.${status}`;
+}
+
 function formatBookingDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -53,6 +56,7 @@ function formatBookingDateTime(value: string): string {
 }
 
 export default function BookingsScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -97,12 +101,12 @@ export default function BookingsScreen() {
       const linkedCartItem = cartMap.get(`${booking.business_card_id}|${booking.date_time}`);
       return {
         id: booking.id,
-        venueName: booking.business_card?.name ?? "Booking",
+        venueName: booking.business_card?.name ?? t("bookings.defaultVenueName"),
         businessCardId: booking.business_card_id,
         status: deriveBookingDisplayStatus(booking, linkedCartItem),
       };
     });
-  }, [bookings, cartItems]);
+  }, [bookings, cartItems, t]);
 
   const stylesThemed = useMemo(
     () =>
@@ -184,7 +188,7 @@ export default function BookingsScreen() {
         const text = bookingStatusNotificationText(current.venueName, current.status);
         Toast.show({
           type: "success",
-          text1: "Booking status updated",
+          text1: t("bookings.toastStatusUpdated"),
           text2: text,
         });
         createNotification.mutate({
@@ -194,12 +198,12 @@ export default function BookingsScreen() {
       }
     }
     prevStatusesRef.current = new Map(bookingStatuses.map((x) => [x.id, x.status]));
-  }, [bookingStatuses, createNotification]);
+  }, [bookingStatuses, createNotification, t]);
 
   if (loading) {
     return (
       <View style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}>
-        <Text style={{ color: colors.textMuted }}>Loading...</Text>
+        <Text style={{ color: colors.textMuted }}>{t("bookings.loading")}</Text>
       </View>
     );
   }
@@ -230,18 +234,18 @@ export default function BookingsScreen() {
 
   const openPaymentLink = async (paymentLink: string | null) => {
     if (!paymentLink) {
-      Alert.alert("Payment link is missing", "Venue has not provided payment URL yet.");
+      Alert.alert(t("bookings.paymentLinkMissingTitle"), t("bookings.paymentLinkMissingBody"));
       return;
     }
     try {
       const canOpen = await Linking.canOpenURL(paymentLink);
       if (!canOpen) {
-        Alert.alert("Cannot open payment link", paymentLink);
+        Alert.alert(t("bookings.cannotOpenPaymentLink"), paymentLink);
         return;
       }
       await Linking.openURL(paymentLink);
     } catch (error) {
-      Alert.alert("Cannot open payment link", error instanceof Error ? error.message : "Unknown error");
+      Alert.alert(t("bookings.cannotOpenPaymentLink"), error instanceof Error ? error.message : t("common.unknownError"));
     }
   };
 
@@ -274,10 +278,10 @@ export default function BookingsScreen() {
               <Pressable
                 style={stylesThemed.cancelBtn}
                 onPress={() => {
-                  Alert.alert("Cancel booking", "Do you want to cancel this booking?", [
-                    { text: "No", style: "cancel" },
+                  Alert.alert(t("bookings.cancelBookingTitle"), t("bookings.cancelBookingMessage"), [
+                    { text: t("bookings.no"), style: "cancel" },
                     {
-                      text: "Yes, cancel",
+                      text: t("bookings.yesCancel"),
                       style: "destructive",
                       onPress: () => {
                         void cancelBooking.mutateAsync(item.id);
@@ -286,16 +290,18 @@ export default function BookingsScreen() {
                   ]);
                 }}
               >
-                <Text style={stylesThemed.cancelBtnText}>Cancel</Text>
+                <Text style={stylesThemed.cancelBtnText}>{t("bookings.cancel")}</Text>
               </Pressable>
             ) : null}
           </View>
           <Text style={stylesThemed.meta}>{formatBookingDateTime(item.date_time)}</Text>
-          {item.persons ? <Text style={stylesThemed.meta}>Persons: {item.persons}</Text> : null}
-          {item.comment ? <Text style={stylesThemed.meta}>Comment: {item.comment}</Text> : null}
+          {item.persons ? <Text style={stylesThemed.meta}>{t("bookings.persons", { count: item.persons })}</Text> : null}
+          {item.comment ? <Text style={stylesThemed.meta}>{t("bookings.comment", { text: item.comment })}</Text> : null}
           {item.displayStatus !== "draft" ? (
             <Text style={stylesThemed.meta}>
-              Payment: {item.payment_status === "pending" ? "Pending" : "Paid"}
+              {t("bookings.payment", {
+                state: item.payment_status === "pending" ? t("bookings.paymentPending") : t("bookings.paymentPaid"),
+              })}
             </Text>
           ) : null}
           {canPay ? (
@@ -306,16 +312,16 @@ export default function BookingsScreen() {
                 void openPaymentLink(item.waPaymentLink);
               }}
             >
-              <Text style={stylesThemed.payBtnText}>Pay</Text>
+              <Text style={stylesThemed.payBtnText}>{t("bookings.pay")}</Text>
             </Pressable>
           ) : null}
           {item.displayStatus === "draft" ? (
             <View style={stylesThemed.waitingBadge}>
-              <Text style={stylesThemed.waitingBadgeText}>Waiting for venue response</Text>
+              <Text style={stylesThemed.waitingBadgeText}>{t("bookings.waitingForVenue")}</Text>
             </View>
           ) : null}
           <View style={[stylesThemed.badge, { backgroundColor: palette.bg }]}>
-            <Text style={[stylesThemed.badgeText, { color: palette.fg }]}>{item.displayStatus}</Text>
+            <Text style={[stylesThemed.badgeText, { color: palette.fg }]}>{t(bookingFilterTranslationKey(item.displayStatus))}</Text>
           </View>
         </View>
       </Pressable>
@@ -325,7 +331,7 @@ export default function BookingsScreen() {
   return (
     <View style={stylesThemed.root}>
       <AppHeader
-        title="Bookings"
+        title={t("header.bookings")}
         leftIcon="add"
         onLeftPress={() => setPlacePickerOpen(true)}
         rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
@@ -338,7 +344,7 @@ export default function BookingsScreen() {
             style={[stylesThemed.fpill, filter === f && stylesThemed.fpillActive]}
             onPress={() => setFilter(f)}
           >
-            <Text style={filter === f ? stylesThemed.fpillTextA : stylesThemed.fpillText}>{f}</Text>
+            <Text style={filter === f ? stylesThemed.fpillTextA : stylesThemed.fpillText}>{t(bookingFilterTranslationKey(f))}</Text>
           </Pressable>
         ))}
       </View>
@@ -346,10 +352,10 @@ export default function BookingsScreen() {
         data={items}
         keyExtractor={(b) => b.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 + insets.bottom }}
-        ListEmptyComponent={<Text style={stylesThemed.empty}>No bookings</Text>}
+        ListEmptyComponent={<Text style={stylesThemed.empty}>{t("bookings.noBookings")}</Text>}
         renderItem={renderItem}
       />
-      <BottomSheetPickerModal visible={placePickerOpen} onClose={() => setPlacePickerOpen(false)} title="Choose place">
+      <BottomSheetPickerModal visible={placePickerOpen} onClose={() => setPlacePickerOpen(false)} title={t("bookings.choosePlace")}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>
           {businessCards.length ? (
             businessCards.map((item) => (
@@ -365,7 +371,7 @@ export default function BookingsScreen() {
                     {item.name}
                   </Text>
                   <Text style={stylesThemed.meta} numberOfLines={2}>
-                    {item.tags?.slice(0, 4).join(", ") || "No tags"}
+                    {item.tags?.slice(0, 4).join(", ") || t("bookings.noTags")}
                   </Text>
                 </View>
                 <Pressable
@@ -375,12 +381,12 @@ export default function BookingsScreen() {
                     navigation.navigate("BookingFlow", { id: item.id });
                   }}
                 >
-                  <Text style={stylesThemed.payBtnText}>Book</Text>
+                  <Text style={stylesThemed.payBtnText}>{t("bookings.book")}</Text>
                 </Pressable>
               </View>
             ))
           ) : (
-            <Text style={stylesThemed.empty}>No places yet</Text>
+            <Text style={stylesThemed.empty}>{t("bookings.noPlacesYet")}</Text>
           )}
         </ScrollView>
       </BottomSheetPickerModal>

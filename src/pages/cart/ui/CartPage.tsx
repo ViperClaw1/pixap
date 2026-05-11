@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { View, Text, Pressable, FlatList, ActivityIndicator, Alert, ScrollView, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Linking from "expo-linking";
@@ -23,6 +24,7 @@ import {
 import { createCartStyles, ServiceCartRow, ShopRow } from "@/widgets/cart";
 
 export default function CartPage() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<CartStackParamList>>();
@@ -141,7 +143,7 @@ export default function CartPage() {
   const handleConfirmServiceBooking = async (item: CartItem) => {
     try {
       await confirmServiceBooking.mutateAsync({ cartItemId: item.id, action: "confirm" });
-      Alert.alert("Booking confirmed", "Your booking is saved under Bookings.");
+      Alert.alert(t("cart.bookingConfirmedTitle"), t("cart.bookingConfirmedBody"));
       navigation.getParent()?.dispatch(
         CommonActions.navigate({
           name: "Bookings",
@@ -153,14 +155,14 @@ export default function CartPage() {
         handleAuthRequired();
         return;
       }
-      Alert.alert("Could not confirm", e instanceof Error ? e.message : "Unknown error");
+      Alert.alert(t("cart.couldNotConfirm"), e instanceof Error ? e.message : t("common.unknownError"));
     }
   };
 
   const handlePayServiceBooking = async (item: CartItem) => {
     const paymentLink = item.wa_payment_link?.trim();
     if (!paymentLink) {
-      Alert.alert("Payment link missing", "Venue has not provided a payment link yet.");
+      Alert.alert(t("cart.paymentLinkMissing"), t("cart.paymentLinkMissingBody"));
       return;
     }
     try {
@@ -170,7 +172,7 @@ export default function CartPage() {
       }
       await Linking.openURL(paymentLink);
     } catch (e: unknown) {
-      Alert.alert("Could not open payment link", e instanceof Error ? e.message : "Unknown error");
+      Alert.alert(t("cart.couldNotOpenPaymentLink"), e instanceof Error ? e.message : t("common.unknownError"));
     }
   };
 
@@ -195,13 +197,13 @@ export default function CartPage() {
 
   return (
     <View style={stylesThemed.root}>
-      <Text style={[stylesThemed.header, { paddingTop: Math.max(insets.top, 12) }]}>Cart</Text>
+      <Text style={[stylesThemed.header, { paddingTop: Math.max(insets.top, 12) }]}>{t("cart.title")}</Text>
       <View style={stylesThemed.tabs}>
         <Pressable style={[stylesThemed.tab, tab === "services" && stylesThemed.tabActive]} onPress={() => setTab("services")}>
-          <Text style={tab === "services" ? stylesThemed.tabTextActive : stylesThemed.tabText}>Services</Text>
+          <Text style={tab === "services" ? stylesThemed.tabTextActive : stylesThemed.tabText}>{t("cart.tabServices")}</Text>
         </Pressable>
         <Pressable style={[stylesThemed.tab, tab === "shopping" && stylesThemed.tabActive]} onPress={() => setTab("shopping")}>
-          <Text style={tab === "shopping" ? stylesThemed.tabTextActive : stylesThemed.tabText}>Shopping</Text>
+          <Text style={tab === "shopping" ? stylesThemed.tabTextActive : stylesThemed.tabText}>{t("cart.tabShopping")}</Text>
         </Pressable>
       </View>
 
@@ -224,7 +226,7 @@ export default function CartPage() {
                 tintColor={colors.primary}
               />
             }
-            ListEmptyComponent={<Text style={stylesThemed.empty}>No payment awaiting bookings in cart</Text>}
+            ListEmptyComponent={<Text style={stylesThemed.empty}>{t("cart.emptyPaymentAwaiting")}</Text>}
             renderItem={({ item }) => (
               <ServiceCartRow
                 item={item}
@@ -241,7 +243,7 @@ export default function CartPage() {
       ) : (
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 + insets.bottom }}>
           {shoppingItems.length === 0 ? (
-            <Text style={stylesThemed.empty}>No shopping items</Text>
+            <Text style={stylesThemed.empty}>{t("cart.emptyShopping")}</Text>
           ) : (
             shoppingItems.map((item) => (
               <ShopRow
@@ -255,7 +257,7 @@ export default function CartPage() {
           )}
           {shoppingItems.length > 0 ? (
             <View style={stylesThemed.payBar}>
-              <Text style={stylesThemed.totalLabel}>Total</Text>
+              <Text style={stylesThemed.totalLabel}>{t("cart.total")}</Text>
               <Text style={stylesThemed.totalVal}>{shoppingTotal.toLocaleString()} $</Text>
               <Pressable
                 style={[stylesThemed.payBtn, checkingShopWa && { opacity: 0.6 }]}
@@ -263,7 +265,7 @@ export default function CartPage() {
                 onPress={() => void checkShoppingAvailability()}
               >
                 <Text style={stylesThemed.payBtnText}>
-                  {checkingShopWa ? "Opening…" : "Check availability with vendor"}
+                  {checkingShopWa ? t("cart.opening") : t("cart.checkAvailability")}
                 </Text>
               </Pressable>
             </View>

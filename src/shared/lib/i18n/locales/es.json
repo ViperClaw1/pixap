@@ -1,0 +1,176 @@
+{
+  "language": {
+    "choose": "Idioma de la interfaz",
+    "en": "Inglés",
+    "es": "Español",
+    "pt": "Portugués",
+    "fr": "Francés",
+    "de": "Alemán"
+  },
+  "header": {
+    "bookings": "Reservas",
+    "editProfile": "Editar perfil",
+    "messages": "Mensajes",
+    "favorites": "Favoritos",
+    "profile": "Perfil",
+    "feed": "Inicio"
+  },
+  "favorites": {
+    "empty": "Aún no hay favoritos"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "unknownError": "Error desconocido",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "unknownUser": "Usuario desconocido"
+  },
+  "home": {
+    "searchPlaceholder": "Buscar restaurantes, salones, eventos…",
+    "categories": "Categorías",
+    "featured": "Destacados",
+    "seeAll": "Ver todo",
+    "recommended": "Recomendados",
+    "showMore": "Mostrar más",
+    "chooseCity": "Elegir ciudad",
+    "citySearchPlaceholder": "Buscar país o ciudad…",
+    "selected": "Seleccionado",
+    "noCitiesMatch": "Ninguna ciudad coincide con tu búsqueda.",
+    "allCities": "Todas las ciudades",
+    "alerts": {
+      "citySaveTitle": "No se pudo guardar la ciudad",
+      "citySaveBody": "Inténtalo de nuevo."
+    },
+    "a11y": {
+      "openPixaiBooking": "Abrir reserva inteligente PixAI",
+      "openPixaiVibeMatch": "Abrir PixAI Vibe Match"
+    }
+  },
+  "notFound": {
+    "title": "Página no encontrada",
+    "goHome": "Ir al inicio"
+  },
+  "search": {
+    "placeholder": "Buscar…"
+  },
+  "category": {
+    "fallbackName": "Categoría"
+  },
+  "messages": {
+    "searchPlaceholder": "Buscar chats y usuarios",
+    "myChats": "Mis chats",
+    "peopleToFollow": "Personas a seguir",
+    "noChatsFound": "No se encontraron chats.",
+    "noUsersFound": "No se encontraron usuarios.",
+    "startChatTitle": "Iniciar chat",
+    "deleteChatTitle": "Eliminar chat",
+    "deleteChatMessage": "¿Eliminar el chat con \"{{name}}\"?",
+    "toastChatDeleted": "Chat eliminado",
+    "toastChatRemoved": "\"{{title}}\" quitado de tu lista",
+    "toastAddedFollowers": "Añadido a seguidores",
+    "toastRemovedFollowers": "Quitado de seguidores",
+    "toastFollowFailed": "Error al seguir",
+    "toastTryAgain": "Inténtalo de nuevo.",
+    "toastCouldNotOpenChat": "No se pudo abrir el chat",
+    "followed": "Siguiendo"
+  },
+  "bookings": {
+    "filter": {
+      "draft": "borrador",
+      "confirmed": "confirmada",
+      "cancelled": "cancelada",
+      "completed": "completada",
+      "paymentAwaiting": "pago pendiente"
+    },
+    "toastStatusUpdated": "Estado de la reserva actualizado",
+    "loading": "Cargando...",
+    "paymentLinkMissingTitle": "Falta el enlace de pago",
+    "paymentLinkMissingBody": "El local aún no ha proporcionado la URL de pago.",
+    "cannotOpenPaymentLink": "No se puede abrir el enlace de pago",
+    "cancelBookingTitle": "Cancelar reserva",
+    "cancelBookingMessage": "¿Quieres cancelar esta reserva?",
+    "no": "No",
+    "yesCancel": "Sí, cancelar",
+    "cancel": "Cancelar",
+    "persons": "Personas: {{count}}",
+    "comment": "Comentario: {{text}}",
+    "payment": "Pago: {{state}}",
+    "paymentPending": "Pendiente",
+    "paymentPaid": "Pagado",
+    "pay": "Pagar",
+    "waitingForVenue": "Esperando respuesta del local",
+    "noBookings": "Sin reservas",
+    "choosePlace": "Elegir lugar",
+    "noTags": "Sin etiquetas",
+    "book": "Reservar",
+    "noPlacesYet": "Aún no hay lugares",
+    "defaultVenueName": "Reserva"
+  },
+  "cart": {
+    "title": "Carrito",
+    "tabServices": "Servicios",
+    "tabShopping": "Compras",
+    "emptyPaymentAwaiting": "No hay reservas pendientes de pago en el carrito",
+    "emptyShopping": "No hay artículos",
+    "total": "Total",
+    "opening": "Abriendo…",
+    "checkAvailability": "Consultar disponibilidad con el vendedor",
+    "bookingConfirmedTitle": "Reserva confirmada",
+    "bookingConfirmedBody": "Tu reserva se guardó en Reservas.",
+    "couldNotConfirm": "No se pudo confirmar",
+    "paymentLinkMissing": "Falta el enlace de pago",
+    "paymentLinkMissingBody": "El local aún no ha proporcionado un enlace de pago.",
+    "couldNotOpenPaymentLink": "No se pudo abrir el enlace de pago"
+  },
+  "auth": {
+    "titleLogin": "Bienvenido de nuevo",
+    "titleSignup": "Crear cuenta",
+    "titleForgot": "Restablecer contraseña",
+    "helperForgot": "Introduce tu email para el enlace de restablecimiento",
+    "helperDefault": "Inicia sesión para continuar",
+    "placeholderFirstName": "Nombre",
+    "placeholderLastName": "Apellido",
+    "placeholderEmail": "Correo electrónico",
+    "placeholderPassword": "Contraseña",
+    "placeholderConfirmPassword": "Confirmar contraseña",
+    "inlineEmailRequired": "El correo es obligatorio.",
+    "inlineEmailInvalid": "Introduce un correo válido.",
+    "inlinePasswordsMismatch": "Las contraseñas no coinciden.",
+    "ruleMinLength": "Al menos 8 caracteres",
+    "ruleUppercase": "Al menos 1 mayúscula",
+    "ruleDigit": "Al menos un dígito",
+    "ruleSpecial": "Al menos un carácter especial",
+    "btnSignIn": "Iniciar sesión",
+    "btnSignUp": "Registrarse",
+    "btnSendReset": "Enviar enlace",
+    "forgotPassword": "¿Olvidaste la contraseña?",
+    "backToSignIn": "Volver al inicio de sesión",
+    "or": "o",
+    "continueGoogle": "Continuar con Google",
+    "continueApple": "Continuar con Apple",
+    "noAccount": "¿No tienes cuenta?",
+    "signUpLink": "Regístrate",
+    "haveAccount": "¿Ya tienes cuenta?",
+    "signInLink": "Inicia sesión",
+    "alerts": {
+      "appleUnavailableTitle": "Apple Sign-In no disponible",
+      "appleUnavailableBody": "Apple Sign-In no está disponible en este dispositivo.",
+      "signInFailed": "Error al iniciar sesión",
+      "appleNoToken": "Apple no devolvió un token de identidad.",
+      "signInCancelled": "Inicio de sesión cancelado o fallido",
+      "oauthError": "Error OAuth",
+      "unknown": "Desconocido",
+      "validationTitle": "Error de validación",
+      "emailRequired": "El correo es obligatorio.",
+      "emailInvalid": "Introduce un correo válido.",
+      "passwordPolicy": "La contraseña no cumple los requisitos de seguridad.",
+      "passwordsMismatch": "Las contraseñas no coinciden.",
+      "emailAlreadyRegisteredTitle": "Correo ya registrado",
+      "emailAlreadyRegisteredBody": "Ya existe una cuenta con este correo. Inicia sesión o restablece la contraseña.",
+      "signUpFailed": "Error al registrarse",
+      "signUpAutoSignInFailedTitle": "Registro completado",
+      "signUpAutoSignInFailedBody": "La cuenta se creó, pero el inicio automático falló. Inicia sesión manualmente.",
+      "errorTitle": "Error"
+    }
+  }
+}
