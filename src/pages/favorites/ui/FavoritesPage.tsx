@@ -12,6 +12,7 @@ import { useAppTheme } from "@/contexts/ThemeContext";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Favorites">;
 
@@ -80,7 +81,14 @@ export default function FavoritesScreen() {
         if (!b) return null;
         return (
           <Pressable style={stylesThemed.row} onPress={() => navigation.navigate("PlaceDetail", { id: b.id })}>
-            <SmartImage uri={getLatestBusinessCardImage(b.images)} recyclingKey={b.id} style={styles.thumb} contentFit="cover" />
+            <SmartImage
+              uri={getOptimizedImageUrl(getLatestBusinessCardImage(b.images), 168, 168, 72)}
+              fallbackUri={getLatestBusinessCardImage(b.images)}
+              recyclingKey={b.id}
+              style={styles.thumb}
+              contentFit="cover"
+              skipBundledPlaceholder
+            />
             <View style={{ flex: 1 }}>
               <Text style={stylesThemed.name}>{b.name}</Text>
               <Text style={stylesThemed.meta} numberOfLines={1}>
@@ -90,6 +98,11 @@ export default function FavoritesScreen() {
           </Pressable>
         );
       }}
+      removeClippedSubviews
+      initialNumToRender={8}
+      maxToRenderPerBatch={10}
+      windowSize={8}
+      updateCellsBatchingPeriod={40}
     />
     </View>
   );

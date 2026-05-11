@@ -58,6 +58,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import type { StoryGroup } from "@/types/stories";
 import Toast from "react-native-toast-message";
+import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 
 const STORIES_BUCKET = "stories";
 const MAX_POST_PHOTOS = 8;
@@ -121,6 +122,13 @@ function getPostImages(post: FeedPostItem) {
   const postMediaUrls = parseMediaUrls(post.media_url);
   return Array.from(new Set(postMediaUrls.map((url) => resolveStorageUrl(url, "stories"))));
 }
+
+type FeedPostVm = {
+  post: FeedPostItem;
+  postImagesRaw: string[];
+  postImages: string[];
+  authorAvatar: string | null;
+};
 
 const PostMediaCarousel = memo(function PostMediaCarousel({
   postId,
@@ -278,6 +286,19 @@ export default function StoriesFeedScreen() {
     () => focusedPosts.find((item) => item.id === selectedPostId) ?? null,
     [focusedPosts, selectedPostId],
   );
+  const focusedPostVms = useMemo<FeedPostVm[]>(
+    () =>
+      focusedPosts.map((post) => {
+        const postImagesRaw = getPostImages(post);
+        return {
+          post,
+          postImagesRaw,
+          postImages: postImagesRaw.map((url) => getOptimizedImageUrl(url, 900, 560) || url),
+          authorAvatar: profileAvatar(post.profile?.avatar_url),
+        };
+      }),
+    [focusedPosts],
+  );
   const { data: postComments = [] } = usePostComments(selectedPostId ?? "");
   const topStories = useMemo(() => {
     if (!focusStoryId) return storiesStrip;
@@ -285,6 +306,11 @@ export default function StoriesFeedScreen() {
     if (!target) return storiesStrip;
     return [target, ...storiesStrip.filter((story) => story.id !== focusStoryId)];
   }, [focusStoryId, storiesStrip]);
+
+  useEffect(() => {
+    const heroUris = focusedPostVms.slice(0, 6).flatMap((vm) => vm.postImages.slice(0, 2));
+    void preloadSmartImages(heroUris);
+  }, [focusedPostVms]);
   const currentUserAvatarUrl = useMemo(() => {
     const metadataAvatar =
       typeof user?.user_metadata === "object" && user?.user_metadata && "avatar_url" in user.user_metadata
@@ -826,10 +852,15 @@ export default function StoriesFeedScreen() {
         onRightPress={toggleThemeMode}
       />
       <FlatList
-        data={focusedPosts}
-        keyExtractor={(item) => item.id}
+        data={focusedPostVms}
+        keyExtractor={(item) => item.post.id}
         contentContainerStyle={styles.feedContent}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+        initialNumToRender={4}
+        maxToRenderPerBatch={6}
+        windowSize={8}
+        updateCellsBatchingPeriod={45}
         ListHeaderComponent={
           <View style={styles.storiesHeaderWrap}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesHeaderContent}>
@@ -931,9 +962,10 @@ export default function StoriesFeedScreen() {
             ) : null}
           </View>
         }
-        renderItem={({ item }) => {
-          const postImagesRaw = getPostImages(item);
-          const postImages = postImagesRaw.map((url) => getOptimizedImageUrl(url, 900, 560) || url);
+        renderItem={({ item: vm }) => {
+          const item = vm.post;
+          const postImagesRaw = vm.postImagesRaw;
+          const postImages = vm.postImages;
           const isContentExpanded = !!expandedPostContentIds[item.id];
 
           return (
@@ -1032,8 +1064,8 @@ export default function StoriesFeedScreen() {
 
               <View style={[styles.authorSection, { borderTopColor: colors.border }]}>
                 <View style={styles.authorInfo}>
-                  {profileAvatar(item.profile?.avatar_url) ? (
-                    <SmartImage uri={profileAvatar(item.profile?.avatar_url)} style={styles.avatarImage} contentFit="cover" />
+                  {vm.authorAvatar ? (
+                    <SmartImage uri={vm.authorAvatar} style={styles.avatarImage} contentFit="cover" skipBundledPlaceholder />
                   ) : (
                     <View style={[styles.avatarPlaceholder, { backgroundColor: colors.card }]}>
                       <Ionicons name="person-outline" size={18} color={colors.text} />

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
-  Image,
   Keyboard,
   Modal,
   Platform,
@@ -22,9 +21,10 @@ import type { BrowseFlowParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { useStoryProgress, useStoryViewer, useReplyToStory, useReactToStory } from "@/entities/story";
 import { StoryProgressBar } from "@/components/stories/StoryProgressBar";
-import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import Toast from "react-native-toast-message";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 
 type FeedStoryViewerRoute = RouteProp<BrowseFlowParamList, "FeedStoryViewer">;
 type FeedStoryViewerNav = NativeStackNavigationProp<BrowseFlowParamList, "FeedStoryViewer">;
@@ -95,6 +95,7 @@ export default function FeedStoryViewerPage() {
   const activeStory = viewer.activeStory;
   const storyId = activeStory?.id ?? "";
   const activeImageUrl = parseStoryMediaUrl(activeStory?.media_url);
+  const activeOptimizedImageUrl = useMemo(() => getOptimizedImageUrl(activeImageUrl, 1080, 1920, 78), [activeImageUrl]);
   const authorName = useMemo(() => {
     const first = activeStory?.profile?.first_name?.trim() ?? "";
     const last = activeStory?.profile?.last_name?.trim() ?? "";
@@ -133,6 +134,18 @@ export default function FeedStoryViewerPage() {
     if (!row) return;
     carouselRef.current?.scrollTo({ index: viewer.currentFlatIndex, animated: true });
   }, [viewer, viewer.currentFlatIndex]);
+
+  useEffect(() => {
+    const candidateIndexes = [
+      viewer.currentFlatIndex - 2,
+      viewer.currentFlatIndex - 1,
+      viewer.currentFlatIndex,
+      viewer.currentFlatIndex + 1,
+      viewer.currentFlatIndex + 2,
+    ].filter((idx) => idx >= 0 && idx < viewer.flatStories.length);
+    const candidateUrls = candidateIndexes.map((idx) => parseStoryMediaUrl(viewer.flatStories[idx]?.story.media_url));
+    void preloadSmartImages(candidateUrls.map((url) => getOptimizedImageUrl(url, 1080, 1920, 78) || url));
+  }, [viewer.currentFlatIndex, viewer.flatStories]);
 
   useEffect(() => {
     const animateKeyboardInset = (toValue: number, duration?: number) => {
@@ -232,10 +245,12 @@ export default function FeedStoryViewerPage() {
             delayLongPress={180}
           >
             <SmartImage
-              uri={parseStoryMediaUrl(item.story.media_url)}
+              uri={getOptimizedImageUrl(parseStoryMediaUrl(item.story.media_url), 1080, 1920, 78)}
+              fallbackUri={parseStoryMediaUrl(item.story.media_url)}
               recyclingKey={`feed-story-viewer-${item.story.id}`}
               style={styles.absoluteFill}
               contentFit="cover"
+              priority="high"
             />
           </Pressable>
         )}
@@ -346,7 +361,14 @@ export default function FeedStoryViewerPage() {
               viewer.setPaused(false);
             }}
           >
-            {activeImageUrl ? <Image source={{ uri: activeImageUrl }} style={styles.modalBackdropImage} blurRadius={24} /> : null}
+            {activeImageUrl ? (
+              <SmartImage
+                uri={activeOptimizedImageUrl || activeImageUrl}
+                fallbackUri={activeImageUrl}
+                style={styles.modalBackdropImage}
+                contentFit="cover"
+              />
+            ) : null}
             <View style={styles.modalBackdropDim} />
           </Pressable>
           <View
@@ -361,7 +383,8 @@ export default function FeedStoryViewerPage() {
             ]}
           >
             <SmartImage
-              uri={activeImageUrl}
+              uri={activeOptimizedImageUrl || activeImageUrl}
+              fallbackUri={activeImageUrl}
               recyclingKey={`preview-${activeStory.id}`}
               style={styles.modalCardImage}
               contentFit="cover"

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Pressable, Text, View, type StyleProp, type TextStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Swipeable } from "react-native-gesture-handler";
@@ -72,7 +73,7 @@ function MessageBodyText({
   );
 }
 
-export function MessageThreadListItem({
+function MessageThreadListItemComponent({
   item: message,
   styles: s,
   colors,
@@ -203,3 +204,5 @@ export function MessageThreadListItem({
     </Swipeable>
   );
 }
+
+export const MessageThreadListItem = memo(MessageThreadListItemComponent);

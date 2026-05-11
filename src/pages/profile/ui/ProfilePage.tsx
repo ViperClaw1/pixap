@@ -21,6 +21,7 @@ import { useCreateStory } from "@/entities/story";
 import type { ProfileStackParamList, RootTabParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { useEntitlement } from "@/entities/subscription";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
@@ -965,7 +966,13 @@ function ProfileScreenContent() {
               <View key={item.id} style={stylesThemed.suggestionCard}>
                 <View style={stylesThemed.suggestionAvatarWrap}>
                   {item.avatar_url ? (
-                    <SmartImage uri={item.avatar_url} style={{ width: 66, height: 66 }} contentFit="cover" />
+                    <SmartImage
+                      uri={getOptimizedImageUrl(item.avatar_url, 132, 132, 72)}
+                      fallbackUri={item.avatar_url}
+                      style={{ width: 66, height: 66 }}
+                      contentFit="cover"
+                      skipBundledPlaceholder
+                    />
                   ) : (
                     <View style={stylesThemed.suggestionAvatarFallback}>
                       <Text style={stylesThemed.suggestionAvatarFallbackText}>

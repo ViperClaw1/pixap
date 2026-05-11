@@ -33,3 +33,21 @@ export function getOptimizedImageUrl(
 
   return url;
 }
+
+export function getOptimizedImageUrls(
+  urls: Array<string | null | undefined>,
+  width: number,
+  height?: number,
+  quality = 75,
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const url of urls) {
+    const optimized = getOptimizedImageUrl(url, width, height, quality);
+    if (!optimized) continue;
+    if (seen.has(optimized)) continue;
+    seen.add(optimized);
+    out.push(optimized);
+  }
+  return out;
+}

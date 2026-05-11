@@ -160,7 +160,9 @@ export default function MessageThreadPage() {
     setStickerPanelOpen((prev) => !prev);
   };
 
-  const renderRow = ({ item }: { item: MessageThreadListRow }) => {
+  const keyExtractor = useCallback((row: MessageThreadListRow) => row.key, []);
+
+  const renderRow = useCallback(({ item }: { item: MessageThreadListRow }) => {
     if (item.kind === "divider") {
       return (
         <View style={stylesThemed.dividerWrap}>
@@ -193,7 +195,18 @@ export default function MessageThreadPage() {
         onOpenSharedStory={openSharedStory}
       />
     );
-  };
+  }, [
+    colors,
+    mode,
+    openDeleteOptions,
+    openSharedPlace,
+    openSharedStory,
+    params.threadId,
+    peerLastSeenAt,
+    reactToMessage,
+    reactionPickerMessageId,
+    stylesThemed,
+  ]);
 
   return (
     <View style={stylesThemed.root} {...androidSwipeBackPanHandlers}>
@@ -214,11 +227,16 @@ export default function MessageThreadPage() {
         <FlatList
           style={stylesThemed.list}
           data={rows}
-          keyExtractor={(row) => row.key}
+          keyExtractor={keyExtractor}
           contentContainerStyle={[stylesThemed.listContent, !rows.length ? stylesThemed.emptyListContent : null]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           renderItem={renderRow}
+          removeClippedSubviews
+          initialNumToRender={18}
+          maxToRenderPerBatch={14}
+          windowSize={10}
+          updateCellsBatchingPeriod={40}
           ListEmptyComponent={
             <View style={stylesThemed.emptyWrap}>
               {isLoading ? <ActivityIndicator color={colors.primary} /> : <Text style={stylesThemed.emptyText}>No messages yet.</Text>}
