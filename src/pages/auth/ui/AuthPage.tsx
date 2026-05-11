@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
@@ -43,6 +44,7 @@ const KEYBOARD_GAP = Platform.OS === "android" ? 48 : 24;
 const PASSWORD_RULE_SUCCESS_COLOR = "#22c55e";
 
 export default function AuthScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { colors, mode: themeMode } = useAppTheme();
@@ -230,7 +232,7 @@ export default function AuthScreen() {
           console.info("[Apple][native] available:", isAvailable);
         }
         if (!isAvailable) {
-          Alert.alert("Apple Sign-In unavailable", "Apple Sign-In is not available on this device.");
+          Alert.alert(t("auth.alerts.appleUnavailableTitle"), t("auth.alerts.appleUnavailableBody"));
           return;
         }
 
@@ -246,7 +248,7 @@ export default function AuthScreen() {
           console.info("[Apple][native] token received:", Boolean(token), "user:", credential.user ?? "n/a");
         }
         if (!token) {
-          Alert.alert("Sign in failed", "Apple did not return an identity token.");
+          Alert.alert(t("auth.alerts.signInFailed"), t("auth.alerts.appleNoToken"));
           return;
         }
 
@@ -258,7 +260,7 @@ export default function AuthScreen() {
           if (__DEV__) {
             console.error("[Apple][native] signInWithIdToken error:", error.message);
           }
-          Alert.alert("Sign in failed", error.message);
+          Alert.alert(t("auth.alerts.signInFailed"), error.message);
           return;
         }
         if (__DEV__) {
@@ -305,16 +307,16 @@ export default function AuthScreen() {
           else console.error("[OAuth] callback exchange: failed:", finished.message);
         }
         if (!finished.ok) {
-          Alert.alert("Sign in failed", finished.message);
+          Alert.alert(t("auth.alerts.signInFailed"), finished.message);
           return;
         }
         return;
       }
       if (result.type !== "success") {
-        Alert.alert("Sign in cancelled or failed");
+        Alert.alert(t("auth.alerts.signInCancelled"));
       }
     } catch (e: unknown) {
-      Alert.alert("OAuth error", e instanceof Error ? e.message : "Unknown");
+      Alert.alert(t("auth.alerts.oauthError"), e instanceof Error ? e.message : t("auth.alerts.unknown"));
     } finally {
       setLoading(false);
     }
@@ -326,7 +328,7 @@ export default function AuthScreen() {
       if (mode === "login") {
         const { error } = await signIn(email, password);
         if (error) {
-          Alert.alert("Sign in failed", error);
+          Alert.alert(t("auth.alerts.signInFailed"), error);
           return;
         }
         return;
@@ -336,33 +338,33 @@ export default function AuthScreen() {
         setPasswordTouched(true);
         setConfirmPasswordTouched(true);
         if (isEmailEmpty) {
-          Alert.alert("Validation error", "Email is required.");
+          Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.emailRequired"));
           return;
         }
         if (!isValidEmail(email)) {
-          Alert.alert("Validation error", "Please enter a valid email address.");
+          Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.emailInvalid"));
           return;
         }
         if (!isPasswordPolicyValid) {
-          Alert.alert("Validation error", "Password does not meet security requirements.");
+          Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.passwordPolicy"));
           return;
         }
         if (!arePasswordsMatching) {
-          Alert.alert("Validation error", "Passwords do not match.");
+          Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.passwordsMismatch"));
           return;
         }
         const { error, isUserAlreadyExists } = await signUp(email, password, firstName, lastName);
         if (error) {
           if (isUserAlreadyExists) {
-            Alert.alert("Email already registered", "Account with this email already exists. Please sign in or reset your password.");
+            Alert.alert(t("auth.alerts.emailAlreadyRegisteredTitle"), t("auth.alerts.emailAlreadyRegisteredBody"));
             return;
           }
-          Alert.alert("Sign up failed", error);
+          Alert.alert(t("auth.alerts.signUpFailed"), error);
           return;
         }
         const signInResult = await signIn(email, password);
         if (signInResult.error) {
-          Alert.alert("Sign up completed", "Account was created, but auto sign in failed. Please log in manually.");
+          Alert.alert(t("auth.alerts.signUpAutoSignInFailedTitle"), t("auth.alerts.signUpAutoSignInFailedBody"));
           setMode("login");
           return;
         }
@@ -371,15 +373,15 @@ export default function AuthScreen() {
       }
       setEmailTouched(true);
       if (isEmailEmpty) {
-        Alert.alert("Validation error", "Email is required.");
+        Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.emailRequired"));
         return;
       }
       if (!isValidEmail(email)) {
-        Alert.alert("Validation error", "Please enter a valid email address.");
+        Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.emailInvalid"));
         return;
       }
       const { error } = await resetPassword(email);
-      if (error) Alert.alert("Error", error);
+      if (error) Alert.alert(t("auth.alerts.errorTitle"), error);
       else navigation.navigate("PasswordResetSent", { email: email.trim() });
     } finally {
       setLoading(false);
@@ -405,10 +407,10 @@ export default function AuthScreen() {
       scrollEventThrottle={16}
     >
       <Text style={stylesThemed.title}>
-        {mode === "login" ? "Welcome back" : mode === "signup" ? "Create account" : "Reset password"}
+        {mode === "login" ? t("auth.titleLogin") : mode === "signup" ? t("auth.titleSignup") : t("auth.titleForgot")}
       </Text>
       <Text style={stylesThemed.helper}>
-        {mode === "forgot" ? "Enter your email for reset link" : "Sign in to continue"}
+        {mode === "forgot" ? t("auth.helperForgot") : t("auth.helperDefault")}
       </Text>
 
       {mode === "signup" && (
@@ -418,7 +420,7 @@ export default function AuthScreen() {
             <TextInput
               ref={firstNameInputRef}
               style={stylesThemed.input}
-              placeholder="First name"
+              placeholder={t("auth.placeholderFirstName")}
               placeholderTextColor={ph}
               value={firstName}
               onChangeText={setFirstName}
@@ -430,7 +432,7 @@ export default function AuthScreen() {
             <TextInput
               ref={lastNameInputRef}
               style={stylesThemed.input}
-              placeholder="Last name"
+              placeholder={t("auth.placeholderLastName")}
               placeholderTextColor={ph}
               value={lastName}
               onChangeText={setLastName}
@@ -445,7 +447,7 @@ export default function AuthScreen() {
         <TextInput
           ref={emailInputRef}
           style={stylesThemed.input}
-          placeholder="Email address"
+          placeholder={t("auth.placeholderEmail")}
           placeholderTextColor={ph}
           value={email}
           onChangeText={setEmail}
@@ -458,8 +460,8 @@ export default function AuthScreen() {
           keyboardType="email-address"
         />
       </View>
-      {showEmailRequiredError ? <Text style={stylesThemed.inlineError}>Email is required.</Text> : null}
-      {showEmailInvalidError ? <Text style={stylesThemed.inlineError}>Please enter a valid email address.</Text> : null}
+      {showEmailRequiredError ? <Text style={stylesThemed.inlineError}>{t("auth.inlineEmailRequired")}</Text> : null}
+      {showEmailInvalidError ? <Text style={stylesThemed.inlineError}>{t("auth.inlineEmailInvalid")}</Text> : null}
       {mode !== "forgot" && (
         <>
           <View style={[stylesThemed.fieldWrap, showPasswordPolicyError ? stylesThemed.fieldWrapError : null]}>
@@ -467,7 +469,7 @@ export default function AuthScreen() {
             <TextInput
               ref={passwordInputRef}
               style={stylesThemed.input}
-              placeholder="Password"
+              placeholder={t("auth.placeholderPassword")}
               placeholderTextColor={ph}
               value={password}
               onChangeText={onPasswordChange}
@@ -491,7 +493,7 @@ export default function AuthScreen() {
                   color={hasMinPasswordLength ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
                 <Text style={[stylesThemed.passwordRuleText, hasMinPasswordLength ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
-                  At least 8 characters
+                  {t("auth.ruleMinLength")}
                 </Text>
               </View>
               <View style={stylesThemed.passwordRuleRow}>
@@ -501,7 +503,7 @@ export default function AuthScreen() {
                   color={hasPasswordUppercase ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
                 <Text style={[stylesThemed.passwordRuleText, hasPasswordUppercase ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
-                  At least 1 uppercase letter
+                  {t("auth.ruleUppercase")}
                 </Text>
               </View>
               <View style={stylesThemed.passwordRuleRow}>
@@ -511,7 +513,7 @@ export default function AuthScreen() {
                   color={hasPasswordDigit ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
                 <Text style={[stylesThemed.passwordRuleText, hasPasswordDigit ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
-                  At least one digit
+                  {t("auth.ruleDigit")}
                 </Text>
               </View>
               
@@ -522,7 +524,7 @@ export default function AuthScreen() {
                   color={hasPasswordSpecial ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
                 <Text style={[stylesThemed.passwordRuleText, hasPasswordSpecial ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
-                  At least one special character
+                  {t("auth.ruleSpecial")}
                 </Text>
               </View>
             </View>
@@ -534,7 +536,7 @@ export default function AuthScreen() {
                 <TextInput
                   ref={confirmPasswordInputRef}
                   style={stylesThemed.input}
-                  placeholder="Confirm password"
+                  placeholder={t("auth.placeholderConfirmPassword")}
                   placeholderTextColor={ph}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -549,7 +551,7 @@ export default function AuthScreen() {
                   <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
                 </Pressable>
               </View>
-              {showPasswordsMismatch ? <Text style={stylesThemed.inlineError}>Passwords do not match.</Text> : null}
+              {showPasswordsMismatch ? <Text style={stylesThemed.inlineError}>{t("auth.inlinePasswordsMismatch")}</Text> : null}
             </>
           ) : null}
         </>
@@ -560,19 +562,19 @@ export default function AuthScreen() {
       ) : (
         <Pressable style={stylesThemed.primary} onPress={() => void submit()}>
           <Text style={stylesThemed.primaryText}>
-            {mode === "login" ? "Sign in" : mode === "signup" ? "Sign up" : "Send reset link"}
+            {mode === "login" ? t("auth.btnSignIn") : mode === "signup" ? t("auth.btnSignUp") : t("auth.btnSendReset")}
           </Text>
         </Pressable>
       )}
 
       {mode === "login" ? (
         <Pressable style={stylesThemed.smallLink} onPress={() => setMode("forgot")}>
-          <Text style={stylesThemed.smallLinkText}>Forgot password?</Text>
+          <Text style={stylesThemed.smallLinkText}>{t("auth.forgotPassword")}</Text>
         </Pressable>
       ) : null}
       {mode === "forgot" ? (
         <Pressable style={stylesThemed.smallLink} onPress={() => setMode("login")}>
-          <Text style={stylesThemed.smallLinkText}>Back to sign in</Text>
+          <Text style={stylesThemed.smallLinkText}>{t("auth.backToSignIn")}</Text>
         </Pressable>
       ) : null}
 
@@ -580,17 +582,17 @@ export default function AuthScreen() {
         <>
           <View style={stylesThemed.orRow}>
             <View style={stylesThemed.orLine} />
-            <Text style={stylesThemed.orText}>or</Text>
+            <Text style={stylesThemed.orText}>{t("auth.or")}</Text>
             <View style={stylesThemed.orLine} />
           </View>
           <Pressable style={stylesThemed.outline} onPress={() => void social("google")} disabled={loading}>
             <FontAwesome name="google" size={18} color="#ec6544" />
-            <Text style={stylesThemed.outlineText}>Continue with Google</Text>
+            <Text style={stylesThemed.outlineText}>{t("auth.continueGoogle")}</Text>
           </Pressable>
           {Platform.OS !== "android" ? (
             <Pressable style={stylesThemed.outline} onPress={() => void social("apple")} disabled={loading}>
               <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? "#fff" : "#ec6544"} />
-              <Text style={stylesThemed.outlineText}>Continue with Apple</Text>
+              <Text style={stylesThemed.outlineText}>{t("auth.continueApple")}</Text>
             </Pressable>
           ) : null}
         </>
@@ -598,14 +600,14 @@ export default function AuthScreen() {
 
       {mode === "login" ? (
         <Pressable style={stylesThemed.bottomSwitch} onPress={() => setMode("signup")}>
-          <Text style={stylesThemed.bottomSwitchText}>Don&apos;t have an account?</Text>
-          <Text style={stylesThemed.bottomSwitchLink}>Sign Up</Text>
+          <Text style={stylesThemed.bottomSwitchText}>{t("auth.noAccount")}</Text>
+          <Text style={stylesThemed.bottomSwitchLink}>{t("auth.signUpLink")}</Text>
         </Pressable>
       ) : null}
       {mode === "signup" ? (
         <Pressable style={stylesThemed.bottomSwitch} onPress={() => setMode("login")}>
-          <Text style={stylesThemed.bottomSwitchText}>Already have an account?</Text>
-          <Text style={stylesThemed.bottomSwitchLink}>Sign In</Text>
+          <Text style={stylesThemed.bottomSwitchText}>{t("auth.haveAccount")}</Text>
+          <Text style={stylesThemed.bottomSwitchLink}>{t("auth.signInLink")}</Text>
         </Pressable>
       ) : null}
     </ScrollView>

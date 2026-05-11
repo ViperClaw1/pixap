@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -17,8 +18,8 @@ import type { CartStackParamList } from "@/navigation/types";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 
-function fullName(first?: string | null, last?: string | null) {
-  return `${first?.trim() ?? ""} ${last?.trim() ?? ""}`.trim() || "Unknown user";
+function fullName(first?: string | null, last?: string | null, emptyLabel = "Unknown user") {
+  return `${first?.trim() ?? ""} ${last?.trim() ?? ""}`.trim() || emptyLabel;
 }
 
 function formatRelativeTime(value: string) {
@@ -37,6 +38,8 @@ function formatRelativeTime(value: string) {
 const SKELETON_IDS = ["1", "2", "3"] as const;
 
 export default function MessagesPage() {
+  const { t } = useTranslation();
+  const unknownLabel = t("common.unknownUser");
   const navigation = useNavigation<NativeStackNavigationProp<CartStackParamList>>();
   const insets = useSafeAreaInsets();
   const { colors, mode, setMode } = useAppTheme();
@@ -65,16 +68,16 @@ export default function MessagesPage() {
         if (result.skipped) return;
         Toast.show({
           type: "success",
-          text1: result.nowFollowing ? "Added to followers" : "Removed from followers",
-          text2: `@${person.username?.trim() || "unknown"}`,
+          text1: result.nowFollowing ? t("messages.toastAddedFollowers") : t("messages.toastRemovedFollowers"),
+          text2: `@${person.username?.trim() || unknownLabel}`,
         });
       })
       .catch((error) => {
         console.warn("toggle follow failed", error);
         Toast.show({
           type: "error",
-          text1: "Follow action failed",
-          text2: error instanceof Error ? error.message : "Please try again.",
+          text1: t("messages.toastFollowFailed"),
+          text2: error instanceof Error ? error.message : t("messages.toastTryAgain"),
         });
       });
   };
@@ -101,8 +104,8 @@ export default function MessagesPage() {
         console.warn("open chat failed", error);
         Toast.show({
           type: "error",
-          text1: "Could not open chat",
-          text2: error instanceof Error ? error.message : "Please try again.",
+          text1: t("messages.toastCouldNotOpenChat"),
+          text2: error instanceof Error ? error.message : t("messages.toastTryAgain"),
         });
       });
   };
@@ -113,10 +116,10 @@ export default function MessagesPage() {
   );
 
   const onDeleteThread = (threadId: string, title: string) => {
-    Alert.alert("Delete chat", `Delete chat with "${title}"?`, [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("messages.deleteChatTitle"), t("messages.deleteChatMessage", { name: title }), [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Delete",
+        text: t("common.delete"),
         style: "destructive",
         onPress: () => {
           setDeletedThreadIds((prev) => {
@@ -126,8 +129,8 @@ export default function MessagesPage() {
           });
           Toast.show({
             type: "success",
-            text1: "Chat deleted",
-            text2: `"${title}" removed from your list`,
+            text1: t("messages.toastChatDeleted"),
+            text2: t("messages.toastChatRemoved", { title }),
           });
         },
       },
@@ -422,7 +425,7 @@ export default function MessagesPage() {
   return (
     <ScrollView style={stylesThemed.root} contentContainerStyle={stylesThemed.content}>
       <AppHeader
-        title="Messages"
+        title={t("header.messages")}
         leftIcon="add"
         onLeftPress={() => setStartChatModalOpen(true)}
         rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
@@ -434,14 +437,14 @@ export default function MessagesPage() {
         <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Search chats and users"
+          placeholder={t("messages.searchPlaceholder")}
           placeholderTextColor={colors.textMuted}
           style={stylesThemed.searchInput}
         />
       </View>
 
       <View style={stylesThemed.sectionHeader}>
-        <Text style={stylesThemed.sectionTitle}>My chats</Text>
+        <Text style={stylesThemed.sectionTitle}>{t("messages.myChats")}</Text>
       </View>
       {isPageLoading ? (
         <ShimmerProvider active>
@@ -466,7 +469,7 @@ export default function MessagesPage() {
               <View style={stylesThemed.swipeActionWrap}>
                 <Pressable
                   style={[stylesThemed.swipeActionBtn, stylesThemed.swipeDeleteBtn]}
-                  onPress={() => onDeleteThread(thread.thread_id, thread.last_sender_name || "Unknown user")}
+                  onPress={() => onDeleteThread(thread.thread_id, thread.last_sender_name || unknownLabel)}
                 >
                   <Ionicons name="trash-outline" size={22} color="#ffffff" />
                 </Pressable>
@@ -514,11 +517,11 @@ export default function MessagesPage() {
           </Swipeable>
         ))
       ) : (
-        <Text style={stylesThemed.empty}>No chats found.</Text>
+        <Text style={stylesThemed.empty}>{t("messages.noChatsFound")}</Text>
       )}
 
       <View style={stylesThemed.sectionHeader}>
-        <Text style={stylesThemed.sectionTitle}>People to follow</Text>
+        <Text style={stylesThemed.sectionTitle}>{t("messages.peopleToFollow")}</Text>
       </View>
       {isPageLoading ? (
         <ShimmerProvider active>
@@ -562,15 +565,15 @@ export default function MessagesPage() {
               <SmartImage uri={person.avatar_url} style={stylesThemed.avatar} contentFit="cover" />
               <View style={stylesThemed.cardMain}>
                 <Text style={stylesThemed.title} numberOfLines={1}>
-                  {fullName(person.first_name, person.last_name)}
+                  {fullName(person.first_name, person.last_name, unknownLabel)}
                 </Text>
                 <View style={stylesThemed.userMetaRow}>
                   <Text style={stylesThemed.username} numberOfLines={1}>
-                    @{person.username?.trim() || "unknown"}
+                    @{person.username?.trim() || unknownLabel}
                   </Text>
                   {followingSet.has(person.id) ? (
                     <View style={stylesThemed.followedBadge}>
-                      <Text style={stylesThemed.followedBadgeText}>Followed</Text>
+                      <Text style={stylesThemed.followedBadgeText}>{t("messages.followed")}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -587,13 +590,13 @@ export default function MessagesPage() {
           </Swipeable>
         ))
       ) : (
-        <Text style={stylesThemed.empty}>No users found.</Text>
+        <Text style={stylesThemed.empty}>{t("messages.noUsersFound")}</Text>
       )}
 
-      <BottomSheetPickerModal visible={startChatModalOpen} onClose={() => setStartChatModalOpen(false)} title="Start chat">
+      <BottomSheetPickerModal visible={startChatModalOpen} onClose={() => setStartChatModalOpen(false)} title={t("messages.startChatTitle")}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>
           {publicProfilesLoading ? (
-            <Text style={stylesThemed.empty}>Loading...</Text>
+            <Text style={stylesThemed.empty}>{t("common.loading")}</Text>
           ) : publicProfiles.filter((profile) => profile.id !== user?.id).length ? (
             publicProfiles
               .filter((profile) => profile.id !== user?.id)
@@ -602,10 +605,10 @@ export default function MessagesPage() {
                   <SmartImage uri={item.avatar_url} style={stylesThemed.avatar} contentFit="cover" />
                   <View style={stylesThemed.cardMain}>
                     <Text style={stylesThemed.title} numberOfLines={1}>
-                      {fullName(item.first_name, item.last_name)}
+                      {fullName(item.first_name, item.last_name, unknownLabel)}
                     </Text>
                     <Text style={stylesThemed.username} numberOfLines={1}>
-                      @{item.username?.trim() || "unknown"}
+                      @{item.username?.trim() || unknownLabel}
                     </Text>
                   </View>
                   <Pressable style={[stylesThemed.iconActionBtn, stylesThemed.chatBtn]} onPress={() => onOpenChat(item)}>
@@ -614,7 +617,7 @@ export default function MessagesPage() {
                 </View>
               ))
           ) : (
-            <Text style={stylesThemed.empty}>No users found.</Text>
+            <Text style={stylesThemed.empty}>{t("messages.noUsersFound")}</Text>
           )}
         </ScrollView>
       </BottomSheetPickerModal>

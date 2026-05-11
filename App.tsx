@@ -9,6 +9,7 @@ import { AppProviders } from "@/app";
 import AppNavigator from "@/navigation/AppNavigator";
 import { linking } from "@/navigation/linking";
 import { rootNavigationRef } from "@/navigation/rootNavigationRef";
+import { initI18n } from "@/shared/lib/i18n";
 import { subscribeSupabaseAuthDeepLinks } from "@/shared/lib/subscribeSupabaseAuthDeepLinks";
 import PermissionsOnboardingScreen from "@/pages/permissions-onboarding";
 import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/shared/lib/permissionsStorage";
@@ -61,6 +62,7 @@ export default function App() {
   useEffect(() => {
     void (async () => {
       try {
+        await initI18n();
         const seen = await hasSeenPermissionsIntro();
         setShowPerms(!seen);
       } catch (error) {

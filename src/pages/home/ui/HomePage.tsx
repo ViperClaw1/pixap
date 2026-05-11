@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
@@ -38,6 +39,7 @@ import {
   RecommendedSkeletonList,
 } from "@/shared/ui/shimmer";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
+import { LanguagePickerModal } from "@/shared/ui/app-header/LanguagePickerModal";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, "HomeMain">,
@@ -84,6 +86,7 @@ function CategoryPillIcon({ spec, color, size }: { spec: CategoryIconSpec; color
 
 export default function HomeScreen() {
   const RECOMMENDED_BATCH_SIZE = 20;
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -92,6 +95,7 @@ export default function HomeScreen() {
   const updateProfile = useUpdateProfile();
   const [selectedCity, setSelectedCity] = useState(ALL_CITIES_OPTION);
   const [cityModalVisible, setCityModalVisible] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
   const [citySearchQuery, setCitySearchQuery] = useState("");
   const [visibleRecommendedCount, setVisibleRecommendedCount] = useState(RECOMMENDED_BATCH_SIZE);
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
@@ -139,7 +143,7 @@ export default function HomeScreen() {
       await updateProfile.mutateAsync({ city: city === ALL_CITIES_OPTION ? null : city });
     } catch {
       setSelectedCity(previous);
-      Alert.alert("Could not save city", "Please try again.");
+      Alert.alert(t("home.alerts.citySaveTitle"), t("home.alerts.citySaveBody"));
     }
   };
 
@@ -334,7 +338,7 @@ export default function HomeScreen() {
             <Pressable
               style={stylesThemed.aiBookingBtn}
               accessibilityRole="button"
-              accessibilityLabel="Open PixAI Smart Booking"
+              accessibilityLabel={t("home.a11y.openPixaiBooking")}
               onPress={() => navigation.navigate("AIBooking")}
             >
               <Ionicons name="sparkles" size={18} color={isDark ? "#0a0a0a" : "#ffffff"} />
@@ -350,14 +354,23 @@ export default function HomeScreen() {
             <Pressable
               style={stylesThemed.vibeMatchBtn}
               accessibilityRole="button"
-              accessibilityLabel="Open PixAI Vibe Match"
+              accessibilityLabel={t("home.a11y.openPixaiVibeMatch")}
               onPress={() => navigation.navigate("VibeMatch")}
             >
               <Ionicons name="color-filter" size={20} color={colors.primary} />
             </Pressable>
+            <Pressable
+              style={stylesThemed.vibeMatchBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t("language.choose")}
+              onPress={() => setLanguageOpen(true)}
+            >
+              <Ionicons name="language-outline" size={20} color={colors.text} />
+            </Pressable>
             <ThemeToggle />
           </View>
         </View>
+        <LanguagePickerModal visible={languageOpen} onClose={() => setLanguageOpen(false)} />
         <Pressable
           style={stylesThemed.citySelector}
           onPress={() => {
@@ -365,14 +378,16 @@ export default function HomeScreen() {
             setCityModalVisible(true);
           }}
         >
-          <Text style={stylesThemed.citySelectorText}>{selectedCity}</Text>
+          <Text style={stylesThemed.citySelectorText}>
+            {selectedCity === ALL_CITIES_OPTION ? t("home.allCities") : selectedCity}
+          </Text>
         </Pressable>
 
         <Pressable style={stylesThemed.searchBtn} onPress={() => navigation.navigate("SearchMain")}>
-          <Text style={stylesThemed.searchBtnText}>Search restaurants, salons, events…</Text>
+          <Text style={stylesThemed.searchBtnText}>{t("home.searchPlaceholder")}</Text>
         </Pressable>
 
-        <Text style={stylesThemed.sectionTitle}>Categories</Text>
+        <Text style={stylesThemed.sectionTitle}>{t("home.categories")}</Text>
         {lc ? (
           <CategorySkeletonRow />
         ) : (
@@ -400,9 +415,9 @@ export default function HomeScreen() {
         )}
 
         <View style={stylesThemed.sectionRow}>
-          <Text style={stylesThemed.sectionTitle}>Featured</Text>
+          <Text style={stylesThemed.sectionTitle}>{t("home.featured")}</Text>
           <Pressable onPress={() => navigation.navigate("SearchMain")}>
-            <Text style={stylesThemed.link}>See all</Text>
+            <Text style={stylesThemed.link}>{t("home.seeAll")}</Text>
           </Pressable>
         </View>
         {lf ? (
@@ -427,7 +442,7 @@ export default function HomeScreen() {
           />
         )}
 
-        <Text style={[stylesThemed.sectionTitle, { marginTop: 20 }]}>Recommended</Text>
+        <Text style={[stylesThemed.sectionTitle, { marginTop: 20 }]}>{t("home.recommended")}</Text>
         {lr ? (
           <RecommendedSkeletonList cardWidth={recommendedCardWidth} />
         ) : (
@@ -448,7 +463,7 @@ export default function HomeScreen() {
                 style={stylesThemed.showMoreBtn}
                 onPress={() => setVisibleRecommendedCount((prev) => prev + RECOMMENDED_BATCH_SIZE)}
               >
-                <Text style={stylesThemed.showMoreBtnText}>Show More</Text>
+                <Text style={stylesThemed.showMoreBtnText}>{t("home.showMore")}</Text>
               </Pressable>
             ) : null}
           </>
@@ -461,7 +476,7 @@ export default function HomeScreen() {
           setCitySearchQuery("");
           setCityModalVisible(false);
         }}
-        title="Choose city"
+        title={t("home.chooseCity")}
         maxHeightFraction={0.72}
       >
         <View style={stylesThemed.citySearchBox}>
@@ -469,7 +484,7 @@ export default function HomeScreen() {
           <TextInput
             value={citySearchQuery}
             onChangeText={setCitySearchQuery}
-            placeholder="Search country or city…"
+            placeholder={t("home.citySearchPlaceholder")}
             placeholderTextColor={colors.textMuted}
             style={stylesThemed.citySearchInput}
             autoCorrect={false}
@@ -484,8 +499,8 @@ export default function HomeScreen() {
             style={stylesThemed.cityRow}
             onPress={() => void handleSelectCity(ALL_CITIES_OPTION)}
           >
-            <Text style={stylesThemed.cityRowText}>{ALL_CITIES_OPTION}</Text>
-            {selectedCity === ALL_CITIES_OPTION ? <Text style={stylesThemed.cityCheck}>Selected</Text> : null}
+            <Text style={stylesThemed.cityRowText}>{t("home.allCities")}</Text>
+            {selectedCity === ALL_CITIES_OPTION ? <Text style={stylesThemed.cityCheck}>{t("home.selected")}</Text> : null}
           </Pressable>
         ) : null}
 
@@ -497,7 +512,7 @@ export default function HomeScreen() {
             {cities.map((city) => (
               <Pressable key={city} style={stylesThemed.cityRow} onPress={() => void handleSelectCity(city)}>
                 <Text style={stylesThemed.cityRowText}>{city}</Text>
-                {city === selectedCity ? <Text style={stylesThemed.cityCheck}>Selected</Text> : null}
+                {city === selectedCity ? <Text style={stylesThemed.cityCheck}>{t("home.selected")}</Text> : null}
               </Pressable>
             ))}
           </View>
@@ -505,7 +520,7 @@ export default function HomeScreen() {
 
         {!showAllCitiesOption && filteredCityGroups.length === 0 ? (
           <View style={stylesThemed.cityPickerEmpty}>
-            <Text style={stylesThemed.cityPickerEmptyText}>No cities match your search.</Text>
+            <Text style={stylesThemed.cityPickerEmptyText}>{t("home.noCitiesMatch")}</Text>
           </View>
         ) : null}
       </BottomSheetPickerModal>

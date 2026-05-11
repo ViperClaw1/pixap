@@ -1,4 +1,4 @@
-const APP_LOGO_URL = "https://ylcyktbppowabnxuwdrr.supabase.co/storage/v1/object/public/logo/pixap-logo.png";
+const APP_LOGO_URL = "https://ylcyktbppowabnxuwdrr.supabase.co/storage/v1/object/public/logo/icon.png";
 const APP_NAME = "Pixap";
 
 function escapeHtml(value: string): string {

@@ -1,0 +1,176 @@
+{
+  "language": {
+    "choose": "Langue de l'interface",
+    "en": "Anglais",
+    "es": "Espagnol",
+    "pt": "Portugais",
+    "fr": "Français",
+    "de": "Allemand"
+  },
+  "header": {
+    "bookings": "Réservations",
+    "editProfile": "Modifier le profil",
+    "messages": "Messages",
+    "favorites": "Favoris",
+    "profile": "Profil",
+    "feed": "Fil"
+  },
+  "favorites": {
+    "empty": "Pas encore de favoris"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "unknownError": "Erreur inconnue",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "unknownUser": "Utilisateur inconnu"
+  },
+  "home": {
+    "searchPlaceholder": "Rechercher restaurants, salons, événements…",
+    "categories": "Catégories",
+    "featured": "À la une",
+    "seeAll": "Tout voir",
+    "recommended": "Recommandés",
+    "showMore": "Afficher plus",
+    "chooseCity": "Choisir une ville",
+    "citySearchPlaceholder": "Rechercher un pays ou une ville…",
+    "selected": "Sélectionné",
+    "noCitiesMatch": "Aucune ville ne correspond à votre recherche.",
+    "allCities": "Toutes les villes",
+    "alerts": {
+      "citySaveTitle": "Impossible d'enregistrer la ville",
+      "citySaveBody": "Veuillez réessayer."
+    },
+    "a11y": {
+      "openPixaiBooking": "Ouvrir la réservation intelligente PixAI",
+      "openPixaiVibeMatch": "Ouvrir PixAI Vibe Match"
+    }
+  },
+  "notFound": {
+    "title": "Page introuvable",
+    "goHome": "Retour à l'accueil"
+  },
+  "search": {
+    "placeholder": "Rechercher…"
+  },
+  "category": {
+    "fallbackName": "Catégorie"
+  },
+  "messages": {
+    "searchPlaceholder": "Rechercher des discussions et des utilisateurs",
+    "myChats": "Mes discussions",
+    "peopleToFollow": "Personnes à suivre",
+    "noChatsFound": "Aucune discussion trouvée.",
+    "noUsersFound": "Aucun utilisateur trouvé.",
+    "startChatTitle": "Démarrer une discussion",
+    "deleteChatTitle": "Supprimer la discussion",
+    "deleteChatMessage": "Supprimer la discussion avec « {{name}} » ?",
+    "toastChatDeleted": "Discussion supprimée",
+    "toastChatRemoved": "« {{title}} » retiré de votre liste",
+    "toastAddedFollowers": "Ajouté aux abonnés",
+    "toastRemovedFollowers": "Retiré des abonnés",
+    "toastFollowFailed": "Échec de l'action Suivre",
+    "toastTryAgain": "Veuillez réessayer.",
+    "toastCouldNotOpenChat": "Impossible d'ouvrir la discussion",
+    "followed": "Suivi"
+  },
+  "bookings": {
+    "filter": {
+      "draft": "brouillon",
+      "confirmed": "confirmée",
+      "cancelled": "annulée",
+      "completed": "terminée",
+      "paymentAwaiting": "paiement en attente"
+    },
+    "toastStatusUpdated": "Statut de la réservation mis à jour",
+    "loading": "Chargement...",
+    "paymentLinkMissingTitle": "Lien de paiement manquant",
+    "paymentLinkMissingBody": "L'établissement n'a pas encore fourni l'URL de paiement.",
+    "cannotOpenPaymentLink": "Impossible d'ouvrir le lien de paiement",
+    "cancelBookingTitle": "Annuler la réservation",
+    "cancelBookingMessage": "Voulez-vous annuler cette réservation ?",
+    "no": "Non",
+    "yesCancel": "Oui, annuler",
+    "cancel": "Annuler",
+    "persons": "Personnes : {{count}}",
+    "comment": "Commentaire : {{text}}",
+    "payment": "Paiement : {{state}}",
+    "paymentPending": "En attente",
+    "paymentPaid": "Payé",
+    "pay": "Payer",
+    "waitingForVenue": "En attente de réponse de l'établissement",
+    "noBookings": "Aucune réservation",
+    "choosePlace": "Choisir un lieu",
+    "noTags": "Aucun tag",
+    "book": "Réserver",
+    "noPlacesYet": "Pas encore de lieux",
+    "defaultVenueName": "Réservation"
+  },
+  "cart": {
+    "title": "Panier",
+    "tabServices": "Services",
+    "tabShopping": "Shopping",
+    "emptyPaymentAwaiting": "Aucune réservation en attente de paiement dans le panier",
+    "emptyShopping": "Aucun article",
+    "total": "Total",
+    "opening": "Ouverture…",
+    "checkAvailability": "Vérifier la disponibilité avec le vendeur",
+    "bookingConfirmedTitle": "Réservation confirmée",
+    "bookingConfirmedBody": "Votre réservation est enregistrée dans Réservations.",
+    "couldNotConfirm": "Impossible de confirmer",
+    "paymentLinkMissing": "Lien de paiement manquant",
+    "paymentLinkMissingBody": "L'établissement n'a pas encore fourni de lien de paiement.",
+    "couldNotOpenPaymentLink": "Impossible d'ouvrir le lien de paiement"
+  },
+  "auth": {
+    "titleLogin": "Bon retour",
+    "titleSignup": "Créer un compte",
+    "titleForgot": "Réinitialiser le mot de passe",
+    "helperForgot": "Entrez votre e-mail pour le lien de réinitialisation",
+    "helperDefault": "Connectez-vous pour continuer",
+    "placeholderFirstName": "Prénom",
+    "placeholderLastName": "Nom",
+    "placeholderEmail": "Adresse e-mail",
+    "placeholderPassword": "Mot de passe",
+    "placeholderConfirmPassword": "Confirmer le mot de passe",
+    "inlineEmailRequired": "L'e-mail est obligatoire.",
+    "inlineEmailInvalid": "Veuillez entrer une adresse e-mail valide.",
+    "inlinePasswordsMismatch": "Les mots de passe ne correspondent pas.",
+    "ruleMinLength": "Au moins 8 caractères",
+    "ruleUppercase": "Au moins 1 majuscule",
+    "ruleDigit": "Au moins un chiffre",
+    "ruleSpecial": "Au moins un caractère spécial",
+    "btnSignIn": "Se connecter",
+    "btnSignUp": "S'inscrire",
+    "btnSendReset": "Envoyer le lien",
+    "forgotPassword": "Mot de passe oublié ?",
+    "backToSignIn": "Retour à la connexion",
+    "or": "ou",
+    "continueGoogle": "Continuer avec Google",
+    "continueApple": "Continuer avec Apple",
+    "noAccount": "Pas encore de compte ?",
+    "signUpLink": "S'inscrire",
+    "haveAccount": "Déjà un compte ?",
+    "signInLink": "Se connecter",
+    "alerts": {
+      "appleUnavailableTitle": "Apple Sign-In indisponible",
+      "appleUnavailableBody": "Apple Sign-In n'est pas disponible sur cet appareil.",
+      "signInFailed": "Échec de la connexion",
+      "appleNoToken": "Apple n'a pas renvoyé de jeton d'identité.",
+      "signInCancelled": "Connexion annulée ou échouée",
+      "oauthError": "Erreur OAuth",
+      "unknown": "Inconnu",
+      "validationTitle": "Erreur de validation",
+      "emailRequired": "L'e-mail est obligatoire.",
+      "emailInvalid": "Veuillez entrer une adresse e-mail valide.",
+      "passwordPolicy": "Le mot de passe ne respecte pas les exigences de sécurité.",
+      "passwordsMismatch": "Les mots de passe ne correspondent pas.",
+      "emailAlreadyRegisteredTitle": "E-mail déjà enregistré",
+      "emailAlreadyRegisteredBody": "Un compte existe déjà avec cet e-mail. Connectez-vous ou réinitialisez votre mot de passe.",
+      "signUpFailed": "Échec de l'inscription",
+      "signUpAutoSignInFailedTitle": "Inscription terminée",
+      "signUpAutoSignInFailedBody": "Le compte a été créé, mais la connexion automatique a échoué. Connectez-vous manuellement.",
+      "errorTitle": "Erreur"
+    }
+  }
+}

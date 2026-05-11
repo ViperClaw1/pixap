@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { View, Text, TextInput, FlatList, Pressable, StyleSheet } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
@@ -13,6 +14,7 @@ import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullS
 type Nav = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
 
 export default function SearchScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
@@ -62,7 +64,7 @@ export default function SearchScreen() {
     <View style={[stylesThemed.root, { paddingTop: Math.max(insets.top, 12) }]} {...androidSwipeBackPanHandlers}>
       <TextInput
         style={stylesThemed.input}
-        placeholder="Search…"
+        placeholder={t("search.placeholder")}
         value={q}
         onChangeText={setQ}
         placeholderTextColor={colors.textMuted}

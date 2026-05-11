@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -11,6 +12,7 @@ import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "NotFound">;
 
 export default function NotFoundScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
@@ -39,9 +41,9 @@ export default function NotFoundScreen() {
 
   return (
     <View style={stylesThemed.root}>
-      <Text style={stylesThemed.title}>Page not found</Text>
+      <Text style={stylesThemed.title}>{t("notFound.title")}</Text>
       <Pressable style={stylesThemed.btn} onPress={() => navigateToHomeMain(navigation)}>
-        <Text style={stylesThemed.btnText}>Go home</Text>
+        <Text style={stylesThemed.btnText}>{t("notFound.goHome")}</Text>
       </Pressable>
     </View>
   );

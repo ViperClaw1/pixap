@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
@@ -75,6 +76,7 @@ function bytesFromBase64(base64: string): Uint8Array {
 }
 
 function EditProfileScreenContent() {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
@@ -480,7 +482,7 @@ function EditProfileScreenContent() {
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       >
         <AppHeader
-          title="Edit profile"
+          title={t("header.editProfile")}
           leftIcon="arrow-back"
           onLeftPress={() => navigation.goBack()}
           rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}

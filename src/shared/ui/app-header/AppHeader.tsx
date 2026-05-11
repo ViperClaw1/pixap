@@ -1,8 +1,10 @@
-import { memo } from "react";
+import { memo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/contexts/ThemeContext";
+import { LanguagePickerModal } from "@/shared/ui/app-header/LanguagePickerModal";
 
 type AppHeaderProps = {
   title: string;
@@ -15,6 +17,10 @@ type AppHeaderProps = {
 function AppHeaderComponent({ title, leftIcon, onLeftPress, rightIcon, onRightPress }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
+  const { t } = useTranslation();
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const hasRightAction = Boolean(rightIcon && onRightPress);
+  const titleInsetEnd = 12 + 34 + (hasRightAction ? 6 + 34 : 0) + 8;
 
   return (
     <View style={[styles.wrap, { paddingTop: Math.max(insets.top, 10), borderBottomColor: colors.border, backgroundColor: colors.background }]}>
@@ -22,17 +28,26 @@ function AppHeaderComponent({ title, leftIcon, onLeftPress, rightIcon, onRightPr
         <Pressable style={[styles.iconBtn, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={onLeftPress}>
           <Ionicons name={leftIcon} size={20} color={colors.text} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+        <Text style={[styles.title, { color: colors.text, left: 56, right: titleInsetEnd }]} numberOfLines={1}>
           {title}
         </Text>
-        {rightIcon && onRightPress ? (
-          <Pressable style={[styles.iconBtn, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={onRightPress}>
-            <Ionicons name={rightIcon} size={20} color={colors.text} />
+        <View style={styles.rightActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("language.choose")}
+            style={[styles.iconBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+            onPress={() => setLanguageOpen(true)}
+          >
+            <Ionicons name="language-outline" size={20} color={colors.text} />
           </Pressable>
-        ) : (
-          <View style={styles.iconBtnPlaceholder} />
-        )}
+          {hasRightAction ? (
+            <Pressable style={[styles.iconBtn, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={onRightPress}>
+              <Ionicons name={rightIcon} size={20} color={colors.text} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
+      <LanguagePickerModal visible={languageOpen} onClose={() => setLanguageOpen(false)} />
     </View>
   );
 }
@@ -51,6 +66,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  rightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    zIndex: 1,
+  },
   iconBtn: {
     width: 34,
     height: 34,
@@ -60,14 +81,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 1,
   },
-  iconBtnPlaceholder: {
-    width: 34,
-    height: 34,
-  },
   title: {
     position: "absolute",
-    left: 56,
-    right: 56,
     textAlign: "center",
     fontSize: 24,
     fontWeight: "800",

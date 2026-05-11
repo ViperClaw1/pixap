@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
@@ -171,6 +172,7 @@ const PostMediaCarousel = memo(function PostMediaCarousel({
 });
 
 export default function StoriesFeedScreen() {
+  const { t } = useTranslation();
   const { colors, isDark, mode, setMode } = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<BrowseFlowParamList>>();
   const rootNavigation = useNavigation<NavigationProp<RootTabParamList>>();
@@ -694,7 +696,7 @@ export default function StoriesFeedScreen() {
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={[]}>
       <AppHeader
-        title="Feed"
+        title={t("header.feed")}
         leftIcon="add"
         onLeftPress={openCreateMenu}
         rightIcon={isDark ? "sunny-outline" : "moon-outline"}
