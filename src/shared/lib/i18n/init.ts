@@ -58,7 +58,9 @@ export function initI18n(): Promise<void> {
       fallbackLng: "en",
       supportedLngs: [...APP_LANGUAGES],
       compatibilityJSON: "v4",
+      ignoreJSONStructure: false,
       interpolation: { escapeValue: false },
+      react: { useSuspense: false },
     });
 
     i18n.on("languageChanged", (next) => {

@@ -29,7 +29,6 @@ import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { supabase } from "@/shared/api/supabase/client";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import type { ThemeMode } from "@/contexts/ThemeContext";
-import Toast from "react-native-toast-message";
 import {
   APPLE_SUBSCRIPTION_URL,
   GOOGLE_SUBSCRIPTION_URL,
@@ -57,7 +56,7 @@ function ProfileScreenContent() {
   const route = useRoute<RouteProp<ProfileStackParamList, "ProfileMain">>();
   const insets = useSafeAreaInsets();
   const { colors, mode, setMode } = useAppTheme();
-  const { user, loading, signOut, resendVerification } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const { data: profile } = useProfile();
   const { data: notifications = [], isLoading: loadingNotifications } = useNotifications();
   const { data: favorites = [] } = useFavorites();
@@ -585,25 +584,7 @@ function ProfileScreenContent() {
 
   const userName = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || "User";
   const isEmailVerified = Boolean(profile?.is_verified);
-  const emailForVerification = (profile?.email ?? user?.email ?? "").trim();
   const warningColor = "#f59e0b";
-
-  const handleSendVerification = async () => {
-    if (!emailForVerification) {
-      Toast.show({ type: "error", text1: "Verification failed", text2: "Email is missing for this account." });
-      return;
-    }
-    const { error } = await resendVerification(emailForVerification);
-    if (error) {
-      Toast.show({ type: "error", text1: "Verification failed", text2: error });
-      return;
-    }
-    Toast.show({
-      type: "success",
-      text1: "Verification sent",
-      text2: "Please check your email and open the verification link.",
-    });
-  };
   const openPrivacy = () => {
     void Linking.openURL(PRIVACY_URL);
   };
@@ -890,7 +871,7 @@ function ProfileScreenContent() {
                 </Text>
               </View>
               {!isEmailVerified ? (
-                <Pressable style={stylesThemed.verifyBtn} onPress={() => void handleSendVerification()}>
+                <Pressable style={stylesThemed.verifyBtn} onPress={() => navigation.navigate("VerifyEmailOtp", { flow: "verify" })}>
                   <Text style={stylesThemed.verifyBtnText}>Verify</Text>
                 </Pressable>
               ) : null}

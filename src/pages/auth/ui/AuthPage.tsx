@@ -48,7 +48,7 @@ export default function AuthScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { colors, mode: themeMode } = useAppTheme();
-  const { user, loading: authLoading, signIn, signUp, resetPassword } = useAuth();
+  const { user, loading: authLoading, signIn, signUp } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffsetYRef = useRef(0);
   const activeInputRef = useRef<TextInput | null>(null);
@@ -380,9 +380,7 @@ export default function AuthScreen() {
         Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.emailInvalid"));
         return;
       }
-      const { error } = await resetPassword(email);
-      if (error) Alert.alert(t("auth.alerts.errorTitle"), error);
-      else navigation.navigate("PasswordResetSent", { email: email.trim() });
+      navigation.navigate("VerifyEmailOtp", { flow: "recovery", email: email.trim() });
     } finally {
       setLoading(false);
     }

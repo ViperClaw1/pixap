@@ -76,6 +76,12 @@ export type ProfileStackParamList = {
   Auth: undefined;
   AuthEmailSent: { email: string } | undefined;
   AuthEmailCallback: { href?: string } | undefined;
+  VerifyEmailOtp:
+    | {
+        flow?: "verify" | "recovery";
+        email?: string;
+      }
+    | undefined;
   ResetPassword: undefined;
   PasswordResetSent: { email: string } | undefined;
   EditProfile: undefined;

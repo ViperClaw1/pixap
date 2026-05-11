@@ -21,6 +21,7 @@ import ProfileScreen from "@/pages/profile";
 import AuthScreen from "@/pages/auth";
 import AuthEmailSentScreen from "@/pages/auth-email-sent";
 import AuthEmailCallbackScreen from "@/pages/auth-email-callback";
+import VerifyEmailOtpScreen from "@/pages/verify-email-otp";
 import ResetPasswordScreen from "@/pages/reset-password";
 import PasswordResetSentScreen from "@/pages/password-reset-sent";
 import OAuthCallbackScreen from "@/pages/oauth-callback";
@@ -97,6 +98,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="Auth" component={AuthScreen} />
       <ProfileStack.Screen name="AuthEmailSent" component={AuthEmailSentScreen} />
       <ProfileStack.Screen name="AuthEmailCallback" component={AuthEmailCallbackScreen} />
+      <ProfileStack.Screen name="VerifyEmailOtp" component={VerifyEmailOtpScreen} options={fullWidthSwipeBackOptions} />
       <ProfileStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <ProfileStack.Screen name="PasswordResetSent" component={PasswordResetSentScreen} />
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} options={fullWidthSwipeBackOptions} />

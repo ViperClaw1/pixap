@@ -1,13 +1,32 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { buildVerifyEmailHtml } from "../_shared/authEmailTemplates.ts";
-import { isValidEmail, jsonHeaders, normalizeEmail, withFlowQuery } from "../_shared/authEmail.ts";
+import { buildVerifyOtpEmailHtml } from "../_shared/authEmailTemplates.ts";
+import { isValidEmail, jsonHeaders, normalizeEmail } from "../_shared/authEmail.ts";
 import { sendResendEmail } from "../_shared/resend.ts";
 
 type VerifyBody = {
   email?: string;
-  redirectTo?: string;
 };
+
+const OTP_TABLE = "email_verification_otp_codes";
+const OTP_TTL_MINUTES = 10;
+
+function toHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function generateOtpCode(): string {
+  const value = Math.floor(Math.random() * 1_000_000);
+  return String(value).padStart(6, "0");
+}
+
+async function hashOtp(code: string, secret: string): Promise<string> {
+  const payload = new TextEncoder().encode(`${code}:${secret}`);
+  const digest = await crypto.subtle.digest("SHA-256", payload);
+  return toHex(digest);
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { status: 204, headers: corsHeaders });
@@ -17,7 +36,8 @@ Deno.serve(async (req) => {
 
   const url = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!url || !serviceRoleKey) {
+  const otpSecret = Deno.env.get("EMAIL_OTP_SECRET") ?? "";
+  if (!url || !serviceRoleKey || !otpSecret) {
     return new Response(JSON.stringify({ error: "Server misconfigured" }), { status: 500, headers: jsonHeaders() });
   }
 
@@ -29,23 +49,67 @@ Deno.serve(async (req) => {
   }
 
   const email = normalizeEmail(body.email);
-  const redirectTo = (body.redirectTo ?? "").trim();
-  if (!email || !redirectTo || !isValidEmail(email)) {
-    return new Response(JSON.stringify({ error: "Invalid email or redirect URL" }), { status: 400, headers: jsonHeaders() });
+  if (!email || !isValidEmail(email)) {
+    return new Response(JSON.stringify({ error: "Invalid email" }), { status: 400, headers: jsonHeaders() });
+  }
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders() });
+  }
+
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders() });
+  }
+
+  const authedClient = createClient(url, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+  const {
+    data: { user },
+    error: userError,
+  } = await authedClient.auth.getUser(token);
+  if (userError || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders() });
+  }
+
+  if (normalizeEmail(user.email) !== email) {
+    return new Response(JSON.stringify({ error: "Email does not match your account" }), {
+      status: 403,
+      headers: jsonHeaders(),
+    });
   }
 
   const admin = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
-  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    // Use magiclink for existing users; signup links may fail once account already exists/confirmed.
-    type: "magiclink",
-    email,
-    options: {
-      redirectTo: withFlowQuery(redirectTo, "verify"),
-    },
-  });
+  const code = generateOtpCode();
+  const codeHash = await hashOtp(code, otpSecret);
+  const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
+  const userName =
+    (user.user_metadata?.first_name as string | undefined)?.trim() ||
+    (user.user_metadata?.name as string | undefined)?.trim() ||
+    undefined;
 
-  if (linkError || !linkData.properties?.action_link) {
-    return new Response(JSON.stringify({ error: linkError?.message ?? "Failed to generate verify link" }), {
+  const { error: cleanupError } = await admin
+    .from(OTP_TABLE)
+    .delete()
+    .eq("user_id", user.id)
+    .is("used_at", null);
+  if (cleanupError) {
+    return new Response(JSON.stringify({ error: "Failed to create verification code" }), {
+      status: 500,
+      headers: jsonHeaders(),
+    });
+  }
+
+  const { error: insertError } = await admin.from(OTP_TABLE).insert({
+    user_id: user.id,
+    email,
+    code_hash: codeHash,
+    expires_at: expiresAt,
+  });
+  if (insertError) {
+    return new Response(JSON.stringify({ error: "Failed to create verification code" }), {
       status: 500,
       headers: jsonHeaders(),
     });
@@ -54,8 +118,8 @@ Deno.serve(async (req) => {
   try {
     await sendResendEmail({
       to: email,
-      subject: "Verify your Pixap email",
-      html: buildVerifyEmailHtml(linkData.properties.action_link),
+      subject: "Verify your email",
+      html: buildVerifyOtpEmailHtml({ code, name: userName, subject: "Verify your email" }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to send verification email";
@@ -65,6 +129,6 @@ Deno.serve(async (req) => {
     });
   }
 
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: jsonHeaders() });
+  return new Response(JSON.stringify({ ok: true, expiresInMinutes: OTP_TTL_MINUTES }), { status: 200, headers: jsonHeaders() });
 });
 
