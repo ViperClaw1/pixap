@@ -8,15 +8,23 @@ import { useAppTheme } from "@/contexts/ThemeContext";
 import { AppProviders } from "@/app";
 import AppNavigator from "@/navigation/AppNavigator";
 import { linking } from "@/navigation/linking";
+import { rootNavigationRef } from "@/navigation/rootNavigationRef";
+import { subscribeSupabaseAuthDeepLinks } from "@/shared/lib/subscribeSupabaseAuthDeepLinks";
 import PermissionsOnboardingScreen from "@/pages/permissions-onboarding";
 import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/shared/lib/permissionsStorage";
 import { supabaseConfigError } from "@/shared/api/supabase/client";
 import { logStartupDiagnostics } from "@/shared/lib/startupDiagnostics";
+import { useAppToastConfig } from "@/shared/ui/app-toast/createAppToastConfig";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function NavigationRoot() {
   const { colors, isDark } = useAppTheme();
+  const toastConfig = useAppToastConfig(colors);
+
+  useEffect(() => {
+    return subscribeSupabaseAuthDeepLinks(rootNavigationRef);
+  }, []);
 
   const base = isDark ? DarkTheme : DefaultTheme;
   const navigationTheme = {
@@ -32,50 +40,11 @@ function NavigationRoot() {
     },
   };
 
-  const toastConfig = {
-    success: (props: any) => (
-      <View
-        style={{
-          width: "auto",
-          alignSelf: "stretch",
-          marginHorizontal: 14,
-          borderRadius: 12,
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: "#ec6544",
-        }}
-      >
-        {props.text1 ? <Text style={{ color: colors.text, fontSize: 14, fontWeight: "700" }}>{props.text1}</Text> : null}
-        {props.text2 ? <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>{props.text2}</Text> : null}
-      </View>
-    ),
-    error: (props: any) => (
-      <View
-        style={{
-          width: "auto",
-          alignSelf: "stretch",
-          marginHorizontal: 14,
-          borderRadius: 12,
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: "#ec6544",
-        }}
-      >
-        {props.text1 ? <Text style={{ color: colors.danger, fontSize: 14, fontWeight: "700" }}>{props.text1}</Text> : null}
-        {props.text2 ? <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>{props.text2}</Text> : null}
-      </View>
-    ),
-  };
-
   return (
-    <NavigationContainer linking={linking} theme={navigationTheme}>
+    <NavigationContainer ref={rootNavigationRef} linking={linking} theme={navigationTheme}>
       <AppNavigator />
       <StatusBar style={isDark ? "light" : "dark"} />
-      <Toast config={toastConfig as any} />
+      <Toast config={toastConfig} />
     </NavigationContainer>
   );
 }
@@ -98,7 +67,7 @@ export default function App() {
         setBootError(error instanceof Error ? error.message : "Startup failed");
       } finally {
         setReady(true);
-        await SplashScreen.hideAsync().catch(() => undefined);
+        SplashScreen.hide();
       }
     })();
   }, []);

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
   View,
@@ -34,13 +34,19 @@ import {
   primaryPressableStyle,
   primaryPressableTextStyle,
 } from "@/shared/theme/primaryPressable";
+import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { StoryProgressBar } from "@/components/stories/StoryProgressBar";
+import { Easing, cancelAnimation, useSharedValue, withTiming } from "react-native-reanimated";
 
 type R = RouteProp<BrowseFlowParamList, "PlaceDetail">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "PlaceDetail">;
+const AUTO_SLIDE_MS = 5000;
+const DOUBLE_TAP_DELAY_MS = 260;
 
 export default function PlaceDetailScreen() {
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { data: place, isLoading } = useBusinessCard(id);
@@ -57,7 +63,10 @@ export default function PlaceDetailScreen() {
   const toggleFavorite = useToggleFavorite();
   const [directionsOpen, setDirectionsOpen] = useState(false);
   const [heroSlide, setHeroSlide] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
   const [seenStoryIds, setSeenStoryIds] = useState<Record<string, true>>({});
+  const progress = useSharedValue(0);
+  const lastTapRef = useRef<{ at: number; index: number } | null>(null);
 
   const stylesThemed = useMemo(
     () =>
@@ -70,6 +79,7 @@ export default function PlaceDetailScreen() {
           right: 16,
           flexDirection: "row",
           justifyContent: "space-between",
+          zIndex: 5,
         },
         iconBtn: {
           width: 40,
@@ -80,6 +90,12 @@ export default function PlaceDetailScreen() {
           justifyContent: "center",
         },
         iconBtnText: { fontSize: 18, color: "#111" },
+        heroProgressWrap: {
+          position: "absolute",
+          left: 16,
+          right: 16,
+          zIndex: 6,
+        },
         heroDotsRow: {
           position: "absolute",
           left: 0,
@@ -180,15 +196,8 @@ export default function PlaceDetailScreen() {
     navigation.navigate("StoryComposer", { placeId: id });
   }, [id, navigation, user]);
 
-  if (isLoading || !place) {
-    return (
-      <View style={[stylesThemed.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
   const onFavorite = () => {
+    if (!place) return;
     if (!user) {
       navigateToProfileAuth(navigation);
       return;
@@ -197,6 +206,7 @@ export default function PlaceDetailScreen() {
   };
 
   const onCall = () => {
+    if (!place) return;
     if (!place.phone) {
       Alert.alert("Unavailable", "Phone number not available");
       return;
@@ -206,15 +216,67 @@ export default function PlaceDetailScreen() {
 
   const heroTop = Math.max(insets.top, 12);
   const bottomScrollPadding = Platform.OS === "ios" ? Math.max(insets.bottom, 24) : 20;
-  const legacyImage = (place as unknown as { image?: string | null }).image;
-  const heroImagesRaw = [
-    ...normalizeBusinessCardImages(place.images),
-    ...normalizeBusinessCardImages(legacyImage),
-  ].filter((url, idx, arr) => arr.indexOf(url) === idx);
+  const legacyImage = (place as unknown as { image?: string | null } | null)?.image;
+  const normalizedImageList = normalizeBusinessCardImages(place?.images);
+  const heroImagesRaw =
+    normalizedImageList.length > 0
+      ? normalizedImageList
+      : [...normalizedImageList, ...normalizeBusinessCardImages(legacyImage)].filter(
+          (url, idx, arr) => arr.indexOf(url) === idx,
+        );
   const heroImages = heroImagesRaw.map((url) => getOptimizedImageUrl(url, 900, 560) || url);
-  const heroFallback = getLatestBusinessCardImage(place.images) ?? getLatestBusinessCardImage(legacyImage);
+  const heroFallback = getLatestBusinessCardImage(place?.images) ?? getLatestBusinessCardImage(legacyImage);
+  const fallbackGalleryImages = heroFallback ? [heroFallback] : [];
+  const galleryImages = heroImagesRaw.length > 0 ? heroImagesRaw : fallbackGalleryImages;
+  const galleryFallbacks = heroImages.length > 0 ? heroImages : fallbackGalleryImages;
+
+  const restartHeroProgress = useCallback(() => {
+    cancelAnimation(progress);
+    progress.value = 0;
+    if (heroPaused || heroImages.length <= 1) {
+      progress.value = heroImages.length <= 1 ? 1 : 0;
+      return;
+    }
+    progress.value = withTiming(1, { duration: AUTO_SLIDE_MS, easing: Easing.linear });
+  }, [heroImages.length, heroPaused, progress]);
+
+  useEffect(() => {
+    restartHeroProgress();
+    return () => cancelAnimation(progress);
+  }, [heroSlide, heroPaused, progress, restartHeroProgress]);
+
+  const openFullscreenGallery = (initialIndex: number) => {
+    navigation.navigate("PlaceGallery", {
+      images: galleryImages,
+      rawImages: galleryFallbacks,
+      initialIndex,
+    });
+  };
+
+  const handleHeroTap = useCallback(
+    (index: number) => {
+      const now = Date.now();
+      const prev = lastTapRef.current;
+      if (prev && prev.index === index && now - prev.at <= DOUBLE_TAP_DELAY_MS) {
+        lastTapRef.current = null;
+        openFullscreenGallery(index);
+        return;
+      }
+      lastTapRef.current = { at: now, index };
+    },
+    [openFullscreenGallery],
+  );
+
+  if (isLoading || !place) {
+    return (
+      <View style={[stylesThemed.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
+    <View style={stylesThemed.root} {...androidSwipeBackPanHandlers}>
     <ScrollView
       style={stylesThemed.root}
       contentContainerStyle={{ paddingBottom: bottomScrollPadding }}
@@ -226,19 +288,33 @@ export default function PlaceDetailScreen() {
               width={windowWidth}
               height={280}
               data={heroImages}
-              loop={false}
+              loop
+              autoPlay={heroImages.length > 1}
+              autoPlayInterval={AUTO_SLIDE_MS}
+              enabled={!heroPaused}
+              scrollAnimationDuration={500}
               onSnapToItem={setHeroSlide}
               renderItem={({ item, index }) => (
-                <SmartImage
-                  uri={item}
-                  fallbackUri={heroImagesRaw[index] ?? null}
-                  recyclingKey={`${place.id}-hero-${index}`}
-                  style={styles.hero}
-                  contentFit="cover"
-                  transition={200}
-                />
+                <Pressable
+                  onPress={() => handleHeroTap(index)}
+                  onLongPress={() => setHeroPaused(true)}
+                  onPressOut={() => setHeroPaused(false)}
+                  delayLongPress={220}
+                >
+                  <SmartImage
+                    uri={item}
+                    fallbackUri={heroImagesRaw[index] ?? null}
+                    recyclingKey={`${place.id}-hero-${index}`}
+                    style={styles.hero}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                </Pressable>
               )}
             />
+            <View style={[stylesThemed.heroProgressWrap, { top: heroTop }]}>
+              <StoryProgressBar count={heroImages.length} currentIndex={heroSlide} progress={progress} />
+            </View>
             <View style={stylesThemed.heroDotsRow}>
               {heroImages.map((_, idx) => (
                 <View key={`${place.id}-hero-dot-${idx}`} style={[stylesThemed.heroDot, heroSlide === idx && stylesThemed.heroDotActive]} />
@@ -246,15 +322,22 @@ export default function PlaceDetailScreen() {
             </View>
           </>
         ) : (
-          <SmartImage
-            uri={heroImages[0] ?? heroFallback}
-            fallbackUri={heroImagesRaw[0] ?? null}
-            recyclingKey={place.id}
-            style={styles.hero}
-            contentFit="cover"
-          />
+          <Pressable
+            onPress={() => handleHeroTap(0)}
+            onLongPress={() => setHeroPaused(true)}
+            onPressOut={() => setHeroPaused(false)}
+            delayLongPress={220}
+          >
+            <SmartImage
+              uri={heroImages[0] ?? heroFallback}
+              fallbackUri={heroImagesRaw[0] ?? null}
+              recyclingKey={place.id}
+              style={styles.hero}
+              contentFit="cover"
+            />
+          </Pressable>
         )}
-        <View style={[stylesThemed.heroBar, { top: heroTop }]}>
+        <View style={[stylesThemed.heroBar, { top: heroTop + 18 }]}>
           <Pressable style={stylesThemed.iconBtn} onPress={() => navigation.goBack()}>
             <Text style={stylesThemed.iconBtnText}>←</Text>
           </Pressable>
@@ -316,6 +399,7 @@ export default function PlaceDetailScreen() {
         address={place.address}
       />
     </ScrollView>
+    </View>
   );
 }
 

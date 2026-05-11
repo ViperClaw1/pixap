@@ -42,7 +42,7 @@ function StoryBubblesRowComponent({
         <StoryBubble
           group={{
             user_id: "add-story",
-            profile: { id: "add-story", first_name: "Add", last_name: "Story", avatar_url: null },
+            profile: { id: "add-story", first_name: "Add", last_name: "Story", avatar_url: null, username: null },
             stories: [],
           }}
           viewed={false}

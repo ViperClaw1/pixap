@@ -181,7 +181,7 @@ export function BottomSheetPickerModal({ visible, onClose, title, children, maxH
           <ScrollView
             style={{ maxHeight: scrollMaxHeight }}
             nestedScrollEnabled
-            keyboardShouldPersistTaps="never"
+            keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             showsVerticalScrollIndicator
           >

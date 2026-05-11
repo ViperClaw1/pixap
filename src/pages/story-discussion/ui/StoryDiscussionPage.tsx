@@ -1,85 +1,58 @@
-import { useMemo } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo } from "react";
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation, useRoute, type NavigationProp, type ParamListBase, type RouteProp } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  type NavigationProp,
+  type ParamListBase,
+  type RouteProp,
+} from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { Ionicons } from "@expo/vector-icons";
 import type { BrowseFlowParamList } from "@/navigation/types";
-import { useStoryComments } from "@/entities/story";
-import { useReplyToStory } from "@/entities/story";
-import { ReplyInput } from "@/components/stories/ReplyInput";
-import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
+import { useAppTheme } from "@/contexts/ThemeContext";
+import { navigateToAuthScreen } from "@/lib/authRequired";
+import { discussionPaletteDark, discussionPaletteLight } from "../lib/discussionUiPalette";
+import { StoryDiscussionPanelInner } from "./StoryDiscussionPanelInner";
 
 type DiscussionRoute = RouteProp<BrowseFlowParamList, "StoryDiscussion">;
 type DiscussionNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryDiscussion">;
 
-function formatTime(value: string) {
-  return new Date(value).toLocaleString();
-}
-
-export default function StoryDiscussionScreen() {
-  const { colors } = useAppTheme();
+export default function StoryDiscussionPage() {
   const insets = useSafeAreaInsets();
+  const { isDark } = useAppTheme();
   const navigation = useNavigation<DiscussionNav>();
   const { params } = useRoute<DiscussionRoute>();
-  const { data: comments = [] } = useStoryComments(params.storyId);
-  const replyMutation = useReplyToStory();
 
-  const sorted = useMemo(
-    () => [...comments].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
-    [comments],
-  );
+  const palette = useMemo(() => (isDark ? discussionPaletteDark : discussionPaletteLight), [isDark]);
+
+  const onRequireAuth = useCallback(() => {
+    navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+  }, [navigation]);
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.root, { backgroundColor: palette.screenBg }]} edges={["top"]}>
       <KeyboardAvoidingView
-        style={styles.root}
+        style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Math.max(insets.top, 8)}
       >
-        <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()}>
-            <Text style={[styles.backText, { color: colors.text }]}>Back</Text>
-          </Pressable>
-          <Text style={[styles.title, { color: colors.text }]}>Discussion</Text>
-          <View style={styles.headerSpacer} />
+        <View style={[styles.sheetTop, { backgroundColor: palette.screenBg }]}>
+          <View style={[styles.dragHandle, { backgroundColor: palette.grabber }]} />
+          <View style={styles.headerRow}>
+            <View style={styles.headerSide} />
+            <Text style={[styles.headerTitle, { color: palette.text }]}>Comments</Text>
+            <View style={styles.headerSide}>
+              <Pressable hitSlop={8} style={styles.headerIconBtn} accessibilityLabel="Share" onPress={() => {}}>
+                <Ionicons name="paper-plane-outline" size={22} color={palette.text} />
+              </Pressable>
+            </View>
+          </View>
         </View>
 
-        <FlatList
-          data={sorted}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <View style={[styles.commentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.commentText, { color: colors.text }]}>{item.content}</Text>
-              <Text style={[styles.commentTime, { color: colors.textMuted }]}>{formatTime(item.created_at)}</Text>
-            </View>
-          )}
-        />
-
-        <View
-          style={[
-            styles.inputWrap,
-            {
-              borderTopColor: colors.border,
-              backgroundColor: colors.background,
-              paddingBottom: Math.max(8, insets.bottom),
-            },
-          ]}
-        >
-          <ReplyInput
-            submitting={replyMutation.isPending}
-            onSubmit={async (value) => {
-              try {
-                await replyMutation.mutateAsync({ storyId: params.storyId, content: value });
-              } catch (error) {
-                if (isAuthRequiredError(error)) {
-                  navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
-                }
-              }
-            }}
-          />
+        <View style={styles.panelWrap}>
+          <StoryDiscussionPanelInner storyId={params.storyId} onRequireAuth={onRequireAuth} discussionPalette={palette} />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -90,48 +63,42 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  header: {
-    height: 56,
-    paddingHorizontal: 16,
+  flex: {
+    flex: 1,
+  },
+  sheetTop: {
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+  dragHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 10,
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-  },
-  backText: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  listContent: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  commentCard: {
-    borderWidth: 1,
-    borderRadius: 12,
+    justifyContent: "center",
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 6,
   },
-  commentText: {
-    fontSize: 14,
-    lineHeight: 20,
+  headerSide: {
+    width: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  commentTime: {
-    fontSize: 12,
-    fontWeight: "500",
+  headerIconBtn: {
+    alignSelf: "flex-end",
   },
-  inputWrap: {
-    borderTopWidth: 1,
-    paddingHorizontal: 14,
-    paddingBottom: 8,
-    paddingTop: 6,
+  headerTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  panelWrap: {
+    flex: 1,
+    minHeight: 0,
   },
 });

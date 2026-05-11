@@ -19,6 +19,7 @@ type ProfileRow = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  username: string | null;
 };
 
 export const STORIES_QUERY_KEY = "stories";
@@ -86,7 +87,7 @@ export const useStories = (placeId: string) => {
       const [{ data: profilesData }, { data: commentsData }, { data: reactionsData }, myReactionsResult] =
         await Promise.all([
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- keep implementation compatible before type regen
-          supabase.from("public_profiles" as any).select("id, first_name, last_name, avatar_url").in("id", userIds),
+          supabase.from("public_profiles" as any).select("id, first_name, last_name, avatar_url, username").in("id", userIds),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- keep implementation compatible before type regen
           supabase.from("story_comments" as any).select("id, story_id").in("story_id", storyIds),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- keep implementation compatible before type regen
@@ -105,6 +106,7 @@ export const useStories = (placeId: string) => {
             first_name: row.first_name,
             last_name: row.last_name,
             avatar_url: row.avatar_url,
+            username: row.username,
           },
         ]),
       );

@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, FlatList, ActivityIndicator, Alert, ScrollView, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCartItems, useConfirmServiceCartBooking, type CartItem } from "@/entities/cart";
 import { useShoppingCart } from "@/entities/shopping";
-import { createPaypalServiceBookingOrder, createPaypalShoppingOrder, capturePaypalOrder } from "@/lib/paypalCheckout";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
@@ -38,7 +36,6 @@ export default function CartPage() {
   const queryClient = useQueryClient();
   const confirmServiceBooking = useConfirmServiceCartBooking();
   const [tab, setTab] = useState<"services" | "shopping">("services");
-  const [isPayingShopping, setIsPayingShopping] = useState(false);
   const [checkingShopWa, setCheckingShopWa] = useState(false);
   const { data: cartItems = [], isLoading: cl, refetch: refetchCartItems } = useCartItems();
   const [servicesRefreshing, setServicesRefreshing] = useState(false);
@@ -196,76 +193,6 @@ export default function CartPage() {
     }
   };
 
-  const runPaypalCheckout = async (cartItemId?: string) => {
-    const created = cartItemId
-      ? await createPaypalServiceBookingOrder(cartItemId)
-      : await createPaypalShoppingOrder();
-    // Use runtime callback URL so Expo Go / Dev Client / standalone all match PayPal return URL.
-    const callbackUrl = Linking.createURL("payment-success");
-    const result = await WebBrowser.openAuthSessionAsync(created.approveUrl, callbackUrl);
-
-    if (result.type !== "success" || !result.url) {
-      navigation.navigate("PaymentCanceled");
-      return;
-    }
-
-    const url = result.url;
-    if (url.includes("payment-canceled")) {
-      navigation.navigate("PaymentCanceled");
-      return;
-    }
-    if (!url.includes("payment-success")) {
-      throw new Error("Invalid payment redirect URL");
-    }
-
-    const parsed = Linking.parse(url);
-    const qp = (parsed.queryParams ?? {}) as Record<string, string | string[] | undefined>;
-    const firstParam = (v: string | string[] | undefined): string | undefined => {
-      if (v == null) return undefined;
-      if (Array.isArray(v)) return v[0];
-      return v;
-    };
-    const rawOrderId = firstParam(qp.token) ?? firstParam(qp.order_id) ?? firstParam(qp.orderId) ?? created.orderId;
-    let orderId = rawOrderId;
-    if (orderId) {
-      try {
-        orderId = decodeURIComponent(orderId);
-      } catch {
-        /* keep raw */
-      }
-    }
-    if (!orderId) {
-      throw new Error("Missing PayPal order id");
-    }
-
-    const capture = await capturePaypalOrder(orderId);
-    if (capture.status !== "COMPLETED") {
-      if (capture.status === "PENDING") {
-        throw new Error("Payment is processing. Please wait a few seconds and try again.");
-      }
-      throw new Error("Payment failed. Please try again.");
-    }
-
-    const next = capture.bookingNext ?? (cartItemId ? "bookings" : undefined);
-    navigation.navigate("PaymentSuccess", next ? { next } : undefined);
-  };
-
-  const pay = async () => {
-    if (isPayingShopping) return;
-    setIsPayingShopping(true);
-    try {
-      await runPaypalCheckout();
-    } catch (e: unknown) {
-      if (isAuthRequiredError(e)) {
-        handleAuthRequired();
-        return;
-      }
-      Alert.alert("Checkout failed", e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setIsPayingShopping(false);
-    }
-  };
-
   return (
     <View style={stylesThemed.root}>
       <Text style={[stylesThemed.header, { paddingTop: Math.max(insets.top, 12) }]}>Cart</Text>
@@ -330,34 +257,15 @@ export default function CartPage() {
             <View style={stylesThemed.payBar}>
               <Text style={stylesThemed.totalLabel}>Total</Text>
               <Text style={stylesThemed.totalVal}>{shoppingTotal.toLocaleString()} $</Text>
-              <View style={stylesThemed.payRow}>
-                <Pressable
-                  style={[
-                    stylesThemed.payRowBtn,
-                    stylesThemed.payRowBtnOutline,
-                    (checkingShopWa || isPayingShopping) && { opacity: 0.6 },
-                  ]}
-                  disabled={checkingShopWa || isPayingShopping}
-                  onPress={() => void checkShoppingAvailability()}
-                >
-                  <Text style={stylesThemed.payRowBtnOutlineText}>
-                    {checkingShopWa ? "Opening…" : "Check availability"}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[
-                    stylesThemed.payRowBtn,
-                    stylesThemed.payRowBtnPrimary,
-                    isPayingShopping && { opacity: 0.6 },
-                  ]}
-                  disabled={isPayingShopping || checkingShopWa}
-                  onPress={() => void pay()}
-                >
-                  <Text style={stylesThemed.payBtnText}>
-                    {isPayingShopping ? "Processing..." : `Pay ${shoppingTotal.toLocaleString()} $`}
-                  </Text>
-                </Pressable>
-              </View>
+              <Pressable
+                style={[stylesThemed.payBtn, checkingShopWa && { opacity: 0.6 }]}
+                disabled={checkingShopWa}
+                onPress={() => void checkShoppingAvailability()}
+              >
+                <Text style={stylesThemed.payBtnText}>
+                  {checkingShopWa ? "Opening…" : "Check availability with vendor"}
+                </Text>
+              </Pressable>
             </View>
           ) : null}
         </ScrollView>

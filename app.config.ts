@@ -5,8 +5,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const googleMapsWebApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY?.trim();
   const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
   const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.0";
-  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "20";
-  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "20");
+  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "21";
+  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "21");
   const androidVersionCode = Number.parseInt(androidVersionCodeRaw, 10);
   const nativeOAuthRedirectUri =
     oauthMobileRedirectUri && !oauthMobileRedirectUri.startsWith("exp://") ? oauthMobileRedirectUri : undefined;
@@ -30,7 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   splash: {
     image: "./assets/splash-icon.png",
     resizeMode: "contain",
-    backgroundColor: "#1a0a2e",
+    backgroundColor: "#ffffff",
   },
   ios: {
     ...config.ios,
@@ -63,7 +63,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     package: "com.pixap.pixap",
     adaptiveIcon: {
-      backgroundColor: "#1a0a2e",
+      backgroundColor: "#ffffff",
       foregroundImage: "./assets/icon.png",
     },
     intentFilters: [
@@ -79,6 +79,29 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ],
   },
   plugins: [
+    [
+      "expo-splash-screen",
+      {
+        backgroundColor: "#ffffff",
+        image: "./assets/splash-icon.png",
+        /** Default plugin value is 100pt — too small; center logo readable on phones. */
+        imageWidth: 300,
+        resizeMode: "contain",
+        /** Full-screen splash image on iOS (required for portrait artwork vs icon-only launch). */
+        enableFullScreenImage_legacy: true,
+        android: {
+          backgroundColor: "#ffffff",
+          image: "./assets/splash-icon.png",
+          imageWidth: 300,
+          resizeMode: "contain",
+        },
+        ios: {
+          backgroundColor: "#ffffff",
+          image: "./assets/splash-icon.png",
+          resizeMode: "contain",
+        },
+      },
+    ],
     "expo-font",
     "expo-apple-authentication",
     "expo-web-browser",
@@ -108,7 +131,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     stripeReturnScheme: (process.env.EXPO_PUBLIC_STRIPE_RETURN_SCHEME ?? "pixap").toLowerCase(),
     googleMapsApiKey,
     googleMapsWebApiKey,
-    pixappApiUrl: process.env.EXPO_PUBLIC_PIXAPP_API_URL,
     pixAiMonthlySubscriptionSku: process.env.EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU ?? "pixai_premium_monthly",
     eas: {
       projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? "b98667c5-ca9d-4d17-8620-71f832f3befb",

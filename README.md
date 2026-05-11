@@ -1,6 +1,6 @@
 # Pixap
 
-Pixap is an **Expo (SDK 54) / React Native** mobile client for a local-services marketplace: discover **business cards** (venues), browse **categories** and **shopping items**, manage **cart** and **bookings**, use **PixAI**-assisted discovery and slot hints, optional **WhatsApp-mediated venue confirmation** for service bookings, **PayPal** checkout, **Lemon Squeezy** webhooks for some payment flows, and **native in-app purchase** subscriptions (Apple / Google) verified via Supabase Edge Functions.
+Pixap is an **Expo (SDK 54) / React Native** mobile client for a local-services marketplace: discover **business cards** (venues), browse **categories** and **shopping items**, manage **cart** and **bookings**, use **PixAI**-assisted discovery and slot hints, optional **WhatsApp-mediated venue confirmation** for service bookings, **Lemon Squeezy** webhooks for some payment flows, and **native in-app purchase** subscriptions (Apple / Google) verified via Supabase Edge Functions.
 
 Backend data and auth live in **Supabase** (PostgreSQL, Auth, Realtime, Storage). Additional **Supabase Edge Functions** (Deno) implement orchestration, payments, IAP verification, and WhatsApp booking glue. A separate **Node (Express) `wa-booking-service`** talks to the **Meta WhatsApp Cloud API** and calls back into Supabase when a cart row uses the WhatsApp confirmation pipeline.
 
@@ -42,7 +42,6 @@ flowchart TB
 
   subgraph external["Third parties"]
     WA[Meta WhatsApp Cloud API]
-    PP[PayPal APIs]
     LS[Lemon Squeezy]
     AAS[Apple App Store Server API]
     GP[Google Play Developer API]
@@ -60,7 +59,6 @@ flowchart TB
   SBClient --> RT
   SBClient --> Edge
   Edge --> DB
-  Edge --> PP
   Edge --> LS
   Edge --> AAS
   Edge --> GP
@@ -70,7 +68,7 @@ flowchart TB
   UI --> Maps
 ```
 
-- **Client**: Mostly talks to Supabase with the **anon key** and the users **JWT** after sign-in. Some payment URLs can go through a **reverse proxy** (`EXPO_PUBLIC_PIXAPP_API_URL`) to stable HTTPS paths.
+- **Client**: Mostly talks to Supabase with the **anon key** and the users **JWT** after sign-in. Some server-side payment integrations can use a **reverse proxy** (`EXPO_PUBLIC_PIXAPP_API_URL`) for stable HTTPS paths (e.g. Lemon).
 - **Edge Functions**: Server-side logic with **service role** where needed; several functions have **`verify_jwt = false`** in `supabase/config.toml` because the gateway JWT check is incompatible with server-to-server callsthose functions enforce auth or secrets **inside** the handler.
 - **`wa-booking-service`**: Holds an in-memory **booking state machine**, sends WhatsApp templates/messages, and **POSTs** updates to `n8n-wa-booking-callback` using the Supabase anon JWT plus optional `x-wa-booking-secret`.
 
@@ -87,7 +85,7 @@ flowchart TB
 | `src/contexts/` | `AuthContext`, `ThemeContext`. |
 | `src/hooks/` | TanStack Query hooks: business cards, cart, bookings, stories, PixAI, slots, subscription, etc. |
 | `src/integrations/supabase/` | Typed `supabase` client and generated `Database` types. |
-| `src/lib/` | Env resolution, OAuth helpers, maps/directions, PayPal helpers, permissions storage, etc. |
+| `src/lib/` | Env resolution, OAuth helpers, maps/directions, permissions storage, etc. |
 | `src/services/` | Cross-cutting services (e.g. push / IAP wiring). |
 | `supabase/migrations/` | SQL schema and RLS evolution. |
 | `supabase/functions/` | Deno Edge Functions (see [API reference](#api-reference)). |
@@ -117,7 +115,6 @@ flowchart TB
 
 - **Direct PostgREST** via `supabase.from(...)` in hooks for tables the user is allowed to read/write under RLS (e.g. `business_cards`, `cart_items`, `bookings`, stories).
 - **Edge Functions** via `supabase.functions.invoke("<name>", { body, headers })` for privileged or multi-step operations (PixAI orchestration, slot computation, WhatsApp start, confirm booking, IAP).
-- **PayPal** uses **`fetch`** to `env.paypalCreateOrderUrl` / `env.paypalCaptureOrderUrl` (either Supabase function URLs or reverse-proxy paths) with `Authorization: Bearer <access_token>`.
 
 ### Cross-cutting
 
@@ -137,8 +134,8 @@ flowchart TB
 
 - **`business_cards`**: Venues/services: name, address, city, rating, booking fields, images, `contact_whatsapp`, tags, category, etc.
 - **`cart_items`**: Service booking drafts in the users cart; status `created` | `paid` | `expired`; columns for **WhatsApp flow** (`wa_n8n_*`, `wa_status_lines`, `wa_confirmable`, `wa_confirmed_price`, `wa_payment_link`, &).
-- **`bookings`**: Confirmed reservations; `payment_status` aligns with PayPal / free / Lemon flows.
-- **`shopping_*`**: Shopping cart line items and catalog items (used by PayPal / Lemon checkout functions).
+- **`bookings`**: Confirmed reservations; `payment_status` reflects paid vs pending (venue links, Lemon, free flows, etc.).
+- **`shopping_*`**: Shopping cart line items and catalog items (Lemon / external checkout where used).
 - **`stories`**, **`story_comments`**, **`story_reactions`**, **`user_follows`**: Social stories feed.
 - **`subscription_entitlements`**, **`subscription_transactions`**, **`subscription_receipts`**, **`subscription_events`**: IAP subscription state and audit trail.
 - **`processed_lemon_orders`**: Idempotency for Lemon webhooks.
@@ -169,11 +166,9 @@ Exact columns and RLS live in `supabase/migrations/`; regenerate client types wh
 - **`pixai-orchestrate`** (authenticated): given a **flow** (city, mode `nearby` | `city`, category, restaurant-table flag, optional GPS), searches places via RPCs **`search_business_cards_nearby`** / **`search_business_cards_in_city`** with PostgREST fallback; returns **assistant text**, **places**, and **demo slot suggestions** (the edge function currently returns illustrative slot rows; the app can also use **`get-available-slots`** for real busy/free logic from `bookings`).
 - Client-side **`usePixAI`** refreshes the session before invoke to avoid **401 Invalid JWT** on the Functions gateway.
 
-### 4. Shopping cart and PayPal
+### 4. Shopping cart
 
-- **`paypal-create-order`**: Authenticated user; builds a PayPal order from shopping cart rows; returns `orderId` and `approveUrl`.
-- **`paypal-capture-order`**: Completes payment and updates DB (bookings / cart paid state depending on `custom_id` / flowsee function implementation for branch details).
-- Mobile **`paypalCheckout.ts`** posts JSON to URLs resolved in **`env.ts`** (direct Supabase function URL or `https://api.../v1/paypal/...` style proxy).
+- Users manage **shopping** lines in-app; fulfillment and payment are coordinated via **WhatsApp** (availability CTA from cart) and/or **Lemon** checkout on the server side where configured — there is no in-app card processor for goods.
 
 ### 5. Lemon Squeezy
 
@@ -204,12 +199,6 @@ Exact columns and RLS live in `supabase/migrations/`; regenerate client types wh
 4. **n8n-wa-booking-callback**: Validates `N8N_INBOUND_SECRET` (or open if unsetnot recommended), updates **`cart_items`**; mobile Realtime/polling shows progress.
 5. Mobile: `confirm-service-cart-booking` creates **`bookings`** and marks cart **paid** when rules match.
 
-### PayPal chain
-
-1. Mobile `createPaypalOrder` � **POST** `paypal-create-order` (or proxy) with Bearer JWT.
-2. User approves in browser / PayPal sheet � returns to app deep link.
-3. Mobile `capturePaypalOrder` � **POST** `paypal-capture-order`.
-
 ---
 
 ## API reference
@@ -231,22 +220,12 @@ Send **`Authorization: Bearer <user_access_token>`** for user-scoped functions. 
 | **`iap-verify-purchase`** | POST | User JWT via invoke | Platform-specific purchase fields (`platform`, `productId`, transaction ids / receipt / `purchaseToken`, `source`, &) | Entitlement / error payload per implementation |
 | **`iap-sync-status`** | POST | User JWT | (empty or ignored) | `{ entitlement: {...} \| null }` |
 
-### PayPal (fetch, not always `functions.invoke`)
-
-| Endpoint | Resolved from |
-|----------|----------------|
-| **Create order** | `env.paypalCreateOrderUrl` � default `{supabaseUrl}/functions/v1/paypal-create-order` or `{PIXAPP_API}/v1/paypal/create-order` |
-| **Capture order** | `env.paypalCaptureOrderUrl` � default `{supabaseUrl}/functions/v1/paypal-capture-order` or `{PIXAPP_API}/v1/paypal/capture-order` |
-
-**POST** JSON with user `Authorization` where implemented in `paypalCheckout.ts`.
-
 ### Other Edge Functions (server / secondary clients)
 
 | Function | Purpose | Notes |
 |----------|---------|--------|
 | **`create-booking-draft`** | Inserts a **`cart_items`** draft with `status: "created"` using service fields from body | Authenticated user JWT; alternative path to direct client `insert`. |
 | **`search-businesses`** | Scored search over `business_cards` | Authenticated user JWT; optional `query`, `city`, `limit`, `preference_tags`. |
-| **`paypal-create-order`** / **`paypal-capture-order`** | PayPal server-to-server | See secrets in `.env.example` comments and function source. |
 | **`lemon-create-checkout`** | Creates Lemon checkout | User JWT + Lemon API keys. |
 | **`lemon-webhook`** | Lemon `order_created` | **verify_jwt false**; `X-Signature` HMAC. |
 | **`n8n-wa-booking-callback`** | Updates `cart_items` from WA service | **verify_jwt false**; `N8N_INBOUND_SECRET` in `Authorization` **or** `x-wa-booking-secret`; for hosted Supabase, WA service uses **anon JWT** in `Authorization` + secret header. |
@@ -281,7 +260,7 @@ Detailed state machine: [backend/wa-booking-service/README.md](backend/wa-bookin
 - **`EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI`**: Optional override for native OAuth redirect.
 - **`EXPO_PUBLIC_STRIPE_RETURN_SCHEME`**: Deep link scheme segment for payment return (see `app.config.ts` **`scheme`**: **`pixap`**).
 - **`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`**, **`EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY`**: Maps + REST.
-- **`EXPO_PUBLIC_PIXAPP_API_URL`**: Optional reverse proxy base for PayPal paths.
+- **`EXPO_PUBLIC_PIXAPP_API_URL`**: Optional reverse proxy base (e.g. Lemon routes).
 - **`EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU`**: Store SKU for PixAI premium.
 - **`EXPO_PUBLIC_PIXAI_WHATSAPP_E164`**: Digits-only fallback for PixAI WhatsApp CTAs.
 - **`EXPO_PUBLIC_EAS_PROJECT_ID`**: EAS / push-related.
@@ -295,7 +274,7 @@ Documented in [.env.example](.env.example) and in each functions source; common
 - **`SUPABASE_SERVICE_ROLE_KEY`**, **`SUPABASE_URL`**, **`SUPABASE_ANON_KEY`**
 - **`WA_BOOKING_SERVICE_URL`**: Public base URL for `n8n-wa-booking-start` � **`wa-booking-service`**
 - **`N8N_INBOUND_SECRET`**: Shared with **`WA_BOOKING_SUPABASE_CALLBACK_SECRET`** on the Node service
-- **PayPal**, **Lemon**, **Apple**, **Google** credentials for the respective functions
+- **Lemon**, **Apple**, **Google** credentials for the respective functions
 
 ### `wa-booking-service` (Railway / Node)
 
@@ -336,7 +315,7 @@ Default listen **8787** (avoids Metro on 8081). Point **`WA_BOOKING_SERVICE_URL`
 - [backend/wa-booking-service/README.md](backend/wa-booking-service/README.md)  WhatsApp state machine, Meta webhook verification, Railway port notes.
 - [docs/mobile-store-compliance.md](docs/mobile-store-compliance.md)  Store policies (referenced from older docs).
 - [supabase/user_stories_query_examples.md](supabase/user_stories_query_examples.md)  Story feed query examples.
-- [supabase/proxy/api.pixapp.kz.nginx.conf.example](supabase/proxy/api.pixapp.kz.nginx.conf.example)  Reverse proxy pattern for Lemon (extend similarly for PayPal paths).
+- [supabase/proxy/api.pixapp.kz.nginx.conf.example](supabase/proxy/api.pixapp.kz.nginx.conf.example)  Reverse proxy pattern for Lemon.
 
 ---
 

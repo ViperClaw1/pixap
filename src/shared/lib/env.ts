@@ -5,12 +5,6 @@ type Extra = {
   supabaseAnonKey?: string;
   oauthRedirectBase?: string;
   stripeReturnScheme?: string;
-  /** Reverse-proxy API (e.g. https://api.pixapp.kz). If unset, payment calls use Supabase /functions/v1 directly. */
-  pixappApiUrl?: string;
-  /** Optional fully-qualified endpoint override for PayPal create-order. */
-  paypalCreateOrderUrl?: string;
-  /** Optional fully-qualified endpoint override for PayPal capture-order. */
-  paypalCaptureOrderUrl?: string;
   /** Maps SDK + Directions/Geocoding REST (same key if APIs enabled in Google Cloud) */
   googleMapsApiKey?: string;
   /** Optional dedicated key for Google Geocoding/Directions web-service requests. */
@@ -51,7 +45,7 @@ export const env = {
       "https://pixapp.kz"
     );
   },
-  /** Deep link scheme for Stripe/PayPal return (e.g. pixap) — success/cancel paths appended */
+  /** Deep link scheme for payment return URLs (e.g. Stripe) — success/cancel paths appended */
   get stripeReturnScheme(): string {
     return (getExtra().stripeReturnScheme ?? process.env.EXPO_PUBLIC_STRIPE_RETURN_SCHEME ?? "pixap").toLowerCase();
   },
@@ -84,43 +78,5 @@ export const env = {
       process.env.EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU ??
       "pixai_premium_monthly"
     ).trim();
-  },
-  /**
-   * Optional `EXPO_PUBLIC_PIXAPP_API_URL` = `https://api.pixapp.kz` (reverse proxy to Edge Functions).
-   * If omitted, PayPal order creation uses `{supabaseUrl}/functions/v1/paypal-create-order`.
-   */
-  get paypalCreateOrderUrl(): string {
-    const direct =
-      getExtra().paypalCreateOrderUrl ??
-      process.env.EXPO_PUBLIC_PAYPAL_CREATE_ORDER_URL;
-    if (direct?.trim()) return direct.trim();
-
-    const pixapp =
-      getExtra().pixappApiUrl ??
-      process.env.EXPO_PUBLIC_PIXAPP_API_URL ??
-      process.env.EXPO_PUBLIC_PAYMENT_API_BASE_URL;
-    if (pixapp?.trim()) {
-      return `${pixapp.replace(/\/$/, "")}/v1/paypal/create-order`;
-    }
-    return `${this.supabaseUrl.replace(/\/$/, "")}/functions/v1/paypal-create-order`;
-  },
-  /**
-   * Optional `EXPO_PUBLIC_PIXAPP_API_URL` = `https://api.pixapp.kz` (reverse proxy to Edge Functions).
-   * If omitted, PayPal capture uses `{supabaseUrl}/functions/v1/paypal-capture-order`.
-   */
-  get paypalCaptureOrderUrl(): string {
-    const direct =
-      getExtra().paypalCaptureOrderUrl ??
-      process.env.EXPO_PUBLIC_PAYPAL_CAPTURE_ORDER_URL;
-    if (direct?.trim()) return direct.trim();
-
-    const pixapp =
-      getExtra().pixappApiUrl ??
-      process.env.EXPO_PUBLIC_PIXAPP_API_URL ??
-      process.env.EXPO_PUBLIC_PAYMENT_API_BASE_URL;
-    if (pixapp?.trim()) {
-      return `${pixapp.replace(/\/$/, "")}/v1/paypal/capture-order`;
-    }
-    return `${this.supabaseUrl.replace(/\/$/, "")}/functions/v1/paypal-capture-order`;
   },
 };

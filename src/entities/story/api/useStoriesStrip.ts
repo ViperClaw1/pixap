@@ -15,6 +15,7 @@ type ProfileRow = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  username: string | null;
 };
 
 export const useStoriesStrip = () => {
@@ -35,7 +36,7 @@ export const useStoriesStrip = () => {
       const userIds = Array.from(new Set(stories.map((story) => story.user_id)));
       const { data: profilesData, error: profilesError } = await supabase
         .from("public_profiles" as any)
-        .select("id, first_name, last_name, avatar_url")
+        .select("id, first_name, last_name, avatar_url, username")
         .in("id", userIds);
       if (profilesError) throw profilesError;
 
@@ -47,6 +48,7 @@ export const useStoriesStrip = () => {
             first_name: profile.first_name,
             last_name: profile.last_name,
             avatar_url: profile.avatar_url,
+            username: profile.username,
           },
         ]),
       );

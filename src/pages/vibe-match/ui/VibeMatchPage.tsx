@@ -34,6 +34,7 @@ import {
 } from "@/shared/theme/primaryPressable";
 import { toYmd } from "@/shared/lib/bookingCalendar";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
+import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 
 const MOOD_PRESETS = ["romantic evening", "drunk friday", "family brunch", "solo chill", "celebration night"] as const;
 
@@ -75,6 +76,7 @@ export default function VibeMatchPage() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const navigation = useNavigation();
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const { user, loading: authLoading } = useAuth();
   const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
   const shouldEnforcePaywall = !__DEV__ && Constants.appOwnership !== "expo";
@@ -344,7 +346,7 @@ export default function VibeMatchPage() {
   const errMsg = vibeError instanceof Error ? vibeError.message : vibeError ? String(vibeError) : "";
 
   return (
-    <View style={stylesThemed.root}>
+    <View style={stylesThemed.root} {...androidSwipeBackPanHandlers}>
       <ScrollView contentContainerStyle={stylesThemed.scroll} keyboardShouldPersistTaps="handled">
         <View style={stylesThemed.topRow}>
           <Pressable style={stylesThemed.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back">

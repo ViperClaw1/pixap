@@ -28,34 +28,26 @@ import { supabase } from "@/shared/api/supabase/client";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import type { ThemeMode } from "@/contexts/ThemeContext";
 import Toast from "react-native-toast-message";
+import {
+  APPLE_SUBSCRIPTION_URL,
+  GOOGLE_SUBSCRIPTION_URL,
+  MAX_POST_PHOTOS,
+  PRIVACY_URL,
+  STORIES_BUCKET,
+} from "../model/constants";
+import { bytesFromBase64 } from "../model/bytesFromBase64";
+import { profileFullName } from "../model/format";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">,
   BottomTabNavigationProp<RootTabParamList>
 >;
-const PRIVACY_URL = "https://pixapp.kz/privacy";
-const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
-const GOOGLE_SUBSCRIPTION_URL = "https://play.google.com/store/account/subscriptions";
-const STORIES_BUCKET = "stories";
-const MAX_POST_PHOTOS = 8;
-
-function bytesFromBase64(base64: string): Uint8Array {
-  const binary = globalThis.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
 type ActionItem = {
   key: string;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
 };
-
-function fullName(first?: string | null, last?: string | null) {
-  return `${first?.trim() ?? ""} ${last?.trim() ?? ""}`.trim() || "Unknown user";
-}
 
 function ProfileScreenContent() {
   const navigation = useNavigation<Nav>();
@@ -830,7 +822,7 @@ function ProfileScreenContent() {
   };
 
   const actions: ActionItem[] = [
-    { key: "purchases", label: "My Purchases", icon: "bag-handle-outline", onPress: () => navigation.navigate("MyPurchases") },
+    // { key: "purchases", label: "My Purchases", icon: "bag-handle-outline", onPress: () => navigation.navigate("MyPurchases") },
     {
       key: "subscription",
       label: isActive ? "Manage subscription" : "Get PixAI Premium",
@@ -936,10 +928,20 @@ function ProfileScreenContent() {
         </View>
       </View>
       <View style={stylesThemed.statRow}>
-        <View style={stylesThemed.statCard}>
+        <Pressable
+          style={stylesThemed.statCard}
+          onPress={() =>
+            navigation.navigate("Feed", {
+              screen: "FeedMain",
+              params: { filterUserId: user?.id ?? profile?.id, postsScope: "mine" },
+            })
+          }
+          accessibilityRole="button"
+          accessibilityLabel="Open my posts in feed"
+        >
           <Text style={stylesThemed.statValue}>{postsCount}</Text>
           <Text style={stylesThemed.statLabel}>Posts</Text>
-        </View>
+        </Pressable>
         <View style={stylesThemed.statCard}>
           <Text style={stylesThemed.statValue}>{followersCount}</Text>
           <Text style={stylesThemed.statLabel}>Followed</Text>
@@ -965,13 +967,13 @@ function ProfileScreenContent() {
                   ) : (
                     <View style={stylesThemed.suggestionAvatarFallback}>
                       <Text style={stylesThemed.suggestionAvatarFallbackText}>
-                        {fullName(item.first_name, item.last_name).charAt(0).toUpperCase()}
+                        {profileFullName(item.first_name, item.last_name).charAt(0).toUpperCase()}
                       </Text>
                     </View>
                   )}
                 </View>
                 <Text style={stylesThemed.suggestionName} numberOfLines={1}>
-                  {fullName(item.first_name, item.last_name)}
+                  {profileFullName(item.first_name, item.last_name)}
                 </Text>
                 <Text style={stylesThemed.suggestionReason} numberOfLines={1}>
                   {item.reason}

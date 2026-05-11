@@ -84,6 +84,117 @@ export async function geocodeAddress(address: string, apiKey: string): Promise<L
   return result.ok ? result.location : null;
 }
 
+type GoogleAddressComponent = {
+  long_name: string;
+  short_name: string;
+  types: string[];
+};
+
+type GoogleGeocodeResultItem = {
+  formatted_address: string;
+  geometry: { location: { lat: number; lng: number } };
+  address_components?: GoogleAddressComponent[];
+};
+
+type GoogleGeocodeFullResponse = {
+  status: string;
+  error_message?: string;
+  results?: GoogleGeocodeResultItem[];
+};
+
+/** Human-readable primary label + optional city row from Google Geocoding. */
+export function extractPlaceFieldsFromGeocodeResult(result: GoogleGeocodeResultItem): {
+  placeName: string;
+  city: string | null;
+} {
+  const comps = result.address_components ?? [];
+  const pick = (...types: string[]) => {
+    const c = comps.find((item) => item.types.some((t) => types.includes(t)));
+    return c?.long_name?.trim() || null;
+  };
+  const establishment = pick("establishment", "point_of_interest");
+  if (establishment) {
+    const city =
+      pick("locality") ??
+      pick("postal_town") ??
+      pick("administrative_area_level_2") ??
+      pick("administrative_area_level_1");
+    return { placeName: establishment, city };
+  }
+  const formatted = result.formatted_address?.trim() ?? "";
+  const firstSegment = formatted.split(",")[0]?.trim() ?? "";
+  const locality =
+    pick("locality") ??
+    pick("postal_town") ??
+    pick("administrative_area_level_2") ??
+    pick("administrative_area_level_1");
+  return {
+    placeName: firstSegment.length > 0 ? firstSegment : formatted || "Place",
+    city: locality,
+  };
+}
+
+export type GeocodeSearchResultItem = {
+  formattedAddress: string;
+  latitude: number;
+  longitude: number;
+  placeName: string;
+  city: string | null;
+};
+
+const GEOCODE_SEARCH_MAX = 8;
+
+/** Free-text suggestions via Geocoding API (multiple `results`). Enable Geocoding API for the key. */
+export async function searchGeocodeAddresses(
+  input: string,
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<
+  | { ok: true; results: GeocodeSearchResultItem[] }
+  | { ok: false; status: string; message?: string }
+> {
+  const trimmed = input.trim();
+  if (trimmed.length < 2) {
+    return { ok: true, results: [] };
+  }
+  const q = new URLSearchParams({
+    address: trimmed,
+    key: apiKey,
+  });
+  const url = `${BASE}/geocode/json?${q.toString()}`;
+  const res = await fetch(url, { signal });
+  const data = (await res.json()) as GoogleGeocodeFullResponse;
+  debugMapsApi("geocode_search:response", {
+    httpOk: res.ok,
+    httpStatus: res.status,
+    status: data.status,
+    errorMessage: data.error_message,
+    count: data.results?.length ?? 0,
+  });
+  if (data.status !== "OK" || !data.results?.length) {
+    if (data.status === "ZERO_RESULTS") {
+      return { ok: true, results: [] };
+    }
+    return {
+      ok: false,
+      status: data.status,
+      message: data.error_message ?? data.status,
+    };
+  }
+  const results: GeocodeSearchResultItem[] = data.results.slice(0, GEOCODE_SEARCH_MAX).map((item) => {
+    const loc = item.geometry.location;
+    const { placeName, city } = extractPlaceFieldsFromGeocodeResult(item);
+    return {
+      formattedAddress: item.formatted_address,
+      latitude: loc.lat,
+      longitude: loc.lng,
+      placeName,
+      city,
+    };
+  });
+  return { ok: true, results };
+}
+
 /**
  * Directions from origin coordinates to destination (coordinates or address string).
  * REQUIRES: Directions API enabled for the key.

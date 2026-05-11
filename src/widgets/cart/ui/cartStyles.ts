@@ -1,11 +1,6 @@
 import { StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
-import {
-  SHARED_PRESSABLE_HEIGHT,
-  SHARED_PRESSABLE_RADIUS,
-  primaryPressableStyle,
-  primaryPressableTextStyle,
-} from "@/shared/theme/primaryPressable";
+import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 
 export function createCartStyles(colors: ThemeColors, bottomInset: number) {
   return StyleSheet.create({
@@ -80,26 +75,11 @@ export function createCartStyles(colors: ThemeColors, bottomInset: number) {
     },
     totalLabel: { fontSize: 14, color: colors.textMuted },
     totalVal: { fontSize: 20, fontWeight: "800", marginTop: 4, color: colors.text },
-    payRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-    payRowBtn: {
-      flex: 1,
-      minHeight: SHARED_PRESSABLE_HEIGHT,
-      borderRadius: SHARED_PRESSABLE_RADIUS,
-      alignItems: "center",
-      justifyContent: "center",
-    },
     payBtn: {
       marginTop: 12,
       ...primaryPressableStyle,
     },
     payBtnText: primaryPressableTextStyle,
-    payRowBtnPrimary: { backgroundColor: primaryPressableStyle.backgroundColor },
-    payRowBtnOutline: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: "transparent",
-    },
-    payRowBtnOutlineText: { color: colors.text, fontWeight: "700" },
     deleteIconBtn: {
       padding: 10,
       borderRadius: 10,

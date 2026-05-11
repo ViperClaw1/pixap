@@ -6,6 +6,7 @@ import type { StoryReactionType } from "@/types/stories";
 interface ReactToStoryInput {
   storyId?: string;
   commentId?: string;
+  replyId?: string;
   type: StoryReactionType;
   stickerId?: string | null;
 }
@@ -15,12 +16,12 @@ export const useReactToStory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ storyId, commentId, type, stickerId }: ReactToStoryInput) => {
+    mutationFn: async ({ storyId, commentId, replyId, type, stickerId }: ReactToStoryInput) => {
       if (!user?.id) throw new Error("Authentication required");
-      if (!storyId && !commentId) throw new Error("Reaction target is required");
+      if (!storyId && !commentId && !replyId) throw new Error("Reaction target is required");
 
-      const targetField = storyId ? "story_id" : "comment_id";
-      const targetValue = storyId ?? commentId!;
+      const targetField = replyId ? "reply_id" : storyId ? "story_id" : "comment_id";
+      const targetValue = replyId ?? storyId ?? commentId!;
 
       const { data: existing, error: fetchError } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tables are new and not yet in generated types
@@ -66,6 +67,7 @@ export const useReactToStory = () => {
           user_id: user.id,
           story_id: storyId ?? null,
           comment_id: commentId ?? null,
+          reply_id: replyId ?? null,
           type,
           sticker_id: type === "sticker" ? stickerId ?? null : null,
         })
@@ -79,7 +81,7 @@ export const useReactToStory = () => {
         void queryClient.invalidateQueries({ queryKey: ["stories"] });
         void queryClient.invalidateQueries({ queryKey: ["story_reactions", "story", variables.storyId] });
       }
-      if (variables.commentId) {
+      if (variables.commentId || variables.replyId) {
         void queryClient.invalidateQueries({ queryKey: ["story_comments"] });
       }
     },

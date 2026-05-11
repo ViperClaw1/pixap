@@ -1,12 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, StyleSheet, FlatList, ScrollView, useWindowDimensions, Alert } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  FlatList,
+  ScrollView,
+  useWindowDimensions,
+  Alert,
+  TextInput,
+} from "react-native";
+import { Entypo, FontAwesome5, Fontisto, Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBusinessCards, useAvailableCities, ALL_CITIES_OPTION } from "@/entities/business-card";
+import {
+  useBusinessCards,
+  useAvailableCities,
+  ALL_CITIES_OPTION,
+  groupCitiesByCountry,
+  filterCityGroups,
+  matchesSearchTokens,
+} from "@/entities/business-card";
 import { useCategories } from "@/entities/category";
 import { useUnreadCount } from "@/entities/notification";
 import { useProfile, useUpdateProfile } from "@/entities/user";
@@ -27,6 +44,44 @@ type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<RootTabParamList>
 >;
 
+type CategoryIconSpec =
+  | { family: "ionicons"; name: keyof typeof Ionicons.glyphMap }
+  | { family: "entypo"; name: keyof typeof Entypo.glyphMap }
+  | { family: "fontawesome5"; name: keyof typeof FontAwesome5.glyphMap }
+  | { family: "fontisto"; name: keyof typeof Fontisto.glyphMap };
+
+const CATEGORY_ICON_BY_NAME: Record<string, CategoryIconSpec> = {
+  bars: { family: "entypo", name: "drink" },
+  clubs: { family: "fontawesome5", name: "users" },
+  entertainment: { family: "fontawesome5", name: "glass-cheers" },
+  hotels: { family: "fontisto", name: "hotel" },
+  tourism: { family: "fontawesome5", name: "umbrella-beach" },
+  restaurants: { family: "ionicons", name: "restaurant-outline" },
+  restaurant: { family: "ionicons", name: "restaurant-outline" },
+  beauty: { family: "ionicons", name: "sparkles-outline" },
+  events: { family: "ionicons", name: "ticket-outline" },
+  shopping: { family: "ionicons", name: "bag-handle-outline" },
+  fitness: { family: "ionicons", name: "barbell-outline" },
+  spa: { family: "ionicons", name: "flower-outline" },
+  nightlife: { family: "ionicons", name: "wine-outline" },
+  kids: { family: "ionicons", name: "happy-outline" },
+};
+
+const DEFAULT_CATEGORY_ICON: CategoryIconSpec = { family: "ionicons", name: "grid-outline" };
+
+function CategoryPillIcon({ spec, color, size }: { spec: CategoryIconSpec; color: string; size: number }) {
+  switch (spec.family) {
+    case "entypo":
+      return <Entypo name={spec.name} size={size} color={color} />;
+    case "fontawesome5":
+      return <FontAwesome5 name={spec.name} size={size} color={color} />;
+    case "fontisto":
+      return <Fontisto name={spec.name} size={size} color={color} />;
+    default:
+      return <Ionicons name={spec.name} size={size} color={color} />;
+  }
+}
+
 export default function HomeScreen() {
   const RECOMMENDED_BATCH_SIZE = 20;
   const navigation = useNavigation<Nav>();
@@ -37,8 +92,24 @@ export default function HomeScreen() {
   const updateProfile = useUpdateProfile();
   const [selectedCity, setSelectedCity] = useState(ALL_CITIES_OPTION);
   const [cityModalVisible, setCityModalVisible] = useState(false);
+  const [citySearchQuery, setCitySearchQuery] = useState("");
   const [visibleRecommendedCount, setVisibleRecommendedCount] = useState(RECOMMENDED_BATCH_SIZE);
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
+
+  const concreteCities = useMemo(
+    () => availableCities.filter((c) => c !== ALL_CITIES_OPTION),
+    [availableCities],
+  );
+
+  const filteredCityGroups = useMemo(() => {
+    const grouped = groupCitiesByCountry(concreteCities);
+    return filterCityGroups(grouped, citySearchQuery);
+  }, [concreteCities, citySearchQuery]);
+
+  const showAllCitiesOption = useMemo(() => {
+    if (!availableCities.includes(ALL_CITIES_OPTION)) return false;
+    return matchesSearchTokens(ALL_CITIES_OPTION, citySearchQuery);
+  }, [availableCities, citySearchQuery]);
   const { data: featured = [], isLoading: lf } = useBusinessCards("featured", selectedCity);
   const { data: recommended = [], isLoading: lr } = useBusinessCards(undefined, selectedCity);
   const { data: categories = [], isLoading: lc } = useCategories();
@@ -167,6 +238,17 @@ export default function HomeScreen() {
           borderWidth: 1,
           borderColor: colors.border,
         },
+        pillContent: { flexDirection: "row", alignItems: "center", gap: 8 },
+        pillIconWrap: {
+          width: 24,
+          height: 24,
+          borderRadius: 12,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.background,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
         pillText: { color: colors.text },
         categoriesFlatList: { marginBottom: 12 },
         featuredCardWrap: { marginRight: 12 },
@@ -194,6 +276,46 @@ export default function HomeScreen() {
         },
         cityRowText: { color: colors.text, fontSize: 14 },
         cityCheck: { color: colors.primary, fontWeight: "700", fontSize: 12 },
+        citySearchBox: {
+          marginHorizontal: 14,
+          marginBottom: 10,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          paddingHorizontal: 12,
+          height: 44,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.background,
+        },
+        citySearchInput: {
+          flex: 1,
+          fontSize: 15,
+          color: colors.text,
+          paddingVertical: 0,
+        },
+        countryHeader: {
+          paddingHorizontal: 14,
+          paddingTop: 10,
+          paddingBottom: 6,
+          backgroundColor: colors.background,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        countryHeaderText: {
+          fontSize: 12,
+          fontWeight: "800",
+          color: colors.textMuted,
+          letterSpacing: 0.3,
+          textTransform: "uppercase",
+        },
+        cityPickerEmpty: {
+          paddingHorizontal: 14,
+          paddingVertical: 20,
+          alignItems: "center",
+        },
+        cityPickerEmptyText: { fontSize: 14, color: colors.textMuted, textAlign: "center" },
       }),
     [colors, insets.bottom, isDark],
   );
@@ -236,7 +358,13 @@ export default function HomeScreen() {
             <ThemeToggle />
           </View>
         </View>
-        <Pressable style={stylesThemed.citySelector} onPress={() => setCityModalVisible(true)}>
+        <Pressable
+          style={stylesThemed.citySelector}
+          onPress={() => {
+            setCitySearchQuery("");
+            setCityModalVisible(true);
+          }}
+        >
           <Text style={stylesThemed.citySelectorText}>{selectedCity}</Text>
         </Pressable>
 
@@ -254,13 +382,20 @@ export default function HomeScreen() {
             data={categories}
             keyExtractor={(c) => c.id}
             showsHorizontalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <Pressable style={stylesThemed.pill} onPress={() => navigation.navigate("Category", { id: item.id })}>
-                <Text style={stylesThemed.pillText}>
-                  {item.icon} {item.name}
-                </Text>
-              </Pressable>
-            )}
+            renderItem={({ item }) => {
+              const normalizedName = item.name.trim().toLowerCase();
+              const iconSpec = CATEGORY_ICON_BY_NAME[normalizedName] ?? DEFAULT_CATEGORY_ICON;
+              return (
+                <Pressable style={stylesThemed.pill} onPress={() => navigation.navigate("Category", { id: item.id })}>
+                  <View style={stylesThemed.pillContent}>
+                    <View style={stylesThemed.pillIconWrap}>
+                      <CategoryPillIcon spec={iconSpec} size={14} color={colors.primary} />
+                    </View>
+                    <Text style={stylesThemed.pillText}>{item.name}</Text>
+                  </View>
+                </Pressable>
+              );
+            }}
           />
         )}
 
@@ -322,15 +457,57 @@ export default function HomeScreen() {
 
       <BottomSheetPickerModal
         visible={cityModalVisible}
-        onClose={() => setCityModalVisible(false)}
+        onClose={() => {
+          setCitySearchQuery("");
+          setCityModalVisible(false);
+        }}
         title="Choose city"
+        maxHeightFraction={0.72}
       >
-        {availableCities.map((city) => (
-          <Pressable key={city} style={stylesThemed.cityRow} onPress={() => void handleSelectCity(city)}>
-            <Text style={stylesThemed.cityRowText}>{city}</Text>
-            {city === selectedCity ? <Text style={stylesThemed.cityCheck}>Selected</Text> : null}
+        <View style={stylesThemed.citySearchBox}>
+          <Ionicons name="search-outline" size={20} color={colors.textMuted} />
+          <TextInput
+            value={citySearchQuery}
+            onChangeText={setCitySearchQuery}
+            placeholder="Search country or city…"
+            placeholderTextColor={colors.textMuted}
+            style={stylesThemed.citySearchInput}
+            autoCorrect={false}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
+        </View>
+
+        {showAllCitiesOption ? (
+          <Pressable
+            key={ALL_CITIES_OPTION}
+            style={stylesThemed.cityRow}
+            onPress={() => void handleSelectCity(ALL_CITIES_OPTION)}
+          >
+            <Text style={stylesThemed.cityRowText}>{ALL_CITIES_OPTION}</Text>
+            {selectedCity === ALL_CITIES_OPTION ? <Text style={stylesThemed.cityCheck}>Selected</Text> : null}
           </Pressable>
+        ) : null}
+
+        {filteredCityGroups.map(({ country, cities }) => (
+          <View key={country}>
+            <View style={stylesThemed.countryHeader}>
+              <Text style={stylesThemed.countryHeaderText}>{country}</Text>
+            </View>
+            {cities.map((city) => (
+              <Pressable key={city} style={stylesThemed.cityRow} onPress={() => void handleSelectCity(city)}>
+                <Text style={stylesThemed.cityRowText}>{city}</Text>
+                {city === selectedCity ? <Text style={stylesThemed.cityCheck}>Selected</Text> : null}
+              </Pressable>
+            ))}
+          </View>
         ))}
+
+        {!showAllCitiesOption && filteredCityGroups.length === 0 ? (
+          <View style={stylesThemed.cityPickerEmpty}>
+            <Text style={stylesThemed.cityPickerEmptyText}>No cities match your search.</Text>
+          </View>
+        ) : null}
       </BottomSheetPickerModal>
     </ShimmerProvider>
   );

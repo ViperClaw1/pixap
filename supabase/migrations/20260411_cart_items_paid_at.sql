@@ -2,4 +2,4 @@
 alter table if exists public.cart_items
   add column if not exists paid_at timestamptz;
 
-comment on column public.cart_items.paid_at is 'Set when payment succeeds (e.g. PayPal capture).';
+comment on column public.cart_items.paid_at is 'Set when payment succeeds (e.g. external checkout or venue link).';

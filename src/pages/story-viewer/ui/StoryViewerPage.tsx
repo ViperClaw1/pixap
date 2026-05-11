@@ -11,11 +11,18 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { useNavigation, useRoute, type NavigationProp, type ParamListBase, type RouteProp } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  type NavigationProp,
+  type ParamListBase,
+  type RouteProp,
+} from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { runOnJS } from "react-native-reanimated";
 import type { BrowseFlowParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
@@ -23,13 +30,14 @@ import { useStoryViewer } from "@/entities/story";
 import { useStoryProgress } from "@/entities/story";
 import { useReactToStory } from "@/entities/story";
 import { useReplyToStory } from "@/entities/story";
-import { useStoryComments } from "@/entities/story";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import type { StoryItem, StoryReactionType } from "@/types/stories";
+import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { StorySlide } from "@/components/stories/StorySlide";
 import { StoryProgressBar } from "@/components/stories/StoryProgressBar";
-import { ReactionBar } from "@/components/stories/ReactionBar";
-import { ReplyInput } from "@/components/stories/ReplyInput";
+import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
+import Toast from "react-native-toast-message";
+import { StoryDiscussionGlassSheet } from "./StoryDiscussionGlassSheet";
 
 type StoryViewerRoute = RouteProp<BrowseFlowParamList, "StoryViewer">;
 type StoryViewerNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryViewer">;
@@ -67,6 +75,8 @@ export default function StoryViewerScreen() {
   const { width, height } = useWindowDimensions();
   const flatListRef = useRef<FlatList<FlatStoryRow>>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [discussionOpen, setDiscussionOpen] = useState(false);
+  const [quickComment, setQuickComment] = useState("");
   const viewer = useStoryViewer({
     groups: params.groups,
     initialGroupIndex: params.initialGroupIndex,
@@ -76,16 +86,13 @@ export default function StoryViewerScreen() {
   const activeStory = viewer.activeStory;
   const activeGroup = viewer.activeGroup;
   const storyId = activeStory?.id ?? "";
-  const { data: comments = [] } = useStoryComments(storyId);
   const reactMutation = useReactToStory();
   const replyMutation = useReplyToStory();
   const [localReaction, setLocalReaction] = useState<StoryReactionType | null>(activeStory?.my_reaction ?? null);
-  const [localReactionCount, setLocalReactionCount] = useState(activeStory?.reaction_count ?? 0);
 
   useEffect(() => {
     if (!activeStory) return;
     setLocalReaction(activeStory.my_reaction);
-    setLocalReactionCount(activeStory.reaction_count);
   }, [activeStory]);
 
   useEffect(() => {
@@ -103,7 +110,7 @@ export default function StoryViewerScreen() {
 
   const { progress } = useStoryProgress({
     durationMs: AUTO_ADVANCE_MS,
-    paused: viewer.paused || keyboardOpen,
+    paused: viewer.paused || keyboardOpen || discussionOpen,
     itemKey: storyId,
     onComplete: goNext,
   });
@@ -135,16 +142,10 @@ export default function StoryViewerScreen() {
       const previousReaction = localReaction;
       const nextReaction = previousReaction === type ? null : type;
       setLocalReaction(nextReaction);
-      setLocalReactionCount((prev) => {
-        if (previousReaction === type) return Math.max(0, prev - 1);
-        if (!previousReaction) return prev + 1;
-        return prev;
-      });
       try {
         await reactMutation.mutateAsync({ storyId: activeStory.id, type });
       } catch (error) {
         setLocalReaction(previousReaction);
-        setLocalReactionCount(activeStory.reaction_count);
         if (isAuthRequiredError(error)) {
           closeViewerAndRouteToAuth();
           return;
@@ -155,21 +156,22 @@ export default function StoryViewerScreen() {
     [activeStory, closeViewerAndRouteToAuth, localReaction, reactMutation],
   );
 
-  const onReply = useCallback(
-    async (value: string) => {
-      if (!activeStory) return;
-      try {
-        await replyMutation.mutateAsync({ storyId: activeStory.id, content: value });
-      } catch (error) {
-        if (isAuthRequiredError(error)) {
-          closeViewerAndRouteToAuth();
-          return;
-        }
-        Alert.alert("Failed", error instanceof Error ? error.message : "Could not send reply");
+  const submitQuickComment = useCallback(async () => {
+    if (!activeStory) return;
+    const text = quickComment.trim();
+    if (!text || replyMutation.isPending) return;
+    try {
+      await replyMutation.mutateAsync({ storyId: activeStory.id, content: text });
+      setQuickComment("");
+      Toast.show({ type: "success", text1: "Your comment was added" });
+    } catch (error) {
+      if (isAuthRequiredError(error)) {
+        closeViewerAndRouteToAuth();
+        return;
       }
-    },
-    [activeStory, closeViewerAndRouteToAuth, replyMutation],
-  );
+      Alert.alert("Failed", error instanceof Error ? error.message : "Could not send reply");
+    }
+  }, [activeStory, closeViewerAndRouteToAuth, quickComment, replyMutation]);
 
   const tapGesture = useMemo(
     () =>
@@ -214,8 +216,9 @@ export default function StoryViewerScreen() {
   );
 
   const contentHeight = Math.max(220, height - insets.top - insets.bottom - 320);
-  const authorName = (activeStory?.profile?.first_name ?? activeGroup?.profile?.first_name ?? "U").trim();
-  const authorAvatarUrl = activeStory?.profile?.avatar_url ?? activeGroup?.profile?.avatar_url ?? null;
+  const rawAuthorAvatar = activeStory?.profile?.avatar_url ?? activeGroup?.profile?.avatar_url ?? null;
+  const authorAvatarUrl =
+    typeof rawAuthorAvatar === "string" && rawAuthorAvatar.trim().length > 0 ? rawAuthorAvatar.trim() : null;
   const authorAvatarSize = Math.max(64, Math.min(92, Math.round(contentHeight * 0.18)));
   const authorAvatarRadius = authorAvatarSize / 2;
 
@@ -290,7 +293,7 @@ export default function StoryViewerScreen() {
                 styles.bottomArea,
                 {
                   backgroundColor: colors.card,
-                  paddingBottom: Platform.OS === "ios" ? Math.max(8, insets.bottom) : 8,
+                  paddingBottom: 0,
                   paddingTop: Math.max(38, Math.round(authorAvatarSize * 0.55)),
                 },
               ]}
@@ -310,9 +313,22 @@ export default function StoryViewerScreen() {
                 ]}
               >
                 {authorAvatarUrl ? (
-                  <Image source={{ uri: authorAvatarUrl }} style={styles.authorAvatarImage} contentFit="cover" />
+                  <SmartImage
+                    uri={authorAvatarUrl}
+                    recyclingKey={authorAvatarUrl}
+                    style={styles.authorAvatarImage}
+                    contentFit="cover"
+                    skipBundledPlaceholder
+                  />
                 ) : (
-                  <Text style={[styles.authorAvatarFallback, { color: colors.text }]}>{authorName.charAt(0).toUpperCase()}</Text>
+                  <View style={styles.authorAvatarPlaceholder} pointerEvents="none">
+                    <Ionicons
+                      name="person-outline"
+                      size={32}
+                      color={colors.text}
+                      style={Platform.OS === "android" ? ({ includeFontPadding: false } as const) : undefined}
+                    />
+                  </View>
                 )}
               </View>
               <View style={styles.authorMeta}>
@@ -326,22 +342,56 @@ export default function StoryViewerScreen() {
               <Text style={[styles.postText, { color: "#000" }]} numberOfLines={6} ellipsizeMode="tail">
                 {activeStory.content}
               </Text>
-              <ReactionBar
-                activeReaction={localReaction}
-                reactionCount={localReactionCount}
-                onReact={(type) => void onReact(type)}
-              />
-              <Text style={[styles.replyCount, { color: colors.textMuted }]}>{comments.length} replies</Text>
-              <Pressable
-                onPress={() => navigation.navigate("StoryDiscussion", { storyId: activeStory.id, placeId: params.placeId })}
-              >
-                <Text style={[styles.discussionLink, { color: colors.primary }]}>View discussion</Text>
-              </Pressable>
-              <ReplyInput submitting={replyMutation.isPending} onSubmit={onReply} />
+              <View style={styles.igComposerFooter}>
+                <View style={[styles.igComposerRow, { paddingBottom: Math.max(10, Math.max(insets.bottom, Platform.OS === "android" ? 8 : 0)) }]}>
+                  <View style={styles.igInputWrap}>
+                    <RichTextarea
+                      value={quickComment}
+                      onChangeText={setQuickComment}
+                      placeholder="Send message..."
+                      placeholderTextColor="rgba(255,255,255,0.45)"
+                      textAlignVertical="center"
+                      editable={!replyMutation.isPending}
+                      style={styles.igInput}
+                    />
+                  </View>
+                  <View style={styles.igActions}>
+                    <Pressable hitSlop={12} style={styles.igIconHit} onPress={() => void onReact("like")}>
+                      <Ionicons
+                        name={localReaction === "like" ? "heart" : "heart-outline"}
+                        size={26}
+                        color={localReaction === "like" ? "#F4212E" : "#FFFFFF"}
+                      />
+                    </Pressable>
+                    <Pressable hitSlop={12} style={styles.igIconHit} onPress={() => setDiscussionOpen(true)}>
+                      <Ionicons name="chatbubble-outline" size={24} color="#FFFFFF" />
+                    </Pressable>
+                    <Pressable
+                      hitSlop={12}
+                      style={styles.igIconHit}
+                      onPress={() => void submitQuickComment()}
+                      disabled={!quickComment.trim() || replyMutation.isPending}
+                    >
+                      <Ionicons
+                        name="paper-plane-outline"
+                        size={25}
+                        color={quickComment.trim() && !replyMutation.isPending ? "#FFFFFF" : "rgba(255,255,255,0.35)"}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
             </View>
           </View>
         </GestureDetector>
       </KeyboardAvoidingView>
+
+      <StoryDiscussionGlassSheet
+        visible={discussionOpen}
+        storyId={activeStory.id}
+        navigation={navigation as unknown as NavigationProp<ParamListBase>}
+        onDismiss={() => setDiscussionOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -401,9 +451,11 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  authorAvatarFallback: {
-    fontSize: 24,
-    fontWeight: "700",
+  authorAvatarPlaceholder: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   authorMeta: {
     marginTop: 8,
@@ -424,15 +476,49 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 10,
   },
-  replyCount: {
+  igComposerFooter: {
+    marginHorizontal: -14,
     marginTop: 8,
-    fontSize: 12,
-    fontWeight: "600",
+    backgroundColor: "#000000",
   },
-  discussionLink: {
-    marginTop: 6,
-    fontSize: 13,
-    fontWeight: "700",
+  igComposerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    backgroundColor: "#000000",
+  },
+  igInputWrap: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: "75%",
+    minWidth: 0,
+  },
+  igInput: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#ffffff",
+    borderRadius: 999,
+    color: "#FFFFFF",
+    minHeight: 44,
+    maxHeight: 96,
+    paddingHorizontal: 16,
+    paddingVertical: Platform.OS === "ios" ? 10 : 8,
+    fontSize: 15,
+  },
+  igActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 12,
+    flexShrink: 0,
+    minHeight: 44,
+  },
+  igIconHit: {
+    paddingHorizontal: 2,
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyWrap: {
     flex: 1,

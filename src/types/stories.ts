@@ -5,6 +5,7 @@ export interface StoryProfile {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  username: string | null;
 }
 
 export interface StoryItem {

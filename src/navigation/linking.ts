@@ -17,6 +17,31 @@ function queryParamsFromPath(fullPath: string): URLSearchParams {
 }
 
 /** Map legacy root paths (custom scheme) into nested tab state. */
+/** Supabase native redirect from `getOAuthRedirectUri()` / email verify when URL uses `~oauth/callback`. */
+function stateForSupabaseAuthCallback(fullPath: string) {
+  const withoutQuery = fullPath.split("?")[0] ?? "";
+  const normalized = normalizePath(withoutQuery);
+  if (!normalized) return null;
+  const isOauthCallbackPath =
+    normalized === "~oauth/callback" ||
+    normalized.includes("~oauth/callback") ||
+    normalized.endsWith("oauth/callback") ||
+    normalized.includes("--/~oauth/callback");
+  if (!isOauthCallbackPath) return null;
+  return {
+    routes: [
+      {
+        name: "Profile" as const,
+        state: {
+          routes: [{ name: "AuthEmailCallback" as const, params: undefined }],
+          index: 0,
+        },
+      },
+    ],
+    index: 0,
+  };
+}
+
 function stateForRootPath(fullPath: string) {
   const normalized = normalizePath(fullPath);
   if (normalized === "payment-success") {
@@ -56,6 +81,10 @@ export const linking: LinkingOptions<RootTabParamList> = {
     const direct = stateForRootPath(path);
     if (direct) {
       return direct as ReturnType<typeof getStateFromPathInternal>;
+    }
+    const authCallback = stateForSupabaseAuthCallback(path);
+    if (authCallback) {
+      return authCallback as ReturnType<typeof getStateFromPathInternal>;
     }
     return getStateFromPathInternal(path, linkingConfig as Parameters<typeof getStateFromPathInternal>[1]);
   },

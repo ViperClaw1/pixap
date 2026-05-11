@@ -8,11 +8,13 @@ import { useBusinessCards } from "@/entities/business-card";
 import type { SearchStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
+import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 
 type Nav = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
 
 export default function SearchScreen() {
   const navigation = useNavigation<Nav>();
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { data: places = [] } = useBusinessCards();
@@ -57,7 +59,7 @@ export default function SearchScreen() {
   );
 
   return (
-    <View style={[stylesThemed.root, { paddingTop: Math.max(insets.top, 12) }]}>
+    <View style={[stylesThemed.root, { paddingTop: Math.max(insets.top, 12) }]} {...androidSwipeBackPanHandlers}>
       <TextInput
         style={stylesThemed.input}
         placeholder="Search…"

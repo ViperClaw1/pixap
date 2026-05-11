@@ -10,11 +10,13 @@ import type { ProfileStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
+import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Favorites">;
 
 export default function FavoritesScreen() {
   const navigation = useNavigation<Nav>();
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors, mode, setMode } = useAppTheme();
   const toggleThemeMode = () => {
@@ -52,6 +54,7 @@ export default function FavoritesScreen() {
   }
 
   return (
+    <View style={{ flex: 1 }} {...androidSwipeBackPanHandlers}>
     <FlatList
       data={favorites}
       keyExtractor={(f) => `${f.user_id}-${f.business_card_id}`}
@@ -86,6 +89,7 @@ export default function FavoritesScreen() {
         );
       }}
     />
+    </View>
   );
 }
 
