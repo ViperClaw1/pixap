@@ -171,6 +171,19 @@
       "signUpAutoSignInFailedTitle": "Sign up completed",
       "signUpAutoSignInFailedBody": "Account was created, but auto sign in failed. Please log in manually.",
       "errorTitle": "Error"
+    },
+    "passwordReset": {
+      "title": "Reset password",
+      "hintLinkReceived": "Link received. Enter a new password below.",
+      "hintChooseNew": "Choose a new password for your account.",
+      "alertTooShortTitle": "Too short",
+      "alertTooShortBody": "Use at least 8 characters.",
+      "alertWeakTitle": "Weak password",
+      "alertMismatchTitle": "Mismatch",
+      "toastUpdateFailedTitle": "Could not update password",
+      "toastUpdatedTitle": "Password updated",
+      "toastUpdatedBody": "You're signed in. Welcome back.",
+      "btnUpdate": "Update password"
     }
   }
 }

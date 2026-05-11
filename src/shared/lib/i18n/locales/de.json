@@ -171,6 +171,19 @@
       "signUpAutoSignInFailedTitle": "Registrierung abgeschlossen",
       "signUpAutoSignInFailedBody": "Konto wurde erstellt, aber die automatische Anmeldung ist fehlgeschlagen. Bitte manuell anmelden.",
       "errorTitle": "Fehler"
+    },
+    "passwordReset": {
+      "title": "Passwort zurücksetzen",
+      "hintLinkReceived": "Link erhalten. Gib unten ein neues Passwort ein.",
+      "hintChooseNew": "Wähle ein neues Passwort für dein Konto.",
+      "alertTooShortTitle": "Zu kurz",
+      "alertTooShortBody": "Verwende mindestens 8 Zeichen.",
+      "alertWeakTitle": "Schwaches Passwort",
+      "alertMismatchTitle": "Stimmt nicht überein",
+      "toastUpdateFailedTitle": "Passwort konnte nicht aktualisiert werden",
+      "toastUpdatedTitle": "Passwort aktualisiert",
+      "toastUpdatedBody": "Du bist angemeldet. Willkommen zurück.",
+      "btnUpdate": "Passwort aktualisieren"
     }
   }
 }

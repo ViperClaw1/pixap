@@ -26,6 +26,10 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
   resendVerification: (email: string) => Promise<{ error: string | null }>;
+  sendVerificationOtp: (email: string) => Promise<{ error: string | null }>;
+  verifyEmailOtp: (code: string) => Promise<{ error: string | null }>;
+  sendRecoveryOtp: (email: string) => Promise<{ error: string | null }>;
+  verifyRecoveryOtp: (email: string, code: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -174,29 +178,73 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: error?.message ?? null };
   };
 
-  const resendVerification = async (email: string) => {
+  const sendVerificationOtp = async (email: string) => {
     if (__DEV__) {
-      console.info("[auth][resendVerification] invoke auth-email-verify", {
-        email,
-        redirectTo: getEmailCallbackRedirectUrl(),
-      });
+      console.info("[auth][sendVerificationOtp] invoke auth-email-verify", { email });
     }
     const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-verify", {
       body: {
         email,
-        redirectTo: getEmailCallbackRedirectUrl(),
       },
     });
     if (error) {
-      if (__DEV__) console.error("[auth][resendVerification] edge invoke error:", error.message);
+      if (__DEV__) console.error("[auth][sendVerificationOtp] edge invoke error:", error.message);
       return { error: error.message };
     }
     if (data && typeof data === "object" && "error" in data && data.error) {
-      if (__DEV__) console.error("[auth][resendVerification] edge response error:", String(data.error));
+      if (__DEV__) console.error("[auth][sendVerificationOtp] edge response error:", String(data.error));
       return { error: String(data.error) };
     }
-    if (__DEV__) console.info("[auth][resendVerification] edge invoke success");
+    if (__DEV__) console.info("[auth][sendVerificationOtp] edge invoke success");
     return { error: null };
+  };
+
+  const verifyEmailOtp = async (code: string) => {
+    const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-verify-otp", {
+      body: { code },
+    });
+    if (error) return { error: error.message };
+    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+    return { error: null };
+  };
+
+  const sendRecoveryOtp = async (email: string) => {
+    const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-recovery", {
+      body: { action: "send", email },
+    });
+    if (error) return { error: error.message };
+    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+    return { error: null };
+  };
+
+  const verifyRecoveryOtp = async (email: string, code: string) => {
+    const { data, error } = await supabase.functions.invoke<{
+      ok: boolean;
+      error?: string;
+      session?: { access_token?: string; refresh_token?: string };
+    }>("auth-email-recovery", {
+      body: { action: "verify", email, code },
+    });
+    if (error) return { error: error.message };
+    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+
+    const accessToken = data?.session?.access_token;
+    const refreshToken = data?.session?.refresh_token;
+    if (!accessToken || !refreshToken) return { error: "Recovery session is missing" };
+
+    const { error: setSessionError } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (setSessionError) return { error: setSessionError.message };
+    return { error: null };
+  };
+
+  const resendVerification = async (email: string) => {
+    // Backward compatibility for existing callers.
+    const result = await sendVerificationOtp(email);
+    if (__DEV__) console.info("[auth][resendVerification] deprecated alias used");
+    return result;
   };
 
   return (
@@ -211,6 +259,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         resetPassword,
         updatePassword,
         resendVerification,
+        sendVerificationOtp,
+        verifyEmailOtp,
+        sendRecoveryOtp,
+        verifyRecoveryOtp,
       }}
     >
       {children}

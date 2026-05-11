@@ -1,11 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { buildVerifyOtpEmailHtml } from "../_shared/authEmailTemplates.ts";
+import { buildRecoveryOtpEmailHtml } from "../_shared/authEmailTemplates.ts";
 import { isValidEmail, jsonHeaders, normalizeEmail } from "../_shared/authEmail.ts";
 import { sendResendEmail } from "../_shared/resend.ts";
 
-type VerifyBody = {
+type RecoverySendBody = {
   email?: string;
+};
+
+type ProfileRow = {
+  id: string;
+  first_name: string | null;
 };
 
 const OTP_TABLE = "email_verification_otp_codes";
@@ -41,9 +46,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Server misconfigured" }), { status: 500, headers: jsonHeaders() });
   }
 
-  let body: VerifyBody;
+  let body: RecoverySendBody;
   try {
-    body = (await req.json()) as VerifyBody;
+    body = (await req.json()) as RecoverySendBody;
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: jsonHeaders() });
   }
@@ -53,63 +58,34 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Invalid email" }), { status: 400, headers: jsonHeaders() });
   }
 
-  const authHeader = req.headers.get("Authorization") ?? "";
-  if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders() });
-  }
+  const admin = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, first_name")
+    .eq("email", email)
+    .maybeSingle<ProfileRow>();
 
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!token) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders() });
-  }
-
-  const authedClient = createClient(url, serviceRoleKey, {
-    auth: { persistSession: false },
-  });
-  const {
-    data: { user },
-    error: userError,
-  } = await authedClient.auth.getUser(token);
-  if (userError || !user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders() });
-  }
-
-  if (normalizeEmail(user.email) !== email) {
-    return new Response(JSON.stringify({ error: "Email does not match your account" }), {
-      status: 403,
+  // Do not leak account existence.
+  if (!profile?.id) {
+    return new Response(JSON.stringify({ ok: true, expiresInMinutes: OTP_TTL_MINUTES }), {
+      status: 200,
       headers: jsonHeaders(),
     });
   }
 
-  const admin = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
   const code = generateOtpCode();
   const codeHash = await hashOtp(code, otpSecret);
   const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
-  const userName =
-    (user.user_metadata?.first_name as string | undefined)?.trim() ||
-    (user.user_metadata?.name as string | undefined)?.trim() ||
-    undefined;
 
-  const { error: cleanupError } = await admin
-    .from(OTP_TABLE)
-    .delete()
-    .eq("user_id", user.id)
-    .is("used_at", null);
-  if (cleanupError) {
-    return new Response(JSON.stringify({ error: "Failed to create verification code" }), {
-      status: 500,
-      headers: jsonHeaders(),
-    });
-  }
-
+  await admin.from(OTP_TABLE).delete().eq("user_id", profile.id).is("used_at", null);
   const { error: insertError } = await admin.from(OTP_TABLE).insert({
-    user_id: user.id,
+    user_id: profile.id,
     email,
     code_hash: codeHash,
     expires_at: expiresAt,
   });
   if (insertError) {
-    return new Response(JSON.stringify({ error: "Failed to create verification code" }), {
+    return new Response(JSON.stringify({ error: "Failed to create reset code" }), {
       status: 500,
       headers: jsonHeaders(),
     });
@@ -118,17 +94,23 @@ Deno.serve(async (req) => {
   try {
     await sendResendEmail({
       to: email,
-      subject: "Verify your email",
-      html: buildVerifyOtpEmailHtml({ code, name: userName, subject: "Verify your email" }),
+      subject: "Password reset code",
+      html: buildRecoveryOtpEmailHtml({
+        code,
+        name: profile.first_name ?? undefined,
+        subject: "Password reset code",
+      }),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to send verification email";
+    const message = error instanceof Error ? error.message : "Failed to send recovery email";
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: jsonHeaders(),
     });
   }
 
-  return new Response(JSON.stringify({ ok: true, expiresInMinutes: OTP_TTL_MINUTES }), { status: 200, headers: jsonHeaders() });
+  return new Response(JSON.stringify({ ok: true, expiresInMinutes: OTP_TTL_MINUTES }), {
+    status: 200,
+    headers: jsonHeaders(),
+  });
 });
-

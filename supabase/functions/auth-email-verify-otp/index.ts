@@ -1,25 +1,25 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { buildVerifyOtpEmailHtml } from "../_shared/authEmailTemplates.ts";
-import { isValidEmail, jsonHeaders, normalizeEmail } from "../_shared/authEmail.ts";
-import { sendResendEmail } from "../_shared/resend.ts";
+import { jsonHeaders } from "../_shared/authEmail.ts";
 
-type VerifyBody = {
-  email?: string;
+type VerifyOtpBody = {
+  code?: string;
+};
+
+type OtpRow = {
+  id: string;
+  code_hash: string;
+  attempts: number;
+  expires_at: string;
 };
 
 const OTP_TABLE = "email_verification_otp_codes";
-const OTP_TTL_MINUTES = 10;
+const MAX_ATTEMPTS = 5;
 
 function toHex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
-}
-
-function generateOtpCode(): string {
-  const value = Math.floor(Math.random() * 1_000_000);
-  return String(value).padStart(6, "0");
 }
 
 async function hashOtp(code: string, secret: string): Promise<string> {
@@ -41,16 +41,16 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Server misconfigured" }), { status: 500, headers: jsonHeaders() });
   }
 
-  let body: VerifyBody;
+  let body: VerifyOtpBody;
   try {
-    body = (await req.json()) as VerifyBody;
+    body = (await req.json()) as VerifyOtpBody;
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: jsonHeaders() });
   }
 
-  const email = normalizeEmail(body.email);
-  if (!email || !isValidEmail(email)) {
-    return new Response(JSON.stringify({ error: "Invalid email" }), { status: 400, headers: jsonHeaders() });
+  const code = (body.code ?? "").trim();
+  if (!/^\d{6}$/.test(code)) {
+    return new Response(JSON.stringify({ error: "Invalid verification code" }), { status: 400, headers: jsonHeaders() });
   }
 
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -74,61 +74,57 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders() });
   }
 
-  if (normalizeEmail(user.email) !== email) {
-    return new Response(JSON.stringify({ error: "Email does not match your account" }), {
-      status: 403,
-      headers: jsonHeaders(),
-    });
-  }
-
   const admin = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
-  const code = generateOtpCode();
-  const codeHash = await hashOtp(code, otpSecret);
-  const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
-  const userName =
-    (user.user_metadata?.first_name as string | undefined)?.trim() ||
-    (user.user_metadata?.name as string | undefined)?.trim() ||
-    undefined;
-
-  const { error: cleanupError } = await admin
+  const { data: otpRow, error: otpFetchError } = await admin
     .from(OTP_TABLE)
-    .delete()
+    .select("id, code_hash, attempts, expires_at")
     .eq("user_id", user.id)
-    .is("used_at", null);
-  if (cleanupError) {
-    return new Response(JSON.stringify({ error: "Failed to create verification code" }), {
-      status: 500,
+    .is("used_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<OtpRow>();
+
+  if (otpFetchError || !otpRow) {
+    return new Response(JSON.stringify({ error: "Invalid verification code" }), { status: 400, headers: jsonHeaders() });
+  }
+
+  if (otpRow.attempts >= MAX_ATTEMPTS) {
+    return new Response(JSON.stringify({ error: "Too many attempts. Request a new code." }), {
+      status: 429,
       headers: jsonHeaders(),
     });
   }
 
-  const { error: insertError } = await admin.from(OTP_TABLE).insert({
-    user_id: user.id,
-    email,
-    code_hash: codeHash,
-    expires_at: expiresAt,
-  });
-  if (insertError) {
-    return new Response(JSON.stringify({ error: "Failed to create verification code" }), {
-      status: 500,
+  if (new Date(otpRow.expires_at).getTime() <= Date.now()) {
+    await admin.from(OTP_TABLE).update({ used_at: new Date().toISOString() }).eq("id", otpRow.id);
+    return new Response(JSON.stringify({ error: "Code expired. Request a new code." }), {
+      status: 400,
       headers: jsonHeaders(),
     });
   }
 
-  try {
-    await sendResendEmail({
-      to: email,
-      subject: "Verify your email",
-      html: buildVerifyOtpEmailHtml({ code, name: userName, subject: "Verify your email" }),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to send verification email";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
+  const codeHash = await hashOtp(code, otpSecret);
+  if (codeHash !== otpRow.code_hash) {
+    await admin
+      .from(OTP_TABLE)
+      .update({ attempts: otpRow.attempts + 1 })
+      .eq("id", otpRow.id);
+    return new Response(JSON.stringify({ error: "Incorrect verification code" }), {
+      status: 400,
       headers: jsonHeaders(),
     });
   }
 
-  return new Response(JSON.stringify({ ok: true, expiresInMinutes: OTP_TTL_MINUTES }), { status: 200, headers: jsonHeaders() });
+  const usedAt = new Date().toISOString();
+  const { error: markOtpError } = await admin.from(OTP_TABLE).update({ used_at: usedAt }).eq("id", otpRow.id);
+  if (markOtpError) {
+    return new Response(JSON.stringify({ error: "Failed to verify email" }), { status: 500, headers: jsonHeaders() });
+  }
+
+  const { error: profileUpdateError } = await admin.from("profiles").update({ is_verified: true }).eq("id", user.id);
+  if (profileUpdateError) {
+    return new Response(JSON.stringify({ error: "Failed to verify email" }), { status: 500, headers: jsonHeaders() });
+  }
+
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: jsonHeaders() });
 });
-

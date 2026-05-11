@@ -171,6 +171,19 @@
       "signUpAutoSignInFailedTitle": "Registro completado",
       "signUpAutoSignInFailedBody": "La cuenta se creó, pero el inicio automático falló. Inicia sesión manualmente.",
       "errorTitle": "Error"
+    },
+    "passwordReset": {
+      "title": "Restablecer contraseña",
+      "hintLinkReceived": "Enlace recibido. Introduce una nueva contraseña abajo.",
+      "hintChooseNew": "Elige una nueva contraseña para tu cuenta.",
+      "alertTooShortTitle": "Demasiado corta",
+      "alertTooShortBody": "Usa al menos 8 caracteres.",
+      "alertWeakTitle": "Contraseña débil",
+      "alertMismatchTitle": "No coincide",
+      "toastUpdateFailedTitle": "No se pudo actualizar la contraseña",
+      "toastUpdatedTitle": "Contraseña actualizada",
+      "toastUpdatedBody": "Sesión iniciada correctamente. Bienvenido de nuevo.",
+      "btnUpdate": "Actualizar contraseña"
     }
   }
 }

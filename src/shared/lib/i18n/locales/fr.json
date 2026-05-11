@@ -171,6 +171,19 @@
       "signUpAutoSignInFailedTitle": "Inscription terminée",
       "signUpAutoSignInFailedBody": "Le compte a été créé, mais la connexion automatique a échoué. Connectez-vous manuellement.",
       "errorTitle": "Erreur"
+    },
+    "passwordReset": {
+      "title": "Réinitialiser le mot de passe",
+      "hintLinkReceived": "Lien reçu. Saisissez un nouveau mot de passe ci-dessous.",
+      "hintChooseNew": "Choisissez un nouveau mot de passe pour votre compte.",
+      "alertTooShortTitle": "Trop court",
+      "alertTooShortBody": "Utilisez au moins 8 caractères.",
+      "alertWeakTitle": "Mot de passe faible",
+      "alertMismatchTitle": "Non concordant",
+      "toastUpdateFailedTitle": "Impossible de mettre à jour le mot de passe",
+      "toastUpdatedTitle": "Mot de passe mis à jour",
+      "toastUpdatedBody": "Vous êtes connecté. Bon retour.",
+      "btnUpdate": "Mettre à jour le mot de passe"
     }
   }
 }

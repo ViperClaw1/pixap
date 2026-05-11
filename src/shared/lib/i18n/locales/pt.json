@@ -171,6 +171,19 @@
       "signUpAutoSignInFailedTitle": "Registo concluído",
       "signUpAutoSignInFailedBody": "A conta foi criada, mas o início automático falhou. Inicia sessão manualmente.",
       "errorTitle": "Erro"
+    },
+    "passwordReset": {
+      "title": "Repor palavra-passe",
+      "hintLinkReceived": "Link recebido. Introduz uma nova palavra-passe abaixo.",
+      "hintChooseNew": "Escolhe uma nova palavra-passe para a tua conta.",
+      "alertTooShortTitle": "Demasiado curta",
+      "alertTooShortBody": "Usa pelo menos 8 caracteres.",
+      "alertWeakTitle": "Palavra-passe fraca",
+      "alertMismatchTitle": "Não coincide",
+      "toastUpdateFailedTitle": "Não foi possível atualizar a palavra-passe",
+      "toastUpdatedTitle": "Palavra-passe atualizada",
+      "toastUpdatedBody": "Sessão iniciada com sucesso. Bem-vindo de volta.",
+      "btnUpdate": "Atualizar palavra-passe"
     }
   }
 }
