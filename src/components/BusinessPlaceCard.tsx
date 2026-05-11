@@ -22,6 +22,27 @@ type Props = {
 const IMAGE_HORIZONTAL = 96;
 const IMAGE_VERTICAL_W = 200;
 const IMAGE_VERTICAL_H = 140;
+const TAG_HORIZONTAL_PADDING = 16;
+const TAG_BORDER_WIDTH = 2;
+const TAG_GAP = 6;
+const TAG_CHAR_WIDTH_ESTIMATE = 6;
+
+function estimateTagWidth(tag: string): number {
+  return tag.trim().length * TAG_CHAR_WIDTH_ESTIMATE + TAG_HORIZONTAL_PADDING + TAG_BORDER_WIDTH;
+}
+
+function pickTagsThatFitSingleRow(tags: string[], availableWidth: number): string[] {
+  const picked: string[] = [];
+  let occupied = 0;
+  for (const tag of tags) {
+    const width = estimateTagWidth(tag);
+    const next = picked.length > 0 ? occupied + TAG_GAP + width : occupied + width;
+    if (next > availableWidth) break;
+    picked.push(tag);
+    occupied = next;
+  }
+  return picked;
+}
 
 export default function BusinessPlaceCard({ place, variant, colors, isDark, onOpen }: Props) {
   const navigation = useNavigation();
@@ -114,8 +135,21 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
         vRatingText: { fontSize: 12, fontWeight: "600", color: colors.text },
         vMeta: { marginTop: 8, paddingHorizontal: 2 },
         vName: { fontSize: 14, fontWeight: "600", color: colors.text },
-        vTagsLine: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
-        vPrice: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
+        vTagsRow: { flexDirection: "row", flexWrap: "nowrap", gap: TAG_GAP, marginTop: 6, overflow: "hidden" },
+        vTagPill: {
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: 999,
+          backgroundColor: isDark ? "#0d0d0f" : "#f4f4f5",
+          borderWidth: 1,
+          borderColor: colors.border,
+          maxWidth: "100%",
+        },
+        vTagText: {
+          fontSize: 10,
+          fontWeight: "600",
+          color: isDark ? "#e8e8ea" : "#27272a",
+        },
       }),
     [colors, isDark],
   );
@@ -130,6 +164,10 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
 
   const tags = place.tags ?? [];
   const displayTags = tags.length > 0 ? tags : [];
+  const featuredVisibleTags = useMemo(
+    () => pickTagsThatFitSingleRow(displayTags, IMAGE_VERTICAL_W - 4),
+    [displayTags],
+  );
   const imageUrisRaw = useMemo(() => normalizeBusinessCardImages(place.images), [place.images]);
   const targetDensity = Math.min(2, PixelRatio.get());
   const lastImageRaw = imageUrisRaw.length > 0 ? imageUrisRaw[imageUrisRaw.length - 1] : null;
@@ -218,10 +256,17 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
         <Text style={styles.vName} numberOfLines={1}>
           {place.name}
         </Text>
-        <Text style={styles.vTagsLine} numberOfLines={1}>
-          {displayTags.length > 0 ? displayTags.join(" · ") : " "}
-        </Text>
-        <Text style={styles.vPrice}>{Number(place.booking_price).toLocaleString()} $</Text>
+        {featuredVisibleTags.length > 0 ? (
+          <View style={styles.vTagsRow}>
+            {featuredVisibleTags.map((tag) => (
+              <View key={`${place.id}-v-tag-${tag}`} style={styles.vTagPill}>
+                <Text style={styles.vTagText} numberOfLines={1}>
+                  {tag}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
