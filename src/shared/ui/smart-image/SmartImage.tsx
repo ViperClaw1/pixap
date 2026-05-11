@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, type ImageErrorEventData, type ImageProps } from "expo-image";
 
-const FALLBACK = require("../../../assets/placeholder-business-card.png");
+const FALLBACK = require("../../../../assets/android-icon-background.png");
 
 export type SmartImageProps = Omit<ImageProps, "source"> & {
   /** Primary image URI (remote, file, or content). */
@@ -57,7 +57,7 @@ export function SmartImage({ uri, fallbackUri, onError, recyclingKey, skipBundle
     setAttempt(0);
   }, [chainKey]);
 
-  const source = attempt < chain.length ? { uri: chain[attempt]! } : FALLBACK;
+  const source = attempt < chain.length ? { uri: chain[attempt]! } : undefined;
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
@@ -68,22 +68,20 @@ export function SmartImage({ uri, fallbackUri, onError, recyclingKey, skipBundle
   );
 
   const rk = recyclingKey ?? (chainKey ? `${chainKey}#${attempt}` : "smartimg-fallback");
-
-  const bundledPlaceholderProps = skipBundledPlaceholder
-    ? {}
-    : {
-        placeholder: FALLBACK as ImageProps["placeholder"],
-        placeholderContentFit: (rest.contentFit ?? "cover") as ImageProps["placeholderContentFit"],
-      };
+  const shouldShowBundledPlaceholder = !skipBundledPlaceholder;
+  const finalSource = source ?? (shouldShowBundledPlaceholder ? FALLBACK : undefined);
+  const placeholderSource = shouldShowBundledPlaceholder ? (FALLBACK as ImageProps["placeholder"]) : undefined;
 
   return (
     <Image
       {...rest}
-      {...bundledPlaceholderProps}
       recyclingKey={rk}
-      source={source}
+      source={finalSource}
+      placeholder={placeholderSource}
+      placeholderContentFit={(rest.contentFit ?? "cover") as ImageProps["placeholderContentFit"]}
       onError={handleError}
       cachePolicy="memory-disk"
     />
   );
 }
+

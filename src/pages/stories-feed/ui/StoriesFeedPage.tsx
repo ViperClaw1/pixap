@@ -8,6 +8,7 @@ import {
   FlatList,
   InteractionManager,
   Pressable,
+  Share,
   ScrollView,
   StyleSheet,
   Text,
@@ -32,7 +33,7 @@ import {
   type FeedPostItem,
 } from "@/entities/post";
 import { useMyFollowing, useProfile, usePublicProfiles, useToggleFollow } from "@/entities/user";
-import { useOpenOrCreateThread, useSendMessage } from "@/entities/messages";
+import { useOpenOrCreateThread } from "@/entities/messages";
 import {
   filterBusinessCardsByGeocodeAddress,
   useBusinessCards,
@@ -52,13 +53,15 @@ import { ShimmerSurface } from "@/shared/ui/shimmer/ShimmerSurface";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { StorySourcePickerModal, type StorySourceOption } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 import type { BrowseFlowParamList, FeedStackParamList, RootTabParamList } from "@/navigation/types";
-import { buildSharePlaceMessageBody } from "@/shared/lib/placeShareMessage";
 import * as ImagePicker from "expo-image-picker";
+import * as Clipboard from "expo-clipboard";
+import * as Linking from "expo-linking";
 import type { StoryGroup } from "@/types/stories";
 import Toast from "react-native-toast-message";
 
 const STORIES_BUCKET = "stories";
 const MAX_POST_PHOTOS = 8;
+const DOUBLE_TAP_DELAY_MS = 280;
 /** Скрыто по продуктовому запросу; логика фильтра по `route.params` сохраняется */
 const SHOW_POSTS_SCOPE_TOGGLES = false;
 
@@ -199,12 +202,13 @@ export default function StoriesFeedScreen() {
   const [uploadingStory, setUploadingStory] = useState(false);
   const [shareVisible, setShareVisible] = useState(false);
   const [shareSearch, setShareSearch] = useState("");
-  const [sharePlaceId, setSharePlaceId] = useState<string | null>(null);
+  const [sharePostId, setSharePostId] = useState<string | null>(null);
+  const [sharePostPlaceId, setSharePostPlaceId] = useState<string | null>(null);
+  const [sharePostImages, setSharePostImages] = useState<string[]>([]);
   const [sharePlaceName, setSharePlaceName] = useState("");
   const [shareSending, setShareSending] = useState(false);
   const { data: shareUsers = [], isLoading: shareUsersLoading } = usePublicProfiles(shareSearch);
   const openOrCreateShareThread = useOpenOrCreateThread();
-  const sendShareMessage = useSendMessage();
   const { data: businessCards = [] } = useBusinessCards();
   const [likedPostIds, setLikedPostIds] = useState<Record<string, true>>({});
   const [likeCountByPostId, setLikeCountByPostId] = useState<Record<string, number>>({});
@@ -226,6 +230,7 @@ export default function StoriesFeedScreen() {
   const [addressGeocodeLoading, setAddressGeocodeLoading] = useState(false);
   const [selectedGeocode, setSelectedGeocode] = useState<GeocodeSearchResultItem | null>(null);
   const [followOverrides, setFollowOverrides] = useState<Record<string, boolean>>({});
+  const lastPostTapByIdRef = useRef<Record<string, number>>({});
   const createStepFade = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -371,7 +376,6 @@ export default function StoriesFeedScreen() {
   const toggleReplies = (commentId: string) => {
     setExpandedCommentIds((prev) => {
       if (prev[commentId]) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- remove expanded state for current comment
         const { [commentId]: _removed, ...rest } = prev;
         return rest;
       }
@@ -391,38 +395,103 @@ export default function StoriesFeedScreen() {
     action();
   };
 
-  const handleShareSend = async (payload: { peerUserId: string; message: string }) => {
-    const placeId = sharePlaceId;
-    if (!placeId) return;
+  const buildPostShareUrl = (postId: string) => `https://pixapp.kz/feed?focusPostId=${encodeURIComponent(postId)}`;
+
+  const normalizePhoneToDigits = (value?: string | null) => (value ?? "").replace(/[^\d]/g, "");
+
+  const openThreadWithPrefill = async (peerUserId: string, prefilledText: string) => {
+    const thread = await openOrCreateShareThread.mutateAsync(peerUserId);
+    const peer = shareUsers.find((u) => u.id === peerUserId);
+    setShareVisible(false);
+    setShareSearch("");
+    setSharePostId(null);
+    setSharePostPlaceId(null);
+    setSharePostImages([]);
+    setSharePlaceName("");
+    const threadParams = {
+      threadId: thread.threadId,
+      peerId: peerUserId,
+      peerFirstName: peer?.first_name,
+      peerLastName: peer?.last_name,
+      peerAvatarUrl: peer?.avatar_url,
+      initialDraft: prefilledText,
+    };
+    InteractionManager.runAfterInteractions(() => {
+      rootNavigation.navigate("Cart", { screen: "CartMain" });
+      requestAnimationFrame(() => {
+        rootNavigation.navigate("Cart", { screen: "MessageThread", params: threadParams });
+      });
+    });
+  };
+
+  const handleShareToStory = async () => {
+    const postId = sharePostId;
+    const placeId = sharePostPlaceId;
+    if (!postId || !placeId || !sharePostImages.length) {
+      Alert.alert("Could not open story composer", "Post image and place are required.");
+      return;
+    }
+    setShareVisible(false);
+    setShareSearch("");
+    setSharePostId(null);
+    setSharePostPlaceId(null);
+    setSharePostImages([]);
+    setSharePlaceName("");
+    navigation.navigate("AddStoryFromPost", {
+      postId,
+      placeId,
+      postImages: sharePostImages,
+    });
+  };
+
+  const handleShareToWhatsapp = async (peerUserId: string) => {
+    const postId = sharePostId;
+    if (!postId) return;
     setShareSending(true);
     try {
-      const body = buildSharePlaceMessageBody(payload.message, placeId, sharePlaceName);
-      const thread = await openOrCreateShareThread.mutateAsync(payload.peerUserId);
-      await sendShareMessage.mutateAsync({ threadId: thread.threadId, content: body });
-      const peer = shareUsers.find((u) => u.id === payload.peerUserId);
-      setShareVisible(false);
-      setShareSearch("");
-      setSharePlaceId(null);
-      setSharePlaceName("");
-      const threadParams = {
-        threadId: thread.threadId,
-        peerId: payload.peerUserId,
-        peerFirstName: peer?.first_name,
-        peerLastName: peer?.last_name,
-        peerAvatarUrl: peer?.avatar_url,
-      };
-      // Сначала монтируем CartMain, иначе при cross-tab navigate стек остаётся только из MessageThread и goBack() молчит.
-      InteractionManager.runAfterInteractions(() => {
-        rootNavigation.navigate("Cart", { screen: "CartMain" });
-        requestAnimationFrame(() => {
-          rootNavigation.navigate("Cart", { screen: "MessageThread", params: threadParams });
+      const link = buildPostShareUrl(postId);
+      const { data: profileData } = await supabase.from("profiles").select("phone").eq("id", peerUserId).maybeSingle();
+      const phoneDigits = normalizePhoneToDigits(profileData?.phone);
+      if (!phoneDigits) {
+        Toast.show({
+          type: "info",
+          text1: "No WhatsApp number",
+          text2: "Opened internal chat instead.",
         });
-      });
+        await openThreadWithPrefill(peerUserId, link);
+        return;
+      }
+      const whatsappUrl = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(link)}`;
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      if (!canOpen) {
+        await openThreadWithPrefill(peerUserId, link);
+        return;
+      }
+      await Linking.openURL(whatsappUrl);
     } catch (error) {
-      Alert.alert("Could not send", error instanceof Error ? error.message : "Please try again.");
+      Alert.alert("Could not open WhatsApp", error instanceof Error ? error.message : "Please try again.");
     } finally {
       setShareSending(false);
     }
+  };
+
+  const handleSystemShare = async () => {
+    const postId = sharePostId;
+    if (!postId) return;
+    const link = buildPostShareUrl(postId);
+    await Share.share({ message: link, url: link });
+  };
+
+  const handleCopyPostLink = async () => {
+    const postId = sharePostId;
+    if (!postId) return;
+    const link = buildPostShareUrl(postId);
+    await Clipboard.setStringAsync(link);
+    Toast.show({
+      type: "success",
+      text1: "Link copied",
+      text2: "Post link copied to clipboard.",
+    });
   };
 
   const toggleThemeMode = () => {
@@ -467,6 +536,52 @@ export default function StoriesFeedScreen() {
         });
       });
   };
+
+  const togglePostLike = useCallback(
+    (postId: string, reactionCount: number) => {
+      runAuthedAction(() => {
+        const wasLiked = !!likedPostIds[postId];
+        setLikedPostIds((prev) => {
+          if (wasLiked) {
+            const { [postId]: _removed, ...rest } = prev;
+            return rest;
+          }
+          return { ...prev, [postId]: true };
+        });
+        setLikeCountByPostId((prev) => ({
+          ...prev,
+          [postId]: Math.max(0, (prev[postId] ?? reactionCount) + (wasLiked ? -1 : 1)),
+        }));
+        void reactToPost.mutateAsync({ postId, type: "like" }).catch(() => {
+          setLikedPostIds((prev) => {
+            if (wasLiked) return { ...prev, [postId]: true };
+            const { [postId]: _removed, ...rest } = prev;
+            return rest;
+          });
+          setLikeCountByPostId((prev) => ({
+            ...prev,
+            [postId]: Math.max(0, (prev[postId] ?? reactionCount) + (wasLiked ? 1 : -1)),
+          }));
+        });
+      });
+    },
+    [likedPostIds, reactToPost, runAuthedAction],
+  );
+
+  const onPostCardPress = useCallback(
+    (postId: string, reactionCount: number) => {
+      const now = Date.now();
+      const lastTapAt = lastPostTapByIdRef.current[postId] ?? 0;
+      if (now - lastTapAt <= DOUBLE_TAP_DELAY_MS) {
+        lastPostTapByIdRef.current[postId] = 0;
+        togglePostLike(postId, reactionCount);
+        return;
+      }
+      lastPostTapByIdRef.current[postId] = now;
+    },
+    [togglePostLike],
+  );
+
   const canSendComment = commentInput.trim().length > 0 && !createPostComment.isPending;
 
   const uploadStoryPhotos = async (assets: ImagePicker.ImagePickerAsset[]) => {
@@ -675,6 +790,14 @@ export default function StoriesFeedScreen() {
         <View style={styles.root}>
           <ShimmerProvider active>
             <View style={styles.skeletonWrap}>
+              <View style={styles.skeletonStoriesRow}>
+                {Array.from({ length: 5 }).map((_, idx) => (
+                  <View key={`stories-skeleton-${idx}`} style={styles.skeletonStoryItem}>
+                    <ShimmerSurface width={64} height={64} borderRadius={32} isDark={isDark} />
+                    <ShimmerSurface width={56} height={10} borderRadius={6} isDark={isDark} />
+                  </View>
+                ))}
+              </View>
               {Array.from({ length: 2 }).map((_, idx) => (
                 <View key={`post-skeleton-${idx}`} style={[styles.skeletonCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
                   <ShimmerSurface width={width - 24} height={Math.max(240, Math.min(360, Math.floor(height * 0.48)))} isDark={isDark} borderRadius={0} />
@@ -682,7 +805,7 @@ export default function StoriesFeedScreen() {
                     <ShimmerSurface width={58} height={18} borderRadius={9} isDark={isDark} />
                     <ShimmerSurface width={58} height={18} borderRadius={9} isDark={isDark} />
                   </View>
-                  <ShimmerSurface width={180} height={14} borderRadius={7} isDark={isDark} />
+                  <ShimmerSurface width={180} height={14} borderRadius={7} isDark={isDark} style={styles.skeletonLinePad} />
                   <ShimmerSurface width={220} height={14} borderRadius={7} isDark={isDark} style={styles.skeletonLineGap} />
                 </View>
               ))}
@@ -815,60 +938,36 @@ export default function StoriesFeedScreen() {
 
           return (
             <View style={[styles.content, { backgroundColor: colors.background }]}>
-              {postImages.length > 1 ? (
-                <PostMediaCarousel
-                  postId={item.id}
-                  postImages={postImages}
-                  postImagesRaw={postImagesRaw}
-                  width={width}
-                  sliderHeight={sliderHeight}
-                />
-              ) : postImages[0] ? (
-                <SmartImage
-                  uri={postImages[0]}
-                  fallbackUri={postImagesRaw[0] ?? null}
-                  recyclingKey={`${item.id}-feed-slider-single`}
-                  style={[styles.sliderImage, { height: sliderHeight }]}
-                  contentFit="cover"
-                  transition={200}
-                />
-              ) : (
-                <View style={[styles.sliderFallback, { height: sliderHeight, backgroundColor: colors.card }]}>
-                  <Ionicons name="image-outline" size={30} color={colors.textMuted} />
-                </View>
-              )}
+              <Pressable onPress={() => onPostCardPress(item.id, item.reaction_count)}>
+                {postImages.length > 1 ? (
+                  <PostMediaCarousel
+                    postId={item.id}
+                    postImages={postImages}
+                    postImagesRaw={postImagesRaw}
+                    width={width}
+                    sliderHeight={sliderHeight}
+                  />
+                ) : postImages[0] ? (
+                  <SmartImage
+                    uri={postImages[0]}
+                    fallbackUri={postImagesRaw[0] ?? null}
+                    recyclingKey={`${item.id}-feed-slider-single`}
+                    style={[styles.sliderImage, { height: sliderHeight }]}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                ) : (
+                  <View style={[styles.sliderFallback, { height: sliderHeight, backgroundColor: colors.card }]}>
+                    <Ionicons name="image-outline" size={30} color={colors.textMuted} />
+                  </View>
+                )}
+              </Pressable>
 
               <View style={styles.actionsSection}>
                 <View style={styles.leftActions}>
                   <Pressable
                     style={styles.actionBtn}
-                    onPress={() => {
-                      runAuthedAction(() => {
-                        const wasLiked = !!likedPostIds[item.id];
-                        setLikedPostIds((prev) => {
-                          if (wasLiked) {
-                            const { [item.id]: _removed, ...rest } = prev;
-                            return rest;
-                          }
-                          return { ...prev, [item.id]: true };
-                        });
-                        setLikeCountByPostId((prev) => ({
-                          ...prev,
-                          [item.id]: Math.max(0, (prev[item.id] ?? item.reaction_count) + (wasLiked ? -1 : 1)),
-                        }));
-                        void reactToPost.mutateAsync({ postId: item.id, type: "like" }).catch(() => {
-                          setLikedPostIds((prev) => {
-                            if (wasLiked) return { ...prev, [item.id]: true };
-                            const { [item.id]: _removed, ...rest } = prev;
-                            return rest;
-                          });
-                          setLikeCountByPostId((prev) => ({
-                            ...prev,
-                            [item.id]: Math.max(0, (prev[item.id] ?? item.reaction_count) + (wasLiked ? 1 : -1)),
-                          }));
-                        });
-                      });
-                    }}
+                    onPress={() => togglePostLike(item.id, item.reaction_count)}
                   >
                     <Ionicons name={likedPostIds[item.id] ? "heart" : "heart-outline"} size={24} color={colors.text} />
                     <Text style={[styles.actionCount, { color: colors.text }]}>
@@ -895,7 +994,9 @@ export default function StoriesFeedScreen() {
                   style={styles.shareBtn}
                   onPress={() =>
                     runAuthedAction(() => {
-                      setSharePlaceId(item.place_id);
+                      setSharePostId(item.id);
+                      setSharePostPlaceId(item.place_id);
+                      setSharePostImages(postImagesRaw);
                       setSharePlaceName(item.business_card?.name ?? item.place_name ?? "Place");
                       setShareVisible(true);
                     })
@@ -910,7 +1011,6 @@ export default function StoriesFeedScreen() {
                   onPress={() => {
                     setExpandedPostContentIds((prev) => {
                       if (prev[item.id]) {
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- remove expanded state for current story
                         const { [item.id]: _removed, ...rest } = prev;
                         return rest;
                       }
@@ -1026,7 +1126,9 @@ export default function StoriesFeedScreen() {
         visible={shareVisible}
         onClose={() => {
           setShareVisible(false);
-          setSharePlaceId(null);
+          setSharePostId(null);
+          setSharePostPlaceId(null);
+          setSharePostImages([]);
           setSharePlaceName("");
         }}
         users={shareUsers}
@@ -1034,10 +1136,13 @@ export default function StoriesFeedScreen() {
         searchValue={shareSearch}
         onChangeSearch={setShareSearch}
         resolveAvatarUri={profileAvatar}
-        sharePlaceId={sharePlaceId}
+        sharePostId={sharePostId}
         sharePlaceName={sharePlaceName}
         shareSending={shareSending}
-        onShareSend={handleShareSend}
+        onAddToStory={handleShareToStory}
+        onWhatsAppShare={handleShareToWhatsapp}
+        onSystemShare={handleSystemShare}
+        onCopyLink={handleCopyPostLink}
       />
       <BottomSheetPickerModal
         visible={createModalVisible}
@@ -1346,6 +1451,17 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     gap: 10,
   },
+  skeletonStoriesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingBottom: 4,
+  },
+  skeletonStoryItem: {
+    width: 72,
+    alignItems: "center",
+    gap: 8,
+  },
   skeletonCard: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 14,
@@ -1360,6 +1476,9 @@ const styles = StyleSheet.create({
   },
   skeletonLineGap: {
     marginTop: -4,
+    marginLeft: 12,
+  },
+  skeletonLinePad: {
     marginLeft: 12,
   },
   emptyText: {

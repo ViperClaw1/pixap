@@ -1,5 +1,6 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
 import type {
+  AddStoryFromPostRouteParams,
   StoryComposerRouteParams,
   StoryDiscussionRouteParams,
   StoryViewerRouteParams,
@@ -12,6 +13,7 @@ export type BrowseFlowParamList = {
   StoryViewer: StoryViewerRouteParams;
   FeedStoryViewer: StoryViewerRouteParams;
   StoryComposer: StoryComposerRouteParams;
+  AddStoryFromPost: AddStoryFromPostRouteParams;
   StoryDiscussion: StoryDiscussionRouteParams;
   Category: { id: string };
   ShoppingItems: { id: string };
@@ -53,6 +55,7 @@ export type CartStackParamList = {
     peerFirstName?: string | null;
     peerLastName?: string | null;
     peerAvatarUrl?: string | null;
+    initialDraft?: string;
   };
   PaymentSuccess: { next?: "bookings" } | undefined;
   PaymentCanceled: undefined;
