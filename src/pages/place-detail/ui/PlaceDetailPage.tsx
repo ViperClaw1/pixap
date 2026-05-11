@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,7 +25,6 @@ import type { BrowseFlowParamList } from "@/navigation/types";
 import { navigateToProfileAuth } from "@/navigation/navigationHelpers";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { getLatestBusinessCardImage, normalizeBusinessCardImages } from "@/lib/businessCardImages";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import Carousel from "react-native-reanimated-carousel";
 import { StoryBubblesRow } from "@/components/stories/StoryBubblesRow";
 import { useStories } from "@/entities/story";
@@ -216,42 +216,60 @@ export default function PlaceDetailScreen() {
 
   const heroTop = Math.max(insets.top, 12);
   const bottomScrollPadding = Platform.OS === "ios" ? Math.max(insets.bottom, 24) : 20;
-  const legacyImage = (place as unknown as { image?: string | null } | null)?.image;
-  const normalizedImageList = normalizeBusinessCardImages(place?.images);
-  const heroImagesRaw =
-    normalizedImageList.length > 0
-      ? normalizedImageList
-      : [...normalizedImageList, ...normalizeBusinessCardImages(legacyImage)].filter(
-          (url, idx, arr) => arr.indexOf(url) === idx,
-        );
-  const heroImages = heroImagesRaw.map((url) => getOptimizedImageUrl(url, 900, 560) || url);
-  const heroFallback = getLatestBusinessCardImage(place?.images) ?? getLatestBusinessCardImage(legacyImage);
-  const fallbackGalleryImages = heroFallback ? [heroFallback] : [];
-  const galleryImages = heroImagesRaw.length > 0 ? heroImagesRaw : fallbackGalleryImages;
-  const galleryFallbacks = heroImages.length > 0 ? heroImages : fallbackGalleryImages;
+  const imageVm = useMemo(() => {
+    const legacyImage = (place as unknown as { image?: string | null } | null)?.image;
+    const normalizedImageList = normalizeBusinessCardImages(place?.images);
+    const heroImagesRaw =
+      normalizedImageList.length > 0
+        ? normalizedImageList
+        : [...normalizedImageList, ...normalizeBusinessCardImages(legacyImage)].filter(
+            (url, idx, arr) => arr.indexOf(url) === idx,
+          );
+    // For place hero we intentionally keep deterministic public object URLs.
+    // Supabase render endpoint can revalidate more often and trigger network hits on re-entry.
+    const heroImages = heroImagesRaw;
+    const heroFallback = getLatestBusinessCardImage(place?.images) ?? getLatestBusinessCardImage(legacyImage);
+    const fallbackGalleryImages = heroFallback ? [heroFallback] : [];
+    return {
+      heroImagesRaw,
+      heroImages,
+      heroFallback,
+      galleryImages: heroImagesRaw.length > 0 ? heroImagesRaw : fallbackGalleryImages,
+      galleryFallbacks: heroImages.length > 0 ? heroImages : fallbackGalleryImages,
+    };
+  }, [place]);
 
   const restartHeroProgress = useCallback(() => {
     cancelAnimation(progress);
     progress.value = 0;
-    if (heroPaused || heroImages.length <= 1) {
-      progress.value = heroImages.length <= 1 ? 1 : 0;
+    if (heroPaused || imageVm.heroImages.length <= 1) {
+      progress.value = imageVm.heroImages.length <= 1 ? 1 : 0;
       return;
     }
     progress.value = withTiming(1, { duration: AUTO_SLIDE_MS, easing: Easing.linear });
-  }, [heroImages.length, heroPaused, progress]);
+  }, [heroPaused, imageVm.heroImages.length, progress]);
 
   useEffect(() => {
     restartHeroProgress();
     return () => cancelAnimation(progress);
   }, [heroSlide, heroPaused, progress, restartHeroProgress]);
 
-  const openFullscreenGallery = (initialIndex: number) => {
-    navigation.navigate("PlaceGallery", {
-      images: galleryImages,
-      rawImages: galleryFallbacks,
-      initialIndex,
-    });
-  };
+  useEffect(() => {
+    const preloadCandidates = imageVm.heroImages.slice(0, 4);
+    if (!preloadCandidates.length) return;
+    void preloadSmartImages(preloadCandidates);
+  }, [imageVm.heroImages]);
+
+  const openFullscreenGallery = useCallback(
+    (initialIndex: number) => {
+      navigation.navigate("PlaceGallery", {
+        images: imageVm.galleryImages,
+        rawImages: imageVm.galleryFallbacks,
+        initialIndex,
+      });
+    },
+    [imageVm.galleryFallbacks, imageVm.galleryImages, navigation],
+  );
 
   const handleHeroTap = useCallback(
     (index: number) => {
@@ -282,14 +300,14 @@ export default function PlaceDetailScreen() {
       contentContainerStyle={{ paddingBottom: bottomScrollPadding }}
     >
       <View>
-        {heroImages.length > 1 ? (
+        {imageVm.heroImages.length > 1 ? (
           <>
             <Carousel
               width={windowWidth}
               height={280}
-              data={heroImages}
+              data={imageVm.heroImages}
               loop
-              autoPlay={heroImages.length > 1}
+              autoPlay={imageVm.heroImages.length > 1}
               autoPlayInterval={AUTO_SLIDE_MS}
               enabled={!heroPaused}
               scrollAnimationDuration={500}
@@ -303,7 +321,7 @@ export default function PlaceDetailScreen() {
                 >
                   <SmartImage
                     uri={item}
-                    fallbackUri={heroImagesRaw[index] ?? null}
+                    fallbackUri={imageVm.heroImagesRaw[index] ?? null}
                     recyclingKey={`${place.id}-hero-${index}`}
                     style={styles.hero}
                     contentFit="cover"
@@ -313,10 +331,10 @@ export default function PlaceDetailScreen() {
               )}
             />
             <View style={[stylesThemed.heroProgressWrap, { top: heroTop }]}>
-              <StoryProgressBar count={heroImages.length} currentIndex={heroSlide} progress={progress} />
+              <StoryProgressBar count={imageVm.heroImages.length} currentIndex={heroSlide} progress={progress} />
             </View>
             <View style={stylesThemed.heroDotsRow}>
-              {heroImages.map((_, idx) => (
+              {imageVm.heroImages.map((_, idx) => (
                 <View key={`${place.id}-hero-dot-${idx}`} style={[stylesThemed.heroDot, heroSlide === idx && stylesThemed.heroDotActive]} />
               ))}
             </View>
@@ -329,8 +347,8 @@ export default function PlaceDetailScreen() {
             delayLongPress={220}
           >
             <SmartImage
-              uri={heroImages[0] ?? heroFallback}
-              fallbackUri={heroImagesRaw[0] ?? null}
+              uri={imageVm.heroImages[0] ?? imageVm.heroFallback}
+              fallbackUri={imageVm.heroImagesRaw[0] ?? null}
               recyclingKey={place.id}
               style={styles.hero}
               contentFit="cover"

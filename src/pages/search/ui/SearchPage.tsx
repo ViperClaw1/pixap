@@ -10,6 +10,7 @@ import type { SearchStackParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 
 type Nav = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
 
@@ -75,7 +76,14 @@ export default function SearchScreen() {
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
         renderItem={({ item }) => (
           <Pressable style={stylesThemed.row} onPress={() => navigation.navigate("PlaceDetail", { id: item.id })}>
-            <SmartImage uri={getLatestBusinessCardImage(item.images)} recyclingKey={item.id} style={styles.thumb} contentFit="cover" />
+            <SmartImage
+              uri={getOptimizedImageUrl(getLatestBusinessCardImage(item.images), 168, 168, 72)}
+              fallbackUri={getLatestBusinessCardImage(item.images)}
+              recyclingKey={item.id}
+              style={styles.thumb}
+              contentFit="cover"
+              skipBundledPlaceholder
+            />
             <View style={{ flex: 1 }}>
               <Text style={stylesThemed.name}>{item.name}</Text>
               <Text style={stylesThemed.meta} numberOfLines={1}>
@@ -84,6 +92,11 @@ export default function SearchScreen() {
             </View>
           </Pressable>
         )}
+        removeClippedSubviews
+        initialNumToRender={8}
+        maxToRenderPerBatch={10}
+        windowSize={8}
+        updateCellsBatchingPeriod={40}
       />
     </View>
   );

@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -492,7 +493,14 @@ function EditProfileScreenContent() {
         <View style={stylesThemed.avatarBlock}>
           <View style={stylesThemed.avatarFrame}>
             {avatarUrl?.trim() ? (
-              <SmartImage uri={avatarUrl} recyclingKey={avatarUrl} style={stylesThemed.avatar} contentFit="cover" />
+              <SmartImage
+                uri={getOptimizedImageUrl(avatarUrl, 220, 220, 74)}
+                fallbackUri={avatarUrl}
+                recyclingKey={avatarUrl}
+                style={stylesThemed.avatar}
+                contentFit="cover"
+                skipBundledPlaceholder
+              />
             ) : (
               <View style={[stylesThemed.avatar, stylesThemed.avatarFallback]}>
                 <Text style={stylesThemed.avatarFallbackText}>{(first || "U").charAt(0).toUpperCase()}</Text>

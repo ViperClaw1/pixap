@@ -1,12 +1,13 @@
 import { memo, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { Image } from "expo-image";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import type { StoryReactionType } from "@/types/stories";
 import type { FeedStoryItem } from "@/entities/story";
 import { isAuthRequiredError } from "@/lib/authRequired";
 import { ReactionBar } from "./ReactionBar";
 import { CommentPreview } from "./CommentPreview";
+import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 
 interface FeedStoryCardProps {
   story: FeedStoryItem;
@@ -40,6 +41,7 @@ function FeedStoryCardComponent({
     const last = story.profile?.last_name?.trim() ?? "";
     return `${first} ${last}`.trim() || "Unknown User";
   }, [story.profile?.first_name, story.profile?.last_name]);
+  const coverImage = useMemo(() => getOptimizedImageUrl(story.media_url, 720, 420), [story.media_url]);
 
   const onReactPress = async (type: StoryReactionType) => {
     const previousReaction = localReaction;
@@ -82,7 +84,7 @@ function FeedStoryCardComponent({
         <Pressable style={styles.userRow} onPress={onPressUser}>
           <View style={[styles.avatar, { borderColor: colors.border }]}>
             {story.profile?.avatar_url ? (
-              <Image source={{ uri: story.profile.avatar_url }} style={styles.avatarImage} contentFit="cover" />
+              <SmartImage uri={story.profile.avatar_url} style={styles.avatarImage} contentFit="cover" skipBundledPlaceholder />
             ) : (
               <Text style={[styles.avatarFallback, { color: colors.textMuted }]}>
                 {fullName.slice(0, 1).toUpperCase()}
@@ -126,7 +128,14 @@ function FeedStoryCardComponent({
       <Text style={[styles.content, { color: colors.text }]}>{story.content}</Text>
 
       {story.media_url ? (
-        <Image source={{ uri: story.media_url }} style={styles.media} contentFit="cover" transition={150} />
+        <SmartImage
+          uri={coverImage || story.media_url}
+          fallbackUri={story.media_url}
+          style={styles.media}
+          contentFit="cover"
+          transition={150}
+          priority="normal"
+        />
       ) : null}
 
       <ReactionBar

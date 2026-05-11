@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -461,61 +461,70 @@ export default function MessagesPage() {
           </View>
         </ShimmerProvider>
       ) : visibleThreads.length ? (
-        visibleThreads.map((thread) => (
-          <Swipeable
-            key={thread.thread_id}
-            overshootRight={false}
-            renderRightActions={() => (
-              <View style={stylesThemed.swipeActionWrap}>
-                <Pressable
-                  style={[stylesThemed.swipeActionBtn, stylesThemed.swipeDeleteBtn]}
-                  onPress={() => onDeleteThread(thread.thread_id, thread.last_sender_name || unknownLabel)}
-                >
-                  <Ionicons name="trash-outline" size={22} color="#ffffff" />
-                </Pressable>
-              </View>
-            )}
-          >
-            <Pressable
-              style={stylesThemed.card}
-              onPress={() => {
-                if (thread.unread_count && !markThreadRead.isPending) {
-                  void markThreadRead.mutateAsync(thread.thread_id);
-                }
-                const peer = thread.participants.find((participant) => participant.id !== user?.id) ?? thread.participants[0];
-                navigation.navigate("MessageThread", {
-                  threadId: thread.thread_id,
-                  peerId: peer?.id ?? thread.last_sender_id,
-                  peerFirstName: peer?.first_name ?? null,
-                  peerLastName: peer?.last_name ?? null,
-                  peerAvatarUrl: peer?.avatar_url ?? thread.last_sender_avatar_url,
-                });
-              }}
+        <FlatList
+          data={visibleThreads}
+          keyExtractor={(thread) => thread.thread_id}
+          scrollEnabled={false}
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={6}
+          updateCellsBatchingPeriod={40}
+          renderItem={({ item: thread }) => (
+            <Swipeable
+              overshootRight={false}
+              renderRightActions={() => (
+                <View style={stylesThemed.swipeActionWrap}>
+                  <Pressable
+                    style={[stylesThemed.swipeActionBtn, stylesThemed.swipeDeleteBtn]}
+                    onPress={() => onDeleteThread(thread.thread_id, thread.last_sender_name || unknownLabel)}
+                  >
+                    <Ionicons name="trash-outline" size={22} color="#ffffff" />
+                  </Pressable>
+                </View>
+              )}
             >
-              <SmartImage uri={thread.last_sender_avatar_url} style={stylesThemed.avatar} contentFit="cover" />
-              <View style={stylesThemed.cardMain}>
-                <View style={stylesThemed.rowBetween}>
-                  <Text style={[stylesThemed.title, stylesThemed.chatTitle]} numberOfLines={1}>
-                    {thread.last_sender_name}
+              <Pressable
+                style={stylesThemed.card}
+                onPress={() => {
+                  if (thread.unread_count && !markThreadRead.isPending) {
+                    void markThreadRead.mutateAsync(thread.thread_id);
+                  }
+                  const peer = thread.participants.find((participant) => participant.id !== user?.id) ?? thread.participants[0];
+                  navigation.navigate("MessageThread", {
+                    threadId: thread.thread_id,
+                    peerId: peer?.id ?? thread.last_sender_id,
+                    peerFirstName: peer?.first_name ?? null,
+                    peerLastName: peer?.last_name ?? null,
+                    peerAvatarUrl: peer?.avatar_url ?? thread.last_sender_avatar_url,
+                  });
+                }}
+              >
+                <SmartImage uri={thread.last_sender_avatar_url} style={stylesThemed.avatar} contentFit="cover" />
+                <View style={stylesThemed.cardMain}>
+                  <View style={stylesThemed.rowBetween}>
+                    <Text style={[stylesThemed.title, stylesThemed.chatTitle]} numberOfLines={1}>
+                      {thread.last_sender_name}
+                    </Text>
+                  </View>
+                  <Text style={stylesThemed.subtitle} numberOfLines={1} ellipsizeMode="tail">
+                    {thread.last_message_text}
                   </Text>
                 </View>
-                <Text style={stylesThemed.subtitle} numberOfLines={1} ellipsizeMode="tail">
-                  {thread.last_message_text}
-                </Text>
-              </View>
-              <View style={stylesThemed.threadActionsWrap}>
-                <Text style={stylesThemed.time}>{formatRelativeTime(thread.last_message_at)}</Text>
-                <View style={stylesThemed.threadReadIndicator}>
-                  <Ionicons
-                    name={thread.unread_count > 0 ? "checkmark" : "checkmark-done"}
-                    size={16}
-                    color={thread.unread_count > 0 ? colors.textMuted : colors.primary}
-                  />
+                <View style={stylesThemed.threadActionsWrap}>
+                  <Text style={stylesThemed.time}>{formatRelativeTime(thread.last_message_at)}</Text>
+                  <View style={stylesThemed.threadReadIndicator}>
+                    <Ionicons
+                      name={thread.unread_count > 0 ? "checkmark" : "checkmark-done"}
+                      size={16}
+                      color={thread.unread_count > 0 ? colors.textMuted : colors.primary}
+                    />
+                  </View>
                 </View>
-              </View>
-            </Pressable>
-          </Swipeable>
-        ))
+              </Pressable>
+            </Swipeable>
+          )}
+        />
       ) : (
         <Text style={stylesThemed.empty}>{t("messages.noChatsFound")}</Text>
       )}
@@ -542,53 +551,62 @@ export default function MessagesPage() {
           </View>
         </ShimmerProvider>
       ) : people.length ? (
-        people.map((person) => (
-          <Swipeable
-            key={person.id}
-            overshootRight={false}
-            renderRightActions={() => (
-              <View style={stylesThemed.swipeActionWrap}>
-                <Pressable style={[stylesThemed.swipeActionBtn, stylesThemed.swipeChatBtn]} onPress={() => onOpenChat(person)}>
-                  <Ionicons name="chatbubble-ellipses" size={22} color="#ffffff" />
-                </Pressable>
-              </View>
-            )}
-            renderLeftActions={() => (
-              <View style={stylesThemed.swipeActionWrap}>
-                <Pressable style={[stylesThemed.swipeActionBtn, stylesThemed.swipeFollowBtn]} onPress={() => onToggleFollower(person)}>
-                  <Ionicons name={followingSet.has(person.id) ? "person-remove" : "person-add"} size={22} color="#ffffff" />
-                </Pressable>
-              </View>
-            )}
-          >
-            <View style={stylesThemed.card}>
-              <SmartImage uri={person.avatar_url} style={stylesThemed.avatar} contentFit="cover" />
-              <View style={stylesThemed.cardMain}>
-                <Text style={stylesThemed.title} numberOfLines={1}>
-                  {fullName(person.first_name, person.last_name, unknownLabel)}
-                </Text>
-                <View style={stylesThemed.userMetaRow}>
-                  <Text style={stylesThemed.username} numberOfLines={1}>
-                    @{person.username?.trim() || unknownLabel}
+        <FlatList
+          data={people}
+          keyExtractor={(person) => person.id}
+          scrollEnabled={false}
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={6}
+          updateCellsBatchingPeriod={40}
+          renderItem={({ item: person }) => (
+            <Swipeable
+              overshootRight={false}
+              renderRightActions={() => (
+                <View style={stylesThemed.swipeActionWrap}>
+                  <Pressable style={[stylesThemed.swipeActionBtn, stylesThemed.swipeChatBtn]} onPress={() => onOpenChat(person)}>
+                    <Ionicons name="chatbubble-ellipses" size={22} color="#ffffff" />
+                  </Pressable>
+                </View>
+              )}
+              renderLeftActions={() => (
+                <View style={stylesThemed.swipeActionWrap}>
+                  <Pressable style={[stylesThemed.swipeActionBtn, stylesThemed.swipeFollowBtn]} onPress={() => onToggleFollower(person)}>
+                    <Ionicons name={followingSet.has(person.id) ? "person-remove" : "person-add"} size={22} color="#ffffff" />
+                  </Pressable>
+                </View>
+              )}
+            >
+              <View style={stylesThemed.card}>
+                <SmartImage uri={person.avatar_url} style={stylesThemed.avatar} contentFit="cover" />
+                <View style={stylesThemed.cardMain}>
+                  <Text style={stylesThemed.title} numberOfLines={1}>
+                    {fullName(person.first_name, person.last_name, unknownLabel)}
                   </Text>
-                  {followingSet.has(person.id) ? (
-                    <View style={stylesThemed.followedBadge}>
-                      <Text style={stylesThemed.followedBadgeText}>{t("messages.followed")}</Text>
-                    </View>
-                  ) : null}
+                  <View style={stylesThemed.userMetaRow}>
+                    <Text style={stylesThemed.username} numberOfLines={1}>
+                      @{person.username?.trim() || unknownLabel}
+                    </Text>
+                    {followingSet.has(person.id) ? (
+                      <View style={stylesThemed.followedBadge}>
+                        <Text style={stylesThemed.followedBadgeText}>{t("messages.followed")}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+                <View style={stylesThemed.actionsWrap}>
+                  <Pressable style={[stylesThemed.iconActionBtn, stylesThemed.followBtn]} onPress={() => onToggleFollower(person)}>
+                    <Ionicons name={followingSet.has(person.id) ? "person-remove" : "person-add"} size={22} color="#ffffff" />
+                  </Pressable>
+                  <Pressable style={[stylesThemed.iconActionBtn, stylesThemed.chatBtn]} onPress={() => onOpenChat(person)}>
+                    <Ionicons name="chatbubble-ellipses" size={22} color="#ffffff" />
+                  </Pressable>
                 </View>
               </View>
-              <View style={stylesThemed.actionsWrap}>
-                <Pressable style={[stylesThemed.iconActionBtn, stylesThemed.followBtn]} onPress={() => onToggleFollower(person)}>
-                  <Ionicons name={followingSet.has(person.id) ? "person-remove" : "person-add"} size={22} color="#ffffff" />
-                </Pressable>
-                <Pressable style={[stylesThemed.iconActionBtn, stylesThemed.chatBtn]} onPress={() => onOpenChat(person)}>
-                  <Ionicons name="chatbubble-ellipses" size={22} color="#ffffff" />
-                </Pressable>
-              </View>
-            </View>
-          </Swipeable>
-        ))
+            </Swipeable>
+          )}
+        />
       ) : (
         <Text style={stylesThemed.empty}>{t("messages.noUsersFound")}</Text>
       )}
