@@ -38,6 +38,12 @@ export interface StoryComposerRouteParams {
   placeId: string;
 }
 
+export interface AddStoryFromPostRouteParams {
+  postId: string;
+  placeId: string;
+  postImages: string[];
+}
+
 export interface StoryDiscussionRouteParams {
   storyId: string;
   placeId: string;

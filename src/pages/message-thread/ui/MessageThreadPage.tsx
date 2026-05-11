@@ -35,7 +35,7 @@ export default function MessageThreadPage() {
   const stableBottomInset = stableBottomInsetRef.current;
   const { colors, mode } = useAppTheme();
   const tabBarHeight = useBottomTabBarHeight();
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(params.initialDraft ?? "");
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isStickerPanelOpen, setStickerPanelOpen] = useState(false);
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
@@ -60,6 +60,13 @@ export default function MessageThreadPage() {
     (placeId: string) => {
       const rootNav = navigation as unknown as NavigationProp<RootTabParamList>;
       rootNav.navigate("Feed", { screen: "PlaceDetail", params: { id: placeId } });
+    },
+    [navigation],
+  );
+  const openSharedStory = useCallback(
+    (storyId: string) => {
+      const rootNav = navigation as unknown as NavigationProp<RootTabParamList>;
+      rootNav.navigate("Feed", { screen: "FeedMain", params: { focusStoryId: storyId } });
     },
     [navigation],
   );
@@ -183,6 +190,7 @@ export default function MessageThreadPage() {
         }
         onCloseReactionPicker={() => setReactionPickerMessageId(null)}
         onOpenSharedPlace={openSharedPlace}
+        onOpenSharedStory={openSharedStory}
       />
     );
   };

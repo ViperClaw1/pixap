@@ -17,7 +17,6 @@ export const useCreateStory = () => {
     mutationFn: async ({ placeId, content, mediaUrl, expiryTime }: CreateStoryInput) => {
       if (!user?.id) throw new Error("Authentication required");
       const text = content.trim();
-      if (!text) throw new Error("Story content cannot be empty");
 
       const { data, error } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stories table may not be present in generated types yet
@@ -25,7 +24,8 @@ export const useCreateStory = () => {
         .insert({
           user_id: user.id,
           place_id: placeId,
-          content: text,
+          // Keep content optional for story-from-post flow while preserving non-empty DB writes.
+          content: text || " ",
           media_url: mediaUrl?.trim() ? mediaUrl.trim() : null,
           expiry_time: expiryTime ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         })

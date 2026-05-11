@@ -10,6 +10,7 @@ import VibeMatchScreen from "@/pages/vibe-match";
 import StoryViewerScreen from "@/pages/story-viewer";
 import FeedStoryViewerScreen from "@/pages/feed-story-viewer";
 import StoryComposerScreen from "@/pages/story-composer";
+import AddStoryFromPostScreen from "@/pages/add-story-from-post";
 import StoryDiscussionScreen from "@/pages/story-discussion";
 import SubscriptionPaywallScreen from "@/pages/subscription-paywall";
 
@@ -39,6 +40,7 @@ export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
       <Screen name="StoryViewer" component={StoryViewerScreen} options={storyModalOptions} />
       <Screen name="FeedStoryViewer" component={FeedStoryViewerScreen} options={storyModalOptions} />
       <Screen name="StoryComposer" component={StoryComposerScreen} options={storyModalOptions} />
+      <Screen name="AddStoryFromPost" component={AddStoryFromPostScreen} options={storyModalOptions} />
       <Screen
         name="StoryDiscussion"
         component={StoryDiscussionScreen}

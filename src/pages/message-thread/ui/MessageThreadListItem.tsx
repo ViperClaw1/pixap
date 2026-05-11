@@ -7,7 +7,7 @@ import type { ThemeColors } from "@/shared/theme/palettes";
 import type { ThemeMode } from "@/contexts/ThemeContext";
 import { REACTION_SET } from "../model/constants";
 import type { MessageThreadStyles } from "./messageThreadStyles";
-import { splitPlaceShareContent } from "@/shared/lib/placeShareMessage";
+import { splitShareEntityContent } from "@/shared/lib/placeShareMessage";
 
 type Props = {
   item: MessageBubble;
@@ -21,6 +21,7 @@ type Props = {
   onReact: (messageId: string, reaction: string, active: boolean) => void;
   onCloseReactionPicker: () => void;
   onOpenSharedPlace?: (placeId: string) => void;
+  onOpenSharedStory?: (storyId: string) => void;
 };
 
 function MessageBodyText({
@@ -28,18 +29,20 @@ function MessageBodyText({
   baseStyle,
   linkColor,
   onOpenPlace,
+  onOpenStory,
 }: {
   content: string;
   baseStyle: StyleProp<TextStyle>;
   linkColor: string;
   onOpenPlace?: (placeId: string) => void;
+  onOpenStory?: (storyId: string) => void;
 }) {
-  if (!onOpenPlace) {
+  if (!onOpenPlace && !onOpenStory) {
     return <Text style={baseStyle}>{content}</Text>;
   }
-  const segments = splitPlaceShareContent(content);
-  const hasPlace = segments.some((s) => s.kind === "place");
-  if (!hasPlace) {
+  const segments = splitShareEntityContent(content);
+  const hasLink = segments.some((s) => s.kind !== "text");
+  if (!hasLink) {
     return <Text style={baseStyle}>{content}</Text>;
   }
   return (
@@ -47,6 +50,14 @@ function MessageBodyText({
       {segments.map((seg, i) =>
         seg.kind === "text" ? (
           <Text key={`t-${i}`}>{seg.text}</Text>
+        ) : seg.kind === "story" ? (
+          <Text
+            key={`s-${i}-${seg.id}`}
+            style={{ color: linkColor, fontWeight: "700" }}
+            onPress={() => onOpenStory?.(seg.id)}
+          >
+            {seg.label}
+          </Text>
         ) : (
           <Text
             key={`p-${i}-${seg.id}`}
@@ -73,6 +84,7 @@ export function MessageThreadListItem({
   onReact,
   onCloseReactionPicker,
   onOpenSharedPlace,
+  onOpenSharedStory,
 }: Props) {
   const isMine = message.mine;
   const isReadByPeer =
@@ -123,6 +135,7 @@ export function MessageThreadListItem({
               baseStyle={isMine ? s.bubbleTextMine : s.bubbleTextPeer}
               linkColor={colors.primary}
               onOpenPlace={onOpenSharedPlace}
+              onOpenStory={onOpenSharedStory}
             />
           ) : null}
           {message.attachments.length ? (

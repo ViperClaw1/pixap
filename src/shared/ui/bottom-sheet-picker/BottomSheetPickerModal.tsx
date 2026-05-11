@@ -30,6 +30,7 @@ type Props = {
 };
 
 export function BottomSheetPickerModal({ visible, onClose, title, children, maxHeightFraction = SHEET_MAX_FRACTION }: Props) {
+  const isAndroid = Platform.OS === "android";
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { height: windowHeight } = useWindowDimensions();
@@ -60,11 +61,20 @@ export function BottomSheetPickerModal({ visible, onClose, title, children, maxH
       const windowHeightValue = Dimensions.get("window").height;
       const keyboardTop = event.endCoordinates.screenY ?? windowHeightValue - event.endCoordinates.height;
       const overlap = Math.max(0, windowHeightValue - keyboardTop);
-      setKeyboardOpen(overlap > 0);
+      if (!isAndroid) {
+        setKeyboardOpen(overlap > 0);
+      }
+      if (Platform.OS === "android") {
+        // Android already applies resize for keyboard; translating sheet again creates an oversized gap.
+        animateKeyboardInset(0, event.duration);
+        return;
+      }
       animateKeyboardInset(Math.max(0, overlap + KEYBOARD_GAP), event.duration);
     };
     const onKeyboardHide = (event?: { duration?: number }) => {
-      setKeyboardOpen(false);
+      if (!isAndroid) {
+        setKeyboardOpen(false);
+      }
       animateKeyboardInset(0, event?.duration);
     };
     const showEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
@@ -119,7 +129,8 @@ export function BottomSheetPickerModal({ visible, onClose, title, children, maxH
           borderTopRightRadius: 16,
           borderWidth: 1,
           borderColor: colors.border,
-          paddingBottom: isKeyboardOpen ? 0 : Math.max(insets.bottom, 10),
+          // Keep Android sheet padding stable to prevent end/start-of-keyboard-animation height jump.
+          paddingBottom: isAndroid ? Math.max(insets.bottom, 10) : isKeyboardOpen ? 0 : Math.max(insets.bottom, 10),
         },
         grabberWrap: {
           alignItems: "center",
@@ -148,7 +159,7 @@ export function BottomSheetPickerModal({ visible, onClose, title, children, maxH
           textAlign: "center",
         },
       }),
-    [colors.border, colors.card, colors.text, colors.textMuted, insets.bottom, isKeyboardOpen, sheetMaxHeight],
+    [colors.border, colors.card, colors.text, colors.textMuted, insets.bottom, isAndroid, isKeyboardOpen, sheetMaxHeight],
   );
 
   const composedTranslateY = Animated.add(translateY, Animated.multiply(keyboardInsetAnim, -1));
