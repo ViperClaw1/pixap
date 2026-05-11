@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Pressable,
-  StyleSheet,
   TextInput,
   ScrollView,
   KeyboardAvoidingView,
@@ -30,35 +29,25 @@ import { useCategories } from "@/entities/category";
 import { useProfile } from "@/entities/user";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
-import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
 import { useEntitlement } from "@/entities/subscription";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import { supabase } from "@/shared/api/supabase/client";
-import {
-  SHARED_PRESSABLE_HEIGHT,
-  SHARED_PRESSABLE_RADIUS,
-  primaryPressableStyle,
-  primaryPressableTextStyle,
-} from "@/shared/theme/primaryPressable";
+import { createAIBookingStyles } from "./aiBookingStyles";
+import { AIBookingTranscript } from "./AIBookingTranscript";
+import { AIBookingSuggestedPlaces } from "./AIBookingSuggestedPlaces";
+import { AIBookingSlotPicker } from "./AIBookingSlotPicker";
+import { AIBookingCustomerForm, type AIBookingDraftForm } from "./AIBookingCustomerForm";
 import {
   CALENDAR_MONTHS_AHEAD,
-  WEEKDAY_LABELS,
   startOfLocalDay,
   toYmd,
   monthKey,
   firstOfMonthContaining,
   buildMonthCells,
-  chunkCells,
 } from "@/shared/lib/bookingCalendar";
+import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 
-type DraftForm = {
-  persons: string;
-  customer_name: string;
-  customer_phone: string;
-  customer_email: string;
-  comment: string;
-};
+type DraftForm = AIBookingDraftForm;
 
 const PHONE_REGEX = /^\d-\(\d{3}\)-\d{3}-\d{4}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -96,6 +85,7 @@ export default function AIBookingPage() {
   const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
   const shouldEnforcePaywall = !__DEV__ && Constants.appOwnership !== "expo";
   const navigation = useNavigation();
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   useAuthSessionRedirect({
     authLoading: authLoading,
     hasUser: Boolean(user),
@@ -154,207 +144,7 @@ export default function AIBookingPage() {
   };
 
   const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: { flex: 1, backgroundColor: colors.background },
-        scroll: { padding: 16, paddingTop: Math.max(12, insets.top), paddingBottom: 130 + insets.bottom, gap: 14 },
-        topRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-        backBtn: {
-          width: 36,
-          height: 36,
-          borderRadius: 18,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        title: { color: colors.text, fontSize: 24, fontWeight: "800" },
-        subtitle: { color: colors.textMuted, marginTop: 2 },
-        /** Bordered block for each major step / semantic region (scroll `gap` separates sections). */
-        semanticSection: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          borderRadius: 12,
-          padding: 12,
-          gap: 10,
-        },
-        stepTitle: { color: colors.text, fontWeight: "700", fontSize: 15 },
-        optionChip: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.background,
-          borderRadius: 10,
-          paddingHorizontal: 10,
-          paddingVertical: 8,
-          marginBottom: 6,
-        },
-        optionChipSelected: { borderColor: colors.primary, backgroundColor: colors.border },
-        optionChipText: { color: colors.text, fontWeight: "600" },
-        bubble: {
-          backgroundColor: colors.background,
-          borderColor: colors.border,
-          borderWidth: 1,
-          borderRadius: 14,
-          padding: 12,
-        },
-        bubbleUser: { backgroundColor: colors.primary, borderColor: colors.primary },
-        bubbleText: { color: colors.text },
-        bubbleUserText: { color: colors.onPrimary },
-        label: { color: colors.textMuted, fontSize: 11, marginBottom: 2, textTransform: "uppercase", fontWeight: "700" },
-        placeCard: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.background,
-          borderRadius: 12,
-          padding: 10,
-        },
-        placeCardSelected: { borderColor: colors.primary },
-        placeRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-        placeThumb: {
-          width: 74,
-          height: 74,
-          borderRadius: 10,
-          backgroundColor: colors.border,
-        },
-        placeTextCol: { flex: 1, minWidth: 0 },
-        placeName: { color: colors.text, fontWeight: "700" },
-        placeMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-        /** Calendar panel inside Step 5 section (outer `semanticSection` provides the border). */
-        calendarPanel: {
-          borderRadius: 10,
-          padding: 8,
-          marginTop: 4,
-          backgroundColor: colors.background,
-        },
-        calendarNav: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 10,
-        },
-        calendarNavBtn: { padding: 8, borderRadius: 8 },
-        calendarNavBtnDisabled: { opacity: 0.35 },
-        calendarMonthTitle: { color: colors.text, fontWeight: "800", fontSize: 16 },
-        calendarDowRow: { flexDirection: "row", marginBottom: 4 },
-        calendarDowCell: {
-          flex: 1,
-          textAlign: "center",
-          color: colors.textMuted,
-          fontSize: 11,
-          fontWeight: "700",
-        },
-        calendarWeekRow: { flexDirection: "row", alignItems: "center" },
-        calendarCell: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 4 },
-        calendarCellDayInner: {
-          minWidth: 38,
-          minHeight: 38,
-          borderRadius: 10,
-          borderWidth: 1,
-          borderColor: "transparent",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.background,
-        },
-        calendarCellDayText: { color: colors.text, fontSize: 15, fontWeight: "700" },
-        calendarCellToday: { borderStyle: "dashed", borderColor: colors.border },
-        calendarCellSelected: { borderColor: colors.primary, backgroundColor: colors.border },
-        calendarCellPast: { opacity: 0.38 },
-        calendarHint: { color: colors.textMuted, fontSize: 12 },
-        slotGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-        slotChip: {
-          minWidth: 76,
-          alignItems: "center",
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 8,
-          paddingVertical: 8,
-          paddingHorizontal: 10,
-          backgroundColor: colors.background,
-        },
-        slotChipSelected: { borderColor: colors.primary, backgroundColor: colors.border },
-        slotChipUnavailable: { opacity: 0.45 },
-        slotText: { color: colors.text, fontSize: 12, fontWeight: "600" },
-        field: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          color: colors.text,
-          backgroundColor: colors.card,
-          marginBottom: 8,
-        },
-        /** Inputs on top of `semanticSection` (card) background */
-        fieldOnCard: {
-          backgroundColor: colors.background,
-          marginBottom: 0,
-        },
-        formFieldsStack: { gap: 8 },
-        summaryText: { color: colors.textMuted, fontSize: 12, lineHeight: 16 },
-        commentField: {
-          minHeight: 88,
-          textAlignVertical: "top",
-        },
-        helperText: { color: colors.textMuted, fontSize: 12 },
-        footer: {
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingHorizontal: 16,
-          paddingTop: 10,
-          paddingBottom: Math.max(10, insets.bottom),
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-          backgroundColor: colors.background,
-          gap: 8,
-        },
-        row: { flexDirection: "row", alignItems: "center", gap: 8 },
-        primaryBtn: {
-          ...primaryPressableStyle,
-        },
-        primaryBtnDisabled: {
-          opacity: 0.5,
-        },
-        primaryBtnText: primaryPressableTextStyle,
-        inlineValidationText: { color: colors.textMuted, fontSize: 12 },
-        secondaryBtn: {
-          minHeight: SHARED_PRESSABLE_HEIGHT,
-          borderRadius: SHARED_PRESSABLE_RADIUS,
-          borderWidth: 1,
-          borderColor: colors.primary,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "transparent",
-        },
-        secondaryBtnText: { color: colors.primary, fontWeight: "700" },
-        dropdownTrigger: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          paddingVertical: 12,
-          backgroundColor: colors.background,
-        },
-        dropdownTriggerText: { color: colors.text, fontWeight: "600", flex: 1, marginRight: 8 },
-        dropdownPlaceholder: { color: colors.textMuted, fontWeight: "500" },
-        pickerRow: {
-          paddingHorizontal: 14,
-          paddingVertical: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        },
-        pickerRowText: { color: colors.text, fontSize: 15 },
-        pickerCheck: { color: colors.primary, fontWeight: "700", fontSize: 12 },
-      }),
+    () => createAIBookingStyles(colors, { top: insets.top, bottom: insets.bottom }),
     [colors, insets.bottom, insets.top],
   );
 
@@ -613,28 +403,41 @@ export default function AIBookingPage() {
 
   if (!user) {
     return (
-      <View style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}>
+      <View
+        style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}
+        {...androidSwipeBackPanHandlers}
+      >
         <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
   if (entitlementLoading) {
     return (
-      <View style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}>
+      <View
+        style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}
+        {...androidSwipeBackPanHandlers}
+      >
         <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
   if (shouldEnforcePaywall && !hasSubscriptionAccess) {
     return (
-      <View style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}>
+      <View
+        style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}
+        {...androidSwipeBackPanHandlers}
+      >
         <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={stylesThemed.root}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={stylesThemed.root}
+      {...androidSwipeBackPanHandlers}
+    >
       <ScrollView style={stylesThemed.root} contentContainerStyle={stylesThemed.scroll}>
         <View style={stylesThemed.semanticSection}>
           <View style={stylesThemed.topRow}>
@@ -734,225 +537,51 @@ export default function AIBookingPage() {
           </View>
         ) : null}
 
-        <View style={stylesThemed.semanticSection}>
-          {messages.map((m) => (
-            <View key={m.id} style={[stylesThemed.bubble, m.role === "user" && stylesThemed.bubbleUser]}>
-              <Text style={m.role === "user" ? stylesThemed.bubbleUserText : stylesThemed.bubbleText}>{m.content}</Text>
-            </View>
-          ))}
-        </View>
+        <AIBookingTranscript messages={messages} styles={stylesThemed} />
 
         {(currentStep === "places" || currentStep === "booking") && hasSearched && placeOptions.length > 0 ? (
-          <View style={stylesThemed.semanticSection}>
-            <Text style={stylesThemed.label}>Step 4. Suggested places</Text>
-            {placeOptions.map((place) => (
-              <Pressable
-                key={place.id}
-                onPress={() => onSelectPlace(place)}
-                style={[stylesThemed.placeCard, selectedPlace?.id === place.id && stylesThemed.placeCardSelected]}
-              >
-                <View style={stylesThemed.placeRow}>
-                  <SmartImage
-                    uri={getLatestBusinessCardImage(place.images)}
-                    recyclingKey={place.id}
-                    style={stylesThemed.placeThumb}
-                    contentFit="cover"
-                  />
-                  <View style={stylesThemed.placeTextCol}>
-                    <Text style={stylesThemed.placeName} numberOfLines={2}>
-                      {place.name}
-                    </Text>
-                    <Text style={stylesThemed.placeMeta} numberOfLines={2}>
-                      {place.city ?? "City not set"} • {place.address ?? "No address"} • {Number(place.rating).toFixed(1)}★
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
-            ))}
-          </View>
+          <AIBookingSuggestedPlaces
+            styles={stylesThemed}
+            places={placeOptions}
+            selectedPlace={selectedPlace}
+            onSelectPlace={onSelectPlace}
+          />
         ) : null}
 
         {currentStep === "booking" && selectedPlace ? (
-          <View style={stylesThemed.semanticSection}>
-            <Text style={stylesThemed.label}>Step 5. Available slots</Text>
-            <Text style={stylesThemed.calendarHint} numberOfLines={2}>
-              Pick a date for {selectedPlace.name}, then choose a time.
-            </Text>
-            <View style={stylesThemed.calendarPanel}>
-              <View style={stylesThemed.calendarNav}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Previous month"
-                  disabled={!canGoPrevMonth}
-                  onPress={() =>
-                    setVisibleCalendarMonth((prev) => {
-                      const y = prev.getFullYear();
-                      const m = prev.getMonth();
-                      return new Date(y, m - 1, 1);
-                    })
-                  }
-                  style={[stylesThemed.calendarNavBtn, !canGoPrevMonth && stylesThemed.calendarNavBtnDisabled]}
-                >
-                  <Ionicons name="chevron-back" size={22} color={colors.text} />
-                </Pressable>
-                <Text style={stylesThemed.calendarMonthTitle}>
-                  {visibleCalendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Next month"
-                  disabled={!canGoNextMonth}
-                  onPress={() =>
-                    setVisibleCalendarMonth((prev) => {
-                      const y = prev.getFullYear();
-                      const m = prev.getMonth();
-                      return new Date(y, m + 1, 1);
-                    })
-                  }
-                  style={[stylesThemed.calendarNavBtn, !canGoNextMonth && stylesThemed.calendarNavBtnDisabled]}
-                >
-                  <Ionicons name="chevron-forward" size={22} color={colors.text} />
-                </Pressable>
-              </View>
-              <View style={stylesThemed.calendarDowRow}>
-                {WEEKDAY_LABELS.map((label) => (
-                  <Text key={label} style={stylesThemed.calendarDowCell}>
-                    {label}
-                  </Text>
-                ))}
-              </View>
-              {chunkCells(calendarCells, 7).map((row, rowIdx) => (
-                <View key={`w-${rowIdx}`} style={stylesThemed.calendarWeekRow}>
-                  {row.map((cell, colIdx) => {
-                    if (cell.kind === "pad") {
-                      return <View key={`p-${rowIdx}-${colIdx}`} style={stylesThemed.calendarCell} />;
-                    }
-                    const { ymd, day } = cell;
-                    const isSelected = bookingDateYmd === ymd;
-                    const isToday = ymd === todayYmd;
-                    const isPast = ymd < todayYmd;
-                    return (
-                      <View key={ymd} style={stylesThemed.calendarCell}>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`${ymd}`}
-                          disabled={isPast}
-                          onPress={() => {
-                            setBookingDateYmd(ymd);
-                            setSelectedSlot(null);
-                          }}
-                          style={[
-                            stylesThemed.calendarCellDayInner,
-                            isToday && stylesThemed.calendarCellToday,
-                            isSelected && stylesThemed.calendarCellSelected,
-                            isPast && stylesThemed.calendarCellPast,
-                          ]}
-                        >
-                          <Text style={stylesThemed.calendarCellDayText}>{day}</Text>
-                        </Pressable>
-                      </View>
-                    );
-                  })}
-                </View>
-              ))}
-            </View>
-
-            {!bookingDateYmd ? (
-              <Text style={stylesThemed.calendarHint}>Select a date to load time slots.</Text>
-            ) : slotsFetching ? (
-              <ActivityIndicator style={{ marginTop: 16 }} color={colors.primary} />
-            ) : slotsError ? (
-              <View style={{ marginTop: 12, gap: 8 }}>
-                <Text style={stylesThemed.helperText}>Could not load slots.</Text>
-                <Pressable style={stylesThemed.secondaryBtn} onPress={() => void refetchSlots()}>
-                  <Text style={stylesThemed.secondaryBtnText}>Retry</Text>
-                </Pressable>
-              </View>
-            ) : slotsForDate.length === 0 ? (
-              <Text style={stylesThemed.calendarHint}>No time slots for this date.</Text>
-            ) : (
-              <View style={[stylesThemed.slotGrid, { marginTop: 10 }]}>
-                {slotsForDate.map((slot) => {
-                  const inCart = cartReservedSlotTimes.has(new Date(slot.dateTimeIso).getTime());
-                  const disabled = !slot.available || inCart;
-                  return (
-                    <Pressable
-                      disabled={disabled}
-                      key={slot.dateTimeIso}
-                      onPress={() => setSelectedSlot(slot)}
-                      style={[
-                        stylesThemed.slotChip,
-                        selectedSlot?.dateTimeIso === slot.dateTimeIso && stylesThemed.slotChipSelected,
-                        disabled && stylesThemed.slotChipUnavailable,
-                      ]}
-                    >
-                      <Text style={stylesThemed.slotText}>{slot.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-          </View>
+          <AIBookingSlotPicker
+            styles={stylesThemed}
+            colors={colors}
+            selectedPlace={selectedPlace}
+            visibleCalendarMonth={visibleCalendarMonth}
+            setVisibleCalendarMonth={setVisibleCalendarMonth}
+            canGoPrevMonth={canGoPrevMonth}
+            canGoNextMonth={canGoNextMonth}
+            calendarCells={calendarCells}
+            todayYmd={todayYmd}
+            bookingDateYmd={bookingDateYmd}
+            setBookingDateYmd={setBookingDateYmd}
+            setSelectedSlot={setSelectedSlot}
+            slotsForDate={slotsForDate}
+            slotsFetching={slotsFetching}
+            slotsError={slotsError}
+            refetchSlots={refetchSlots}
+            cartReservedSlotTimes={cartReservedSlotTimes}
+            selectedSlot={selectedSlot}
+          />
         ) : null}
 
         {currentStep === "booking" ? (
-          <>
-            <View style={stylesThemed.semanticSection}>
-              <Text style={stylesThemed.label}>Booking details</Text>
-              <Text style={stylesThemed.summaryText}>{summaryMessage}</Text>
-            </View>
-            <View style={stylesThemed.semanticSection}>
-              <View style={stylesThemed.formFieldsStack}>
-                <TextInput
-                  style={[stylesThemed.field, stylesThemed.fieldOnCard]}
-                  keyboardType="number-pad"
-                  value={form.persons}
-                  onChangeText={(persons) => setForm((prev) => ({ ...prev, persons }))}
-                  placeholder="Persons"
-                  placeholderTextColor={colors.textMuted}
-                />
-                <TextInput
-                  style={[stylesThemed.field, stylesThemed.fieldOnCard]}
-                  value={form.customer_name}
-                  onChangeText={(customer_name) => setForm((prev) => ({ ...prev, customer_name }))}
-                  placeholder="Full name"
-                  placeholderTextColor={colors.textMuted}
-                />
-                <TextInput
-                  style={[stylesThemed.field, stylesThemed.fieldOnCard]}
-                  value={form.customer_phone}
-                  onChangeText={(customer_phone) =>
-                    setForm((prev) => ({ ...prev, customer_phone: formatPhoneMask(customer_phone) }))
-                  }
-                  keyboardType="number-pad"
-                  placeholder="X-(XXX)-XXX-XXXX"
-                  placeholderTextColor={colors.textMuted}
-                />
-                <TextInput
-                  style={[stylesThemed.field, stylesThemed.fieldOnCard]}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={form.customer_email}
-                  onChangeText={(customer_email) => setForm((prev) => ({ ...prev, customer_email }))}
-                  placeholder="Email"
-                  placeholderTextColor={colors.textMuted}
-                />
-                <TextInput
-                  style={[stylesThemed.field, stylesThemed.fieldOnCard, stylesThemed.commentField]}
-                  multiline
-                  value={form.comment}
-                  onChangeText={(comment) => setForm((prev) => ({ ...prev, comment }))}
-                  placeholder="Optional comment"
-                  placeholderTextColor={colors.textMuted}
-                />
-              </View>
-              <Pressable style={stylesThemed.primaryBtn} onPress={() => void onCreateDraft()}>
-                <Text style={stylesThemed.primaryBtnText}>
-                  {Number(selectedPlace?.booking_price ?? 0) > 0 ? "Create draft booking" : "Confirm booking"}
-                </Text>
-              </Pressable>
-            </View>
-          </>
+          <AIBookingCustomerForm
+            styles={stylesThemed}
+            colors={colors}
+            form={form}
+            setForm={setForm}
+            formatPhoneMask={formatPhoneMask}
+            summaryMessage={summaryMessage}
+            selectedPlace={selectedPlace}
+            onCreateDraft={onCreateDraft}
+          />
         ) : null}
       </ScrollView>
 

@@ -27,6 +27,7 @@ type ProfileRow = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  username: string | null;
 };
 
 export type FeedStoryItem = StoryItem & {
@@ -130,7 +131,7 @@ export function useStoriesFeed() {
           supabase
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table types are not yet regenerated
             .from("public_profiles" as any)
-            .select("id, first_name, last_name, avatar_url")
+            .select("id, first_name, last_name, avatar_url, username")
             .in("id", userIds),
           supabase
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table types are not yet regenerated
@@ -159,7 +160,13 @@ export function useStoriesFeed() {
       const profiles = new Map<string, StoryProfile>(
         ((profilesData ?? []) as unknown as ProfileRow[]).map((row) => [
           row.id,
-          { id: row.id, first_name: row.first_name, last_name: row.last_name, avatar_url: row.avatar_url },
+          {
+            id: row.id,
+            first_name: row.first_name,
+            last_name: row.last_name,
+            avatar_url: row.avatar_url,
+            username: row.username,
+          },
         ]),
       );
 

@@ -18,6 +18,7 @@ import { useAppTheme } from "@/contexts/ThemeContext";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { BookingFlowPlacePanel } from "@/components/booking/BookingFlowPlacePanel";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
+import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 
 import {
   CALENDAR_MONTHS_AHEAD,
@@ -45,6 +46,7 @@ type Nav = NativeStackNavigationProp<BrowseFlowParamList, "BookingFlow">;
 export default function BookingFlowPage() {
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const { session, user } = useAuth();
@@ -236,7 +238,7 @@ export default function BookingFlowPage() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View style={[styles.root, { backgroundColor: colors.background }]} {...androidSwipeBackPanHandlers}>
       {step === 1 ? (
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
           <Pressable onPress={() => setStep(step - 1)}>

@@ -8,6 +8,8 @@ export type SmartImageProps = Omit<ImageProps, "source"> & {
   uri?: string | null;
   /** Used when primary is empty/invalid, or after primary fails to load. */
   fallbackUri?: string | null;
+  /** When true, do not show the bundled placeholder while loading (e.g. small circular avatars). */
+  skipBundledPlaceholder?: boolean;
 };
 
 function normalizeUri(raw: string | null | undefined): string | null {
@@ -46,7 +48,7 @@ function buildUriChain(uri?: string | null, fallbackUri?: string | null): string
  * Remote/local image with one bundled fallback asset.
  * Handles null/undefined/empty/invalid strings; steps through fallbackUri on load error.
  */
-export function SmartImage({ uri, fallbackUri, onError, recyclingKey, ...rest }: SmartImageProps) {
+export function SmartImage({ uri, fallbackUri, onError, recyclingKey, skipBundledPlaceholder, ...rest }: SmartImageProps) {
   const chain = useMemo(() => buildUriChain(uri, fallbackUri), [uri, fallbackUri]);
   const chainKey = chain.join("|");
   const [attempt, setAttempt] = useState(0);
@@ -67,15 +69,21 @@ export function SmartImage({ uri, fallbackUri, onError, recyclingKey, ...rest }:
 
   const rk = recyclingKey ?? (chainKey ? `${chainKey}#${attempt}` : "smartimg-fallback");
 
+  const bundledPlaceholderProps = skipBundledPlaceholder
+    ? {}
+    : {
+        placeholder: FALLBACK as ImageProps["placeholder"],
+        placeholderContentFit: (rest.contentFit ?? "cover") as ImageProps["placeholderContentFit"],
+      };
+
   return (
     <Image
       {...rest}
+      {...bundledPlaceholderProps}
       recyclingKey={rk}
       source={source}
       onError={handleError}
       cachePolicy="memory-disk"
-      placeholder={FALLBACK}
-      placeholderContentFit={rest.contentFit ?? "cover"}
     />
   );
 }

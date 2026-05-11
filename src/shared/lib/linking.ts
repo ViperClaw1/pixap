@@ -71,6 +71,7 @@ export const linkingConfig = {
         AuthEmailSent: "auth-email-sent",
         AuthEmailCallback: "auth-email-callback",
         ResetPassword: "reset-password",
+        PasswordResetSent: "password-reset-sent",
         EditProfile: "edit",
         Favorites: "favorites",
         Privacy: "privacy",

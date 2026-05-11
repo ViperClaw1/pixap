@@ -8,7 +8,9 @@ import type {
 /** Shared routes for browse/detail flows (mounted on Home + Feed stacks). */
 export type BrowseFlowParamList = {
   PlaceDetail: { id: string };
+  PlaceGallery: { images: string[]; rawImages?: string[]; initialIndex?: number };
   StoryViewer: StoryViewerRouteParams;
+  FeedStoryViewer: StoryViewerRouteParams;
   StoryComposer: StoryComposerRouteParams;
   StoryDiscussion: StoryDiscussionRouteParams;
   Category: { id: string };
@@ -32,6 +34,8 @@ export type FeedStackParamList = {
     | {
         focusPostId?: string;
         focusStoryId?: string;
+        filterUserId?: string;
+        postsScope?: "all" | "mine";
       }
     | undefined;
 } & BrowseFlowParamList;
@@ -68,8 +72,9 @@ export type ProfileStackParamList = {
   MyPurchases: undefined;
   Auth: undefined;
   AuthEmailSent: { email: string } | undefined;
-  AuthEmailCallback: undefined;
+  AuthEmailCallback: { href?: string } | undefined;
   ResetPassword: undefined;
+  PasswordResetSent: { email: string } | undefined;
   EditProfile: undefined;
   Favorites: undefined;
   Privacy: undefined;

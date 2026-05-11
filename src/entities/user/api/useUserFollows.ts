@@ -13,8 +13,7 @@ export function useMyFollowing() {
     queryFn: async () => {
       if (!user?.id) return [] as string[];
       const { data, error } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- migration is newer than generated types
-        .from("user_follows" as any)
+        .from("user_follows")
         .select("following_id")
         .eq("follower_id", user.id);
       if (error) throw error;
@@ -43,8 +42,7 @@ export function useToggleFollow() {
 
       if (isFollowing) {
         const { error } = await supabase
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- migration is newer than generated types
-          .from("user_follows" as any)
+          .from("user_follows")
           .delete()
           .eq("follower_id", user.id)
           .eq("following_id", followingId);
@@ -53,8 +51,7 @@ export function useToggleFollow() {
       }
 
       const { error } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- migration is newer than generated types
-        .from("user_follows" as any)
+        .from("user_follows")
         .upsert({
           follower_id: user.id,
           following_id: followingId,

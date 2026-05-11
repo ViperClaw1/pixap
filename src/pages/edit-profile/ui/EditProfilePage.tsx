@@ -30,6 +30,7 @@ import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { PhoneNumberUtil } from "google-libphonenumber";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
+import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 
 const AVATARS_BUCKET = "avatars";
 const KEYBOARD_GAP = 16;
@@ -75,6 +76,7 @@ function bytesFromBase64(base64: string): Uint8Array {
 
 function EditProfileScreenContent() {
   const navigation = useNavigation();
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors, mode, setMode } = useAppTheme();
   const { user } = useAuth();
@@ -461,7 +463,7 @@ function EditProfileScreenContent() {
   );
 
   return (
-    <View style={stylesThemed.root}>
+    <View style={stylesThemed.root} {...androidSwipeBackPanHandlers}>
       <Animated.View
         style={[
           stylesThemed.root,

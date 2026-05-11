@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,6 +8,7 @@ import { useAppTheme } from "@/contexts/ThemeContext";
 import { useSubscription } from "@/entities/subscription";
 import { useEntitlement } from "@/entities/subscription";
 import { env } from "@/shared/lib/env";
+import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 
 const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
 const GOOGLE_SUBSCRIPTION_URL = "https://play.google.com/store/account/subscriptions";
@@ -16,17 +17,19 @@ export default function SubscriptionPaywallScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const { iapSupported, products, productsLoading, purchase, restore, purchasePending, restorePending } = useSubscription();
-  const { hasSubscriptionAccess } = useEntitlement();
+  const { isActive } = useEntitlement();
 
   useEffect(() => {
-    if (!hasSubscriptionAccess) return;
+    // Keep paywall open during the 7-day intro window so users can subscribe earlier.
+    if (!isActive) return;
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
     }
     navigation.navigate("AIBooking");
-  }, [hasSubscriptionAccess, navigation]);
+  }, [isActive, navigation]);
 
   const styles = useMemo(
     () =>
@@ -78,15 +81,14 @@ export default function SubscriptionPaywallScreen() {
   });
   const monthlyPrice =
     monthlyProduct?.displayPrice ??
-    monthlyProduct?.localizedPrice ??
-    (typeof monthlyProduct?.price === "string" ? monthlyProduct.price : undefined);
+    (monthlyProduct?.price != null ? String(monthlyProduct.price) : undefined);
 
   const primaryLabel = monthlyPrice
-    ? `Start 7-day free trial, then ${monthlyPrice}/month`
-    : "Start 7-day free trial";
+    ? `Start Premium, ${monthlyPrice}/month`
+    : "Start Premium";
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.root} contentContainerStyle={styles.content} {...androidSwipeBackPanHandlers}>
       <View style={styles.card}>
         <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" style={{ alignSelf: "flex-start" }}>
           <Ionicons name="arrow-back" size={20} color={colors.text} />
@@ -100,6 +102,7 @@ export default function SubscriptionPaywallScreen() {
       <View style={styles.card}>
         <Text style={styles.plan}>PixAI Premium Monthly</Text>
         <Text style={styles.feature}>- Pix AI smart booking access</Text>
+        <Text style={styles.feature}>- Pix AI vibe matching</Text>
         <Text style={styles.feature}>- 7-day free trial for eligible accounts</Text>
         <Text style={styles.feature}>- Auto-renewing subscription</Text>
       </View>
@@ -121,12 +124,16 @@ export default function SubscriptionPaywallScreen() {
         <Pressable disabled={!iapSupported || restorePending} style={styles.secondary} onPress={() => void restore()}>
           {restorePending ? <ActivityIndicator color={colors.text} /> : <Text style={styles.secondaryText}>Restore purchases</Text>}
         </Pressable>
-        <Pressable style={styles.secondary} onPress={() => void Linking.openURL(APPLE_SUBSCRIPTION_URL)}>
-          <Text style={styles.secondaryText}>Manage on App Store</Text>
-        </Pressable>
-        <Pressable style={styles.secondary} onPress={() => void Linking.openURL(GOOGLE_SUBSCRIPTION_URL)}>
-          <Text style={styles.secondaryText}>Manage on Google Play</Text>
-        </Pressable>
+        {Platform.OS === "ios" ? (
+          <Pressable style={styles.secondary} onPress={() => void Linking.openURL(APPLE_SUBSCRIPTION_URL)}>
+            <Text style={styles.secondaryText}>Manage on App Store</Text>
+          </Pressable>
+        ) : null}
+        {Platform.OS === "android" ? (
+          <Pressable style={styles.secondary} onPress={() => void Linking.openURL(GOOGLE_SUBSCRIPTION_URL)}>
+            <Text style={styles.secondaryText}>Manage on Google Play</Text>
+          </Pressable>
+        ) : null}
         <Text style={styles.legal}>Subscription terms and billing are managed by your app store account.</Text>
       </View>
     </ScrollView>

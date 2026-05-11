@@ -5,10 +5,15 @@ type RichTextareaProps = Omit<TextInputProps, "multiline"> & {
   containerStyle?: StyleProp<ViewStyle>;
 };
 
-function RichTextareaComponent({ style, containerStyle, ...props }: RichTextareaProps) {
+function RichTextareaComponent({
+  style,
+  containerStyle,
+  textAlignVertical = "top",
+  ...props
+}: RichTextareaProps) {
   return (
     <View style={[styles.container, containerStyle]}>
-      <TextInput {...props} multiline textAlignVertical="top" style={[styles.input, style]} />
+      <TextInput {...props} multiline textAlignVertical={textAlignVertical} style={[styles.input, style]} />
     </View>
   );
 }

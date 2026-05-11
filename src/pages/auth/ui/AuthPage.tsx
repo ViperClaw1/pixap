@@ -380,7 +380,7 @@ export default function AuthScreen() {
       }
       const { error } = await resetPassword(email);
       if (error) Alert.alert("Error", error);
-      else Alert.alert("Sent", "Reset link was sent to your email.");
+      else navigation.navigate("PasswordResetSent", { email: email.trim() });
     } finally {
       setLoading(false);
     }
@@ -587,10 +587,12 @@ export default function AuthScreen() {
             <FontAwesome name="google" size={18} color="#ec6544" />
             <Text style={stylesThemed.outlineText}>Continue with Google</Text>
           </Pressable>
-          <Pressable style={stylesThemed.outline} onPress={() => void social("apple")} disabled={loading}>
-            <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? "#fff" : "#ec6544"} />
-            <Text style={stylesThemed.outlineText}>Continue with Apple</Text>
-          </Pressable>
+          {Platform.OS !== "android" ? (
+            <Pressable style={stylesThemed.outline} onPress={() => void social("apple")} disabled={loading}>
+              <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? "#fff" : "#ec6544"} />
+              <Text style={stylesThemed.outlineText}>Continue with Apple</Text>
+            </Pressable>
+          ) : null}
         </>
       )}
 

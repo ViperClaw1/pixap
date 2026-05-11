@@ -70,11 +70,11 @@ export function useProfileSocialMetrics() {
           .select("id", { count: "exact", head: true })
           .eq("user_id", user.id),
         supabase
-          .from("user_follows" as any)
+          .from("user_follows")
           .select("follower_id", { count: "exact", head: true })
           .eq("following_id", user.id),
         supabase
-          .from("user_follows" as any)
+          .from("user_follows")
           .select("following_id", { count: "exact", head: true })
           .eq("follower_id", user.id),
       ]);
@@ -124,7 +124,7 @@ export function useSuggestedProfiles(limit = 10) {
       let mutualRows: FollowRelation[] = [];
       if (followingIds.length) {
         const { data: mutualData, error: mutualError } = await supabase
-          .from("user_follows" as any)
+          .from("user_follows")
           .select("follower_id, following_id")
           .in("follower_id", followingIds)
           .in("following_id", candidateIds);
