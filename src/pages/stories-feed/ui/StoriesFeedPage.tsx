@@ -1282,104 +1282,113 @@ export default function StoriesFeedScreen() {
               Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY with Places API (Autocomplete) and Geocoding API enabled.
             </Text>
           ) : null}
-          {selectedGeocode ? (
-            <View style={[styles.postSelectedAddressWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
-              <View style={styles.postSelectedAddressTextCol}>
-                <Text style={[styles.postSelectedAddressLabel, { color: colors.textMuted }]}>Selected address</Text>
-                <Text style={[styles.postSelectedAddressText, { color: colors.text }]} numberOfLines={3}>
-                  {selectedGeocode.formattedAddress}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Change address"
-                onPress={() => {
-                  setSelectedGeocode(null);
-                  setPostAddressDraft("");
-                  setSelectedPostPlaceId(null);
-                  setGeocodeSuggestions([]);
-                  setPostPlaceError(false);
-                }}
-                style={[styles.postAddressChangeBtn, { borderColor: colors.border }]}
-              >
-                <Text style={[styles.postAddressChangeBtnText, { color: colors.primary }]}>Change</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <TextInput
-              value={postAddressDraft}
-              onChangeText={(value) => {
-                setPostAddressDraft(value);
-                if (postPlaceError) setPostPlaceError(false);
-              }}
-              placeholder="Search address (Google)"
-              placeholderTextColor={colors.textMuted}
-              style={[
-                styles.postAddressInput,
-                {
-                  borderColor: postPlaceError ? colors.danger : colors.border,
-                  backgroundColor: colors.background,
-                  color: colors.text,
-                },
-              ]}
-              autoCorrect={false}
-              editable={Boolean(mapsApiKey)}
-            />
-          )}
-          {!selectedGeocode && postAddressDraft.trim().length >= 2 && mapsApiKey ? (
-            <View
-              style={[
-                styles.postAddressSuggestionsBox,
-                { borderColor: colors.border, backgroundColor: colors.card },
-              ]}
-            >
-              {addressGeocodeLoading && geocodeSuggestions.length === 0 ? (
-                <View style={styles.postAddressSuggestionsLoading}>
-                  <ActivityIndicator size="small" color={colors.primary} />
+          <View style={styles.postAddressFieldWrap}>
+            {selectedGeocode ? (
+              <View style={[styles.postSelectedAddressWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                <View style={styles.postSelectedAddressTextCol}>
+                  <Text style={[styles.postSelectedAddressLabel, { color: colors.textMuted }]}>Selected address</Text>
+                  <Text style={[styles.postSelectedAddressText, { color: colors.text }]} numberOfLines={3}>
+                    {selectedGeocode.formattedAddress}
+                  </Text>
                 </View>
-              ) : !addressGeocodeLoading && geocodeSuggestions.length === 0 ? (
-                <Text style={[styles.postAddressSuggestionsEmpty, { color: colors.textMuted }]}>No matching addresses</Text>
-              ) : (
-                geocodeSuggestions.map((item) => (
-                  <Pressable
-                    key={item.placeId}
-                    style={styles.postAddressSuggestionRow}
-                    onPress={async () => {
-                      if (!mapsApiKey) return;
-                      setAddressGeocodeLoading(true);
-                      try {
-                        const res = await geocodePlaceIdToSearchItem(item.placeId, mapsApiKey);
-                        if (res.ok) {
-                          setSelectedGeocode(res.item);
-                          setGeocodeSuggestions([]);
-                          setPostAddressDraft(res.item.formattedAddress);
-                          setPostPlaceError(false);
-                          setSelectedPostPlaceId(null);
-                        } else {
-                          Toast.show({
-                            type: "error",
-                            text1: "Address lookup failed",
-                            text2: res.message ?? res.status,
-                          });
-                        }
-                      } catch {
-                        Toast.show({ type: "error", text1: "Network error", text2: "Try again." });
-                      } finally {
-                        setAddressGeocodeLoading(false);
-                      }
-                    }}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Change address"
+                  onPress={() => {
+                    setSelectedGeocode(null);
+                    setPostAddressDraft("");
+                    setSelectedPostPlaceId(null);
+                    setGeocodeSuggestions([]);
+                    setPostPlaceError(false);
+                  }}
+                  style={[styles.postAddressChangeBtn, { borderColor: colors.border }]}
+                >
+                  <Text style={[styles.postAddressChangeBtnText, { color: colors.primary }]}>Change</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <TextInput
+                value={postAddressDraft}
+                onChangeText={(value) => {
+                  setPostAddressDraft(value);
+                  if (postPlaceError) setPostPlaceError(false);
+                }}
+                placeholder="Search address (Google)"
+                placeholderTextColor={colors.textMuted}
+                style={[
+                  styles.postAddressInput,
+                  {
+                    borderColor: postPlaceError ? colors.danger : colors.border,
+                    backgroundColor: colors.background,
+                    color: colors.text,
+                  },
+                ]}
+                autoCorrect={false}
+                editable={Boolean(mapsApiKey)}
+              />
+            )}
+            {!selectedGeocode && postAddressDraft.trim().length >= 2 && mapsApiKey ? (
+              <View
+                style={[
+                  styles.postAddressSuggestionsBox,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                ]}
+              >
+                {addressGeocodeLoading && geocodeSuggestions.length === 0 ? (
+                  <View style={styles.postAddressSuggestionsLoading}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : !addressGeocodeLoading && geocodeSuggestions.length === 0 ? (
+                  <Text style={[styles.postAddressSuggestionsEmpty, { color: colors.textMuted }]}>No matching addresses</Text>
+                ) : (
+                  <ScrollView
+                    style={styles.postAddressSuggestionsScroll}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator
                   >
-                    <Text style={[styles.postAddressSuggestionTitle, { color: colors.text }]} numberOfLines={1}>
-                      {item.placeName}
-                    </Text>
-                    <Text style={[styles.postAddressSuggestionSubtitle, { color: colors.textMuted }]} numberOfLines={2}>
-                      {item.formattedAddress}
-                    </Text>
-                  </Pressable>
-                ))
-              )}
-            </View>
-          ) : null}
+                    {geocodeSuggestions.map((item) => (
+                      <Pressable
+                        key={item.placeId}
+                        style={styles.postAddressSuggestionRow}
+                        onPress={async () => {
+                          if (!mapsApiKey) return;
+                          setAddressGeocodeLoading(true);
+                          try {
+                            const res = await geocodePlaceIdToSearchItem(item.placeId, mapsApiKey);
+                            if (res.ok) {
+                              setSelectedGeocode(res.item);
+                              setGeocodeSuggestions([]);
+                              setPostAddressDraft(res.item.formattedAddress);
+                              setPostPlaceError(false);
+                              setSelectedPostPlaceId(null);
+                            } else {
+                              Toast.show({
+                                type: "error",
+                                text1: "Address lookup failed",
+                                text2: res.message ?? res.status,
+                              });
+                            }
+                          } catch {
+                            Toast.show({ type: "error", text1: "Network error", text2: "Try again." });
+                          } finally {
+                            setAddressGeocodeLoading(false);
+                          }
+                        }}
+                      >
+                        <Text style={[styles.postAddressSuggestionTitle, { color: colors.text }]} numberOfLines={1}>
+                          {item.placeName}
+                        </Text>
+                        <Text style={[styles.postAddressSuggestionSubtitle, { color: colors.textMuted }]} numberOfLines={2}>
+                          {item.formattedAddress}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+            ) : null}
+          </View>
           {selectedGeocode ? (
             matchedPlaceCarouselVm.length > 0 ? (
               <>
@@ -1950,12 +1959,25 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 15,
   },
+  postAddressFieldWrap: {
+    position: "relative",
+    zIndex: 20,
+  },
   postAddressSuggestionsBox: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
     marginTop: 6,
     maxHeight: 168,
     borderWidth: 1,
     borderRadius: 12,
     overflow: "hidden",
+    zIndex: 40,
+    elevation: 12,
+  },
+  postAddressSuggestionsScroll: {
+    maxHeight: 168,
   },
   postAddressSuggestionsLoading: {
     paddingVertical: 16,
