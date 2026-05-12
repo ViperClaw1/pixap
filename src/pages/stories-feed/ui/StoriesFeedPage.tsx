@@ -858,6 +858,7 @@ export default function StoriesFeedScreen() {
         onLeftPress={openCreateMenu}
         rightIcon={isDark ? "sunny-outline" : "moon-outline"}
         onRightPress={toggleThemeMode}
+        notificationsEnabled
       />
       <FlatList
         data={focusedPostVms}

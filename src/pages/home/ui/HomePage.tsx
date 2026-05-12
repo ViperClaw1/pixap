@@ -40,6 +40,7 @@ import {
 } from "@/shared/ui/shimmer";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { LanguagePickerModal } from "@/shared/ui/app-header/LanguagePickerModal";
+import { NotificationsSheetModal } from "@/shared/ui/notifications-sheet";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, "HomeMain">,
@@ -58,6 +59,7 @@ export default function HomeScreen() {
   const [selectedCity, setSelectedCity] = useState(ALL_CITIES_OPTION);
   const [cityModalVisible, setCityModalVisible] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [citySearchQuery, setCitySearchQuery] = useState("");
   const [visibleRecommendedCount, setVisibleRecommendedCount] = useState(RECOMMENDED_BATCH_SIZE);
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
@@ -121,7 +123,7 @@ export default function HomeScreen() {
           justifyContent: "space-between",
           marginBottom: 8,
         },
-        headerLeft: { flexDirection: "row", alignItems: "center", zIndex: 1 },
+        headerLeft: { flexDirection: "row", alignItems: "center", gap: 6, zIndex: 1 },
         headerRight: { flexDirection: "row", alignItems: "center", gap: 6, zIndex: 1 },
         logo: {
           position: "absolute",
@@ -146,16 +148,20 @@ export default function HomeScreen() {
           alignSelf: "flex-start",
         },
         citySelectorText: { fontSize: 12, color: colors.text, fontWeight: "600" },
-        badge: {
-          minWidth: 22,
-          height: 22,
-          borderRadius: 11,
+        bellWrap: { position: "relative" },
+        bellBadge: {
+          position: "absolute",
+          top: -4,
+          right: -4,
+          minWidth: 18,
+          height: 18,
+          borderRadius: 9,
+          paddingHorizontal: 4,
           backgroundColor: colors.primary,
           alignItems: "center",
           justifyContent: "center",
-          paddingHorizontal: 6,
         },
-        badgeText: { color: colors.onPrimary, fontSize: 11, fontWeight: "700" },
+        bellBadgeText: { color: colors.onPrimary, fontSize: 10, fontWeight: "800" },
         aiBookingBtn: {
           width: 40,
           height: 40,
@@ -306,14 +312,23 @@ export default function HomeScreen() {
             >
               <Ionicons name="sparkles" size={18} color={isDark ? "#0a0a0a" : "#ffffff"} />
             </Pressable>
+            <Pressable
+              style={[stylesThemed.vibeMatchBtn, stylesThemed.bellWrap]}
+              accessibilityRole="button"
+              accessibilityLabel={t("home.a11y.openNotifications")}
+              onPress={() => setNotificationsOpen(true)}
+            >
+              <Ionicons name="notifications-outline" size={20} color={colors.text} />
+              {unread > 0 ? (
+                <View style={stylesThemed.bellBadge}>
+                  <Text style={stylesThemed.bellBadgeText}>{unread > 9 ? "9+" : String(unread)}</Text>
+                </View>
+              ) : null}
+            </Pressable>
           </View>
           <Text style={stylesThemed.logo}>Pixap</Text>
           <View style={stylesThemed.headerRight}>
-            {unread > 0 ? (
-              <View style={stylesThemed.badge}>
-                <Text style={stylesThemed.badgeText}>{unread > 9 ? "9+" : unread}</Text>
-              </View>
-            ) : null}
+            
             <Pressable
               style={stylesThemed.vibeMatchBtn}
               accessibilityRole="button"
@@ -334,6 +349,7 @@ export default function HomeScreen() {
           </View>
         </View>
         <LanguagePickerModal visible={languageOpen} onClose={() => setLanguageOpen(false)} />
+        <NotificationsSheetModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
         <Pressable
           style={stylesThemed.citySelector}
           onPress={() => {
