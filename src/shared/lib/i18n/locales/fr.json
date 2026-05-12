@@ -15,6 +15,12 @@
     "profile": "Profil",
     "feed": "Fil"
   },
+  "notifications": {
+    "sheetTitle": "Notifications",
+    "empty": "Aucune notification pour le moment.",
+    "unreadA11y": "Non lu",
+    "openA11y": "Ouvrir les notifications"
+  },
   "favorites": {
     "empty": "Pas encore de favoris"
   },
@@ -43,7 +49,8 @@
     },
     "a11y": {
       "openPixaiBooking": "Ouvrir la réservation intelligente PixAI",
-      "openPixaiVibeMatch": "Ouvrir PixAI Vibe Match"
+      "openPixaiVibeMatch": "Ouvrir PixAI Vibe Match",
+      "openNotifications": "Ouvrir les notifications"
     }
   },
   "notFound": {

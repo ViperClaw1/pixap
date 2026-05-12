@@ -336,6 +336,7 @@ export default function BookingsScreen() {
         onLeftPress={() => setPlacePickerOpen(true)}
         rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
         onRightPress={toggleThemeMode}
+        notificationsEnabled
       />
       <View style={stylesThemed.filters}>
         {filters.map((f) => (

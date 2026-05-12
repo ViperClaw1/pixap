@@ -13,7 +13,7 @@ import { useProfile } from "@/entities/user";
 import { useUserRole } from "@/entities/user";
 import { useProfileSocialMetrics, useSuggestedProfiles, useToggleFollow } from "@/entities/user";
 import { useBusinessCards } from "@/entities/business-card";
-import { useNotifications } from "@/entities/notification";
+import { useUnreadCount } from "@/entities/notification";
 import { useFavorites } from "@/entities/favorite";
 import { useBookings } from "@/entities/booking";
 import { useCreatePost } from "@/entities/post";
@@ -26,6 +26,7 @@ import { useEntitlement } from "@/entities/subscription";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
+import { NotificationsSheetModal } from "@/shared/ui/notifications-sheet";
 import { supabase } from "@/shared/api/supabase/client";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import type { ThemeMode } from "@/contexts/ThemeContext";
@@ -48,6 +49,7 @@ type ActionItem = {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
+  badgeCount?: number;
 };
 
 function ProfileScreenContent() {
@@ -58,7 +60,7 @@ function ProfileScreenContent() {
   const { colors, mode, setMode } = useAppTheme();
   const { user, loading, signOut } = useAuth();
   const { data: profile } = useProfile();
-  const { data: notifications = [], isLoading: loadingNotifications } = useNotifications();
+  const unreadNotifications = useUnreadCount();
   const { data: favorites = [] } = useFavorites();
   const { data: bookings = [] } = useBookings();
   const { data: businessCards = [] } = useBusinessCards();
@@ -523,8 +525,17 @@ function ProfileScreenContent() {
           alignItems: "center",
           gap: 12,
         },
-        linkText: { color: colors.text, fontSize: 14 },
-        linkRight: { marginLeft: "auto" },
+        linkText: { color: colors.text, fontSize: 14, flex: 1, minWidth: 0 },
+        linkMenuBadge: {
+          minWidth: 22,
+          height: 22,
+          borderRadius: 11,
+          paddingHorizontal: 6,
+          backgroundColor: colors.primary,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        linkMenuBadgeText: { color: colors.onPrimary, fontSize: 11, fontWeight: "800" },
         signOut: { ...primaryPressableStyle, marginTop: 16, marginBottom: 16, borderRadius: 10, minHeight: 44 },
         signOutText: {
           ...primaryPressableTextStyle,
@@ -557,18 +568,6 @@ function ProfileScreenContent() {
           borderBottomColor: colors.border,
         },
         modalTitle: { color: colors.text, fontSize: 14, fontWeight: "700" },
-        modalBody: { padding: 16 },
-        notificationCard: {
-          backgroundColor: colors.surface,
-          borderRadius: 10,
-          borderWidth: 1,
-          borderColor: colors.border,
-          padding: 12,
-          marginBottom: 10,
-        },
-        notificationText: { color: colors.text, fontSize: 14 },
-        notificationDate: { color: colors.textMuted, fontSize: 11, marginTop: 6 },
-        emptyText: { color: colors.textMuted, textAlign: "center", marginTop: 12, fontSize: 12 },
         closeBtn: {
           backgroundColor: colors.surface,
           borderRadius: 10,
@@ -813,7 +812,13 @@ function ProfileScreenContent() {
       icon: "sparkles-outline",
       onPress: () => (isActive ? openManageSubscription() : navigation.navigate("SubscriptionPaywall")),
     },
-    { key: "notifications", label: "Notifications", icon: "notifications-outline", onPress: () => setNotificationsOpen(true) },
+    {
+      key: "notifications",
+      label: t("notifications.sheetTitle"),
+      icon: "notifications-outline",
+      onPress: () => setNotificationsOpen(true),
+      badgeCount: unreadNotifications,
+    },
     { key: "privacy", label: "Privacy & Security", icon: "shield-outline", onPress: openPrivacy },
     { key: "settings", label: "Settings", icon: "settings-outline", onPress: () => navigation.navigate("EditProfile") },
   ];
@@ -836,6 +841,7 @@ function ProfileScreenContent() {
         }}
         rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
         onRightPress={toggleThemeMode}
+        onNotificationsPress={() => setNotificationsOpen(true)}
       />
       <View style={stylesThemed.card}>
         <View style={stylesThemed.profileRow}>
@@ -1011,8 +1017,15 @@ function ProfileScreenContent() {
             onPress={item.onPress}
           >
             <Ionicons name={item.icon} size={20} color={colors.textMuted} />
-            <Text style={stylesThemed.linkText}>{item.label}</Text>
-            <Ionicons style={stylesThemed.linkRight} name="chevron-forward" size={18} color={colors.textMuted} />
+            <Text style={stylesThemed.linkText} numberOfLines={1}>
+              {item.label}
+            </Text>
+            {item.badgeCount != null && item.badgeCount > 0 ? (
+              <View style={stylesThemed.linkMenuBadge}>
+                <Text style={stylesThemed.linkMenuBadgeText}>{item.badgeCount > 9 ? "9+" : String(item.badgeCount)}</Text>
+              </View>
+            ) : null}
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
         ))}
       </View>
@@ -1250,20 +1263,7 @@ function ProfileScreenContent() {
         )}
       </BottomSheetPickerModal>
 
-      <BottomSheetPickerModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} title="Notifications" maxHeightFraction={0.75}>
-        <View style={stylesThemed.modalBody}>
-          {loadingNotifications ? <ActivityIndicator color={colors.primary} /> : null}
-          {!loadingNotifications && notifications.length === 0 ? (
-            <Text style={stylesThemed.emptyText}>No notifications yet.</Text>
-          ) : null}
-          {notifications.map((n) => (
-            <View key={n.id} style={stylesThemed.notificationCard}>
-              <Text style={stylesThemed.notificationText}>{n.text}</Text>
-              <Text style={stylesThemed.notificationDate}>{new Date(n.created_at).toLocaleString()}</Text>
-            </View>
-          ))}
-        </View>
-      </BottomSheetPickerModal>
+      <NotificationsSheetModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
     </ScrollView>
   );
 }

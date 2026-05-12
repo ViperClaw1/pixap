@@ -430,6 +430,7 @@ export default function MessagesPage() {
         onLeftPress={() => setStartChatModalOpen(true)}
         rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
         onRightPress={toggleThemeMode}
+        notificationsEnabled
       />
 
       <View style={stylesThemed.searchWrap}>

@@ -62,13 +62,14 @@ export default function FavoritesScreen() {
       data={favorites}
       keyExtractor={(f) => `${f.user_id}-${f.business_card_id}`}
       ListHeaderComponent={
-        <AppHeader
-          title={t("header.favorites")}
-          leftIcon="arrow-back"
-          onLeftPress={() => navigation.goBack()}
-          rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
-          onRightPress={toggleThemeMode}
-        />
+      <AppHeader
+        title={t("header.favorites")}
+        leftIcon="arrow-back"
+        onLeftPress={() => navigation.goBack()}
+        rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+        onRightPress={toggleThemeMode}
+        notificationsEnabled
+      />
       }
       contentContainerStyle={{
         padding: 16,
