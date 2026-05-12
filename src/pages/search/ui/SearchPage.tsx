@@ -14,12 +14,14 @@ import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 
 type Nav = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
 
+const PLACE_CARD_MAX_TAGS = 3;
+
 export default function SearchScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const { data: places = [] } = useBusinessCards();
   const [q, setQ] = useState("");
 
@@ -55,10 +57,24 @@ export default function SearchScreen() {
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
         },
+        body: { flex: 1, minWidth: 0 },
         name: { fontWeight: "700", color: colors.text },
         meta: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
+        tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
+        tagPill: {
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: 999,
+          backgroundColor: isDark ? "#0d0d0f" : "#f4f4f5",
+          maxWidth: "100%",
+        },
+        tagText: {
+          fontSize: 10,
+          fontWeight: "500",
+          color: isDark ? "#e8e8ea" : "#27272a",
+        },
       }),
-    [colors],
+    [colors, isDark],
   );
 
   return (
@@ -74,24 +90,41 @@ export default function SearchScreen() {
         data={filtered}
         keyExtractor={(p) => p.id}
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
-        renderItem={({ item }) => (
-          <Pressable style={stylesThemed.row} onPress={() => navigation.navigate("PlaceDetail", { id: item.id })}>
-            <SmartImage
-              uri={getOptimizedImageUrl(getLatestBusinessCardImage(item.images), 168, 168, 72)}
-              fallbackUri={getLatestBusinessCardImage(item.images)}
-              recyclingKey={item.id}
-              style={styles.thumb}
-              contentFit="cover"
-              skipBundledPlaceholder
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={stylesThemed.name}>{item.name}</Text>
-              <Text style={stylesThemed.meta} numberOfLines={1}>
-                {item.address}
-              </Text>
-            </View>
-          </Pressable>
-        )}
+        renderItem={({ item }) => {
+          const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
+          return (
+            <Pressable style={stylesThemed.row} onPress={() => navigation.navigate("PlaceDetail", { id: item.id })}>
+              <SmartImage
+                uri={getOptimizedImageUrl(getLatestBusinessCardImage(item.images), 168, 168, 72)}
+                fallbackUri={getLatestBusinessCardImage(item.images)}
+                recyclingKey={item.id}
+                style={styles.thumb}
+                contentFit="cover"
+              />
+              <View style={stylesThemed.body}>
+                <Text style={stylesThemed.name} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                {item.address?.trim() ? (
+                  <Text style={stylesThemed.meta} numberOfLines={1}>
+                    {item.address.trim()}
+                  </Text>
+                ) : null}
+                {visibleTags.length > 0 ? (
+                  <View style={stylesThemed.tagsRow}>
+                    {visibleTags.map((tag) => (
+                      <View key={tag} style={stylesThemed.tagPill}>
+                        <Text style={stylesThemed.tagText} numberOfLines={1}>
+                          {tag}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            </Pressable>
+          );
+        }}
         removeClippedSubviews
         initialNumToRender={8}
         maxToRenderPerBatch={10}

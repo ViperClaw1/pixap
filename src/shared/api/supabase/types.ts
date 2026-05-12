@@ -533,6 +533,7 @@ export type Database = {
           token: string
           platform: string
           updated_at: string
+          expo_push_token: string | null
         }
         Insert: {
           id?: string
@@ -540,6 +541,7 @@ export type Database = {
           token: string
           platform: string
           updated_at?: string
+          expo_push_token?: string | null
         }
         Update: {
           id?: string
@@ -547,6 +549,7 @@ export type Database = {
           token?: string
           platform?: string
           updated_at?: string
+          expo_push_token?: string | null
         }
         Relationships: []
       }

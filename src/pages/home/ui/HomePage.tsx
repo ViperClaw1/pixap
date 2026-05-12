@@ -11,7 +11,7 @@ import {
   Alert,
   TextInput,
 } from "react-native";
-import { Entypo, FontAwesome5, Fontisto, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -25,7 +25,7 @@ import {
   filterCityGroups,
   matchesSearchTokens,
 } from "@/entities/business-card";
-import { useCategories } from "@/entities/category";
+import { useCategories, CategoryIcon, resolveCategoryIconSpec } from "@/entities/category";
 import { useUnreadCount } from "@/entities/notification";
 import { useProfile, useUpdateProfile } from "@/entities/user";
 import type { HomeStackParamList, RootTabParamList } from "@/navigation/types";
@@ -45,44 +45,6 @@ type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, "HomeMain">,
   BottomTabNavigationProp<RootTabParamList>
 >;
-
-type CategoryIconSpec =
-  | { family: "ionicons"; name: keyof typeof Ionicons.glyphMap }
-  | { family: "entypo"; name: keyof typeof Entypo.glyphMap }
-  | { family: "fontawesome5"; name: keyof typeof FontAwesome5.glyphMap }
-  | { family: "fontisto"; name: keyof typeof Fontisto.glyphMap };
-
-const CATEGORY_ICON_BY_NAME: Record<string, CategoryIconSpec> = {
-  bars: { family: "entypo", name: "drink" },
-  clubs: { family: "fontawesome5", name: "users" },
-  entertainment: { family: "fontawesome5", name: "glass-cheers" },
-  hotels: { family: "fontisto", name: "hotel" },
-  tourism: { family: "fontawesome5", name: "umbrella-beach" },
-  restaurants: { family: "ionicons", name: "restaurant-outline" },
-  restaurant: { family: "ionicons", name: "restaurant-outline" },
-  beauty: { family: "ionicons", name: "sparkles-outline" },
-  events: { family: "ionicons", name: "ticket-outline" },
-  shopping: { family: "ionicons", name: "bag-handle-outline" },
-  fitness: { family: "ionicons", name: "barbell-outline" },
-  spa: { family: "ionicons", name: "flower-outline" },
-  nightlife: { family: "ionicons", name: "wine-outline" },
-  kids: { family: "ionicons", name: "happy-outline" },
-};
-
-const DEFAULT_CATEGORY_ICON: CategoryIconSpec = { family: "ionicons", name: "grid-outline" };
-
-function CategoryPillIcon({ spec, color, size }: { spec: CategoryIconSpec; color: string; size: number }) {
-  switch (spec.family) {
-    case "entypo":
-      return <Entypo name={spec.name} size={size} color={color} />;
-    case "fontawesome5":
-      return <FontAwesome5 name={spec.name} size={size} color={color} />;
-    case "fontisto":
-      return <Fontisto name={spec.name} size={size} color={color} />;
-    default:
-      return <Ionicons name={spec.name} size={size} color={color} />;
-  }
-}
 
 export default function HomeScreen() {
   const RECOMMENDED_BATCH_SIZE = 20;
@@ -226,6 +188,7 @@ export default function HomeScreen() {
           paddingHorizontal: 14,
           height: 46,
           borderRadius: 14,
+          marginTop: 8,
           marginBottom: 18,
           justifyContent: "center",
         },
@@ -398,13 +361,12 @@ export default function HomeScreen() {
             keyExtractor={(c) => c.id}
             showsHorizontalScrollIndicator={false}
             renderItem={({ item }) => {
-              const normalizedName = item.name.trim().toLowerCase();
-              const iconSpec = CATEGORY_ICON_BY_NAME[normalizedName] ?? DEFAULT_CATEGORY_ICON;
+              const iconSpec = resolveCategoryIconSpec(item.name);
               return (
                 <Pressable style={stylesThemed.pill} onPress={() => navigation.navigate("Category", { id: item.id })}>
                   <View style={stylesThemed.pillContent}>
                     <View style={stylesThemed.pillIconWrap}>
-                      <CategoryPillIcon spec={iconSpec} size={14} color={colors.primary} />
+                      <CategoryIcon spec={iconSpec} size={14} color={colors.primary} />
                     </View>
                     <Text style={stylesThemed.pillText}>{item.name}</Text>
                   </View>

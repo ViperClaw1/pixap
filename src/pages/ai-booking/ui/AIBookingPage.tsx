@@ -5,11 +5,12 @@ import {
   Pressable,
   TextInput,
   ScrollView,
-  KeyboardAvoidingView,
+  Animated,
   Platform,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
@@ -24,14 +25,26 @@ import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import { useSubscriptionPaywallRedirect } from "@/features/subscription-paywall-redirect";
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
-import { ALL_CITIES_OPTION, useAvailableCities } from "@/entities/business-card";
-import { useCategories } from "@/entities/category";
+import {
+  ALL_CITIES_OPTION,
+  useAvailableCities,
+  groupCitiesByCountry,
+  filterCityGroups,
+} from "@/entities/business-card";
+import { useCategories, CategoryIcon, resolveCategoryIconSpec } from "@/entities/category";
 import { useProfile } from "@/entities/user";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { useEntitlement } from "@/entities/subscription";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import { supabase } from "@/shared/api/supabase/client";
+import {
+  DEFAULT_PHONE_VALUE,
+  parseStoredPhone,
+  serializePhone,
+  validatePhoneValue,
+  type PhoneValue,
+} from "@/shared/ui/phone-input";
 import { createAIBookingStyles } from "./aiBookingStyles";
 import { AIBookingTranscript } from "./AIBookingTranscript";
 import { AIBookingSuggestedPlaces } from "./AIBookingSuggestedPlaces";
@@ -49,7 +62,6 @@ import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullS
 
 type DraftForm = AIBookingDraftForm;
 
-const PHONE_REGEX = /^\d-\(\d{3}\)-\d{3}-\d{4}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESTAURANT_TABLE_KEY = "restaurant-table";
 const DEFAULT_RADIUS_MILES = 5;
@@ -62,24 +74,13 @@ const validationSchema = {
     return Number.isFinite(parsed) && parsed >= 1;
   },
   customer_name: (value: string) => value.trim().length > 0,
-  customer_phone: (value: string) => PHONE_REGEX.test(value.trim()),
+  customer_phone: (value: PhoneValue) => validatePhoneValue(value) === null,
   customer_email: (value: string) => EMAIL_REGEX.test(value.trim()),
 };
 
-function formatPhoneMask(raw: string) {
-  const digits = raw.replace(/\D/g, "").slice(0, 11);
-  if (digits.length === 0) return "";
-  let masked = digits[0];
-  if (digits.length > 1) masked += "-(" + digits.slice(1, Math.min(4, digits.length));
-  // Add closing parenthesis only after user types the next digit,
-  // so backspace near this boundary does not get stuck.
-  if (digits.length > 4) masked += ")-" + digits.slice(4, Math.min(7, digits.length));
-  if (digits.length > 7) masked += "-" + digits.slice(7, 11);
-  return masked;
-}
-
 export default function AIBookingPage() {
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
   const { colors } = useAppTheme();
   const { user, session, loading: authLoading } = useAuth();
   const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
@@ -118,14 +119,25 @@ export default function AIBookingPage() {
   const [bookingDateYmd, setBookingDateYmd] = useState<string | null>(null);
   const [visibleCalendarMonth, setVisibleCalendarMonth] = useState<Date>(() => firstOfMonthContaining(new Date()));
   const [cityPickerVisible, setCityPickerVisible] = useState(false);
+  const [citySearchQuery, setCitySearchQuery] = useState("");
   const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
   const [form, setForm] = useState<DraftForm>({
     persons: "2",
     customer_name: "",
-    customer_phone: "",
+    customer_phone: DEFAULT_PHONE_VALUE,
     customer_email: "",
     comment: "",
   });
+
+  const concreteCities = useMemo(
+    () => availableCities.filter((c) => c !== ALL_CITIES_OPTION),
+    [availableCities],
+  );
+
+  const filteredCityGroups = useMemo(() => {
+    const grouped = groupCitiesByCountry(concreteCities);
+    return filterCityGroups(grouped, citySearchQuery);
+  }, [concreteCities, citySearchQuery]);
 
   const redirectToEditProfile = () => {
     navigation.getParent()?.dispatch(
@@ -159,13 +171,13 @@ export default function AIBookingPage() {
     if (!profile) return;
 
     const defaultFullName = `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim();
-    const defaultPhone = formatPhoneMask(profile.phone ?? "");
+    const defaultPhone = parseStoredPhone(profile.phone);
     const defaultEmail = (profile.email ?? "").trim();
 
     setForm((prev) => ({
       ...prev,
       customer_name: prev.customer_name.trim().length > 0 ? prev.customer_name : defaultFullName,
-      customer_phone: prev.customer_phone.trim().length > 0 ? prev.customer_phone : defaultPhone,
+      customer_phone: prev.customer_phone.nationalDigits ? prev.customer_phone : defaultPhone,
       customer_email: prev.customer_email.trim().length > 0 ? prev.customer_email : defaultEmail,
     }));
   }, [profile]);
@@ -214,8 +226,13 @@ export default function AIBookingPage() {
   const categoryDropdownLabel = isRestaurantTable
     ? "Restaurant table"
     : selectedCategoryRow
-      ? `${selectedCategoryRow.icon ?? ""} ${selectedCategoryRow.name}`.trim()
+      ? selectedCategoryRow.name
       : selectedCategoryName || "Select service or table";
+  const selectedCategoryIconSpec = isRestaurantTable
+    ? ({ family: "ionicons", name: "restaurant-outline" } as const)
+    : selectedCategoryRow
+      ? resolveCategoryIconSpec(selectedCategoryRow.name)
+      : null;
 
   const summaryMessage = [
     `City: ${selectedCity || "Not selected"}`,
@@ -312,7 +329,7 @@ export default function AIBookingPage() {
       return;
     }
     if (!validationSchema.customer_phone(form.customer_phone)) {
-      Alert.alert("Invalid phone", "Use format X-(XXX)-XXX-XXXX.");
+      Alert.alert("Invalid phone", "Please enter a valid phone number.");
       return;
     }
     if (!validationSchema.customer_email(form.customer_email)) {
@@ -322,13 +339,14 @@ export default function AIBookingPage() {
 
     try {
       const price = Number(selectedPlace.booking_price ?? 0);
+      const phoneToSave = serializePhone(form.customer_phone);
       await createBooking.mutateAsync({
         business_card_id: selectedPlace.id,
         date_time: selectedSlot.dateTimeIso,
         cost: price,
         persons,
         customer_name: form.customer_name.trim(),
-        customer_phone: form.customer_phone.trim(),
+        customer_phone: phoneToSave,
         customer_email: form.customer_email.trim(),
         comment: form.comment.trim() || null,
         payment_status: price > 0 ? "pending" : "paid",
@@ -340,7 +358,7 @@ export default function AIBookingPage() {
         cost: price,
         persons,
         customer_name: form.customer_name.trim(),
-        customer_phone: form.customer_phone.trim(),
+        customer_phone: phoneToSave,
         customer_email: form.customer_email.trim(),
         comment: form.comment.trim() || null,
         is_restaurant_table: isRestaurantTable,
@@ -433,9 +451,8 @@ export default function AIBookingPage() {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={stylesThemed.root}
+    <Animated.View
+      style={[stylesThemed.root, { paddingBottom: keyboardInset }]}
       {...androidSwipeBackPanHandlers}
     >
       <ScrollView style={stylesThemed.root} contentContainerStyle={stylesThemed.scroll}>
@@ -458,7 +475,10 @@ export default function AIBookingPage() {
               accessibilityRole="button"
               accessibilityLabel="Choose city"
               style={stylesThemed.dropdownTrigger}
-              onPress={() => setCityPickerVisible(true)}
+              onPress={() => {
+                setCitySearchQuery("");
+                setCityPickerVisible(true);
+              }}
             >
               <Text
                 style={[stylesThemed.dropdownTriggerText, !selectedCity && stylesThemed.dropdownPlaceholder]}
@@ -480,15 +500,22 @@ export default function AIBookingPage() {
               style={stylesThemed.dropdownTrigger}
               onPress={() => setCategoryPickerVisible(true)}
             >
-              <Text
-                style={[
-                  stylesThemed.dropdownTriggerText,
-                  !selectedCategoryId && stylesThemed.dropdownPlaceholder,
-                ]}
-                numberOfLines={2}
-              >
-                {categoryDropdownLabel}
-              </Text>
+              <View style={stylesThemed.dropdownTriggerLeft}>
+                {selectedCategoryIconSpec ? (
+                  <View style={stylesThemed.pickerRowIconWrap}>
+                    <CategoryIcon spec={selectedCategoryIconSpec} size={14} color={colors.primary} />
+                  </View>
+                ) : null}
+                <Text
+                  style={[
+                    stylesThemed.dropdownTriggerText,
+                    !selectedCategoryId && stylesThemed.dropdownPlaceholder,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {categoryDropdownLabel}
+                </Text>
+              </View>
               <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
             </Pressable>
             <TextInput
@@ -577,7 +604,6 @@ export default function AIBookingPage() {
             colors={colors}
             form={form}
             setForm={setForm}
-            formatPhoneMask={formatPhoneMask}
             summaryMessage={summaryMessage}
             selectedPlace={selectedPlace}
             onCreateDraft={onCreateDraft}
@@ -587,25 +613,55 @@ export default function AIBookingPage() {
 
       <BottomSheetPickerModal
         visible={cityPickerVisible}
-        onClose={() => setCityPickerVisible(false)}
+        onClose={() => {
+          setCitySearchQuery("");
+          setCityPickerVisible(false);
+        }}
         title="Choose city"
+        maxHeightFraction={0.72}
       >
-        {availableCities
-          .filter((city) => city !== ALL_CITIES_OPTION)
-          .map((city) => (
-            <Pressable
-              key={city}
-              style={stylesThemed.pickerRow}
-              onPress={() => {
-                setSelectedCity(city);
-                setCityPickerVisible(false);
-                setCurrentStep("category");
-              }}
-            >
-              <Text style={stylesThemed.pickerRowText}>{city}</Text>
-              {selectedCity === city ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
-            </Pressable>
-          ))}
+        <View style={stylesThemed.citySearchBox}>
+          <Ionicons name="search-outline" size={20} color={colors.textMuted} />
+          <TextInput
+            value={citySearchQuery}
+            onChangeText={setCitySearchQuery}
+            placeholder="Search city or country"
+            placeholderTextColor={colors.textMuted}
+            style={stylesThemed.citySearchInput}
+            autoCorrect={false}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
+        </View>
+
+        {filteredCityGroups.map(({ country, cities }) => (
+          <View key={country}>
+            <View style={stylesThemed.countryHeader}>
+              <Text style={stylesThemed.countryHeaderText}>{country}</Text>
+            </View>
+            {cities.map((city) => (
+              <Pressable
+                key={city}
+                style={stylesThemed.pickerRow}
+                onPress={() => {
+                  setSelectedCity(city);
+                  setCitySearchQuery("");
+                  setCityPickerVisible(false);
+                  setCurrentStep("category");
+                }}
+              >
+                <Text style={stylesThemed.pickerRowText}>{city}</Text>
+                {selectedCity === city ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
+              </Pressable>
+            ))}
+          </View>
+        ))}
+
+        {filteredCityGroups.length === 0 ? (
+          <View style={stylesThemed.cityPickerEmpty}>
+            <Text style={stylesThemed.cityPickerEmptyText}>No cities match your search</Text>
+          </View>
+        ) : null}
       </BottomSheetPickerModal>
 
       <BottomSheetPickerModal
@@ -613,22 +669,30 @@ export default function AIBookingPage() {
         onClose={() => setCategoryPickerVisible(false)}
         title="Choose service or table"
       >
-        {categories.map((category) => (
-          <Pressable
-            key={category.id}
-            style={stylesThemed.pickerRow}
-            onPress={() => {
-              setSelectedCategoryId(category.id);
-              setSelectedCategoryName(category.name);
-              setCategoryPickerVisible(false);
-            }}
-          >
-            <Text style={stylesThemed.pickerRowText}>
-              {category.icon} {category.name}
-            </Text>
-            {selectedCategoryId === category.id ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
-          </Pressable>
-        ))}
+        {categories.map((category) => {
+          const iconSpec = resolveCategoryIconSpec(category.name);
+          return (
+            <Pressable
+              key={category.id}
+              style={stylesThemed.pickerRow}
+              onPress={() => {
+                setSelectedCategoryId(category.id);
+                setSelectedCategoryName(category.name);
+                setCategoryPickerVisible(false);
+              }}
+            >
+              <View style={stylesThemed.pickerRowLeft}>
+                <View style={stylesThemed.pickerRowIconWrap}>
+                  <CategoryIcon spec={iconSpec} size={14} color={colors.primary} />
+                </View>
+                <Text style={stylesThemed.pickerRowText} numberOfLines={1}>
+                  {category.name}
+                </Text>
+              </View>
+              {selectedCategoryId === category.id ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
+            </Pressable>
+          );
+        })}
         <Pressable
           style={stylesThemed.pickerRow}
           onPress={() => {
@@ -637,7 +701,18 @@ export default function AIBookingPage() {
             setCategoryPickerVisible(false);
           }}
         >
-          <Text style={stylesThemed.pickerRowText}>Restaurant table</Text>
+          <View style={stylesThemed.pickerRowLeft}>
+            <View style={stylesThemed.pickerRowIconWrap}>
+              <CategoryIcon
+                spec={{ family: "ionicons", name: "restaurant-outline" }}
+                size={14}
+                color={colors.primary}
+              />
+            </View>
+            <Text style={stylesThemed.pickerRowText} numberOfLines={1}>
+              Restaurant table
+            </Text>
+          </View>
           {isRestaurantTable ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
         </Pressable>
       </BottomSheetPickerModal>
@@ -663,6 +738,6 @@ export default function AIBookingPage() {
           ) : null}
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </Animated.View>
   );
 }

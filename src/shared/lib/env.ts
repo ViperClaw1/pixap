@@ -9,6 +9,11 @@ type Extra = {
   googleMapsApiKey?: string;
   /** Optional dedicated key for Google Geocoding/Directions web-service requests. */
   googleMapsWebApiKey?: string;
+  /**
+   * SHA-1 signing cert (40 hex chars, colons optional), baked at build time.
+   * Required for Android REST Maps calls when the API key uses Android app restrictions.
+   */
+  googleMapsAndroidCertSha1?: string;
   /** Digits-only E.164 for PixAI WhatsApp fallback (availability messages). */
   pixaiWhatsAppE164?: string;
   /** Store product id for PixAI monthly subscription. */
@@ -65,6 +70,13 @@ export const env = {
       getExtra().googleMapsApiKey ??
       process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
     return v && v.length > 0 ? v : undefined;
+  },
+  /** 40 hex chars, no colons; from EAS / .env for production Android Maps REST + restricted keys */
+  get googleMapsAndroidCertSha1(): string | undefined {
+    const raw = getExtra().googleMapsAndroidCertSha1 ?? process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_CERT_SHA1;
+    if (!raw?.trim()) return undefined;
+    const hex = raw.replace(/[^0-9a-fA-F]/g, "");
+    return hex.length === 40 ? hex.toUpperCase() : undefined;
   },
   /** Default +971525235996 when unset; store digits only for wa.me. */
   get pixaiWhatsAppDigits(): string {

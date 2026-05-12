@@ -6,10 +6,12 @@ import {
   StyleSheet,
   TextInput,
   ScrollView,
+  Animated,
   ActivityIndicator,
   Alert,
   Platform,
 } from "react-native";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,8 +26,21 @@ import { useProfile } from "@/entities/user";
 import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } from "@/entities/pixai";
 import { fetchAvailableSlotsForDay } from "@/entities/booking";
 import { useCreateCartItem } from "@/entities/cart";
-import { ALL_CITIES_OPTION, useAvailableCities } from "@/entities/business-card";
+import {
+  ALL_CITIES_OPTION,
+  useAvailableCities,
+  groupCitiesByCountry,
+  filterCityGroups,
+} from "@/entities/business-card";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
+import {
+  PhoneInput,
+  DEFAULT_PHONE_VALUE,
+  parseStoredPhone,
+  serializePhone,
+  validatePhoneValue,
+  type PhoneValue,
+} from "@/shared/ui/phone-input";
 import {
   SHARED_PRESSABLE_HEIGHT,
   SHARED_PRESSABLE_RADIUS,
@@ -38,20 +53,9 @@ import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullS
 
 const MOOD_PRESETS = ["romantic evening", "drunk friday", "family brunch", "solo chill", "celebration night"] as const;
 
-const PHONE_REGEX = /^\d-\(\d{3}\)-\d{3}-\d{4}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const SLOT_MATCH_MS = 45 * 60 * 1000;
-
-function formatPhoneMask(raw: string) {
-  const digits = raw.replace(/\D/g, "").slice(0, 11);
-  if (digits.length === 0) return "";
-  let masked = digits[0];
-  if (digits.length > 1) masked += "-(" + digits.slice(1, Math.min(4, digits.length));
-  if (digits.length > 4) masked += ")-" + digits.slice(4, Math.min(7, digits.length));
-  if (digits.length > 7) masked += "-" + digits.slice(7, 11);
-  return masked;
-}
 
 /** Closest available slot to proposed time within SLOT_MATCH_MS; otherwise null. */
 function resolveBookingDateTime(slots: PixAISlot[], proposedIso: string): string | null {
@@ -74,6 +78,7 @@ type BookRowResult = { stop: VibePlanStop; ok: true } | { stop: VibePlanStop; ok
 
 export default function VibeMatchPage() {
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
   const { colors } = useAppTheme();
   const navigation = useNavigation();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
@@ -102,9 +107,10 @@ export default function VibeMatchPage() {
   const [timeline, setTimeline] = useState<PixAIVibeTimeline>("evening");
   const [city, setCity] = useState("");
   const [cityPickerVisible, setCityPickerVisible] = useState(false);
+  const [citySearchQuery, setCitySearchQuery] = useState("");
   const [persons, setPersons] = useState("2");
   const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerPhone, setCustomerPhone] = useState<PhoneValue>(DEFAULT_PHONE_VALUE);
   const [customerEmail, setCustomerEmail] = useState("");
   const [comment, setComment] = useState("");
   const [lastBookResults, setLastBookResults] = useState<BookRowResult[] | null>(null);
@@ -112,10 +118,30 @@ export default function VibeMatchPage() {
 
   const plan = vibeResult?.plan ?? [];
 
+  const concreteCities = useMemo(
+    () => availableCities.filter((c) => c !== ALL_CITIES_OPTION),
+    [availableCities],
+  );
+
+  const filteredCityGroups = useMemo(() => {
+    const grouped = groupCitiesByCountry(concreteCities);
+    return filterCityGroups(grouped, citySearchQuery);
+  }, [concreteCities, citySearchQuery]);
+
   useEffect(() => {
     const c = profile?.city?.trim();
     if (c) setCity((prev) => (prev.trim() ? prev : c));
   }, [profile?.city]);
+
+  useEffect(() => {
+    if (!profile) return;
+    const defaultFullName = `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim();
+    const defaultPhone = parseStoredPhone(profile.phone);
+    const defaultEmail = (profile.email ?? "").trim();
+    setCustomerName((prev) => (prev.trim() ? prev : defaultFullName));
+    setCustomerPhone((prev) => (prev.nationalDigits ? prev : defaultPhone));
+    setCustomerEmail((prev) => (prev.trim() ? prev : defaultEmail));
+  }, [profile]);
 
   const slotQueries = useQueries({
     queries: plan.map((stop) => {
@@ -223,6 +249,46 @@ export default function VibeMatchPage() {
         },
         pickerRowText: { color: colors.text, fontSize: 15 },
         pickerCheck: { color: colors.primary, fontWeight: "700", fontSize: 12 },
+        citySearchBox: {
+          marginHorizontal: 14,
+          marginBottom: 10,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          paddingHorizontal: 12,
+          height: 44,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.background,
+        },
+        citySearchInput: {
+          flex: 1,
+          fontSize: 15,
+          color: colors.text,
+          paddingVertical: 0,
+        },
+        countryHeader: {
+          paddingHorizontal: 14,
+          paddingTop: 10,
+          paddingBottom: 6,
+          backgroundColor: colors.background,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        countryHeaderText: {
+          fontSize: 12,
+          fontWeight: "800",
+          color: colors.textMuted,
+          letterSpacing: 0.3,
+          textTransform: "uppercase",
+        },
+        cityPickerEmpty: {
+          paddingHorizontal: 14,
+          paddingVertical: 20,
+          alignItems: "center",
+        },
+        cityPickerEmptyText: { fontSize: 14, color: colors.textMuted, textAlign: "center" },
       }),
     [colors, insets.bottom, insets.top],
   );
@@ -254,7 +320,7 @@ export default function VibeMatchPage() {
     const p = Number(persons);
     if (!Number.isFinite(p) || p < 1) return "Invalid party size.";
     if (!customerName.trim()) return "Name is required.";
-    if (!PHONE_REGEX.test(customerPhone.trim())) return "Phone must match 1-(000)-000-0000.";
+    if (validatePhoneValue(customerPhone) !== null) return "Please enter a valid phone number.";
     if (!EMAIL_REGEX.test(customerEmail.trim())) return "Invalid email.";
     return null;
   }, [customerEmail, customerName, customerPhone, persons]);
@@ -270,6 +336,7 @@ export default function VibeMatchPage() {
       try {
         const results: BookRowResult[] = [];
         const p = Number(persons);
+        const phoneToSave = serializePhone(customerPhone);
         for (const stop of stops) {
           const i = plan.findIndex((x) => x.venue_id === stop.venue_id);
           if (i < 0) continue;
@@ -286,7 +353,7 @@ export default function VibeMatchPage() {
               cost: stop.booking_price,
               persons: p,
               customer_name: customerName.trim(),
-              customer_phone: customerPhone.trim(),
+              customer_phone: phoneToSave,
               customer_email: customerEmail.trim(),
               comment: comment.trim() || null,
               is_restaurant_table: stop.is_restaurant_table,
@@ -346,7 +413,7 @@ export default function VibeMatchPage() {
   const errMsg = vibeError instanceof Error ? vibeError.message : vibeError ? String(vibeError) : "";
 
   return (
-    <View style={stylesThemed.root} {...androidSwipeBackPanHandlers}>
+    <Animated.View style={[stylesThemed.root, { paddingBottom: keyboardInset }]} {...androidSwipeBackPanHandlers}>
       <ScrollView contentContainerStyle={stylesThemed.scroll} keyboardShouldPersistTaps="handled">
         <View style={stylesThemed.topRow}>
           <Pressable style={stylesThemed.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back">
@@ -359,7 +426,10 @@ export default function VibeMatchPage() {
         <View style={stylesThemed.section}>
           <Text style={stylesThemed.label}>City</Text>
           <Pressable
-            onPress={() => setCityPickerVisible(true)}
+            onPress={() => {
+              setCitySearchQuery("");
+              setCityPickerVisible(true);
+            }}
             style={[stylesThemed.input, { justifyContent: "center" }]}
           >
             <Text style={{ color: city.trim() ? colors.text : colors.textMuted }}>
@@ -473,13 +543,10 @@ export default function VibeMatchPage() {
               value={customerName}
               onChangeText={setCustomerName}
             />
-            <TextInput
-              style={stylesThemed.input}
-              placeholder="Phone 1-(000)-000-0000"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="phone-pad"
+            <PhoneInput
               value={customerPhone}
-              onChangeText={(t) => setCustomerPhone(formatPhoneMask(t))}
+              onChange={setCustomerPhone}
+              containerStyle={{ backgroundColor: colors.background }}
             />
             <TextInput
               style={stylesThemed.input}
@@ -535,23 +602,57 @@ export default function VibeMatchPage() {
         </Pressable>
       </ScrollView>
 
-      <BottomSheetPickerModal visible={cityPickerVisible} onClose={() => setCityPickerVisible(false)} title="City">
-        {availableCities
-          .filter((c) => c !== ALL_CITIES_OPTION)
-          .map((c) => (
-            <Pressable
-              key={c}
-              style={stylesThemed.pickerRow}
-              onPress={() => {
-                setCity(c);
-                setCityPickerVisible(false);
-              }}
-            >
-              <Text style={stylesThemed.pickerRowText}>{c}</Text>
-              {city.trim() === c ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
-            </Pressable>
-          ))}
+      <BottomSheetPickerModal
+        visible={cityPickerVisible}
+        onClose={() => {
+          setCitySearchQuery("");
+          setCityPickerVisible(false);
+        }}
+        title="City"
+        maxHeightFraction={0.72}
+      >
+        <View style={stylesThemed.citySearchBox}>
+          <Ionicons name="search-outline" size={20} color={colors.textMuted} />
+          <TextInput
+            value={citySearchQuery}
+            onChangeText={setCitySearchQuery}
+            placeholder="Search city or country"
+            placeholderTextColor={colors.textMuted}
+            style={stylesThemed.citySearchInput}
+            autoCorrect={false}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
+        </View>
+
+        {filteredCityGroups.map(({ country, cities }) => (
+          <View key={country}>
+            <View style={stylesThemed.countryHeader}>
+              <Text style={stylesThemed.countryHeaderText}>{country}</Text>
+            </View>
+            {cities.map((c) => (
+              <Pressable
+                key={c}
+                style={stylesThemed.pickerRow}
+                onPress={() => {
+                  setCity(c);
+                  setCitySearchQuery("");
+                  setCityPickerVisible(false);
+                }}
+              >
+                <Text style={stylesThemed.pickerRowText}>{c}</Text>
+                {city.trim() === c ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
+              </Pressable>
+            ))}
+          </View>
+        ))}
+
+        {filteredCityGroups.length === 0 ? (
+          <View style={stylesThemed.cityPickerEmpty}>
+            <Text style={stylesThemed.cityPickerEmptyText}>No cities match your search</Text>
+          </View>
+        ) : null}
       </BottomSheetPickerModal>
-    </View>
+    </Animated.View>
   );
 }

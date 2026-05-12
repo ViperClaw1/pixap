@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Dimensions, Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { Animated, Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import Carousel, { type ICarouselInstance } from "react-native-reanimated-carousel";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,8 +28,15 @@ export default function AddStoryFromPostPage() {
   const navigation = useNavigation<AddStoryNav>();
   const { params } = useRoute<AddStoryRoute>();
   const carouselRef = useRef<ICarouselInstance | null>(null);
-  const keyboardInsetAnim = useRef(new Animated.Value(0)).current;
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const keyboardInsetAnim = useKeyboardInset({
+    bottomInset: insets.bottom,
+    gap: Platform.OS === "android" ? ANDROID_KEYBOARD_GAP : KEYBOARD_GAP,
+    useNativeDriver: true,
+    onKeyboardChange: (_keyboardTop, keyboardHeight) => {
+      setKeyboardOpen(keyboardHeight > 0);
+    },
+  });
   const [captionFocused, setCaptionFocused] = useState(false);
   const [index, setIndex] = useState(0);
   const safeImages = useMemo(() => params.postImages.filter((item) => item.trim().length > 0), [params.postImages]);
@@ -66,41 +74,6 @@ export default function AddStoryFromPostPage() {
     onComplete: onAdvance,
   });
 
-  useEffect(() => {
-    const animateKeyboardInset = (toValue: number, duration?: number) => {
-      Animated.timing(keyboardInsetAnim, {
-        toValue,
-        duration: duration ?? 250,
-        useNativeDriver: true,
-      }).start();
-    };
-    const onKeyboardFrameChange = (event: { endCoordinates: { height: number; screenY?: number }; duration?: number }) => {
-      const windowHeightValue = Dimensions.get("window").height;
-      const keyboardTop = event.endCoordinates.screenY ?? windowHeightValue - event.endCoordinates.height;
-      const overlap = Math.max(0, windowHeightValue - keyboardTop);
-      setKeyboardOpen(overlap > 0);
-      if (Platform.OS === "android") {
-        // On Android rely on keyboard height to keep footer above IME consistently.
-        const keyboardHeight = Math.max(0, event.endCoordinates.height || 0);
-        const nextInset = Math.max(0, keyboardHeight - insets.bottom + ANDROID_KEYBOARD_GAP);
-        animateKeyboardInset(nextInset, event.duration);
-        return;
-      }
-      animateKeyboardInset(overlap > 0 ? overlap + KEYBOARD_GAP : 0, event.duration);
-    };
-    const onKeyboardHide = (event?: { duration?: number }) => {
-      setKeyboardOpen(false);
-      animateKeyboardInset(0, event?.duration);
-    };
-    const showEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, onKeyboardFrameChange);
-    const hideSub = Keyboard.addListener(hideEvent, onKeyboardHide);
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [insets.bottom, keyboardInsetAnim]);
 
   const onSubmitYourStory = async () => {
     const ok = await shareToYourStory();

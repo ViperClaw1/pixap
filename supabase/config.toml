@@ -25,3 +25,9 @@ verify_jwt = false
 
 [functions.iap-google-rtdn]
 verify_jwt = false
+
+[functions.consume-push-outbox]
+verify_jwt = true
+
+[functions.send-test-push]
+verify_jwt = false

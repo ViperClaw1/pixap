@@ -3,6 +3,7 @@ import type { ExpoConfig, ConfigContext } from "expo/config";
 export default ({ config }: ConfigContext): ExpoConfig => {
   const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
   const googleMapsWebApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY?.trim();
+  const googleMapsAndroidCertSha1 = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_CERT_SHA1?.replace(/:/g, "").trim();
   const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
   const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.0";
   const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "23";
@@ -131,6 +132,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     stripeReturnScheme: (process.env.EXPO_PUBLIC_STRIPE_RETURN_SCHEME ?? "pixap").toLowerCase(),
     googleMapsApiKey,
     googleMapsWebApiKey,
+    googleMapsAndroidCertSha1:
+      googleMapsAndroidCertSha1 && /^[0-9a-fA-F]{40}$/.test(googleMapsAndroidCertSha1)
+        ? googleMapsAndroidCertSha1.toUpperCase()
+        : undefined,
     pixAiMonthlySubscriptionSku: process.env.EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU ?? "pixai_premium_monthly",
     eas: {
       projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? "b98667c5-ca9d-4d17-8620-71f832f3befb",

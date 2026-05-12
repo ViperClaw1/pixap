@@ -10,10 +10,9 @@ import {
   ScrollView,
   ActivityIndicator,
   Animated,
-  Keyboard,
-  Dimensions,
   Platform,
 } from "react-native";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
@@ -29,43 +28,19 @@ import { supabase } from "@/shared/api/supabase/client";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import { AUTH_PRIMARY_COLOR, primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
-import { PhoneNumberUtil } from "google-libphonenumber";
-import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
+import {
+  PhoneInput,
+  DEFAULT_PHONE_VALUE,
+  getPhoneValidationMessage,
+  parseStoredPhone,
+  serializePhone,
+  type PhoneValue,
+} from "@/shared/ui/phone-input";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 
 const AVATARS_BUCKET = "avatars";
 const KEYBOARD_GAP = 16;
-const phoneUtil = PhoneNumberUtil.getInstance();
-
-type CountryOption = {
-  region: string;
-  callingCode: string;
-  flag: string;
-};
-
-function regionToFlagEmoji(region: string): string {
-  if (!region || region.length !== 2) return "🏳️";
-  const codePoints = region
-    .toUpperCase()
-    .split("")
-    .map((char) => 127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
-}
-
-function buildCountryOptions(): CountryOption[] {
-  const options: CountryOption[] = [];
-  for (const region of Array.from(phoneUtil.getSupportedRegions()).sort()) {
-    try {
-      const callingCode = phoneUtil.getCountryCodeForRegion(region).toString();
-      if (!callingCode) continue;
-      options.push({ region, callingCode, flag: regionToFlagEmoji(region) });
-    } catch {
-      // ignore unsupported regions
-    }
-  }
-  return options;
-}
 
 function bytesFromBase64(base64: string): Uint8Array {
   const binary = globalThis.atob(base64);
@@ -85,7 +60,7 @@ function EditProfileScreenContent() {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const tabBarHeight = useBottomTabBarHeight();
-  const keyboardInsetAnim = useRef(new Animated.Value(0)).current;
+  const keyboardInsetAnim = useKeyboardInset({ tabBarHeight, gap: KEYBOARD_GAP });
   const update = useUpdateProfile();
   const queryClient = useQueryClient();
   const authNavigation = navigation as unknown as NavigationProp<ParamListBase>;
@@ -93,9 +68,7 @@ function EditProfileScreenContent() {
   const stackNavigation = navigation as unknown as NavigationProp<ParamListBase>;
   const [first, setFirst] = useState(profile?.first_name ?? "");
   const [last, setLast] = useState(profile?.last_name ?? "");
-  const [countryCode, setCountryCode] = useState("US");
-  const [callingCode, setCallingCode] = useState("1");
-  const [phone, setPhone] = useState("");
+  const [phoneValue, setPhoneValue] = useState<PhoneValue>(DEFAULT_PHONE_VALUE);
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [avatarUrl, setAvatarUrl] = useState<string>(profile?.avatar_url ?? ((user?.user_metadata?.avatar_url as string) ?? ""));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -105,12 +78,6 @@ function EditProfileScreenContent() {
   const [bioError, setBioError] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [phoneTouched, setPhoneTouched] = useState(false);
-  const [countryPickerOpen, setCountryPickerOpen] = useState(false);
-  const countryOptions = useMemo(() => buildCountryOptions(), []);
-  const selectedCountry = useMemo(
-    () => countryOptions.find((option) => option.region === countryCode && option.callingCode === callingCode),
-    [callingCode, countryCode, countryOptions],
-  );
 
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
@@ -120,24 +87,7 @@ function EditProfileScreenContent() {
     if (!profile) return;
     setFirst(profile.first_name ?? "");
     setLast(profile.last_name ?? "");
-    const storedPhone = (profile.phone ?? "").trim();
-    if (storedPhone.startsWith("+")) {
-      try {
-        const parsed = phoneUtil.parse(storedPhone);
-        const region = phoneUtil.getRegionCodeForNumber(parsed);
-        const detectedCountryCode = parsed.getCountryCodeOrDefault().toString();
-        const national = parsed.getNationalNumberOrDefault().toString();
-        if (region) {
-          setCountryCode(region);
-        }
-        setCallingCode(detectedCountryCode || "1");
-        setPhone(national);
-      } catch {
-        setPhone(storedPhone.replace(/\D/g, ""));
-      }
-    } else {
-      setPhone(storedPhone.replace(/\D/g, ""));
-    }
+    setPhoneValue(parseStoredPhone(profile.phone));
     setBio(profile.bio ?? "");
     setAvatarUrl(profile.avatar_url ?? ((user?.user_metadata?.avatar_url as string) ?? ""));
   }, [profile, user]);
@@ -148,68 +98,10 @@ function EditProfileScreenContent() {
     }
   }, [profile?.avatar_url, user]);
 
-  useEffect(() => {
-    const animateKeyboardInset = (toValue: number, duration?: number) => {
-      Animated.timing(keyboardInsetAnim, {
-        toValue,
-        duration: duration ?? 250,
-        useNativeDriver: false,
-      }).start();
-    };
-    const getInsetFromEvent = (event: { endCoordinates: { height: number; screenY?: number } }) => {
-      const windowHeight = Dimensions.get("window").height;
-      const keyboardTop = event.endCoordinates.screenY ?? windowHeight - event.endCoordinates.height;
-      const overlap = Math.max(0, windowHeight - keyboardTop);
-      return (
-        Platform.OS === "ios"
-          ? Math.max(0, overlap - insets.bottom + KEYBOARD_GAP)
-          : Math.max(0, overlap - tabBarHeight + KEYBOARD_GAP)
-      );
-    };
-    const onKeyboardFrameChange = (event: { endCoordinates: { height: number; screenY?: number }; duration?: number }) => {
-      const nextInset = getInsetFromEvent(event);
-      if (Platform.OS === "ios") return;
-      animateKeyboardInset(nextInset, event.duration);
-    };
-    const onKeyboardWillShow = (event: { endCoordinates: { height: number; screenY?: number }; duration?: number }) => {
-      if (Platform.OS !== "ios") return;
-      const nextInset = getInsetFromEvent(event);
-      animateKeyboardInset(nextInset, event.duration);
-    };
-    const onKeyboardHide = (event?: { duration?: number }) => {
-      animateKeyboardInset(0, event?.duration);
-    };
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const frameEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const frameSub = Keyboard.addListener(frameEvent, onKeyboardFrameChange);
-    const showSub = Platform.OS === "ios" ? Keyboard.addListener("keyboardWillShow", onKeyboardWillShow) : null;
-    const hideSub = Keyboard.addListener(hideEvent, onKeyboardHide);
-    return () => {
-      frameSub.remove();
-      showSub?.remove();
-      hideSub.remove();
-    };
-  }, [insets.bottom, keyboardInsetAnim, tabBarHeight]);
-
-  const validatePhone = (value: string) => {
-    const normalizedLocal = value.replace(/\D/g, "");
-    if (!normalizedLocal) return "Phone is required.";
-    const fullPhone = `+${callingCode}${normalizedLocal}`;
-    try {
-      const parsed = phoneUtil.parse(fullPhone, countryCode);
-      if (!phoneUtil.isValidNumber(parsed)) {
-        return "Please enter a valid phone number.";
-      }
-    } catch {
-      return "Please enter a valid phone number.";
-    }
-    return null;
-  };
-
-  const handlePhoneChange = (value: string) => {
-    setPhone(value.replace(/\D/g, ""));
+  const handlePhoneChange = (next: PhoneValue) => {
+    setPhoneValue(next);
     if (!phoneTouched) return;
-    setPhoneError(validatePhone(value.replace(/\D/g, "")));
+    setPhoneError(getPhoneValidationMessage(next));
   };
 
   const pickAvatar = () => {
@@ -314,7 +206,7 @@ function EditProfileScreenContent() {
     const trimmedLast = last.trim();
     const trimmedBio = bio.trim();
     const trimmedAvatar = avatarUrl.trim();
-    const nextPhoneError = validatePhone(phone);
+    const nextPhoneError = getPhoneValidationMessage(phoneValue);
 
     setFirstError(trimmedFirst ? null : "First name is required.");
     setLastError(trimmedLast ? null : "Last name is required.");
@@ -326,7 +218,7 @@ function EditProfileScreenContent() {
     if (!trimmedFirst || !trimmedLast || nextPhoneError) {
       return;
     }
-    const phoneToSave = `+${callingCode}${phone.replace(/\D/g, "")}`.trim() || null;
+    const phoneToSave = serializePhone(phoneValue) || null;
     try {
       await update.mutateAsync({
         first_name: trimmedFirst,
@@ -390,70 +282,7 @@ function EditProfileScreenContent() {
         disabledInput: { backgroundColor: colors.surface, color: colors.textMuted },
         inputError: { borderColor: colors.danger },
         errorText: { color: colors.danger, marginTop: 6, fontSize: 12 },
-        phoneInputContainer: {
-          marginTop: 6,
-          width: "100%",
-          height: 58,
-          flexDirection: "row",
-          alignItems: "center",
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 10,
-          backgroundColor: colors.card,
-        },
-        phoneInputContainerError: {
-          borderColor: colors.danger,
-        },
-        phoneCountryButton: {
-          width: 92,
-          height: "100%",
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "row",
-          gap: 8,
-          borderRightWidth: 1,
-          borderRightColor: colors.border,
-          backgroundColor: colors.card,
-        },
-        phoneCountryFlag: {
-          fontSize: 20,
-          lineHeight: 22,
-        },
-        phoneCountryCodeText: {
-          color: colors.text,
-          fontSize: 12,
-          fontWeight: "700",
-        },
-        phoneInputField: {
-          flex: 1,
-          height: 56,
-          paddingHorizontal: 12,
-          color: colors.text,
-          fontSize: 14,
-          backgroundColor: colors.card,
-        },
-        phoneCallingCodeText: {
-          color: colors.text,
-          fontSize: 14,
-          fontWeight: "600",
-          marginLeft: 10,
-        },
-        countryPickerRow: {
-          paddingHorizontal: 14,
-          paddingVertical: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-        },
-        countryPickerText: {
-          color: colors.text,
-          fontSize: 14,
-          fontWeight: "600",
-          flex: 1,
-        },
+        phoneInputWrap: { marginTop: 6 },
         btn: {
           marginTop: 24,
           ...primaryPressableStyle,
@@ -541,23 +370,14 @@ function EditProfileScreenContent() {
         <Text style={stylesThemed.label}>Email</Text>
         <TextInput style={[stylesThemed.input, stylesThemed.disabledInput]} value={profile?.email ?? user?.email ?? ""} editable={false} />
         <Text style={stylesThemed.label}>Phone</Text>
-        <View style={[stylesThemed.phoneInputContainer, phoneError ? stylesThemed.phoneInputContainerError : null]}>
-          <Pressable style={stylesThemed.phoneCountryButton} onPress={() => setCountryPickerOpen(true)} hitSlop={10}>
-            <Text style={stylesThemed.phoneCountryFlag}>{selectedCountry?.flag ?? regionToFlagEmoji(countryCode)}</Text>
-            <Text style={stylesThemed.phoneCountryCodeText}>{countryCode}</Text>
-            <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
-          </Pressable>
-          <Text style={stylesThemed.phoneCallingCodeText}>+{callingCode}</Text>
-          <TextInput
-            style={stylesThemed.phoneInputField}
-            value={phone}
-            onChangeText={handlePhoneChange}
-            keyboardType="phone-pad"
-            placeholder="Phone Number"
-            placeholderTextColor={colors.textMuted}
+        <View style={stylesThemed.phoneInputWrap}>
+          <PhoneInput
+            value={phoneValue}
+            onChange={handlePhoneChange}
+            hasError={Boolean(phoneError)}
             onBlur={() => {
               setPhoneTouched(true);
-              setPhoneError(validatePhone(phone));
+              setPhoneError(getPhoneValidationMessage(phoneValue));
             }}
           />
         </View>
@@ -578,29 +398,6 @@ function EditProfileScreenContent() {
         <Pressable style={stylesThemed.btn} onPress={() => void save()} disabled={update.isPending || uploadingAvatar}>
           <Text style={stylesThemed.btnText}>{update.isPending ? "Saving..." : "Save"}</Text>
         </Pressable>
-        <BottomSheetPickerModal visible={countryPickerOpen} onClose={() => setCountryPickerOpen(false)} title="Select country">
-          {countryOptions.map((option, index) => (
-            <Pressable
-              key={`${option.region}-${option.callingCode}`}
-              style={[stylesThemed.countryPickerRow, index === countryOptions.length - 1 ? { borderBottomWidth: 0 } : null]}
-              onPress={() => {
-                setCountryCode(option.region);
-                setCallingCode(option.callingCode);
-                if (phoneTouched) {
-                  setPhoneError(validatePhone(phone));
-                }
-                setCountryPickerOpen(false);
-              }}
-            >
-              <Text style={stylesThemed.countryPickerText}>
-                {option.flag} {option.region} (+{option.callingCode})
-              </Text>
-              {countryCode === option.region && callingCode === option.callingCode ? (
-                <Ionicons name="checkmark" size={16} color={colors.primary} />
-              ) : null}
-            </Pressable>
-          ))}
-        </BottomSheetPickerModal>
       </ScrollView>
       </Animated.View>
     </View>

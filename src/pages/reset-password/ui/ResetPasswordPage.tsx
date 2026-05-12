@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator, ScrollView, Platform, Keyboard } from "react-native";
+import { Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator, ScrollView, Animated, Platform, Keyboard } from "react-native";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
+
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import * as Linking from "expo-linking";
@@ -23,6 +26,7 @@ export default function ResetPasswordScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { updatePassword } = useAuth();
+  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -108,9 +112,9 @@ export default function ResetPasswordScreen() {
   );
 
   return (
-    <ScrollView
+    <AnimatedScrollView
       style={stylesThemed.root}
-      contentContainerStyle={stylesThemed.content}
+      contentContainerStyle={[stylesThemed.content, { paddingBottom: keyboardInset }]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
     >
@@ -224,6 +228,6 @@ export default function ResetPasswordScreen() {
       >
         <Text style={stylesThemed.btnText}>{t(RESET_PASSWORD_COPY_KEYS.btnUpdate)}</Text>
       </Pressable>
-    </ScrollView>
+    </AnimatedScrollView>
   );
 }
