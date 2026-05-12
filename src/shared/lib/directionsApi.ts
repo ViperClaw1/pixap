@@ -1,4 +1,7 @@
+import Constants from "expo-constants";
+import { Platform } from "react-native";
 import { decodeGooglePolyline, type LatLng } from "./polylineDecode";
+import { env } from "./env";
 
 export type TravelMode = "driving" | "walking" | "transit";
 
@@ -32,6 +35,29 @@ type GoogleGeocodeResponse = {
 
 const BASE = "https://maps.googleapis.com/maps/api";
 
+/**
+ * Google Maps Platform REST from mobile: with Android/iOS application key restrictions,
+ * requests must include platform headers (see Maps API security best practices).
+ * Expo Go (`appOwnership === "expo"`) skips them so dev matches unrestricted / Expo keys.
+ */
+function googleMapsWebServiceFetch(url: string, signal?: AbortSignal): Promise<Response> {
+  const headers: Record<string, string> = {};
+  if (Constants.appOwnership !== "expo") {
+    if (Platform.OS === "ios") {
+      const bid = Constants.expoConfig?.ios?.bundleIdentifier;
+      if (bid) headers["X-Ios-Bundle-Identifier"] = bid;
+    } else if (Platform.OS === "android") {
+      const pkg = Constants.expoConfig?.android?.package;
+      const cert = env.googleMapsAndroidCertSha1;
+      if (pkg) headers["X-Android-Package"] = pkg;
+      if (cert) headers["X-Android-Cert"] = cert;
+    }
+  }
+  const init: RequestInit = { signal };
+  if (Object.keys(headers).length > 0) init.headers = headers;
+  return fetch(url, init);
+}
+
 function debugMapsApi(event: string, payload?: unknown) {
   if (!__DEV__) return;
   if (payload === undefined) {
@@ -59,7 +85,7 @@ export async function geocodeAddressDetailed(
     key: apiKey,
   });
   const url = `${BASE}/geocode/json?${q.toString()}`;
-  const res = await fetch(url, { signal });
+  const res = await googleMapsWebServiceFetch(url, signal);
   const data = (await res.json()) as GoogleGeocodeResponse;
   debugMapsApi("geocode:response", {
     httpOk: res.ok,
@@ -100,6 +126,19 @@ type GoogleGeocodeFullResponse = {
   status: string;
   error_message?: string;
   results?: GoogleGeocodeResultItem[];
+};
+
+type GooglePlaceAutocompleteResponse = {
+  status: string;
+  error_message?: string;
+  predictions?: Array<{
+    description: string;
+    place_id: string;
+    structured_formatting?: {
+      main_text: string;
+      secondary_text?: string;
+    };
+  }>;
 };
 
 /** Human-readable primary label + optional city row from Google Geocoding. */
@@ -143,6 +182,19 @@ export type GeocodeSearchResultItem = {
 };
 
 const GEOCODE_SEARCH_MAX = 8;
+const PLACE_AUTOCOMPLETE_MAX = 8;
+
+function mapGeocodeResultToSearchItem(item: GoogleGeocodeResultItem): GeocodeSearchResultItem {
+  const loc = item.geometry.location;
+  const { placeName, city } = extractPlaceFieldsFromGeocodeResult(item);
+  return {
+    formattedAddress: item.formatted_address,
+    latitude: loc.lat,
+    longitude: loc.lng,
+    placeName,
+    city,
+  };
+}
 
 /** Free-text suggestions via Geocoding API (multiple `results`). Enable Geocoding API for the key. */
 export async function searchGeocodeAddresses(
@@ -162,7 +214,7 @@ export async function searchGeocodeAddresses(
     key: apiKey,
   });
   const url = `${BASE}/geocode/json?${q.toString()}`;
-  const res = await fetch(url, { signal });
+  const res = await googleMapsWebServiceFetch(url, signal);
   const data = (await res.json()) as GoogleGeocodeFullResponse;
   debugMapsApi("geocode_search:response", {
     httpOk: res.ok,
@@ -181,18 +233,108 @@ export async function searchGeocodeAddresses(
       message: data.error_message ?? data.status,
     };
   }
-  const results: GeocodeSearchResultItem[] = data.results.slice(0, GEOCODE_SEARCH_MAX).map((item) => {
-    const loc = item.geometry.location;
-    const { placeName, city } = extractPlaceFieldsFromGeocodeResult(item);
+  const results: GeocodeSearchResultItem[] = data.results
+    .slice(0, GEOCODE_SEARCH_MAX)
+    .map((item) => mapGeocodeResultToSearchItem(item));
+  return { ok: true, results };
+}
+
+export type AddressAutocompleteListItem = {
+  placeId: string;
+  placeName: string;
+  formattedAddress: string;
+};
+
+/**
+ * Partial-address suggestions via Places Autocomplete (legacy web service).
+ * REQUIRES: Places API enabled for the key. After pick, resolve coordinates with {@link geocodePlaceIdToSearchItem} (Geocoding API).
+ */
+export async function searchAddressAutocomplete(
+  input: string,
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<
+  | { ok: true; items: AddressAutocompleteListItem[] }
+  | { ok: false; status: string; message?: string }
+> {
+  const trimmed = input.trim();
+  if (trimmed.length < 2) {
+    return { ok: true, items: [] };
+  }
+  const q = new URLSearchParams({
+    input: trimmed,
+    key: apiKey,
+  });
+  const url = `${BASE}/place/autocomplete/json?${q.toString()}`;
+  const res = await googleMapsWebServiceFetch(url, signal);
+  const data = (await res.json()) as GooglePlaceAutocompleteResponse;
+  debugMapsApi("place_autocomplete:response", {
+    httpOk: res.ok,
+    httpStatus: res.status,
+    status: data.status,
+    errorMessage: data.error_message,
+    count: data.predictions?.length ?? 0,
+  });
+  if (data.status !== "OK") {
+    if (data.status === "ZERO_RESULTS") {
+      return { ok: true, items: [] };
+    }
     return {
-      formattedAddress: item.formatted_address,
-      latitude: loc.lat,
-      longitude: loc.lng,
-      placeName,
-      city,
+      ok: false,
+      status: data.status,
+      message: data.error_message ?? data.status,
+    };
+  }
+  const predictions = data.predictions ?? [];
+  if (predictions.length === 0) {
+    return { ok: true, items: [] };
+  }
+  const items: AddressAutocompleteListItem[] = predictions.slice(0, PLACE_AUTOCOMPLETE_MAX).map((p) => {
+    const desc = p.description?.trim() ?? "";
+    const main = p.structured_formatting?.main_text?.trim();
+    return {
+      placeId: p.place_id,
+      placeName: main && main.length > 0 ? main : desc.split(",")[0]?.trim() || desc || "Place",
+      formattedAddress: desc,
     };
   });
-  return { ok: true, results };
+  return { ok: true, items };
+}
+
+/** Resolve a Places `place_id` to coordinates + formatted fields (Geocoding API). */
+export async function geocodePlaceIdToSearchItem(
+  placeId: string,
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<
+  | { ok: true; item: GeocodeSearchResultItem }
+  | { ok: false; status: string; message?: string }
+> {
+  const q = new URLSearchParams({
+    place_id: placeId,
+    key: apiKey,
+  });
+  const url = `${BASE}/geocode/json?${q.toString()}`;
+  const res = await googleMapsWebServiceFetch(url, signal);
+  const data = (await res.json()) as GoogleGeocodeFullResponse;
+  debugMapsApi("geocode_place_id:response", {
+    httpOk: res.ok,
+    httpStatus: res.status,
+    status: data.status,
+    errorMessage: data.error_message,
+    hasResult: Boolean(data.results?.[0]),
+  });
+  if (data.status !== "OK" || !data.results?.[0]) {
+    if (data.status === "ZERO_RESULTS") {
+      return { ok: false, status: "ZERO_RESULTS", message: "No coordinates for this place" };
+    }
+    return {
+      ok: false,
+      status: data.status,
+      message: data.error_message ?? data.status,
+    };
+  }
+  return { ok: true, item: mapGeocodeResultToSearchItem(data.results[0]) };
 }
 
 /**
@@ -215,7 +357,7 @@ export async function fetchDirections(params: {
   });
 
   const url = `${BASE}/directions/json?${q.toString()}`;
-  const res = await fetch(url, { signal });
+  const res = await googleMapsWebServiceFetch(url, signal);
   const data = (await res.json()) as GoogleDirectionsResponse;
   debugMapsApi("directions:response", {
     httpOk: res.ok,

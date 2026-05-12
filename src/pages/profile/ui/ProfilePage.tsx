@@ -814,7 +814,6 @@ function ProfileScreenContent() {
       onPress: () => (isActive ? openManageSubscription() : navigation.navigate("SubscriptionPaywall")),
     },
     { key: "notifications", label: "Notifications", icon: "notifications-outline", onPress: () => setNotificationsOpen(true) },
-    { key: "favorites", label: "Favorites", icon: "star-outline", onPress: () => navigation.navigate("Favorites") },
     { key: "privacy", label: "Privacy & Security", icon: "shield-outline", onPress: openPrivacy },
     { key: "settings", label: "Settings", icon: "settings-outline", onPress: () => navigation.navigate("EditProfile") },
   ];
@@ -902,10 +901,15 @@ function ProfileScreenContent() {
           <Text style={stylesThemed.statLabel}>Bookings</Text>
         </Pressable>
         
-        <View style={stylesThemed.statCard}>
+        <Pressable
+          style={stylesThemed.statCard}
+          onPress={() => navigation.navigate("Favorites")}
+          accessibilityRole="button"
+          accessibilityLabel="Open favorites"
+        >
           <Text style={stylesThemed.statValue}>{favorites.length}</Text>
           <Text style={stylesThemed.statLabel}>Favorites</Text>
-        </View>
+        </Pressable>
         <View style={stylesThemed.statCard}>
           <Text style={stylesThemed.statValue}>0</Text>
           <Text style={stylesThemed.statLabel}>Reviews</Text>
@@ -926,14 +930,24 @@ function ProfileScreenContent() {
           <Text style={stylesThemed.statValue}>{postsCount}</Text>
           <Text style={stylesThemed.statLabel}>Posts</Text>
         </Pressable>
-        <View style={stylesThemed.statCard}>
+        <Pressable
+          style={stylesThemed.statCard}
+          onPress={() => navigation.navigate("Cart", { screen: "CartMain" })}
+          accessibilityRole="button"
+          accessibilityLabel="Open messages"
+        >
           <Text style={stylesThemed.statValue}>{followersCount}</Text>
           <Text style={stylesThemed.statLabel}>Followed</Text>
-        </View>
-        <View style={stylesThemed.statCard}>
+        </Pressable>
+        <Pressable
+          style={stylesThemed.statCard}
+          onPress={() => navigation.navigate("Cart", { screen: "CartMain" })}
+          accessibilityRole="button"
+          accessibilityLabel="Open messages"
+        >
           <Text style={stylesThemed.statValue}>{followingCount}</Text>
           <Text style={stylesThemed.statLabel}>Following</Text>
-        </View>
+        </Pressable>
         
       </View>
       <View style={stylesThemed.suggestionsSection}>

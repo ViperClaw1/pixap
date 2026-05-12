@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
-  Dimensions,
   Keyboard,
   Modal,
   Platform,
@@ -11,6 +10,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -78,10 +78,16 @@ export default function FeedStoryViewerPage() {
     [isDark],
   );
   const carouselRef = useRef<ICarouselInstance | null>(null);
-  const keyboardInsetAnim = useRef(new Animated.Value(0)).current;
   const [inputValue, setInputValue] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const keyboardInsetAnim = useKeyboardInset({
+    gap: KEYBOARD_GAP,
+    useNativeDriver: true,
+    onKeyboardChange: (_keyboardTop, keyboardHeight) => {
+      setKeyboardOpen(keyboardHeight > 0);
+    },
+  });
   const [previewOpen, setPreviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const lastTapRef = useRef<{ ts: number; storyId: string } | null>(null);
@@ -147,34 +153,6 @@ export default function FeedStoryViewerPage() {
     void preloadSmartImages(candidateUrls.map((url) => getOptimizedImageUrl(url, 1080, 1920, 78) || url));
   }, [viewer.currentFlatIndex, viewer.flatStories]);
 
-  useEffect(() => {
-    const animateKeyboardInset = (toValue: number, duration?: number) => {
-      Animated.timing(keyboardInsetAnim, {
-        toValue,
-        duration: duration ?? 250,
-        useNativeDriver: true,
-      }).start();
-    };
-    const onKeyboardFrameChange = (event: { endCoordinates: { height: number; screenY?: number }; duration?: number }) => {
-      const windowHeightValue = Dimensions.get("window").height;
-      const keyboardTop = event.endCoordinates.screenY ?? windowHeightValue - event.endCoordinates.height;
-      const overlap = Math.max(0, windowHeightValue - keyboardTop);
-      setKeyboardOpen(overlap > 0);
-      animateKeyboardInset(Math.max(0, overlap + KEYBOARD_GAP), event.duration);
-    };
-    const onKeyboardHide = (event?: { duration?: number }) => {
-      setKeyboardOpen(false);
-      animateKeyboardInset(0, event?.duration);
-    };
-    const showEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, onKeyboardFrameChange);
-    const hideSub = Keyboard.addListener(hideEvent, onKeyboardHide);
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [keyboardInsetAnim]);
 
   const onSubmitReply = useCallback(async () => {
     if (!activeStory) return;

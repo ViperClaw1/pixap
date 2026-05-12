@@ -40,7 +40,12 @@ import {
   useCreateBusinessCardFromGeocode,
 } from "@/entities/business-card";
 import { env } from "@/shared/lib/env";
-import { searchGeocodeAddresses, type GeocodeSearchResultItem } from "@/shared/lib/directionsApi";
+import {
+  geocodePlaceIdToSearchItem,
+  searchAddressAutocomplete,
+  type AddressAutocompleteListItem,
+  type GeocodeSearchResultItem,
+} from "@/shared/lib/directionsApi";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { supabase } from "@/shared/api/supabase/client";
@@ -62,6 +67,7 @@ import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 
 const STORIES_BUCKET = "stories";
 const MAX_POST_PHOTOS = 8;
+const POST_ADDRESS_AUTOCOMPLETE_DEBOUNCE_MS = 1000;
 const DOUBLE_TAP_DELAY_MS = 280;
 /** Скрыто по продуктовому запросу; логика фильтра по `route.params` сохраняется */
 const SHOW_POSTS_SCOPE_TOGGLES = false;
@@ -234,7 +240,7 @@ export default function StoriesFeedScreen() {
   );
   const mapsApiKey = env.googleMapsWebApiKey;
   const [postAddressDraft, setPostAddressDraft] = useState("");
-  const [geocodeSuggestions, setGeocodeSuggestions] = useState<GeocodeSearchResultItem[]>([]);
+  const [geocodeSuggestions, setGeocodeSuggestions] = useState<AddressAutocompleteListItem[]>([]);
   const [addressGeocodeLoading, setAddressGeocodeLoading] = useState(false);
   const [selectedGeocode, setSelectedGeocode] = useState<GeocodeSearchResultItem | null>(null);
   const [followOverrides, setFollowOverrides] = useState<Record<string, boolean>>({});
@@ -381,21 +387,23 @@ export default function StoriesFeedScreen() {
       setAddressGeocodeLoading(false);
       return;
     }
-    const ctrl = new AbortController();
+    setGeocodeSuggestions([]);
     setAddressGeocodeLoading(true);
+    const ctrl = new AbortController();
     const t = setTimeout(() => {
-      void searchGeocodeAddresses(q, key, ctrl.signal)
+      void searchAddressAutocomplete(q, key, ctrl.signal)
         .then((res) => {
           if (ctrl.signal.aborted) return;
-          setGeocodeSuggestions(res.ok ? res.results : []);
+          setGeocodeSuggestions(res.ok ? res.items : []);
         })
         .finally(() => {
           if (!ctrl.signal.aborted) setAddressGeocodeLoading(false);
         });
-    }, 400);
+    }, POST_ADDRESS_AUTOCOMPLETE_DEBOUNCE_MS);
     return () => {
       clearTimeout(t);
       ctrl.abort();
+      setAddressGeocodeLoading(false);
     };
   }, [postAddressDraft, createModalVisible, createStep, selectedGeocode, mapsApiKey]);
 
@@ -1270,7 +1278,7 @@ export default function StoriesFeedScreen() {
           <Text style={[styles.postPlacesLabel, { color: colors.textMuted }]}>Tell us where have you been</Text>
           {!mapsApiKey ? (
             <Text style={[styles.postAddressMapsHint, { color: colors.danger }]}>
-              Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to enable address search (Geocoding API).
+              Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY with Places API (Autocomplete) and Geocoding API enabled.
             </Text>
           ) : null}
           {selectedGeocode ? (
@@ -1333,14 +1341,31 @@ export default function StoriesFeedScreen() {
               ) : (
                 geocodeSuggestions.map((item) => (
                   <Pressable
-                    key={`${item.latitude}-${item.longitude}-${item.formattedAddress}`}
+                    key={item.placeId}
                     style={styles.postAddressSuggestionRow}
-                    onPress={() => {
-                      setSelectedGeocode(item);
-                      setGeocodeSuggestions([]);
-                      setPostAddressDraft(item.formattedAddress);
-                      setPostPlaceError(false);
-                      setSelectedPostPlaceId(null);
+                    onPress={async () => {
+                      if (!mapsApiKey) return;
+                      setAddressGeocodeLoading(true);
+                      try {
+                        const res = await geocodePlaceIdToSearchItem(item.placeId, mapsApiKey);
+                        if (res.ok) {
+                          setSelectedGeocode(res.item);
+                          setGeocodeSuggestions([]);
+                          setPostAddressDraft(res.item.formattedAddress);
+                          setPostPlaceError(false);
+                          setSelectedPostPlaceId(null);
+                        } else {
+                          Toast.show({
+                            type: "error",
+                            text1: "Address lookup failed",
+                            text2: res.message ?? res.status,
+                          });
+                        }
+                      } catch {
+                        Toast.show({ type: "error", text1: "Network error", text2: "Try again." });
+                      } finally {
+                        setAddressGeocodeLoading(false);
+                      }
                     }}
                   >
                     <Text style={[styles.postAddressSuggestionTitle, { color: colors.text }]} numberOfLines={1}>

@@ -1,7 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
-  Dimensions,
   Keyboard,
   Modal,
   PanResponder,
@@ -13,6 +12,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/contexts/ThemeContext";
 
@@ -39,7 +39,17 @@ export function BottomSheetPickerModal({ visible, onClose, title, children, maxH
   const scrollMaxHeight = Math.max(120, sheetMaxHeight - SHEET_HEADER_HEIGHT - Math.max(insets.bottom, 8));
 
   const translateY = useRef(new Animated.Value(0)).current;
-  const keyboardInsetAnim = useRef(new Animated.Value(0)).current;
+  // Android adjusts window via windowSoftInputMode; only iOS needs sheet to translate up.
+  const keyboardInsetAnim = useKeyboardInset({
+    gap: KEYBOARD_GAP,
+    useNativeDriver: true,
+    enabled: !isAndroid,
+    onKeyboardChange: (_keyboardTop, keyboardHeight) => {
+      if (!isAndroid) {
+        setKeyboardOpen(keyboardHeight > 0);
+      }
+    },
+  });
   const metricsRef = useRef({ windowHeight, sheetMaxHeight });
   metricsRef.current = { windowHeight, sheetMaxHeight };
   const onCloseRef = useRef(onClose);
@@ -49,43 +59,6 @@ export function BottomSheetPickerModal({ visible, onClose, title, children, maxH
     if (visible) translateY.setValue(0);
   }, [visible, translateY]);
 
-  useEffect(() => {
-    const animateKeyboardInset = (toValue: number, duration?: number) => {
-      Animated.timing(keyboardInsetAnim, {
-        toValue,
-        duration: duration ?? 250,
-        useNativeDriver: true,
-      }).start();
-    };
-    const onKeyboardFrameChange = (event: { endCoordinates: { height: number; screenY?: number }; duration?: number }) => {
-      const windowHeightValue = Dimensions.get("window").height;
-      const keyboardTop = event.endCoordinates.screenY ?? windowHeightValue - event.endCoordinates.height;
-      const overlap = Math.max(0, windowHeightValue - keyboardTop);
-      if (!isAndroid) {
-        setKeyboardOpen(overlap > 0);
-      }
-      if (Platform.OS === "android") {
-        // Android already applies resize for keyboard; translating sheet again creates an oversized gap.
-        animateKeyboardInset(0, event.duration);
-        return;
-      }
-      animateKeyboardInset(Math.max(0, overlap + KEYBOARD_GAP), event.duration);
-    };
-    const onKeyboardHide = (event?: { duration?: number }) => {
-      if (!isAndroid) {
-        setKeyboardOpen(false);
-      }
-      animateKeyboardInset(0, event?.duration);
-    };
-    const showEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, onKeyboardFrameChange);
-    const hideSub = Keyboard.addListener(hideEvent, onKeyboardHide);
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [keyboardInsetAnim]);
 
   const panResponder = useRef(
     PanResponder.create({

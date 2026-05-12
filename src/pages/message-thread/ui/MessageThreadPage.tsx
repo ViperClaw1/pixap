@@ -16,7 +16,7 @@ import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { STICKER_URLS } from "../model/constants";
 import { formatRelativeLastSeen, peerFullName } from "../model/format";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
-import { useThreadKeyboardInset } from "../model/useThreadKeyboardInset";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import type { MessageThreadListRow } from "../model/types";
 import { createMessageThreadStyles } from "./messageThreadStyles";
 import { MessageThreadListItem } from "./MessageThreadListItem";
@@ -39,7 +39,6 @@ export default function MessageThreadPage() {
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isStickerPanelOpen, setStickerPanelOpen] = useState(false);
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
-  const keyboardInsetAnim = useRef(new Animated.Value(0)).current;
   const { messages, peer, peerLastSeenAt, isLoading } = useThreadMessages(params.threadId);
   const sendMessage = useSendMessage();
   const reactToMessage = useReactToMessage();
@@ -135,7 +134,7 @@ export default function MessageThreadPage() {
     [colors, insets.top, mode, stableBottomInset],
   );
 
-  useThreadKeyboardInset(keyboardInsetAnim, tabBarHeight, stableBottomInset);
+  const keyboardInsetAnim = useKeyboardInset({ tabBarHeight });
 
   const pickImages = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();

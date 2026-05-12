@@ -170,6 +170,9 @@ export default function PlaceDetailScreen() {
       const targetGroup = groupedStories[groupIndex];
       if (!targetGroup?.stories.length) return;
 
+      const firstUnseenIndex = targetGroup.stories.findIndex((story) => !seenStoryIds[story.id]);
+      const initialStoryIndex = firstUnseenIndex >= 0 ? firstUnseenIndex : 0;
+
       setSeenStoryIds((prev) => {
         const next = { ...prev };
         for (const story of targetGroup.stories) {
@@ -178,14 +181,14 @@ export default function PlaceDetailScreen() {
         return next;
       });
 
-      navigation.navigate("StoryViewer", {
+      navigation.navigate("FeedStoryViewer", {
         groups: groupedStories,
         initialGroupIndex: groupIndex,
-        initialStoryIndex: 0,
-        placeId: id,
+        initialStoryIndex,
+        placeId: targetGroup.stories[initialStoryIndex]?.place_id ?? id,
       });
     },
-    [groupedStories, id, navigation],
+    [groupedStories, id, navigation, seenStoryIds],
   );
 
   const openStoryComposer = useCallback(() => {

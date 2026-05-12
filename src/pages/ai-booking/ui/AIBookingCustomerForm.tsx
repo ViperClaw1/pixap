@@ -2,12 +2,13 @@ import type { Dispatch, SetStateAction } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import type { PixAIPlace } from "@/entities/pixai";
+import { PhoneInput, type PhoneValue } from "@/shared/ui/phone-input";
 import type { AIBookingStyles } from "./aiBookingStyles";
 
 export type AIBookingDraftForm = {
   persons: string;
   customer_name: string;
-  customer_phone: string;
+  customer_phone: PhoneValue;
   customer_email: string;
   comment: string;
 };
@@ -17,7 +18,6 @@ type Props = {
   colors: ThemeColors;
   form: AIBookingDraftForm;
   setForm: Dispatch<SetStateAction<AIBookingDraftForm>>;
-  formatPhoneMask: (raw: string) => string;
   summaryMessage: string;
   selectedPlace: PixAIPlace | null;
   onCreateDraft: () => void;
@@ -28,7 +28,6 @@ export function AIBookingCustomerForm({
   colors,
   form,
   setForm,
-  formatPhoneMask,
   summaryMessage,
   selectedPlace,
   onCreateDraft,
@@ -56,13 +55,10 @@ export function AIBookingCustomerForm({
             placeholder="Full name"
             placeholderTextColor={colors.textMuted}
           />
-          <TextInput
-            style={[s.field, s.fieldOnCard]}
+          <PhoneInput
             value={form.customer_phone}
-            onChangeText={(customer_phone) => setForm((prev) => ({ ...prev, customer_phone: formatPhoneMask(customer_phone) }))}
-            keyboardType="number-pad"
-            placeholder="X-(XXX)-XXX-XXXX"
-            placeholderTextColor={colors.textMuted}
+            onChange={(customer_phone) => setForm((prev) => ({ ...prev, customer_phone }))}
+            containerStyle={{ backgroundColor: colors.background }}
           />
           <TextInput
             style={[s.field, s.fieldOnCard]}

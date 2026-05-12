@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
-  Dimensions,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   PanResponder,
   Platform,
@@ -13,6 +11,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
@@ -38,8 +37,14 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const translateY = useRef(new Animated.Value(windowHeight)).current;
-  const keyboardInsetAnim = useRef(new Animated.Value(0)).current;
   const [isKeyboardOpen, setKeyboardOpen] = useState(false);
+  const keyboardInsetAnim = useKeyboardInset({
+    gap: KEYBOARD_GAP,
+    useNativeDriver: true,
+    onKeyboardChange: (_keyboardTop, keyboardHeight) => {
+      setKeyboardOpen(keyboardHeight > 0);
+    },
+  });
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
   const sheetMinH = windowHeight * 0.5;
@@ -56,34 +61,6 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
   const metricsRef = useRef({ windowHeight, sheetH });
   metricsRef.current = { windowHeight, sheetH };
 
-  useEffect(() => {
-    const animateKeyboardInset = (toValue: number, duration?: number) => {
-      Animated.timing(keyboardInsetAnim, {
-        toValue,
-        duration: duration ?? 250,
-        useNativeDriver: true,
-      }).start();
-    };
-    const onKeyboardFrameChange = (event: { endCoordinates: { height: number; screenY?: number }; duration?: number }) => {
-      const wh = Dimensions.get("window").height;
-      const keyboardTop = event.endCoordinates.screenY ?? wh - event.endCoordinates.height;
-      const overlap = Math.max(0, wh - keyboardTop);
-      setKeyboardOpen(overlap > 0);
-      animateKeyboardInset(Math.max(0, overlap + KEYBOARD_GAP), event.duration);
-    };
-    const onKeyboardHide = (event?: { duration?: number }) => {
-      setKeyboardOpen(false);
-      animateKeyboardInset(0, event?.duration);
-    };
-    const showEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, onKeyboardFrameChange);
-    const hideSub = Keyboard.addListener(hideEvent, onKeyboardHide);
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [keyboardInsetAnim]);
 
   useEffect(() => {
     if (visible) {
@@ -174,11 +151,7 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
           <View style={styles.glassUnderlay}>
             <View style={[StyleSheet.absoluteFillObject, styles.glassTint]} />
           </View>
-          <KeyboardAvoidingView
-            style={styles.keyboardArea}
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            keyboardVerticalOffset={0}
-          >
+          <View style={styles.keyboardArea}>
             <View {...panResponder.panHandlers}>
               <Pressable onPress={() => Keyboard.dismiss()} style={styles.grabberOuter}>
                 <View style={styles.grabberInner} />
@@ -195,7 +168,7 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
                 onListContentSizeChange={(_w, h) => setListContentH(h)}
               />
             </View>
-          </KeyboardAvoidingView>
+          </View>
         </Animated.View>
       </View>
     </Modal>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
@@ -10,9 +10,10 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  Keyboard,
   Dimensions,
+  Animated,
 } from "react-native";
+import { useFocusedOverlapKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons, FontAwesome, FontAwesome6 } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -36,6 +37,8 @@ import {
 } from "@/shared/theme/primaryPressable";
 
 WebBrowser.maybeCompleteAuthSession();
+
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 type Mode = "login" | "signup" | "forgot";
 
@@ -71,7 +74,27 @@ export default function AuthScreen() {
   const [emailTouched, setEmailTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const baseScrollPaddingBottom = Math.max(insets.bottom, 48);
+  const { extraInset: keyboardExtraInset, recalculate: recalculateKeyboardInset } =
+    useFocusedOverlapKeyboardInset({
+      gap: KEYBOARD_GAP,
+      getFocusedInput: () => activeInputRef.current,
+      onKeyboardFrame: (keyboardTop, keyboardHeight) => {
+        const windowHeight = Dimensions.get("window").height;
+        keyboardTopRef.current = keyboardTop < windowHeight ? keyboardTop : null;
+        isKeyboardVisibleRef.current = keyboardHeight > 1;
+      },
+      onKeyboardChange: (keyboardTop, keyboardHeight) => {
+        if (keyboardHeight > 1) {
+          ensureFocusedInputVisible(keyboardTop);
+        }
+      },
+    });
+  const animatedScrollPaddingBottom = useMemo(
+    () => Animated.add(new Animated.Value(baseScrollPaddingBottom), keyboardExtraInset),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [baseScrollPaddingBottom],
+  );
 
   const stylesThemed = useMemo(
     () =>
@@ -153,7 +176,7 @@ export default function AuthScreen() {
     setPassword(value);
   };
 
-  const ensureFocusedInputVisible = (keyboardTop: number) => {
+  const ensureFocusedInputVisible = useCallback((keyboardTop: number) => {
     const focusedField = activeInputRef.current;
     if (!focusedField || typeof focusedField.measureInWindow !== "function") return;
     focusedField.measureInWindow((_x, y, _w, h) => {
@@ -164,54 +187,15 @@ export default function AuthScreen() {
         animated: true,
       });
     });
-  };
+  }, []);
 
   const onInputFocus = (ref: { current: TextInput | null }) => {
     activeInputRef.current = ref.current;
     const keyboardTop = keyboardTopRef.current;
     if (!isKeyboardVisibleRef.current || keyboardTop == null || !ref.current) return;
+    recalculateKeyboardInset();
     ensureFocusedInputVisible(keyboardTop);
   };
-
-  useEffect(() => {
-    const onKeyboardFrameChange = (event: { endCoordinates: { height: number; screenY?: number }; duration?: number }) => {
-      const windowHeight = Dimensions.get("window").height;
-      const keyboardTop = event.endCoordinates.screenY ?? windowHeight - event.endCoordinates.height;
-      if (Platform.OS === "ios") return;
-      isKeyboardVisibleRef.current = true;
-      keyboardTopRef.current = keyboardTop;
-      setKeyboardHeight(event.endCoordinates.height);
-      ensureFocusedInputVisible(keyboardTop);
-    };
-
-    const onKeyboardWillShow = (event: { endCoordinates: { height: number; screenY?: number }; duration?: number }) => {
-      if (Platform.OS !== "ios") return;
-      const windowHeight = Dimensions.get("window").height;
-      const keyboardTop = event.endCoordinates.screenY ?? windowHeight - event.endCoordinates.height;
-      isKeyboardVisibleRef.current = true;
-      keyboardTopRef.current = keyboardTop;
-      setKeyboardHeight(event.endCoordinates.height);
-      ensureFocusedInputVisible(keyboardTop);
-    };
-
-    const onKeyboardHide = () => {
-      isKeyboardVisibleRef.current = false;
-      keyboardTopRef.current = null;
-      setKeyboardHeight(0);
-    };
-
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const frameEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const frameSub = Keyboard.addListener(frameEvent, onKeyboardFrameChange);
-    const showSub = Platform.OS === "ios" ? Keyboard.addListener("keyboardWillShow", onKeyboardWillShow) : null;
-    const hideSub = Keyboard.addListener(hideEvent, onKeyboardHide);
-
-    return () => {
-      frameSub.remove();
-      showSub?.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -389,14 +373,16 @@ export default function AuthScreen() {
   const ph = colors.textMuted;
 
   return (
-    <ScrollView
+    <AnimatedScrollView
       ref={scrollRef}
       style={stylesThemed.root}
-      contentContainerStyle={{
-        ...stylesThemed.content,
-        paddingTop: Math.max(insets.top, 22),
-        paddingBottom: Math.max(insets.bottom, 48) + keyboardHeight + KEYBOARD_GAP,
-      }}
+      contentContainerStyle={[
+        stylesThemed.content,
+        {
+          paddingTop: Math.max(insets.top, 22),
+          paddingBottom: animatedScrollPaddingBottom,
+        },
+      ]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       onScroll={(event) => {
@@ -608,6 +594,6 @@ export default function AuthScreen() {
           <Text style={stylesThemed.bottomSwitchLink}>{t("auth.signInLink")}</Text>
         </Pressable>
       ) : null}
-    </ScrollView>
+    </AnimatedScrollView>
   );
 }
