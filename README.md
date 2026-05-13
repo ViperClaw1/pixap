@@ -214,6 +214,7 @@ Send **`Authorization: Bearer <user_access_token>`** for user-scoped functions. 
 | Function | Method | Auth | Request body (JSON) | Response (typical) |
 |----------|--------|------|---------------------|-------------------|
 | **`pixai-orchestrate`** | POST | User JWT (gateway) | `{ flow: { city, mode: "nearby"\|"city", categoryId?, categoryName?, isRestaurantTable?, comment?, radiusMiles?, location?: {lat,lng}, limit? } }` | `{ assistant, places[], slots[] }` |
+| **`pixai-booking-chat`** | POST | User JWT (gateway) or **verify_jwt false** + inner `auth.getUser()` (match repo config) | `{ booking_context, places: [{ id, name, city?, rating?, booking_price? }], messages: [{ role, content }], user_message }` | `{ message, filters, rerankedPlaceIds[], excludedPlaceIds[], explanation? }` — requires server secret **`GEMINI_API_KEY`** for live Gemini; otherwise returns a safe no-op JSON. |
 | **`get-available-slots`** | POST | User JWT | `{ business_id, date? }` | `{ slots: [{ label, dateTimeIso, available, isBest }] }` |
 | **`n8n-wa-booking-start`** | POST | Bearer JWT in `Authorization` header (client passes it explicitly in some screens) | `{ cart_item_id }` | `{ ok, callback_token, already_started? }` or structured errors (`step`, `hint`) |
 | **`confirm-service-cart-booking`** | POST | Bearer JWT | `{ cart_item_id, action?: "confirm"\|"pay" }` | `{ ok: true, booking_id }` or `{ error }` |
