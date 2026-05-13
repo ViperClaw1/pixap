@@ -1,6 +1,7 @@
 export * from "./api/useStories";
 export * from "./api/useStoriesStrip";
 export * from "./api/useStoriesFeed";
+export * from "./api/useMyArchivedStories";
 export * from "./api/useCreateStory";
 export * from "./api/useStoryComments";
 export * from "./api/useReplyToStory";

@@ -9,10 +9,14 @@ import { normalizeBusinessCardImages } from "@/lib/businessCardImages";
 type PostRow = {
   id: string;
   user_id: string;
-  place_id: string;
+  place_id: string | null;
   content: string;
   media_url: string | null;
   created_at: string;
+  geo_place_name: string | null;
+  geo_formatted_address: string | null;
+  geo_latitude: number | null;
+  geo_longitude: number | null;
 };
 
 type PlaceRow = {
@@ -43,6 +47,11 @@ export type FeedPostItem = PostItem & {
 const FEED_PAGE_SIZE = 12;
 const FETCH_WINDOW_MULTIPLIER = 4;
 
+function isMissingGeoColumnsError(message?: string) {
+  const normalized = (message ?? "").toLowerCase();
+  return normalized.includes("geo_place_name") || normalized.includes("geo_formatted_address");
+}
+
 async function getInteractedPlaceIds(userId: string): Promise<string[]> {
   const [ownPostsResult, ownReactionsResult, ownCommentsResult] = await Promise.all([
     supabase.from("posts" as any).select("place_id").eq("user_id", userId).limit(300),
@@ -50,7 +59,9 @@ async function getInteractedPlaceIds(userId: string): Promise<string[]> {
     supabase.from("post_comments" as any).select("post_id").eq("user_id", userId).limit(500),
   ]);
 
-  const ownPostPlaces = ((ownPostsResult.data ?? []) as Array<{ place_id: string }>).map((row) => row.place_id);
+  const ownPostPlaces = ((ownPostsResult.data ?? []) as Array<{ place_id: string | null }>)
+    .map((row) => row.place_id)
+    .filter((id): id is string => Boolean(id));
   const relatedPostIds = Array.from(
     new Set(
       [
@@ -64,7 +75,9 @@ async function getInteractedPlaceIds(userId: string): Promise<string[]> {
 
   const { data: relatedPosts } = await supabase.from("posts" as any).select("id, place_id").in("id", relatedPostIds);
   const placeIds = new Set(ownPostPlaces);
-  for (const row of (relatedPosts ?? []) as Array<{ place_id: string }>) placeIds.add(row.place_id);
+  for (const row of (relatedPosts ?? []) as Array<{ place_id: string | null }>) {
+    if (row.place_id) placeIds.add(row.place_id);
+  }
   return Array.from(placeIds);
 }
 
@@ -79,18 +92,42 @@ export function usePostsFeed() {
       const fetchLimit = page * FEED_PAGE_SIZE * FETCH_WINDOW_MULTIPLIER;
       const interactedPlaceIds = user?.id ? await getInteractedPlaceIds(user.id) : [];
 
-      const { data: postsData, error: postsError } = await supabase
+      const postsSelectWithGeo =
+        "id, user_id, place_id, content, media_url, created_at, geo_place_name, geo_formatted_address, geo_latitude, geo_longitude";
+      const postsSelectLegacy = "id, user_id, place_id, content, media_url, created_at";
+
+      let postsQuery = await supabase
         .from("posts" as any)
-        .select("id, user_id, place_id, content, media_url, created_at")
+        .select(postsSelectWithGeo)
         .order("created_at", { ascending: false })
         .limit(fetchLimit);
-      if (postsError) throw postsError;
+      if (postsQuery.error && isMissingGeoColumnsError(postsQuery.error.message)) {
+        postsQuery = await supabase
+          .from("posts" as any)
+          .select(postsSelectLegacy)
+          .order("created_at", { ascending: false })
+          .limit(fetchLimit);
+      }
+      if (postsQuery.error) throw postsQuery.error;
 
-      const posts = (postsData ?? []) as PostRow[];
+      const posts = ((postsQuery.data ?? []) as Array<Partial<PostRow>>).map((row) => ({
+        id: String(row.id ?? ""),
+        user_id: String(row.user_id ?? ""),
+        place_id: (row.place_id as string | null | undefined) ?? null,
+        content: String(row.content ?? ""),
+        media_url: (row.media_url as string | null | undefined) ?? null,
+        created_at: String(row.created_at ?? ""),
+        geo_place_name: (row.geo_place_name as string | null | undefined) ?? null,
+        geo_formatted_address: (row.geo_formatted_address as string | null | undefined) ?? null,
+        geo_latitude: (row.geo_latitude as number | null | undefined) ?? null,
+        geo_longitude: (row.geo_longitude as number | null | undefined) ?? null,
+      }));
       if (!posts.length) return { posts: [] as FeedPostItem[], hasMore: false };
 
       const postIds = posts.map((row) => row.id);
-      const placeIds = Array.from(new Set(posts.map((row) => row.place_id)));
+      const placeIds = Array.from(
+        new Set(posts.map((row) => row.place_id).filter((id): id is string => Boolean(id))),
+      );
       const userIds = Array.from(new Set(posts.map((row) => row.user_id)));
 
       const [{ data: placesData }, { data: profilesData }, { data: commentsData }, { data: reactionsData }, myReactionsResult] =
@@ -148,18 +185,31 @@ export function usePostsFeed() {
 
       const interactedPlaceSet = new Set(interactedPlaceIds);
       const scored = posts.map((row) => {
-        const score = followingSet.has(row.user_id) ? 0 : interactedPlaceSet.has(row.place_id) ? 1 : 2;
+        const placeKey = row.place_id ?? "";
+        const score = followingSet.has(row.user_id)
+          ? 0
+          : placeKey && interactedPlaceSet.has(placeKey)
+            ? 1
+            : 2;
+        const placeNameFromGeo =
+          row.geo_place_name?.trim() || row.geo_formatted_address?.trim() || "Place";
         return {
           id: row.id,
           user_id: row.user_id,
           place_id: row.place_id,
-          place_name: places.get(row.place_id)?.name ?? "Unknown place",
-          business_card: places.get(row.place_id)
-            ? {
-                id: places.get(row.place_id)!.id,
-                name: places.get(row.place_id)!.name,
-                images: normalizeBusinessCardImages(places.get(row.place_id)!.images),
-              }
+          geo_place_name: row.geo_place_name,
+          geo_formatted_address: row.geo_formatted_address,
+          geo_latitude: row.geo_latitude,
+          geo_longitude: row.geo_longitude,
+          place_name: row.place_id ? (places.get(row.place_id)?.name ?? "Unknown place") : placeNameFromGeo,
+          business_card: row.place_id
+            ? places.get(row.place_id)
+              ? {
+                  id: places.get(row.place_id)!.id,
+                  name: places.get(row.place_id)!.name,
+                  images: normalizeBusinessCardImages(places.get(row.place_id)!.images),
+                }
+              : null
             : null,
           content: row.content,
           media_url: row.media_url,

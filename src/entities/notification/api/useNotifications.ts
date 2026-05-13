@@ -15,6 +15,7 @@ export const useNotifications = () => {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["notifications", user?.id],
+    staleTime: 30 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("notifications")
@@ -29,8 +30,22 @@ export const useNotifications = () => {
 };
 
 export const useUnreadCount = () => {
-  const { data: notifications } = useNotifications();
-  return notifications?.filter((n) => !n.is_read).length ?? 0;
+  const { user } = useAuth();
+  const unreadCountQuery = useQuery({
+    queryKey: ["notifications", "unread_count", user?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user!.id)
+        .eq("is_read", false);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!user,
+    staleTime: 15 * 1000,
+  });
+  return unreadCountQuery.data ?? 0;
 };
 
 export const useMarkAsRead = () => {
@@ -40,6 +55,9 @@ export const useMarkAsRead = () => {
       const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      void queryClient.invalidateQueries({ queryKey: ["notifications", "unread_count"] });
+    },
   });
 };

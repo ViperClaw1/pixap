@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, TextInput, FlatList, Pressable, StyleSheet } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -77,6 +78,45 @@ export default function SearchScreen() {
     [colors, isDark],
   );
 
+  const renderSearchItem = useCallback(
+    ({ item }: ListRenderItemInfo<(typeof filtered)[number]>) => {
+      const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
+      return (
+        <Pressable style={stylesThemed.row} onPress={() => navigation.navigate("PlaceDetail", { id: item.id })}>
+          <SmartImage
+            uri={getOptimizedImageUrl(getLatestBusinessCardImage(item.images), 168, 168, 72)}
+            fallbackUri={getLatestBusinessCardImage(item.images)}
+            recyclingKey={item.id}
+            style={styles.thumb}
+            contentFit="cover"
+          />
+          <View style={stylesThemed.body}>
+            <Text style={stylesThemed.name} numberOfLines={1}>
+              {item.name}
+            </Text>
+            {item.address?.trim() ? (
+              <Text style={stylesThemed.meta} numberOfLines={1}>
+                {item.address.trim()}
+              </Text>
+            ) : null}
+            {visibleTags.length > 0 ? (
+              <View style={stylesThemed.tagsRow}>
+                {visibleTags.map((tag) => (
+                  <View key={tag} style={stylesThemed.tagPill}>
+                    <Text style={stylesThemed.tagText} numberOfLines={1}>
+                      {tag}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        </Pressable>
+      );
+    },
+    [navigation, stylesThemed],
+  );
+
   return (
     <View style={[stylesThemed.root, { paddingTop: Math.max(insets.top, 12) }]} {...androidSwipeBackPanHandlers}>
       <TextInput
@@ -86,45 +126,12 @@ export default function SearchScreen() {
         onChangeText={setQ}
         placeholderTextColor={colors.textMuted}
       />
-      <FlatList
+      <FlashList
         data={filtered}
         keyExtractor={(p) => p.id}
+        estimatedItemSize={88}
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
-        renderItem={({ item }) => {
-          const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
-          return (
-            <Pressable style={stylesThemed.row} onPress={() => navigation.navigate("PlaceDetail", { id: item.id })}>
-              <SmartImage
-                uri={getOptimizedImageUrl(getLatestBusinessCardImage(item.images), 168, 168, 72)}
-                fallbackUri={getLatestBusinessCardImage(item.images)}
-                recyclingKey={item.id}
-                style={styles.thumb}
-                contentFit="cover"
-              />
-              <View style={stylesThemed.body}>
-                <Text style={stylesThemed.name} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                {item.address?.trim() ? (
-                  <Text style={stylesThemed.meta} numberOfLines={1}>
-                    {item.address.trim()}
-                  </Text>
-                ) : null}
-                {visibleTags.length > 0 ? (
-                  <View style={stylesThemed.tagsRow}>
-                    {visibleTags.map((tag) => (
-                      <View key={tag} style={stylesThemed.tagPill}>
-                        <Text style={stylesThemed.tagText} numberOfLines={1}>
-                          {tag}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-            </Pressable>
-          );
-        }}
+        renderItem={renderSearchItem}
         removeClippedSubviews
         initialNumToRender={8}
         maxToRenderPerBatch={10}

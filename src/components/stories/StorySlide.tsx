@@ -3,6 +3,7 @@ import { StyleSheet, View } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import type { StoryItem } from "@/types/stories";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 
 interface StorySlideProps {
   story: StoryItem;
@@ -30,16 +31,18 @@ function parseStoryMediaUrl(raw?: string | null): string | null {
 function StorySlideComponent({ story, width, height }: StorySlideProps) {
   const { colors } = useAppTheme();
   const mediaUrl = parseStoryMediaUrl(story.media_url);
+  const optimizedMediaUrl = getOptimizedImageUrl(mediaUrl, Math.max(720, Math.round(width)), Math.max(1200, Math.round(height)), 78);
   const hasMedia = !!mediaUrl;
 
   return (
     <View style={[styles.container, { width, height, backgroundColor: colors.background }]}>
       {hasMedia ? (
         <SmartImage
-          uri={mediaUrl}
+          uri={optimizedMediaUrl || mediaUrl}
+          fallbackUri={mediaUrl}
           style={styles.media}
           contentFit="cover"
-          allowDownscaling={false}
+          allowDownscaling
           cachePolicy="memory-disk"
           priority="high"
           transition={120}

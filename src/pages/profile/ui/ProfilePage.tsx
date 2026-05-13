@@ -19,6 +19,7 @@ import { useBookings } from "@/entities/booking";
 import { useCreatePost } from "@/entities/post";
 import { useCreateStory } from "@/entities/story";
 import type { ProfileStackParamList, RootTabParamList } from "@/navigation/types";
+import { StoriesArchiveView } from "@/pages/stories-archive";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
@@ -70,6 +71,8 @@ function ProfileScreenContent() {
   const toggleFollow = useToggleFollow();
   const { status: subscriptionStatus, isTrial, expiresAt, isActive } = useEntitlement();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [storiesArchiveMounted, setStoriesArchiveMounted] = useState(false);
+  const [storiesArchiveVisible, setStoriesArchiveVisible] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createStep, setCreateStep] = useState<"menu" | "post" | "story">("menu");
   const [postInput, setPostInput] = useState("");
@@ -819,6 +822,15 @@ function ProfileScreenContent() {
       onPress: () => setNotificationsOpen(true),
       badgeCount: unreadNotifications,
     },
+    {
+      key: "stories-archive",
+      label: "Archive",
+      icon: "archive-outline",
+      onPress: () => {
+        setStoriesArchiveMounted(true);
+        setStoriesArchiveVisible(true);
+      },
+    },
     { key: "privacy", label: "Privacy & Security", icon: "shield-outline", onPress: openPrivacy },
     { key: "settings", label: "Settings", icon: "settings-outline", onPress: () => navigation.navigate("EditProfile") },
   ];
@@ -828,10 +840,11 @@ function ProfileScreenContent() {
   }
 
   return (
-    <ScrollView
-      style={stylesThemed.root}
-      contentContainerStyle={{ paddingTop: 12, paddingBottom: Math.max(insets.bottom, 24) }}
-    >
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={stylesThemed.root}
+        contentContainerStyle={{ paddingTop: 12, paddingBottom: Math.max(insets.bottom, 24) }}
+      >
       <AppHeader
         title={t("header.profile")}
         leftIcon="add"
@@ -1265,6 +1278,25 @@ function ProfileScreenContent() {
 
       <NotificationsSheetModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
     </ScrollView>
+
+    {storiesArchiveMounted ? (
+      <View
+        style={[
+          StyleSheet.absoluteFillObject,
+          {
+            zIndex: 100,
+            opacity: storiesArchiveVisible ? 1 : 0,
+            pointerEvents: storiesArchiveVisible ? "auto" : "none",
+          },
+        ]}
+      >
+        <StoriesArchiveView
+          overlayActive={storiesArchiveVisible}
+          onRequestClose={() => setStoriesArchiveVisible(false)}
+        />
+      </View>
+    ) : null}
+    </View>
   );
 }
 

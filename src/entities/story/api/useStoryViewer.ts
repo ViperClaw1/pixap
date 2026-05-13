@@ -5,6 +5,7 @@ interface Params {
   groups: StoryGroup[];
   initialGroupIndex: number;
   initialStoryIndex: number;
+  loop?: boolean;
 }
 
 function clamp(value: number, max: number) {
@@ -12,7 +13,7 @@ function clamp(value: number, max: number) {
   return Math.max(0, Math.min(value, max));
 }
 
-export const useStoryViewer = ({ groups, initialGroupIndex, initialStoryIndex }: Params) => {
+export const useStoryViewer = ({ groups, initialGroupIndex, initialStoryIndex, loop = false }: Params) => {
   const [currentGroupIndex, setCurrentGroupIndex] = useState(initialGroupIndex);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(initialStoryIndex);
   const [paused, setPaused] = useState(false);
@@ -42,8 +43,13 @@ export const useStoryViewer = ({ groups, initialGroupIndex, initialStoryIndex }:
       setCurrentStoryIndex(0);
       return true;
     }
+    if (loop && groups.length > 0) {
+      setCurrentGroupIndex(0);
+      setCurrentStoryIndex(0);
+      return true;
+    }
     return false;
-  }, [activeGroup, currentGroupIndex, currentStoryIndex, groups.length]);
+  }, [activeGroup, currentGroupIndex, currentStoryIndex, groups.length, loop]);
 
   const goToPreviousStory = useCallback(() => {
     if (!activeGroup) return false;
@@ -58,23 +64,41 @@ export const useStoryViewer = ({ groups, initialGroupIndex, initialStoryIndex }:
       setCurrentStoryIndex(Math.max(0, previousGroup.stories.length - 1));
       return true;
     }
+    if (loop && groups.length > 0) {
+      const lastGroupIndex = Math.max(0, groups.length - 1);
+      const lastGroup = groups[lastGroupIndex];
+      setCurrentGroupIndex(lastGroupIndex);
+      setCurrentStoryIndex(Math.max(0, (lastGroup?.stories.length ?? 1) - 1));
+      return true;
+    }
     return false;
-  }, [activeGroup, currentGroupIndex, currentStoryIndex, groups]);
+  }, [activeGroup, currentGroupIndex, currentStoryIndex, groups, loop]);
 
   const goToNextGroup = useCallback(() => {
-    if (currentGroupIndex >= groups.length - 1) return false;
+    if (currentGroupIndex >= groups.length - 1) {
+      if (!loop || groups.length === 0) return false;
+      setCurrentGroupIndex(0);
+      setCurrentStoryIndex(0);
+      return true;
+    }
     setCurrentGroupIndex((prev) => prev + 1);
     setCurrentStoryIndex(0);
     return true;
-  }, [currentGroupIndex, groups.length]);
+  }, [currentGroupIndex, groups.length, loop]);
 
   const goToPreviousGroup = useCallback(() => {
-    if (currentGroupIndex <= 0) return false;
+    if (currentGroupIndex <= 0) {
+      if (!loop || groups.length === 0) return false;
+      const lastGroupIndex = Math.max(0, groups.length - 1);
+      setCurrentGroupIndex(lastGroupIndex);
+      setCurrentStoryIndex(0);
+      return true;
+    }
     const nextIndex = currentGroupIndex - 1;
     setCurrentGroupIndex(nextIndex);
     setCurrentStoryIndex(0);
     return true;
-  }, [currentGroupIndex]);
+  }, [currentGroupIndex, groups.length, loop]);
 
   const flatStories = useMemo(
     () =>
@@ -105,20 +129,37 @@ export const useStoryViewer = ({ groups, initialGroupIndex, initialStoryIndex }:
     [flatStories],
   );
 
-  return {
-    currentGroupIndex,
-    currentStoryIndex,
-    activeGroup,
-    activeStory,
-    paused,
-    setPaused,
-    setCurrent,
-    goToNextStory,
-    goToPreviousStory,
-    goToNextGroup,
-    goToPreviousGroup,
-    flatStories,
-    currentFlatIndex,
-    findByFlatIndex,
-  };
+  return useMemo(
+    () => ({
+      currentGroupIndex,
+      currentStoryIndex,
+      activeGroup,
+      activeStory,
+      paused,
+      setPaused,
+      setCurrent,
+      goToNextStory,
+      goToPreviousStory,
+      goToNextGroup,
+      goToPreviousGroup,
+      flatStories,
+      currentFlatIndex,
+      findByFlatIndex,
+    }),
+    [
+      activeGroup,
+      activeStory,
+      currentFlatIndex,
+      currentGroupIndex,
+      currentStoryIndex,
+      findByFlatIndex,
+      flatStories,
+      goToNextGroup,
+      goToNextStory,
+      goToPreviousGroup,
+      goToPreviousStory,
+      paused,
+      setCurrent,
+    ],
+  );
 };

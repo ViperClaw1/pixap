@@ -7,7 +7,17 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { i18n } from "@/shared/lib/i18n";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000,
+      gcTime: 15 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: "always",
+      retry: 1,
+    },
+  },
+});
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (

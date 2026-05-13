@@ -91,11 +91,13 @@ export default function FeedStoryViewerPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const lastTapRef = useRef<{ ts: number; storyId: string } | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const viewer = useStoryViewer({
     groups: params.groups,
     initialGroupIndex: params.initialGroupIndex,
     initialStoryIndex: params.initialStoryIndex,
+    loop: true,
   });
 
   const activeStory = viewer.activeStory;
@@ -135,23 +137,32 @@ export default function FeedStoryViewerPage() {
     onComplete: viewer.goToNextStory,
   });
 
+  const { currentFlatIndex, findByFlatIndex, setCurrent, setPaused, flatStories, activeGroup, currentStoryIndex } =
+    viewer;
+
   useEffect(() => {
-    const row = viewer.findByFlatIndex(viewer.currentFlatIndex);
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const row = findByFlatIndex(currentFlatIndex);
     if (!row) return;
-    carouselRef.current?.scrollTo({ index: viewer.currentFlatIndex, animated: true });
-  }, [viewer, viewer.currentFlatIndex]);
+    carouselRef.current?.scrollTo({ index: currentFlatIndex, animated: true });
+  }, [currentFlatIndex, findByFlatIndex]);
 
   useEffect(() => {
     const candidateIndexes = [
-      viewer.currentFlatIndex - 2,
-      viewer.currentFlatIndex - 1,
-      viewer.currentFlatIndex,
-      viewer.currentFlatIndex + 1,
-      viewer.currentFlatIndex + 2,
-    ].filter((idx) => idx >= 0 && idx < viewer.flatStories.length);
-    const candidateUrls = candidateIndexes.map((idx) => parseStoryMediaUrl(viewer.flatStories[idx]?.story.media_url));
+      currentFlatIndex - 2,
+      currentFlatIndex - 1,
+      currentFlatIndex,
+      currentFlatIndex + 1,
+      currentFlatIndex + 2,
+    ].filter((idx) => idx >= 0 && idx < flatStories.length);
+    const candidateUrls = candidateIndexes.map((idx) => parseStoryMediaUrl(flatStories[idx]?.story.media_url));
     void preloadSmartImages(candidateUrls.map((url) => getOptimizedImageUrl(url, 1080, 1920, 78) || url));
-  }, [viewer.currentFlatIndex, viewer.flatStories]);
+  }, [currentFlatIndex, flatStories]);
 
 
   const onSubmitReply = useCallback(async () => {
@@ -176,7 +187,8 @@ export default function FeedStoryViewerPage() {
       type: "success",
       text1: "Image link was copied to clipboard",
     });
-    setTimeout(() => setCopied(false), 1800);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setCopied(false), 1800);
   }, [activeImageUrl]);
 
   const handleSlideTap = useCallback(() => {
@@ -186,14 +198,14 @@ export default function FeedStoryViewerPage() {
     const prev = lastTapRef.current;
     if (prev && prev.storyId === activeStory.id && now - prev.ts <= DOUBLE_TAP_MS) {
       lastTapRef.current = null;
-      viewer.setPaused(true);
+      setPaused(true);
       setPreviewOpen(true);
       return;
     }
     lastTapRef.current = { ts: now, storyId: activeStory.id };
-  }, [activeStory, viewer]);
+  }, [activeStory, setPaused]);
 
-  if (!activeStory || !viewer.activeGroup) {
+  if (!activeStory || !activeGroup) {
     return (
       <View style={styles.emptyWrap}>
         <Text style={styles.emptyText}>No stories available.</Text>
@@ -207,19 +219,19 @@ export default function FeedStoryViewerPage() {
         ref={carouselRef}
         width={width}
         height={height}
-        data={viewer.flatStories}
-        loop={false}
+        data={flatStories}
+        loop
         onSnapToItem={(index) => {
-          const row = viewer.findByFlatIndex(index);
+          const row = findByFlatIndex(index);
           if (!row) return;
-          viewer.setCurrent(row.groupIndex, row.storyIndex);
+          setCurrent(row.groupIndex, row.storyIndex);
         }}
         renderItem={({ item }) => (
           <Pressable
             style={styles.absoluteFill}
             onPress={handleSlideTap}
-            onLongPress={() => viewer.setPaused(true)}
-            onPressOut={() => viewer.setPaused(false)}
+            onLongPress={() => setPaused(true)}
+            onPressOut={() => setPaused(false)}
             delayLongPress={180}
           >
             <SmartImage
@@ -236,8 +248,8 @@ export default function FeedStoryViewerPage() {
 
       <View style={[styles.topProgressRow, { top: Math.max(4, insets.top + 4) }]}>
         <StoryProgressBar
-          count={Math.max(1, viewer.activeGroup.stories.length)}
-          currentIndex={viewer.currentStoryIndex}
+          count={Math.max(1, activeGroup.stories.length)}
+          currentIndex={currentStoryIndex}
           progress={progress}
         />
       </View>
@@ -328,7 +340,7 @@ export default function FeedStoryViewerPage() {
         animationType="fade"
         onRequestClose={() => {
           setPreviewOpen(false);
-          viewer.setPaused(false);
+          setPaused(false);
         }}
       >
         <View style={styles.modalRoot}>
@@ -336,7 +348,7 @@ export default function FeedStoryViewerPage() {
             style={[styles.absoluteFill, { zIndex: 1 }]}
             onPress={() => {
               setPreviewOpen(false);
-              viewer.setPaused(false);
+              setPaused(false);
             }}
           >
             {activeImageUrl ? (

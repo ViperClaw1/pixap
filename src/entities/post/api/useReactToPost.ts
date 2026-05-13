@@ -60,7 +60,7 @@ export const useReactToPost = () => {
       return { action: "inserted" as const, data };
     },
     onSuccess: (_result, variables) => {
-      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+      void queryClient.invalidateQueries({ queryKey: ["posts", "feed"] });
       void queryClient.invalidateQueries({ queryKey: ["post_reactions", "post", variables.postId] });
     },
   });

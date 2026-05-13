@@ -7,8 +7,10 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  type StyleProp,
   StyleSheet,
   Text,
+  type ViewStyle,
   View,
   useWindowDimensions,
 } from "react-native";
@@ -27,9 +29,19 @@ type Props = {
   title: string;
   children: ReactNode;
   maxHeightFraction?: number;
+  bodyScrollEnabled?: boolean;
+  bodyContentContainerStyle?: StyleProp<ViewStyle>;
 };
 
-export function BottomSheetPickerModal({ visible, onClose, title, children, maxHeightFraction = SHEET_MAX_FRACTION }: Props) {
+export function BottomSheetPickerModal({
+  visible,
+  onClose,
+  title,
+  children,
+  maxHeightFraction = SHEET_MAX_FRACTION,
+  bodyScrollEnabled = true,
+  bodyContentContainerStyle,
+}: Props) {
   const isAndroid = Platform.OS === "android";
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
@@ -164,6 +176,8 @@ export function BottomSheetPickerModal({ visible, onClose, title, children, maxH
           </View>
           <ScrollView
             style={{ maxHeight: scrollMaxHeight }}
+            contentContainerStyle={bodyContentContainerStyle}
+            scrollEnabled={bodyScrollEnabled}
             nestedScrollEnabled
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"

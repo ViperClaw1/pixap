@@ -9,6 +9,12 @@ export function getOptimizedImageUrl(
 ): string {
   if (!url) return "";
 
+  const pathOnly = url.split("?")[0] ?? url;
+  /** Supabase render/image is for rasters; video URLs break the grid if passed here. */
+  if (/\.(mp4|webm|mov|m4v|avi|mkv)(\?|$)/i.test(pathOnly)) {
+    return url;
+  }
+
   if (url.includes("supabase.co/storage/v1/object/public/")) {
     const params = new URLSearchParams();
     params.set("width", String(width));

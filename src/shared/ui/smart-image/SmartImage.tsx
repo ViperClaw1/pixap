@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, type ImageErrorEventData, type ImageProps, type ImageSource, type ImageSourceProps } from "expo-image";
 
 const FALLBACK = require("../../../../assets/android-icon-background.png");
+const PREFETCH_CONCURRENCY = 4;
+const PREFETCH_HARD_CAP = 12;
 
 export type SmartImageProps = Omit<ImageProps, "source"> & {
   /** Primary image URI (remote, file, or content). */
@@ -36,26 +38,6 @@ function isLoadableUri(s: string): boolean {
     return true;
   }
   return false;
-}
-
-function buildStableCacheKey(uri: string): string {
-  try {
-    const url = new URL(uri);
-    const host = url.hostname.toLowerCase();
-    if (!host.includes("supabase.co") && !host.includes("unsplash.com")) {
-      return uri;
-    }
-    const keepParams = ["width", "height", "quality", "format", "q", "w", "h", "auto"];
-    const normalizedParams = new URLSearchParams();
-    for (const key of keepParams) {
-      const value = url.searchParams.get(key);
-      if (value) normalizedParams.set(key, value);
-    }
-    const query = normalizedParams.toString();
-    return query ? `${url.origin}${url.pathname}?${query}` : `${url.origin}${url.pathname}`;
-  } catch {
-    return uri;
-  }
 }
 
 /** Ordered, de-duplicated list of URIs to try before bundled fallback. */
@@ -95,10 +77,9 @@ export function SmartImage({
   }, [chainKey]);
 
   const sourceIndex = Math.min(chain.length - 1, attempt);
+  /** Без кастомного `cacheKey`: ключ кэша = `uri`, как у `Image.prefetch` — повторный mount попадает в disk/memory. */
   const source =
-    sourceIndex >= 0 && sourceIndex < chain.length
-      ? { uri: chain[sourceIndex]!, priority, cacheKey: buildStableCacheKey(chain[sourceIndex]!) }
-      : undefined;
+    sourceIndex >= 0 && sourceIndex < chain.length ? { uri: chain[sourceIndex]!, priority } : undefined;
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
@@ -139,6 +120,10 @@ export async function preloadSmartImages(uris: Array<string | null | undefined>)
     ),
   );
   if (!normalized.length) return;
-  await Promise.allSettled(normalized.map((uri) => Image.prefetch(uri, "memory-disk")));
+  const queue = normalized.slice(0, PREFETCH_HARD_CAP);
+  for (let i = 0; i < queue.length; i += PREFETCH_CONCURRENCY) {
+    const batch = queue.slice(i, i + PREFETCH_CONCURRENCY);
+    await Promise.allSettled(batch.map((uri) => Image.prefetch(uri, "memory-disk")));
+  }
 }
 

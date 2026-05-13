@@ -33,7 +33,7 @@ export const useCreatePostComment = () => {
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["post_comments", "post", variables.postId] });
-      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+      void queryClient.invalidateQueries({ queryKey: ["posts", "feed"] });
     },
   });
 };

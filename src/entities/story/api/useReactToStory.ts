@@ -78,11 +78,16 @@ export const useReactToStory = () => {
     },
     onSuccess: (_result, variables) => {
       if (variables.storyId) {
-        void queryClient.invalidateQueries({ queryKey: ["stories"] });
+        void queryClient.invalidateQueries({ queryKey: ["stories", "feed"] });
+        void queryClient.invalidateQueries({ queryKey: ["stories", "strip"] });
         void queryClient.invalidateQueries({ queryKey: ["story_reactions", "story", variables.storyId] });
       }
       if (variables.commentId || variables.replyId) {
-        void queryClient.invalidateQueries({ queryKey: ["story_comments"] });
+        if (variables.storyId) {
+          void queryClient.invalidateQueries({ queryKey: ["story_comments", "story", variables.storyId] });
+        } else {
+          void queryClient.invalidateQueries({ queryKey: ["story_comments"] });
+        }
       }
     },
   });
