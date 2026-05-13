@@ -6,6 +6,10 @@ import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 
 type Props = {
   avatarUrl: string | null;
+  /** When false, the avatar is hidden and the text area spans full width. */
+  showAvatar?: boolean;
+  /** When false, the send button is hidden (e.g. use an external primary action). */
+  showSendButton?: boolean;
   value: string;
   onChangeText: (value: string) => void;
   placeholder: string;
@@ -19,6 +23,8 @@ type Props = {
 
 export function CommentComposer({
   avatarUrl,
+  showAvatar = true,
+  showSendButton = true,
   value,
   onChangeText,
   placeholder,
@@ -37,11 +43,13 @@ export function CommentComposer({
 
   return (
     <View style={styles.commentComposerRow}>
-      {avatarUrl ? (
-        <SmartImage uri={avatarUrl} style={styles.commentComposerAvatar} contentFit="cover" />
-      ) : (
-        <View style={[styles.commentComposerAvatar, { backgroundColor: colors.card }]} />
-      )}
+      {showAvatar ? (
+        avatarUrl ? (
+          <SmartImage uri={avatarUrl} style={styles.commentComposerAvatar} contentFit="cover" />
+        ) : (
+          <View style={[styles.commentComposerAvatar, { backgroundColor: colors.card }]} />
+        )
+      ) : null}
       <View style={styles.commentComposerInputWrap}>
         <RichTextarea
           value={value}
@@ -57,17 +65,20 @@ export function CommentComposer({
               color: colors.text,
               borderColor: hasError ? colors.danger : colors.border,
               backgroundColor: colors.background,
+              paddingRight: showSendButton ? 44 : 12,
             },
           ]}
         />
-        <Pressable
-          onPress={handleSendPress}
-          style={[styles.commentComposerSendBtn, { opacity: canSend ? 1 : 0.5 }]}
-          disabled={!canSend}
-          hitSlop={10}
-        >
-          <Ionicons name={sending ? "sync-outline" : "paper-plane-outline"} size={19} color={colors.primary} />
-        </Pressable>
+        {showSendButton ? (
+          <Pressable
+            onPress={handleSendPress}
+            style={[styles.commentComposerSendBtn, { opacity: canSend ? 1 : 0.5 }]}
+            disabled={!canSend}
+            hitSlop={10}
+          >
+            <Ionicons name={sending ? "sync-outline" : "paper-plane-outline"} size={19} color={colors.primary} />
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );

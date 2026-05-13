@@ -39,7 +39,6 @@ export const useCreateStory = () => {
       void queryClient.invalidateQueries({ queryKey: ["stories", "place", variables.placeId] });
       void queryClient.invalidateQueries({ queryKey: ["stories", "strip"] });
       void queryClient.invalidateQueries({ queryKey: ["stories", "feed"] });
-      void queryClient.invalidateQueries({ queryKey: ["stories"] });
     },
   });
 };

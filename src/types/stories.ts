@@ -32,6 +32,8 @@ export interface StoryViewerRouteParams {
   initialGroupIndex: number;
   initialStoryIndex: number;
   placeId: string;
+  /** When opening viewer from archive grid: story id → initial carousel slide index. */
+  initialMediaByStoryId?: Record<string, number>;
 }
 
 export interface StoryComposerRouteParams {

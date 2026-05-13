@@ -5,8 +5,10 @@ import {
   Alert,
   Animated,
   Easing,
-  FlatList,
   InteractionManager,
+  Keyboard,
+  PixelRatio,
+  Platform,
   Pressable,
   Share,
   ScrollView,
@@ -16,6 +18,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -34,11 +37,7 @@ import {
 } from "@/entities/post";
 import { useMyFollowing, useProfile, usePublicProfiles, useToggleFollow } from "@/entities/user";
 import { useOpenOrCreateThread } from "@/entities/messages";
-import {
-  filterBusinessCardsByGeocodeAddress,
-  useBusinessCards,
-  useCreateBusinessCardFromGeocode,
-} from "@/entities/business-card";
+import { filterBusinessCardsByGeocodeAddress, useBusinessCards } from "@/entities/business-card";
 import { env } from "@/shared/lib/env";
 import {
   geocodePlaceIdToSearchItem,
@@ -68,9 +67,12 @@ import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 const STORIES_BUCKET = "stories";
 const MAX_POST_PHOTOS = 8;
 const POST_ADDRESS_AUTOCOMPLETE_DEBOUNCE_MS = 1000;
+const POST_ADDRESS_SUGGESTIONS_MIN_HEIGHT = 120;
+const POST_ADDRESS_SUGGESTIONS_KEYBOARD_GAP = 10;
 const DOUBLE_TAP_DELAY_MS = 280;
 /** Скрыто по продуктовому запросу; логика фильтра по `route.params` сохраняется */
 const SHOW_POSTS_SCOPE_TOGGLES = false;
+const IMAGE_RESIZE_STEP = 64;
 
 function bytesFromBase64(base64: string): Uint8Array {
   const binary = globalThis.atob(base64);
@@ -122,6 +124,10 @@ function parseMediaUrls(raw?: string | null): string[] {
     }
   }
   return [value];
+}
+
+function quantizeDecodePx(px: number, step = IMAGE_RESIZE_STEP, min = 128): number {
+  return Math.max(min, Math.round(Math.max(min, px) / step) * step);
 }
 
 function getPostImages(post: FeedPostItem) {
@@ -201,7 +207,6 @@ export default function StoriesFeedScreen() {
   const { stories: feedStories = [] } = useStoriesFeed();
   const createStory = useCreateStory();
   const createPost = useCreatePost();
-  const createBusinessCardFromGeocode = useCreateBusinessCardFromGeocode();
   const reactToPost = useReactToPost();
   const { followingSet } = useMyFollowing();
   const toggleFollow = useToggleFollow();
@@ -221,7 +226,7 @@ export default function StoriesFeedScreen() {
   const [sharePostImages, setSharePostImages] = useState<string[]>([]);
   const [sharePlaceName, setSharePlaceName] = useState("");
   const [shareSending, setShareSending] = useState(false);
-  const { data: shareUsers = [], isLoading: shareUsersLoading } = usePublicProfiles(shareSearch);
+  const { data: shareUsers = [], isLoading: shareUsersLoading } = usePublicProfiles(shareSearch, shareVisible);
   const openOrCreateShareThread = useOpenOrCreateThread();
   const { data: businessCards = [] } = useBusinessCards();
   const [likedPostIds, setLikedPostIds] = useState<Record<string, true>>({});
@@ -235,17 +240,28 @@ export default function StoriesFeedScreen() {
   const [postPlaceError, setPostPlaceError] = useState(false);
   const [postPhotos, setPostPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [uploadingPostPhotos, setUploadingPostPhotos] = useState(false);
-  const [postSubmitStage, setPostSubmitStage] = useState<"uploading_photos" | "creating_place" | "creating_post" | null>(
-    null,
-  );
+  const [postSubmitStage, setPostSubmitStage] = useState<"uploading_photos" | "creating_post" | null>(null);
   const mapsApiKey = env.googleMapsWebApiKey;
   const [postAddressDraft, setPostAddressDraft] = useState("");
   const [geocodeSuggestions, setGeocodeSuggestions] = useState<AddressAutocompleteListItem[]>([]);
   const [addressGeocodeLoading, setAddressGeocodeLoading] = useState(false);
   const [selectedGeocode, setSelectedGeocode] = useState<GeocodeSearchResultItem | null>(null);
+  const [selectedGooglePlaceId, setSelectedGooglePlaceId] = useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [postAddressFieldBottomY, setPostAddressFieldBottomY] = useState(0);
   const [followOverrides, setFollowOverrides] = useState<Record<string, boolean>>({});
   const lastPostTapByIdRef = useRef<Record<string, number>>({});
+  const postAddressFieldRef = useRef<View | null>(null);
   const createStepFade = useRef(new Animated.Value(1)).current;
+  const isAddressSuggestionsOpen = !selectedGeocode && postAddressDraft.trim().length >= 2 && Boolean(mapsApiKey);
+
+  const measurePostAddressFieldBottom = useCallback(() => {
+    requestAnimationFrame(() => {
+      postAddressFieldRef.current?.measureInWindow((_x, y, _w, h) => {
+        setPostAddressFieldBottomY(y + h + 6);
+      });
+    });
+  }, []);
 
   useEffect(() => {
     if (!createModalVisible) return;
@@ -258,7 +274,32 @@ export default function StoriesFeedScreen() {
     }).start();
   }, [createModalVisible, createStep, createStepFade]);
 
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
+      setKeyboardHeight(event.endCoordinates?.height ?? 0);
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!createModalVisible || createStep !== "post") return;
+    measurePostAddressFieldBottom();
+  }, [createModalVisible, createStep, keyboardHeight, measurePostAddressFieldBottom, postAddressDraft, selectedGeocode]);
+
   const sliderHeight = Math.max(240, Math.min(360, Math.floor(height * 0.48)));
+  const optimizedPostImageSize = useMemo(() => {
+    const dpr = PixelRatio.get();
+    return {
+      width: quantizeDecodePx(Math.round(width * dpr)),
+      height: quantizeDecodePx(Math.round(sliderHeight * dpr)),
+    };
+  }, [sliderHeight, width]);
   const sortedPosts = useMemo(
     () => [...posts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [posts],
@@ -299,11 +340,13 @@ export default function StoriesFeedScreen() {
         return {
           post,
           postImagesRaw,
-          postImages: postImagesRaw.map((url) => getOptimizedImageUrl(url, 900, 560) || url),
+          postImages: postImagesRaw.map(
+            (url) => getOptimizedImageUrl(url, optimizedPostImageSize.width, optimizedPostImageSize.height, 78) || url,
+          ),
           authorAvatar: profileAvatar(post.profile?.avatar_url),
         };
       }),
-    [focusedPosts],
+    [focusedPosts, optimizedPostImageSize.height, optimizedPostImageSize.width],
   );
   const { data: postComments = [] } = usePostComments(selectedPostId ?? "");
   const topStories = useMemo(() => {
@@ -340,7 +383,17 @@ export default function StoriesFeedScreen() {
     }
     return Array.from(grouped.values());
   }, [feedStories]);
-  const createStoryPlaceId = focusedPosts[0]?.place_id ?? sortedPosts[0]?.place_id ?? businessCards[0]?.id ?? null;
+  const createStoryPlaceId =
+    focusedPosts.find((p) => p.place_id)?.place_id ??
+    sortedPosts.find((p) => p.place_id)?.place_id ??
+    businessCards[0]?.id ??
+    null;
+  const postAddressSuggestionsMaxHeight = useMemo(() => {
+    const keyboardTop = height - keyboardHeight;
+    const availableBottom = keyboardHeight > 0 ? keyboardTop - POST_ADDRESS_SUGGESTIONS_KEYBOARD_GAP : height - 8;
+    const availableHeight = availableBottom - postAddressFieldBottomY;
+    return Math.max(POST_ADDRESS_SUGGESTIONS_MIN_HEIGHT, Math.floor(availableHeight));
+  }, [height, keyboardHeight, postAddressFieldBottomY]);
   const matchedPlacesForAddress = useMemo(
     () =>
       selectedGeocode ? filterBusinessCardsByGeocodeAddress(businessCards, selectedGeocode.formattedAddress) : [],
@@ -358,12 +411,6 @@ export default function StoriesFeedScreen() {
       })),
     [matchedPlacesForAddress],
   );
-
-  const isPostPlaceStepValid = useMemo(() => {
-    if (!selectedGeocode) return false;
-    if (matchedPlacesForAddress.length === 0) return true;
-    return selectedPostPlaceId !== null && matchedPlacesForAddress.some((card) => card.id === selectedPostPlaceId);
-  }, [matchedPlacesForAddress, selectedGeocode, selectedPostPlaceId]);
 
   useEffect(() => {
     if (!selectedPostPlaceId) return;
@@ -708,15 +755,13 @@ export default function StoriesFeedScreen() {
       ? filterBusinessCardsByGeocodeAddress(businessCards, selectedGeocode.formattedAddress)
       : [];
 
-    let placeIdForPost = selectedPostPlaceId;
-
     if (!selectedGeocode) {
       setPostPlaceError(true);
       return;
     }
 
     if (matchedForSubmit.length > 0) {
-      const validExisting = matchedForSubmit.some((card) => card.id === placeIdForPost);
+      const validExisting = selectedPostPlaceId && matchedForSubmit.some((card) => card.id === selectedPostPlaceId);
       if (!validExisting) {
         setPostPlaceError(true);
         return;
@@ -728,7 +773,7 @@ export default function StoriesFeedScreen() {
       return;
     }
 
-    if (createPost.isPending || uploadingPostPhotos || createBusinessCardFromGeocode.isPending) return;
+    if (createPost.isPending || uploadingPostPhotos) return;
 
     try {
       setUploadingPostPhotos(true);
@@ -756,25 +801,29 @@ export default function StoriesFeedScreen() {
         uploadedUrls.push(data.publicUrl);
       }
 
-      if (!placeIdForPost) {
-        setPostSubmitStage("creating_place");
-        const createdCard = await createBusinessCardFromGeocode.mutateAsync({
-          name: selectedGeocode.placeName,
-          address: selectedGeocode.formattedAddress,
-          latitude: selectedGeocode.latitude,
-          longitude: selectedGeocode.longitude,
-          images: uploadedUrls,
-          city: selectedGeocode.city,
-        });
-        placeIdForPost = createdCard.id;
-      }
+      const placeIdForPost = matchedForSubmit.length > 0 ? selectedPostPlaceId : null;
 
       setPostSubmitStage("creating_post");
-      const created = (await createPost.mutateAsync({
-        placeId: placeIdForPost,
-        content,
-        mediaUrl: uploadedUrls.length ? JSON.stringify(uploadedUrls) : null,
-      })) as unknown as { id: string | number };
+      const payload =
+        placeIdForPost != null
+          ? {
+              placeId: placeIdForPost,
+              content,
+              mediaUrl: uploadedUrls.length ? JSON.stringify(uploadedUrls) : null,
+            }
+          : {
+              geo: {
+                placeName: selectedGeocode.placeName,
+                formattedAddress: selectedGeocode.formattedAddress,
+                latitude: selectedGeocode.latitude,
+                longitude: selectedGeocode.longitude,
+                googlePlaceId: selectedGooglePlaceId,
+              },
+              content,
+              mediaUrl: uploadedUrls.length ? JSON.stringify(uploadedUrls) : null,
+            };
+
+      const created = (await createPost.mutateAsync(payload)) as unknown as { id: string | number };
       setCreateModalVisible(false);
       setCreateStep("menu");
       setPostInput("");
@@ -787,6 +836,7 @@ export default function StoriesFeedScreen() {
       setGeocodeSuggestions([]);
       setAddressGeocodeLoading(false);
       setSelectedGeocode(null);
+      setSelectedGooglePlaceId(null);
       rootNavigation.navigate("Feed", { screen: "FeedMain", params: { focusPostId: String(created.id) } });
     } catch (error) {
       Alert.alert("Post failed", error instanceof Error ? error.message : "Could not publish post.");
@@ -860,9 +910,11 @@ export default function StoriesFeedScreen() {
         onRightPress={toggleThemeMode}
         notificationsEnabled
       />
-      <FlatList
+      <FlashList
         data={focusedPostVms}
         keyExtractor={(item) => item.post.id}
+        estimatedItemSize={sliderHeight + 280}
+        getItemType={() => "feed-post"}
         contentContainerStyle={styles.feedContent}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews
@@ -1019,17 +1071,19 @@ export default function StoriesFeedScreen() {
                     <Ionicons name="chatbubble-outline" size={23} color={colors.text} />
                     <Text style={[styles.actionCount, { color: colors.text }]}>{item.comment_count}</Text>
                   </Pressable>
-                  <Pressable
-                    style={[styles.bookBtn, { backgroundColor: "#ec6544" }]}
-                    onPress={() =>
-                      runAuthedAction(() => {
-                        navigation.navigate("BookingFlow", { id: item.place_id });
-                      })
-                    }
-                  >
-                    <Ionicons name="calendar-outline" size={14} color="#fff" />
-                    <Text style={[styles.bookBtnText, { color: "#fff" }]}>Book</Text>
-                  </Pressable>
+                  {item.place_id ? (
+                    <Pressable
+                      style={[styles.bookBtn, { backgroundColor: "#ec6544" }]}
+                      onPress={() =>
+                        runAuthedAction(() => {
+                          navigation.navigate("BookingFlow", { id: item.place_id! });
+                        })
+                      }
+                    >
+                      <Ionicons name="calendar-outline" size={14} color="#fff" />
+                      <Text style={[styles.bookBtnText, { color: "#fff" }]}>Book</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
                 <Pressable
                   style={styles.shareBtn}
@@ -1178,6 +1232,7 @@ export default function StoriesFeedScreen() {
         onChangeSearch={setShareSearch}
         resolveAvatarUri={profileAvatar}
         sharePostId={sharePostId}
+        sharePostPlaceId={sharePostPlaceId}
         sharePlaceName={sharePlaceName}
         shareSending={shareSending}
         onAddToStory={handleShareToStory}
@@ -1200,9 +1255,11 @@ export default function StoriesFeedScreen() {
           setGeocodeSuggestions([]);
           setAddressGeocodeLoading(false);
           setSelectedGeocode(null);
+          setSelectedGooglePlaceId(null);
         }}
         title={createStep === "menu" ? "Create" : "Create post"}
-        maxHeightFraction={0.82}
+        maxHeightFraction={createStep === "post" ? 0.95 : 0.82}
+        bodyScrollEnabled={!(Platform.OS === "android" && createStep === "post" && isAddressSuggestionsOpen)}
       >
         <Animated.View style={[styles.createStepBody, { opacity: createStepFade }]}>
           {createStep === "menu" ? (
@@ -1242,49 +1299,40 @@ export default function StoriesFeedScreen() {
                 <Text style={[styles.createPostLoadingText, { color: colors.textMuted }]}>
                   {postSubmitStage === "uploading_photos"
                     ? "Uploading photos..."
-                    : postSubmitStage === "creating_place"
-                      ? "Creating place..."
-                      : "Creating post..."}
+                    : "Creating post..."}
                 </Text>
               </View>
             </View>
           ) : null}
           {!postSubmitStage ? (
             <>
-          <Pressable style={[styles.postUploaderBox, { borderColor: colors.border }]} onPress={() => void pickPostPhotos()}>
-            <Ionicons name="images-outline" size={22} color={colors.textMuted} />
-            <Text style={[styles.postUploaderText, { color: colors.textMuted }]}>Tap to add photos</Text>
-            <Text style={[styles.postPhotoCount, { color: colors.textMuted }]}>
-              {postPhotos.length ? `${postPhotos.length}/${MAX_POST_PHOTOS} selected` : `Up to ${MAX_POST_PHOTOS} photos`}
-            </Text>
-          </Pressable>
-          {postPhotos.length ? (
-            <View style={styles.postPhotosList}>
-              {postPhotos.map((photo) => (
-                <View key={photo.uri} style={styles.postPhotoItem}>
-                  <SmartImage uri={photo.uri} style={styles.postPhotoThumb} contentFit="cover" />
-                  <Pressable
-                    style={[styles.postPhotoRemoveBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => {
-                      setPostPhotos((prev) => prev.filter((item) => item.uri !== photo.uri));
-                    }}
-                  >
-                    <Ionicons name="close" size={11} color={colors.text} />
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          ) : null}
-          <Text style={[styles.postRequiredHint, { color: colors.textMuted }]}>Required: place and post text.</Text>
-          <Text style={[styles.postPlacesLabel, { color: colors.textMuted }]}>Tell us where have you been</Text>
           {!mapsApiKey ? (
             <Text style={[styles.postAddressMapsHint, { color: colors.danger }]}>
               Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY with Places API (Autocomplete) and Geocoding API enabled.
             </Text>
           ) : null}
-          <View style={styles.postAddressFieldWrap}>
+          <Text style={[styles.postFieldLabel, { color: colors.text }]}>
+            Search address (Google)
+            <Text style={{ color: colors.danger }}> *</Text>
+          </Text>
+          <Text style={[styles.postFieldHint, { color: colors.textMuted }]}>
+            Required — pick an address from the suggestion list.
+          </Text>
+          <View
+            ref={postAddressFieldRef}
+            onLayout={measurePostAddressFieldBottom}
+            style={styles.postAddressFieldWrap}
+          >
             {selectedGeocode ? (
-              <View style={[styles.postSelectedAddressWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
+              <View
+                style={[
+                  styles.postSelectedAddressWrap,
+                  {
+                    borderColor: postPlaceError ? colors.danger : colors.border,
+                    backgroundColor: colors.card,
+                  },
+                ]}
+              >
                 <View style={styles.postSelectedAddressTextCol}>
                   <Text style={[styles.postSelectedAddressLabel, { color: colors.textMuted }]}>Selected address</Text>
                   <Text style={[styles.postSelectedAddressText, { color: colors.text }]} numberOfLines={3}>
@@ -1296,6 +1344,7 @@ export default function StoriesFeedScreen() {
                   accessibilityLabel="Change address"
                   onPress={() => {
                     setSelectedGeocode(null);
+                    setSelectedGooglePlaceId(null);
                     setPostAddressDraft("");
                     setSelectedPostPlaceId(null);
                     setGeocodeSuggestions([]);
@@ -1318,6 +1367,7 @@ export default function StoriesFeedScreen() {
                 style={[
                   styles.postAddressInput,
                   {
+                    marginTop: 0,
                     borderColor: postPlaceError ? colors.danger : colors.border,
                     backgroundColor: colors.background,
                     color: colors.text,
@@ -1331,7 +1381,7 @@ export default function StoriesFeedScreen() {
               <View
                 style={[
                   styles.postAddressSuggestionsBox,
-                  { borderColor: colors.border, backgroundColor: colors.card },
+                  { borderColor: colors.border, backgroundColor: colors.card, maxHeight: postAddressSuggestionsMaxHeight },
                 ]}
               >
                 {addressGeocodeLoading && geocodeSuggestions.length === 0 ? (
@@ -1342,7 +1392,7 @@ export default function StoriesFeedScreen() {
                   <Text style={[styles.postAddressSuggestionsEmpty, { color: colors.textMuted }]}>No matching addresses</Text>
                 ) : (
                   <ScrollView
-                    style={styles.postAddressSuggestionsScroll}
+                    style={[styles.postAddressSuggestionsScroll, { maxHeight: postAddressSuggestionsMaxHeight }]}
                     keyboardShouldPersistTaps="handled"
                     nestedScrollEnabled
                     showsVerticalScrollIndicator
@@ -1358,6 +1408,7 @@ export default function StoriesFeedScreen() {
                             const res = await geocodePlaceIdToSearchItem(item.placeId, mapsApiKey);
                             if (res.ok) {
                               setSelectedGeocode(res.item);
+                              setSelectedGooglePlaceId(item.placeId);
                               setGeocodeSuggestions([]);
                               setPostAddressDraft(res.item.formattedAddress);
                               setPostPlaceError(false);
@@ -1389,6 +1440,15 @@ export default function StoriesFeedScreen() {
               </View>
             ) : null}
           </View>
+          {postPlaceError ? (
+            <Text style={[styles.postFieldError, { color: colors.danger }]}>
+              {!selectedGeocode
+                ? "Please select an address from the suggestions."
+                : matchedPlacesForAddress.length > 0
+                  ? "Please choose one of the places listed for this address."
+                  : "Please select an address from the suggestions."}
+            </Text>
+          ) : null}
           {selectedGeocode ? (
             matchedPlaceCarouselVm.length > 0 ? (
               <>
@@ -1448,31 +1508,63 @@ export default function StoriesFeedScreen() {
               </>
             ) : (
               <Text style={[styles.postNewPlaceHint, { color: colors.textMuted }]}>
-                No existing place matches this address. A new catalogue entry will be created when you publish (using your
-                photos).
+                No place in the app matches this address. The location will be saved on this post only (not added as a new place
+                in the catalogue).
               </Text>
             )
           ) : null}
+
+          <Pressable style={[styles.postUploaderBox, { borderColor: colors.border }]} onPress={() => void pickPostPhotos()}>
+            <Ionicons name="images-outline" size={22} color={colors.textMuted} />
+            <Text style={[styles.postUploaderText, { color: colors.textMuted }]}>Tap to add photos</Text>
+            <Text style={[styles.postPhotoCount, { color: colors.textMuted }]}>
+              {postPhotos.length ? `${postPhotos.length}/${MAX_POST_PHOTOS} selected` : `Up to ${MAX_POST_PHOTOS} photos`}
+            </Text>
+          </Pressable>
+          {postPhotos.length ? (
+            <View style={styles.postPhotosList}>
+              {postPhotos.map((photo) => (
+                <View key={photo.uri} style={styles.postPhotoItem}>
+                  <SmartImage uri={photo.uri} style={styles.postPhotoThumb} contentFit="cover" />
+                  <Pressable
+                    style={[styles.postPhotoRemoveBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => {
+                      setPostPhotos((prev) => prev.filter((item) => item.uri !== photo.uri));
+                    }}
+                  >
+                    <Ionicons name="close" size={11} color={colors.text} />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          <Text style={[styles.postFieldLabel, { color: colors.text, marginTop: 4 }]}>
+            Post text
+            <Text style={{ color: colors.danger }}> *</Text>
+          </Text>
+          <Text style={[styles.postFieldHint, { color: colors.textMuted }]}>Required — share an update.</Text>
           <CommentComposer
-            avatarUrl={currentUserAvatarUrl}
+            avatarUrl={null}
+            showAvatar={false}
+            showSendButton={false}
             value={postInput}
             onChangeText={(value) => {
               setPostInput(value);
               if (postInputError && value.trim()) setPostInputError(false);
             }}
             placeholder="Share an update..."
-            canSend={
-              !createPost.isPending &&
-              !uploadingPostPhotos &&
-              !createBusinessCardFromGeocode.isPending &&
-              isPostPlaceStepValid
-            }
-            sending={createPost.isPending || uploadingPostPhotos || createBusinessCardFromGeocode.isPending}
-            onSend={() => void submitPost()}
+            canSend={false}
+            sending={false}
+            onSend={() => undefined}
             minHeight={120}
             maxHeight={220}
             hasError={postInputError}
           />
+          {postInputError ? (
+            <Text style={[styles.postFieldError, { color: colors.danger }]}>Please enter your post text.</Text>
+          ) : null}
+
           <View style={styles.createPostBackRow}>
             <Pressable
               style={[styles.createFlowBackBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
@@ -1482,11 +1574,28 @@ export default function StoriesFeedScreen() {
                 setGeocodeSuggestions([]);
                 setAddressGeocodeLoading(false);
                 setSelectedGeocode(null);
+                setSelectedGooglePlaceId(null);
                 setSelectedPostPlaceId(null);
                 setPostPlaceError(false);
               }}
             >
               <Text style={[styles.createFlowBackBtnText, { color: colors.textMuted }]}>Back to create options</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.createFlowBackBtn,
+                styles.createPostPrimaryBtn,
+                {
+                  backgroundColor: "#ec6544",
+                  borderColor: "#ec6544",
+                  opacity: createPost.isPending || uploadingPostPhotos ? 0.55 : 1,
+                },
+              ]}
+              onPress={() => void submitPost()}
+              disabled={createPost.isPending || uploadingPostPhotos}
+            >
+              <Ionicons name="paper-plane" size={18} color="#fff" />
+              <Text style={[styles.createFlowBackBtnText, { color: "#fff" }]}>Create post</Text>
             </Pressable>
           </View>
             </>
@@ -1941,6 +2050,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+  postFieldLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  postFieldHint: {
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  postFieldError: {
+    fontSize: 12,
+    marginTop: 6,
+    fontWeight: "600",
+    lineHeight: 16,
+  },
   postPlacesLabel: {
     marginTop: 2,
     fontSize: 12,
@@ -2161,5 +2286,11 @@ const styles = StyleSheet.create({
   createFlowBackBtnText: {
     fontSize: 13,
     fontWeight: "700",
+  },
+  createPostPrimaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
 });

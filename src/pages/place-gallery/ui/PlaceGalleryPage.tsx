@@ -9,6 +9,7 @@ import Carousel from "react-native-reanimated-carousel";
 import type { BrowseFlowParamList } from "@/navigation/types";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { StoryProgressBar } from "@/components/stories/StoryProgressBar";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 
 const AUTO_SLIDE_MS = 5000;
 
@@ -100,8 +101,8 @@ export default function PlaceGalleryPage() {
               delayLongPress={220}
             >
               <SmartImage
-                uri={rawImages[index] ?? item}
-                fallbackUri={item}
+                uri={getOptimizedImageUrl(rawImages[index] ?? item, 1280, 2200, 78) || rawImages[index] || item}
+                fallbackUri={rawImages[index] ?? item}
                 recyclingKey={`place-gallery-${index}`}
                 style={styles.absoluteFill}
                 contentFit="contain"

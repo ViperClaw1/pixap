@@ -11,7 +11,11 @@ export interface PostProfile {
 export interface PostItem {
   id: string;
   user_id: string;
-  place_id: string;
+  place_id: string | null;
+  geo_place_name?: string | null;
+  geo_formatted_address?: string | null;
+  geo_latitude?: number | null;
+  geo_longitude?: number | null;
   content: string;
   media_url: string | null;
   created_at: string;

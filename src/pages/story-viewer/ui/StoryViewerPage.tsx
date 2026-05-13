@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
+  InteractionManager,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -37,6 +38,7 @@ import { StorySlide } from "@/components/stories/StorySlide";
 import { StoryProgressBar } from "@/components/stories/StoryProgressBar";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import Toast from "react-native-toast-message";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { StoryDiscussionGlassSheet } from "./StoryDiscussionGlassSheet";
 
 type StoryViewerRoute = RouteProp<BrowseFlowParamList, "StoryViewer">;
@@ -89,11 +91,18 @@ export default function StoryViewerScreen() {
   const reactMutation = useReactToStory();
   const replyMutation = useReplyToStory();
   const [localReaction, setLocalReaction] = useState<StoryReactionType | null>(activeStory?.my_reaction ?? null);
+  const authRedirectTaskRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
 
   useEffect(() => {
     if (!activeStory) return;
     setLocalReaction(activeStory.my_reaction);
   }, [activeStory]);
+
+  useEffect(() => {
+    return () => {
+      authRedirectTaskRef.current?.cancel();
+    };
+  }, []);
 
   useEffect(() => {
     const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardOpen(true));
@@ -104,9 +113,10 @@ export default function StoryViewerScreen() {
     };
   }, []);
 
+  const { goToNextStory, goToPreviousStory, goToNextGroup, goToPreviousGroup, setPaused } = viewer;
   const goNext = useCallback(() => {
-    viewer.goToNextStory();
-  }, [viewer]);
+    goToNextStory();
+  }, [goToNextStory]);
 
   const { progress } = useStoryProgress({
     durationMs: AUTO_ADVANCE_MS,
@@ -125,15 +135,18 @@ export default function StoryViewerScreen() {
   useEffect(() => {
     const next = parseStoryMediaUrl(viewer.flatStories[viewer.currentFlatIndex + 1]?.story.media_url);
     const nextGroup = parseStoryMediaUrl(params.groups[viewer.currentGroupIndex + 1]?.stories[0]?.media_url);
-    if (next) void Image.prefetch(next);
-    if (nextGroup) void Image.prefetch(nextGroup);
+    const nextOptimized = getOptimizedImageUrl(next, 1080, 1920, 78) || next;
+    const nextGroupOptimized = getOptimizedImageUrl(nextGroup, 1080, 1920, 78) || nextGroup;
+    if (nextOptimized) void Image.prefetch(nextOptimized);
+    if (nextGroupOptimized) void Image.prefetch(nextGroupOptimized);
   }, [params.groups, viewer.currentFlatIndex, viewer.currentGroupIndex, viewer.flatStories]);
 
   const closeViewerAndRouteToAuth = useCallback(() => {
     navigation.goBack();
-    setTimeout(() => {
+    authRedirectTaskRef.current?.cancel();
+    authRedirectTaskRef.current = InteractionManager.runAfterInteractions(() => {
       navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
-    }, 0);
+    });
   }, [navigation]);
 
   const onReact = useCallback(
@@ -176,19 +189,19 @@ export default function StoryViewerScreen() {
   const tapGesture = useMemo(
     () =>
       Gesture.Tap().onEnd((event) => {
-        if (event.x < width * 0.45) runOnJS(viewer.goToPreviousStory)();
+        if (event.x < width * 0.45) runOnJS(goToPreviousStory)();
         else runOnJS(goNext)();
       }),
-    [goNext, viewer, width],
+    [goNext, goToPreviousStory, width],
   );
 
   const longPressGesture = useMemo(
     () =>
       Gesture.LongPress()
         .minDuration(180)
-        .onBegin(() => runOnJS(viewer.setPaused)(true))
-        .onFinalize(() => runOnJS(viewer.setPaused)(false)),
-    [viewer],
+        .onBegin(() => runOnJS(setPaused)(true))
+        .onFinalize(() => runOnJS(setPaused)(false)),
+    [setPaused],
   );
 
   const panGesture = useMemo(
@@ -200,14 +213,14 @@ export default function StoryViewerScreen() {
           return;
         }
         if (event.translationX < -70) {
-          runOnJS(viewer.goToNextGroup)();
+          runOnJS(goToNextGroup)();
           return;
         }
         if (event.translationX > 70) {
-          runOnJS(viewer.goToPreviousGroup)();
+          runOnJS(goToPreviousGroup)();
         }
       }),
-    [navigation, viewer],
+    [goToNextGroup, goToPreviousGroup, navigation],
   );
 
   const composedGesture = useMemo(

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Text, View } from "react-native";
+import { InteractionManager, Text, View } from "react-native";
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -56,22 +56,40 @@ export default function App() {
   const [bootError, setBootError] = useState<string | null>(null);
 
   useEffect(() => {
-    logStartupDiagnostics();
+    const task = InteractionManager.runAfterInteractions(() => {
+      logStartupDiagnostics();
+    });
+    return () => {
+      task.cancel();
+    };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
       try {
-        await initI18n();
-        const seen = await hasSeenPermissionsIntro();
-        setShowPerms(!seen);
+        const i18nPromise = initI18n();
+        const permsPromise = hasSeenPermissionsIntro();
+        await i18nPromise;
+        if (!cancelled) {
+          setReady(true);
+          SplashScreen.hide();
+        }
+        const seen = await permsPromise;
+        if (!cancelled) {
+          setShowPerms(!seen);
+        }
       } catch (error) {
-        setBootError(error instanceof Error ? error.message : "Startup failed");
-      } finally {
-        setReady(true);
-        SplashScreen.hide();
+        if (!cancelled) {
+          setBootError(error instanceof Error ? error.message : "Startup failed");
+          setReady(true);
+          SplashScreen.hide();
+        }
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const onPermsDone = useCallback(async () => {

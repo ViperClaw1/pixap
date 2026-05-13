@@ -33,7 +33,6 @@ import FavoritesScreen from "@/pages/favorites";
 import NotFoundScreen from "@/pages/not-found";
 import AdminImageUploadScreen from "@/pages/admin-image-upload";
 import MyPurchasesScreen from "@/pages/my-purchases";
-import StoriesFeedScreen from "@/pages/stories-feed";
 import SearchScreen from "@/pages/search";
 import { renderBrowseFlowScreens, type BrowseFlowStackScreen } from "./BrowseFlowScreens";
 
@@ -64,7 +63,7 @@ function HomeStackNavigator() {
 function FeedStackNavigator() {
   return (
     <FeedStack.Navigator initialRouteName="FeedMain" screenOptions={stackScreenOptions}>
-      <FeedStack.Screen name="FeedMain" component={StoriesFeedScreen} />
+      <FeedStack.Screen name="FeedMain" getComponent={() => require("@/pages/stories-feed").default} />
       {renderBrowseFlowScreens(FeedStack.Screen as BrowseFlowStackScreen)}
     </FeedStack.Navigator>
   );

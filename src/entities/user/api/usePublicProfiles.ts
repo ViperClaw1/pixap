@@ -10,7 +10,7 @@ export interface PublicProfileItem {
   bio: string | null;
 }
 
-export const usePublicProfiles = (search: string) => {
+export const usePublicProfiles = (search: string, enabled = true) => {
   return useQuery({
     queryKey: ["public_profiles", "search", search.trim().toLowerCase()],
     queryFn: async () => {
@@ -28,5 +28,7 @@ export const usePublicProfiles = (search: string) => {
       if (error) throw error;
       return (data ?? []) as PublicProfileItem[];
     },
+    enabled,
+    staleTime: 60 * 1000,
   });
 };
