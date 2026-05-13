@@ -58,6 +58,20 @@ import {
   buildMonthCells,
 } from "@/shared/lib/bookingCalendar";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { useShallow } from "zustand/react/shallow";
+import {
+  BookingChatDock,
+  buildBookingContextFromPage,
+  buildEffectivePlaces,
+  useBookingChatStore,
+  type BookingRecommendationView,
+} from "@/features/ai-booking-chat";
+
+const DEFAULT_BOOKING_REC_VIEW: BookingRecommendationView = {
+  rerankedPlaceIds: [],
+  excludedPlaceIds: [],
+  filters: {},
+};
 
 type DraftForm = AIBookingDraftForm;
 
@@ -131,6 +145,7 @@ export default function AIBookingPage() {
     customer_email: "",
     comment: "",
   });
+  const [catalogRevision, setCatalogRevision] = useState(0);
 
   const concreteCities = useMemo(
     () => availableCities.filter((c) => c !== ALL_CITIES_OPTION),
@@ -191,6 +206,32 @@ export default function AIBookingPage() {
 
   const placeOptions = latestToolResult?.places ?? [];
 
+  const recommendationView = useBookingChatStore(
+    useShallow((s) => {
+      const tab = s.tabs.find((t) => t.id === s.activeTabId);
+      return tab?.recommendationView ?? DEFAULT_BOOKING_REC_VIEW;
+    }),
+  );
+
+  const effectivePlaces = useMemo(
+    () => buildEffectivePlaces(placeOptions, recommendationView),
+    [placeOptions, recommendationView],
+  );
+
+  useEffect(() => {
+    if (!selectedPlace) return;
+    if (placeOptions.length === 0) return;
+    if (effectivePlaces.some((p) => p.id === selectedPlace.id)) return;
+    Alert.alert(
+      "List updated",
+      "The assistant removed or re-ranked places and your previous pick is no longer available. Choose another place.",
+    );
+    setSelectedPlace(null);
+    setBookingDateYmd(null);
+    setSelectedSlot(null);
+    setCurrentStep("places");
+  }, [effectivePlaces, placeOptions.length, selectedPlace]);
+
   const {
     data: slotsForDate = [],
     isFetching: slotsFetching,
@@ -224,6 +265,29 @@ export default function AIBookingPage() {
   );
 
   const isRestaurantTable = selectedCategoryId === RESTAURANT_TABLE_KEY;
+
+  const bookingChatContext = useMemo(
+    () =>
+      buildBookingContextFromPage({
+        city: selectedCity,
+        categoryLabel: isRestaurantTable ? "Restaurant table" : selectedCategoryName || "Service",
+        scopeLabel: scope === "nearby" ? "Near me (5 miles)" : "All places in city",
+        requestComment: requestComment.trim() || undefined,
+        selectedPlace,
+        bookingDateYmd,
+        selectedSlot,
+      }),
+    [
+      selectedCity,
+      isRestaurantTable,
+      selectedCategoryName,
+      scope,
+      requestComment,
+      selectedPlace,
+      bookingDateYmd,
+      selectedSlot,
+    ],
+  );
 
   const selectedCategoryRow = categories.find((c) => c.id === selectedCategoryId);
   const categoryDropdownLabel = isRestaurantTable
@@ -299,6 +363,11 @@ export default function AIBookingPage() {
       await runFlow(payload);
       setHasSearched(true);
       setCurrentStep("places");
+      setCatalogRevision((prev) => {
+        const next = prev + 1;
+        useBookingChatStore.getState().bumpCatalogRevision(next);
+        return next;
+      });
     } catch (error) {
       if (isAuthRequiredError(error)) {
         navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
@@ -569,7 +638,7 @@ export default function AIBookingPage() {
         {(currentStep === "places" || currentStep === "booking") && hasSearched && placeOptions.length > 0 ? (
           <AIBookingSuggestedPlaces
             styles={stylesThemed}
-            places={placeOptions}
+            places={effectivePlaces}
             selectedPlace={selectedPlace}
             onSelectPlace={onSelectPlace}
           />
@@ -738,6 +807,21 @@ export default function AIBookingPage() {
           ) : null}
         </View>
       </View>
+
+      <BookingChatDock
+        visible={
+          currentStep === "booking" &&
+          Boolean(selectedPlace) &&
+          Boolean(bookingChatContext) &&
+          hasSearched &&
+          placeOptions.length > 0
+        }
+        catalogRevision={catalogRevision}
+        bookingContext={bookingChatContext}
+        places={placeOptions}
+        colors={colors}
+        fabBottomOffset={58 + Math.max(10, insets.bottom)}
+      />
     </Animated.View>
   );
 }

@@ -29,5 +29,6 @@ verify_jwt = false
 [functions.consume-push-outbox]
 verify_jwt = true
 
-[functions.send-test-push]
+[functions.pixai-booking-chat]
 verify_jwt = false
+
