@@ -3,7 +3,7 @@ import { Image, type ImageErrorEventData, type ImageProps, type ImageSource, typ
 
 const FALLBACK = require("../../../../assets/android-icon-background.png");
 const PREFETCH_CONCURRENCY = 4;
-const PREFETCH_HARD_CAP = 12;
+const PREFETCH_HARD_CAP = 8;
 
 export type SmartImageProps = Omit<ImageProps, "source"> & {
   /** Primary image URI (remote, file, or content). */

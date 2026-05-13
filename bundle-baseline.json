@@ -1,0 +1,32 @@
+{
+  "generatedAt": "2026-05-13T14:10:00.000Z",
+  "command": "npm run export:android",
+  "platform": "android",
+  "metroModules": 2038,
+  "mainBundle": {
+    "path": "_expo/static/js/android/index-d9f8cc7d833fa1dede191bab5ea3fd60.hbc",
+    "sizeBytes": 7577600,
+    "sizeHuman": "~7.22 MB (Hermes bytecode)"
+  },
+  "distFolderTotalBytes": 12238068,
+  "notes": [
+    "Removed unused @react-navigation/material-top-tabs and react-native-tab-view from package.json.",
+    "Full module graph: install npx expo-atlas or react-native-bundle-visualizer for treemap (not run in CI here).",
+    "depcheck may flag expo-dev-client, react-native-nitro-modules, react-native-pager-view as unused; keep unless verified — native peers / dev client.",
+    "babel-preset-expo kept in dependencies: required by babel.config.js presets; Expo/EAS expect direct resolution.",
+  ],
+  "topAssetBytes": {
+    "_comment": "Approximate sizes from expo export asset list (@expo/vector-icons font files).",
+    "MaterialCommunityIcons.ttf": 1376256,
+    "FontAwesome6_Solid.ttf": 444416,
+    "Ionicons.ttf": 399360
+  },
+  "manualRegressionChecklist": [
+    "Auth: keyboard open/close, scroll to focused field (iOS + Android).",
+    "ResetPassword: keyboard padding on ScrollView content.",
+    "Message thread: list padding with keyboard / tab bar.",
+    "Bottom sheet pickers + StoryDiscussion glass sheet: drag close, keyboard overlap.",
+    "Directions modal: vertical pan on handle/header, dismiss velocity vs old behavior.",
+    "Stories: Feed/Viewer modals open/close; create-post step fade; no feed remount under transparentModal."
+  ]
+}

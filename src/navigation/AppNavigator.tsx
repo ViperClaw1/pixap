@@ -1,5 +1,7 @@
+import { useCallback, useMemo } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import type { RouteProp } from "@react-navigation/native";
 import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,22 +20,9 @@ import MessagesScreen from "@/pages/messages";
 import MessageThreadScreen from "@/pages/message-thread";
 import BookingsScreen from "@/pages/bookings";
 import ProfileScreen from "@/pages/profile";
-import AuthScreen from "@/pages/auth";
-import AuthEmailSentScreen from "@/pages/auth-email-sent";
-import AuthEmailCallbackScreen from "@/pages/auth-email-callback";
-import VerifyEmailOtpScreen from "@/pages/verify-email-otp";
-import ResetPasswordScreen from "@/pages/reset-password";
-import PasswordResetSentScreen from "@/pages/password-reset-sent";
 import OAuthCallbackScreen from "@/pages/oauth-callback";
-import PaymentSuccessScreen from "@/pages/payment-success";
-import PaymentCanceledScreen from "@/pages/payment-canceled";
 import PrivacyPolicyScreen from "@/pages/privacy-policy";
-import EditProfileScreen from "@/pages/edit-profile";
-import FavoritesScreen from "@/pages/favorites";
 import NotFoundScreen from "@/pages/not-found";
-import AdminImageUploadScreen from "@/pages/admin-image-upload";
-import MyPurchasesScreen from "@/pages/my-purchases";
-import SearchScreen from "@/pages/search";
 import { renderBrowseFlowScreens, type BrowseFlowStackScreen } from "./BrowseFlowScreens";
 
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
@@ -43,7 +32,12 @@ const BookingsStack = createNativeStackNavigator<BookingsStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-const stackScreenOptions = { headerShown: false as const, animation: "slide_from_right" as const };
+const stackScreenOptions = {
+  headerShown: false as const,
+  animation: "slide_from_right" as const,
+  /** Native stack: freeze hidden routes when `enableFreeze(true)` (see index.ts). Story modals override with false in BrowseFlowScreens. */
+  freezeOnBlur: true as const,
+};
 const fullWidthSwipeBackOptions = {
   gestureEnabled: true,
   fullScreenGestureEnabled: true,
@@ -53,7 +47,7 @@ function HomeStackNavigator() {
   return (
     <HomeStack.Navigator initialRouteName="HomeMain" screenOptions={stackScreenOptions}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
-      <HomeStack.Screen name="SearchMain" component={SearchScreen} options={fullWidthSwipeBackOptions} />
+      <HomeStack.Screen name="SearchMain" getComponent={() => require("@/pages/search").default} options={fullWidthSwipeBackOptions} />
       {renderBrowseFlowScreens(HomeStack.Screen as BrowseFlowStackScreen)}
       <HomeStack.Screen name="OAuthCallback" component={OAuthCallbackScreen} />
     </HomeStack.Navigator>
@@ -74,8 +68,8 @@ function CartStackNavigator() {
     <CartStack.Navigator initialRouteName="CartMain" screenOptions={stackScreenOptions}>
       <CartStack.Screen name="CartMain" component={MessagesScreen} />
       <CartStack.Screen name="MessageThread" component={MessageThreadScreen} options={fullWidthSwipeBackOptions} />
-      <CartStack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
-      <CartStack.Screen name="PaymentCanceled" component={PaymentCanceledScreen} />
+      <CartStack.Screen name="PaymentSuccess" getComponent={() => require("@/pages/payment-success").default} />
+      <CartStack.Screen name="PaymentCanceled" getComponent={() => require("@/pages/payment-canceled").default} />
     </CartStack.Navigator>
   );
 }
@@ -93,18 +87,22 @@ function ProfileStackNavigator() {
   return (
     <ProfileStack.Navigator initialRouteName="ProfileMain" screenOptions={stackScreenOptions}>
       <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} />
-      <ProfileStack.Screen name="MyPurchases" component={MyPurchasesScreen} />
-      <ProfileStack.Screen name="Auth" component={AuthScreen} />
-      <ProfileStack.Screen name="AuthEmailSent" component={AuthEmailSentScreen} />
-      <ProfileStack.Screen name="AuthEmailCallback" component={AuthEmailCallbackScreen} />
-      <ProfileStack.Screen name="VerifyEmailOtp" component={VerifyEmailOtpScreen} options={fullWidthSwipeBackOptions} />
-      <ProfileStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-      <ProfileStack.Screen name="PasswordResetSent" component={PasswordResetSentScreen} />
-      <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} options={fullWidthSwipeBackOptions} />
-      <ProfileStack.Screen name="Favorites" component={FavoritesScreen} options={fullWidthSwipeBackOptions} />
+      <ProfileStack.Screen name="MyPurchases" getComponent={() => require("@/pages/my-purchases").default} />
+      <ProfileStack.Screen name="Auth" getComponent={() => require("@/pages/auth").default} />
+      <ProfileStack.Screen name="AuthEmailSent" getComponent={() => require("@/pages/auth-email-sent").default} />
+      <ProfileStack.Screen name="AuthEmailCallback" getComponent={() => require("@/pages/auth-email-callback").default} />
+      <ProfileStack.Screen
+        name="VerifyEmailOtp"
+        getComponent={() => require("@/pages/verify-email-otp").default}
+        options={fullWidthSwipeBackOptions}
+      />
+      <ProfileStack.Screen name="ResetPassword" getComponent={() => require("@/pages/reset-password").default} />
+      <ProfileStack.Screen name="PasswordResetSent" getComponent={() => require("@/pages/password-reset-sent").default} />
+      <ProfileStack.Screen name="EditProfile" getComponent={() => require("@/pages/edit-profile").default} options={fullWidthSwipeBackOptions} />
+      <ProfileStack.Screen name="Favorites" getComponent={() => require("@/pages/favorites").default} options={fullWidthSwipeBackOptions} />
       <ProfileStack.Screen name="Privacy" component={PrivacyPolicyScreen} />
       <ProfileStack.Screen name="NotFound" component={NotFoundScreen} />
-      <ProfileStack.Screen name="AdminImageUpload" component={AdminImageUploadScreen} />
+      <ProfileStack.Screen name="AdminImageUpload" getComponent={() => require("@/pages/admin-image-upload").default} />
       {renderBrowseFlowScreens(ProfileStack.Screen as BrowseFlowStackScreen)}
     </ProfileStack.Navigator>
   );
@@ -112,6 +110,14 @@ function ProfileStackNavigator() {
 
 const TAB_ICON_SIZE = 24;
 
+/**
+ * Release / manual regression (Android release build):
+ * - Cold start to first interactive frame; switch Home, Feed, Bookings, Profile, Messages 5 cycles.
+ * - Open StoryViewer / FeedStoryViewer / StoryComposer, dismiss — feed grid must not fully remount (transparentModal).
+ * - Open BookingFlow, AIBooking from Home; back gesture.
+ * - Profile: VerifyEmailOtp after tab switch if freeze caused stuck input.
+ * - Tabs: `detachInactiveScreens` is explicit; per-tab `lazy` defaults to true in @react-navigation/bottom-tabs (first visit mounts stack).
+ */
 export default function AppNavigator() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
@@ -120,75 +126,80 @@ export default function AppNavigator() {
   const androidTabLift = Platform.OS === "android" ? 8 : 0;
   const tabBottomPadding = Math.max(insets.bottom, 6) + androidTabLift;
 
+  const tabScreenOptions = useCallback(
+    ({ route }: { route: RouteProp<RootTabParamList, keyof RootTabParamList> }) => ({
+      headerShown: false,
+      /** Bottom tabs: freeze inactive tab scenes (react-native-screens + react-freeze). */
+      freezeOnBlur: true,
+      tabBarActiveTintColor: colors.tabActive,
+      tabBarInactiveTintColor: colors.tabInactive,
+      /** Keep all tab routes mounted; conditional `<Tab.Screen />` null caused Android tab crashes. */
+      tabBarButton:
+        !isAuthorized && (route.name === "Bookings" || route.name === "Cart") ? () => null : undefined,
+      tabBarStyle: {
+        backgroundColor: colors.tabBar,
+        borderTopColor: colors.border,
+        paddingBottom: tabBottomPadding,
+        paddingTop: 6,
+        minHeight: 52 + tabBottomPadding,
+      },
+      tabBarLabelStyle: { fontSize: 11, fontWeight: "600" as const },
+      tabBarHideOnKeyboard: false,
+      tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => {
+        const iconColor = color;
+        switch (route.name) {
+          case "Home":
+            return <Ionicons name={focused ? "home" : "home-outline"} size={TAB_ICON_SIZE} color={iconColor} />;
+          case "Feed":
+            return <Ionicons name={focused ? "albums" : "albums-outline"} size={TAB_ICON_SIZE} color={iconColor} />;
+          case "Cart":
+            return <Ionicons name={focused ? "chatbubbles" : "chatbubbles-outline"} size={TAB_ICON_SIZE} color={iconColor} />;
+          case "Bookings":
+            return <Ionicons name={focused ? "calendar" : "calendar-outline"} size={TAB_ICON_SIZE} color={iconColor} />;
+          case "Profile":
+            return (
+              <Ionicons
+                name={
+                  isAuthorized
+                    ? focused
+                      ? "person"
+                      : "person-outline"
+                    : focused
+                      ? "log-in"
+                      : "log-in-outline"
+                }
+                size={TAB_ICON_SIZE}
+                color={iconColor}
+              />
+            );
+          default:
+            return null;
+        }
+      },
+    }),
+    [
+      colors.border,
+      colors.tabActive,
+      colors.tabBar,
+      colors.tabInactive,
+      isAuthorized,
+      tabBottomPadding,
+    ],
+  );
+
+  const profileTabTitle = useMemo(() => (isAuthorized ? "Profile" : "Login"), [isAuthorized]);
+
   return (
     <Tab.Navigator
       initialRouteName="Home"
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarActiveTintColor: colors.tabActive,
-        tabBarInactiveTintColor: colors.tabInactive,
-        /** Keep all tab routes mounted; conditional `<Tab.Screen />` null caused Android tab crashes. */
-        tabBarButton:
-          !isAuthorized && (route.name === "Bookings" || route.name === "Cart") ? () => null : undefined,
-        tabBarStyle: {
-          backgroundColor: colors.tabBar,
-          borderTopColor: colors.border,
-          paddingBottom: tabBottomPadding,
-          paddingTop: 6,
-          minHeight: 52 + tabBottomPadding,
-        },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
-        tabBarHideOnKeyboard: false,
-        tabBarIcon: ({ focused, color }) => {
-          const iconColor = color;
-          switch (route.name) {
-            case "Home":
-              return (
-                <Ionicons name={focused ? "home" : "home-outline"} size={TAB_ICON_SIZE} color={iconColor} />
-              );
-            case "Feed":
-              return (
-                <Ionicons name={focused ? "albums" : "albums-outline"} size={TAB_ICON_SIZE} color={iconColor} />
-              );
-            case "Cart":
-              return (
-                <Ionicons name={focused ? "chatbubbles" : "chatbubbles-outline"} size={TAB_ICON_SIZE} color={iconColor} />
-              );
-            case "Bookings":
-              return (
-                <Ionicons name={focused ? "calendar" : "calendar-outline"} size={TAB_ICON_SIZE} color={iconColor} />
-              );
-            case "Profile":
-              return (
-                <Ionicons
-                  name={
-                    isAuthorized
-                      ? focused
-                        ? "person"
-                        : "person-outline"
-                      : focused
-                        ? "log-in"
-                        : "log-in-outline"
-                  }
-                  size={TAB_ICON_SIZE}
-                  color={iconColor}
-                />
-              );
-            default:
-              return null;
-          }
-        },
-      })}
+      detachInactiveScreens
+      screenOptions={tabScreenOptions}
     >
       <Tab.Screen name="Feed" component={FeedStackNavigator} options={{ title: "Feed" }} />
       <Tab.Screen name="Bookings" component={BookingsStackNavigator} options={{ title: "Bookings" }} />
       <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: "Home" }} />
       <Tab.Screen name="Cart" component={CartStackNavigator} options={{ title: "Messages" }} />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileStackNavigator}
-        options={{ title: isAuthorized ? "Profile" : "Login" }}
-      />
+      <Tab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: profileTabTitle }} />
     </Tab.Navigator>
   );
 }

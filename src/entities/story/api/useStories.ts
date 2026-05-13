@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys, STORIES_QUERY_KEY } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import type { StoryGroup, StoryItem, StoryProfile, StoryReactionType } from "@/types/stories";
+import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
 
 type StoryRow = {
   id: string;
   user_id: string;
-  place_id: string;
+  place_id: string | null;
   content: string;
   media_url: string | null;
+  media_blurhashes?: unknown;
   created_at: string;
   expiry_time: string;
 };
@@ -22,7 +25,7 @@ type ProfileRow = {
   username: string | null;
 };
 
-export const STORIES_QUERY_KEY = "stories";
+export { STORIES_QUERY_KEY };
 
 function groupStories(stories: StoryItem[]): StoryGroup[] {
   const grouped = new Map<string, StoryGroup>();
@@ -41,6 +44,10 @@ function groupStories(stories: StoryItem[]): StoryGroup[] {
   return Array.from(grouped.values());
 }
 
+function isMissingMediaBlurhashesError(message?: string) {
+  return (message ?? "").toLowerCase().includes("media_blurhashes");
+}
+
 export const useStories = (placeId: string) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -54,7 +61,7 @@ export const useStories = (placeId: string) => {
         "postgres_changes",
         { event: "*", schema: "public", table: "stories", filter: `place_id=eq.${placeId}` },
         () => {
-          void queryClient.invalidateQueries({ queryKey: [STORIES_QUERY_KEY, "place", placeId] });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.stories.placePrefix(placeId) });
         },
       )
       .subscribe((status) => {
@@ -67,15 +74,30 @@ export const useStories = (placeId: string) => {
   }, [placeId, queryClient]);
 
   const query = useQuery({
-    queryKey: [STORIES_QUERY_KEY, "place", placeId, user?.id ?? null],
+    queryKey: queryKeys.stories.place(placeId, user?.id ?? null),
     queryFn: async () => {
-      const { data: storiesData, error: storiesError } = await supabase
+      const storiesSelectWithBlur =
+        "id, user_id, place_id, content, media_url, created_at, expiry_time, media_blurhashes";
+      const storiesSelectLegacy = "id, user_id, place_id, content, media_url, created_at, expiry_time";
+
+      let { data: storiesData, error: storiesError } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table types are not yet regenerated
         .from("stories" as any)
-        .select("id, user_id, place_id, content, media_url, created_at, expiry_time")
+        .select(storiesSelectWithBlur)
         .eq("place_id", placeId)
         .gt("expiry_time", new Date().toISOString())
         .order("created_at", { ascending: false });
+      if (storiesError && isMissingMediaBlurhashesError(storiesError.message)) {
+        const retry = await supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table types are not yet regenerated
+          .from("stories" as any)
+          .select(storiesSelectLegacy)
+          .eq("place_id", placeId)
+          .gt("expiry_time", new Date().toISOString())
+          .order("created_at", { ascending: false });
+        storiesData = retry.data;
+        storiesError = retry.error;
+      }
 
       if (storiesError) throw storiesError;
       const stories = (storiesData ?? []) as unknown as StoryRow[];
@@ -133,6 +155,7 @@ export const useStories = (placeId: string) => {
         place_id: row.place_id,
         content: row.content,
         media_url: row.media_url,
+        media_blurhashes: parseMediaBlurhashesColumn(row.media_blurhashes),
         created_at: row.created_at,
         reaction_count: reactionsCount.get(row.id) ?? 0,
         comment_count: commentsCount.get(row.id) ?? 0,

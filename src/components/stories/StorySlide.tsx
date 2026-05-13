@@ -1,9 +1,9 @@
-import { memo } from "react";
-import { StyleSheet, View } from "react-native";
+import { memo, useMemo } from "react";
+import { StyleSheet, View, PixelRatio } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import type { StoryItem } from "@/types/stories";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
 
 interface StorySlideProps {
   story: StoryItem;
@@ -31,7 +31,17 @@ function parseStoryMediaUrl(raw?: string | null): string | null {
 function StorySlideComponent({ story, width, height }: StorySlideProps) {
   const { colors } = useAppTheme();
   const mediaUrl = parseStoryMediaUrl(story.media_url);
-  const optimizedMediaUrl = getOptimizedImageUrl(mediaUrl, Math.max(720, Math.round(width)), Math.max(1200, Math.round(height)), 78);
+  const decodeSize = useMemo(() => {
+    const dpr = PixelRatio.get();
+    return {
+      w: quantizeDecodePx(Math.max(720, Math.round(width * dpr))),
+      h: quantizeDecodePx(Math.max(1200, Math.round(height * dpr))),
+    };
+  }, [width, height]);
+  const optimizedMediaUrl = useMemo(
+    () => (mediaUrl ? getOptimizedImageUrl(mediaUrl, decodeSize.w, decodeSize.h, 78) : ""),
+    [mediaUrl, decodeSize.w, decodeSize.h],
+  );
   const hasMedia = !!mediaUrl;
 
   return (
@@ -45,7 +55,7 @@ function StorySlideComponent({ story, width, height }: StorySlideProps) {
           allowDownscaling
           cachePolicy="memory-disk"
           priority="high"
-          transition={120}
+          transition={80}
           recyclingKey={`story-media-${story.id}`}
         />
       ) : (

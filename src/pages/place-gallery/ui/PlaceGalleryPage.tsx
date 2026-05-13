@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
+import { InteractionManager, PixelRatio, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -7,9 +7,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cancelAnimation, useSharedValue, withTiming, Easing } from "react-native-reanimated";
 import Carousel from "react-native-reanimated-carousel";
 import type { BrowseFlowParamList } from "@/navigation/types";
-import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { StoryProgressBar } from "@/components/stories/StoryProgressBar";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
 
 const AUTO_SLIDE_MS = 5000;
 
@@ -58,6 +58,14 @@ export default function PlaceGalleryPage() {
   const [paused, setPaused] = useState(false);
   const progress = useSharedValue(0);
 
+  const decodeSize = useMemo(() => {
+    const dpr = PixelRatio.get();
+    return {
+      w: Math.max(960, quantizeDecodePx(Math.round(width * dpr))),
+      h: Math.max(1600, quantizeDecodePx(Math.round(height * dpr))),
+    };
+  }, [width, height]);
+
   const restartProgress = useCallback(() => {
     cancelAnimation(progress);
     progress.value = 0;
@@ -78,6 +86,19 @@ export default function PlaceGalleryPage() {
   useEffect(() => {
     if (images.length === 0) navigation.goBack();
   }, [images.length, navigation]);
+
+  useEffect(() => {
+    if (images.length === 0) return;
+    const idxs = [activeIndex - 1, activeIndex, activeIndex + 1].filter((i) => i >= 0 && i < images.length);
+    const uris = idxs.map(
+      (i) =>
+        getOptimizedImageUrl(rawImages[i] ?? images[i], decodeSize.w, decodeSize.h, 78) || rawImages[i] || images[i],
+    );
+    const task = InteractionManager.runAfterInteractions(() => {
+      void preloadSmartImages(uris);
+    });
+    return () => task.cancel();
+  }, [activeIndex, images, rawImages, decodeSize.w, decodeSize.h]);
 
   return (
     <View style={styles.root}>
@@ -101,12 +122,12 @@ export default function PlaceGalleryPage() {
               delayLongPress={220}
             >
               <SmartImage
-                uri={getOptimizedImageUrl(rawImages[index] ?? item, 1280, 2200, 78) || rawImages[index] || item}
+                uri={getOptimizedImageUrl(rawImages[index] ?? item, decodeSize.w, decodeSize.h, 78) || rawImages[index] || item}
                 fallbackUri={rawImages[index] ?? item}
                 recyclingKey={`place-gallery-${index}`}
                 style={styles.absoluteFill}
                 contentFit="contain"
-                transition={220}
+                transition={100}
               />
             </Pressable>
           )}

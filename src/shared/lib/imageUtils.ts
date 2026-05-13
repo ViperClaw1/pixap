@@ -1,4 +1,11 @@
 /**
+ * Buckets decode dimensions so small layout/DPR changes do not rewrite Supabase render URLs (stable cache keys).
+ */
+export function quantizeDecodePx(px: number, step = 64, min = 128): number {
+  return Math.max(min, Math.round(Math.max(min, px) / step) * step);
+}
+
+/**
  * Optimized image URL for list thumbnails (Supabase render API when applicable).
  */
 export function getOptimizedImageUrl(

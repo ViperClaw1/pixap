@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import type { PixAISlot } from "@/entities/pixai";
 import { buildSlotsFromBookingTimes, localDayBoundsIso } from "@/lib/bookingSlots";
 import { safeRefreshSession } from "@/shared/lib/supabaseAuth";
@@ -89,7 +90,7 @@ export async function fetchAvailableSlotsForDay(businessId: string, dateYmd: str
 
 export function useAvailableSlots(businessCardId: string | null, dateYmd: string | null) {
   return useQuery({
-    queryKey: ["available_slots", businessCardId, dateYmd],
+    queryKey: queryKeys.availableSlots(businessCardId, dateYmd),
     queryFn: async () => fetchAvailableSlotsForDay(businessCardId!, dateYmd!),
     enabled: !!businessCardId && !!dateYmd,
   });

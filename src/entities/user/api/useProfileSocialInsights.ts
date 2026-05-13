@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMyFollowing } from "./useUserFollows";
 import { useProfile } from "./useProfile";
@@ -54,7 +55,7 @@ export function useProfileSocialMetrics() {
   const { user } = useAuth();
 
   const query = useQuery({
-    queryKey: ["profile", "social-metrics", user?.id ?? null],
+    queryKey: queryKeys.profile.socialMetrics(user?.id ?? null),
     queryFn: async () => {
       if (!user?.id) {
         return {
@@ -90,6 +91,7 @@ export function useProfileSocialMetrics() {
       };
     },
     enabled: !!user?.id,
+    staleTime: 60 * 1000,
   });
 
   return {
@@ -104,9 +106,10 @@ export function useSuggestedProfiles(limit = 10) {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const { followingSet, followingIds } = useMyFollowing();
+  const followingSignature = useMemo(() => [...followingIds].sort().join(","), [followingIds]);
 
   const query = useQuery({
-    queryKey: ["profile", "suggestions", user?.id ?? null, limit, followingIds.join(","), profile?.bio ?? ""],
+    queryKey: queryKeys.profile.suggestions(user?.id ?? null, limit, followingSignature, profile?.bio ?? ""),
     queryFn: async () => {
       if (!user?.id) return [] as Array<PublicProfileWithBio & { mutualCount: number; reason: string }>;
 
@@ -163,6 +166,7 @@ export function useSuggestedProfiles(limit = 10) {
       return relevant.slice(0, limit);
     },
     enabled: !!user?.id,
+    staleTime: 90 * 1000,
   });
 
   const suggestions = useMemo(() => query.data ?? [], [query.data]);

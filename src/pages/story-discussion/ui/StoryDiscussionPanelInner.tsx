@@ -113,23 +113,23 @@ export function StoryDiscussionPanelInner({
   const toggleLikeComment = useCallback(
     async (comment: StoryComment) => {
       try {
-        await reactMutation.mutateAsync({ commentId: comment.id, type: "like" });
+        await reactMutation.mutateAsync({ storyId, commentId: comment.id, type: "like" });
       } catch (error) {
         if (isAuthRequiredError(error)) onRequireAuth();
       }
     },
-    [onRequireAuth, reactMutation],
+    [onRequireAuth, reactMutation, storyId],
   );
 
   const toggleLikeReply = useCallback(
     async (reply: StoryReply) => {
       try {
-        await reactMutation.mutateAsync({ replyId: reply.id, type: "like" });
+        await reactMutation.mutateAsync({ storyId, replyId: reply.id, type: "like" });
       } catch (error) {
         if (isAuthRequiredError(error)) onRequireAuth();
       }
     },
-    [onRequireAuth, reactMutation],
+    [onRequireAuth, reactMutation, storyId],
   );
 
   const myAvatarUri = myProfile?.avatar_url?.trim() || null;

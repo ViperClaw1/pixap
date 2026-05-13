@@ -5,6 +5,7 @@ import Constants from "expo-constants";
 import { useAuth } from "@/contexts/AuthContext";
 import { env } from "@/shared/lib/env";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import type { PurchasePayload, SubscriptionPurchase } from "@/services/subscriptionIapService";
 
 type IapService = typeof import("@/services/subscriptionIapService");
@@ -60,7 +61,7 @@ export function useSubscription() {
   );
 
   const productsQuery = useQuery({
-    queryKey: ["subscription-products", productIds.join("|"), iapReady],
+    queryKey: queryKeys.subscription.products(productIds.join("|"), iapReady),
     enabled: iapSupported && iapReady && productIds.length > 0 && Boolean(iapService),
     queryFn: async () => {
       if (!iapService) return [];
@@ -77,7 +78,7 @@ export function useSubscription() {
       if (rawPurchase && iapServiceRef.current) {
         await iapServiceRef.current.acknowledgePurchase(rawPurchase);
       }
-      await queryClient.invalidateQueries({ queryKey: ["subscription-entitlement", userId] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.subscription.entitlement(userId) });
       return verified;
     },
     [queryClient],
@@ -138,7 +139,7 @@ export function useSubscription() {
   useEffect(() => {
     if (!session?.access_token || !user?.id) return;
     void syncStatusWithBackend(session.access_token)
-      .then(() => queryClient.invalidateQueries({ queryKey: ["subscription-entitlement", user.id] }))
+      .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.subscription.entitlement(user.id) }))
       .catch((error) => {
         if (__DEV__) {
           console.warn("[subscription] sync-status failed", error);

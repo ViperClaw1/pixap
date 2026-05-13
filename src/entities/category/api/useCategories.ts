@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 
 export interface Category {
   id: string;
@@ -29,7 +30,7 @@ function dedupeCategoriesByName(rows: Category[]): Category[] {
 
 export const useCategories = () => {
   return useQuery({
-    queryKey: ["categories"],
+    queryKey: queryKeys.categories.all,
     queryFn: async () => {
       const { data, error } = await supabase.from("categories").select("*");
       if (error) throw error;
@@ -39,5 +40,6 @@ export const useCategories = () => {
       }));
       return dedupeCategoriesByName(withIcons);
     },
+    staleTime: 10 * 60 * 1000,
   });
 };

@@ -1,13 +1,5 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { HomeStackParamList } from "./types";
-import PlaceDetailScreen from "@/pages/place-detail";
-import PlaceGalleryScreen from "@/pages/place-gallery";
-import CategoryScreen from "@/pages/category";
-import ShoppingItemsScreen from "@/pages/shopping-items";
-import VibeMatchScreen from "@/pages/vibe-match";
-import AddStoryFromPostScreen from "@/pages/add-story-from-post";
-import StoryDiscussionScreen from "@/pages/story-discussion";
-import SubscriptionPaywallScreen from "@/pages/subscription-paywall";
 
 const fullWidthSwipeBackOptions = {
   gestureEnabled: true,
@@ -15,12 +7,19 @@ const fullWidthSwipeBackOptions = {
 } as const;
 
 /** Галерея — полноэкранная модалка как раньше. */
-const galleryModalOptions = { presentation: "fullScreenModal" as const };
+const galleryModalOptions = {
+  presentation: "fullScreenModal" as const,
+  freezeOnBlur: false as const,
+};
 /**
  * Сторис/композер: `transparentModal` оставляет предыдущий экран в дереве (`display: flex` в NativeStackView),
  * иначе под `fullScreenModal` подложка получает `display: none` и при закрытии модалки вся сетка размонтируется.
+ * `freezeOnBlur: false` — не замирают таймеры/прогресс под модалкой.
  */
-const storyOverlayModalOptions = { presentation: "transparentModal" as const };
+const storyOverlayModalOptions = {
+  presentation: "transparentModal" as const,
+  freezeOnBlur: false as const,
+};
 
 /**
  * `Screen` prop type for stacks that include browse routes.
@@ -36,8 +35,16 @@ export type BrowseFlowStackScreen = (typeof _browseScreenTypeHost)["Screen"];
 export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
   return (
     <>
-      <Screen name="PlaceDetail" component={PlaceDetailScreen} options={fullWidthSwipeBackOptions} />
-      <Screen name="PlaceGallery" component={PlaceGalleryScreen} options={galleryModalOptions} />
+      <Screen
+        name="PlaceDetail"
+        getComponent={() => require("@/pages/place-detail").default}
+        options={fullWidthSwipeBackOptions}
+      />
+      <Screen
+        name="PlaceGallery"
+        getComponent={() => require("@/pages/place-gallery").default}
+        options={galleryModalOptions}
+      />
       <Screen
         name="StoryViewer"
         getComponent={() => require("@/pages/story-viewer").default}
@@ -53,14 +60,27 @@ export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
         getComponent={() => require("@/pages/story-composer").default}
         options={storyOverlayModalOptions}
       />
-      <Screen name="AddStoryFromPost" component={AddStoryFromPostScreen} options={storyOverlayModalOptions} />
+      <Screen
+        name="AddStoryFromPost"
+        getComponent={() => require("@/pages/add-story-from-post").default}
+        options={storyOverlayModalOptions}
+      />
       <Screen
         name="StoryDiscussion"
-        component={StoryDiscussionScreen}
-        options={{ presentation: "modal", animation: "slide_from_bottom", headerShown: false }}
+        getComponent={() => require("@/pages/story-discussion").default}
+        options={{
+          presentation: "modal",
+          animation: "slide_from_bottom",
+          headerShown: false,
+          freezeOnBlur: false,
+        }}
       />
-      <Screen name="Category" component={CategoryScreen} options={fullWidthSwipeBackOptions} />
-      <Screen name="ShoppingItems" component={ShoppingItemsScreen} />
+      <Screen
+        name="Category"
+        getComponent={() => require("@/pages/category").default}
+        options={fullWidthSwipeBackOptions}
+      />
+      <Screen name="ShoppingItems" getComponent={() => require("@/pages/shopping-items").default} options={fullWidthSwipeBackOptions} />
       <Screen
         name="BookingFlow"
         getComponent={() => require("@/pages/booking-flow").default}
@@ -71,8 +91,12 @@ export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
         getComponent={() => require("@/pages/ai-booking").default}
         options={fullWidthSwipeBackOptions}
       />
-      <Screen name="VibeMatch" component={VibeMatchScreen} options={fullWidthSwipeBackOptions} />
-      <Screen name="SubscriptionPaywall" component={SubscriptionPaywallScreen} options={fullWidthSwipeBackOptions} />
+      <Screen name="VibeMatch" getComponent={() => require("@/pages/vibe-match").default} options={fullWidthSwipeBackOptions} />
+      <Screen
+        name="SubscriptionPaywall"
+        getComponent={() => require("@/pages/subscription-paywall").default}
+        options={fullWidthSwipeBackOptions}
+      />
     </>
   );
 }

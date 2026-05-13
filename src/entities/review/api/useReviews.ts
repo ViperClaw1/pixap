@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 
 export interface Review {
   id: string;
@@ -11,7 +12,7 @@ export interface Review {
 
 export const useReviews = (businessCardId: string) => {
   return useQuery({
-    queryKey: ["reviews", businessCardId],
+    queryKey: queryKeys.reviews.byBusinessCard(businessCardId),
     queryFn: async () => {
       const { data, error } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DB view not in generated table union
@@ -23,5 +24,6 @@ export const useReviews = (businessCardId: string) => {
       return data as unknown as Review[];
     },
     enabled: !!businessCardId,
+    staleTime: 90 * 1000,
   });
 };

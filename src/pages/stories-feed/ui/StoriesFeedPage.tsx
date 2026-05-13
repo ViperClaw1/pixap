@@ -3,8 +3,6 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
-  Animated,
-  Easing,
   InteractionManager,
   Keyboard,
   PixelRatio,
@@ -17,13 +15,15 @@ import {
   TextInput,
   View,
   useWindowDimensions,
+  type ViewToken,
 } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
-import Carousel from "react-native-reanimated-carousel";
+import Carousel, { type CarouselRenderItem } from "react-native-reanimated-carousel";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCreateStory, useStoriesFeed, useStoriesStrip } from "@/entities/story";
@@ -46,7 +46,15 @@ import {
   type GeocodeSearchResultItem,
 } from "@/shared/lib/directionsApi";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
+import { getOptimizedImageUrlPreset } from "@/shared/lib/imagePresets";
+import { encodeBlurHashFromPickerAssetUri } from "@/shared/lib/encodeMediaBlurHash";
+import {
+  POST_STORAGE_MAX_LONG_EDGE,
+  STORY_STORAGE_MAX_LONG_EDGE,
+  prepareImageForStorageUpload,
+} from "@/shared/lib/prepareImageForStorageUpload";
+import { formatErrorForAlert } from "@/shared/lib/formatErrorForAlert";
 import { supabase } from "@/shared/api/supabase/client";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
@@ -66,23 +74,15 @@ import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 
 const STORIES_BUCKET = "stories";
 const MAX_POST_PHOTOS = 8;
+const POST_PLACE_CARD_WIDTH = 158;
+const POST_PLACE_CARD_PADDING_X = 8;
+const POST_PLACE_IMAGE_HEIGHT = 84;
 const POST_ADDRESS_AUTOCOMPLETE_DEBOUNCE_MS = 1000;
 const POST_ADDRESS_SUGGESTIONS_MIN_HEIGHT = 120;
 const POST_ADDRESS_SUGGESTIONS_KEYBOARD_GAP = 10;
 const DOUBLE_TAP_DELAY_MS = 280;
 /** Скрыто по продуктовому запросу; логика фильтра по `route.params` сохраняется */
 const SHOW_POSTS_SCOPE_TOGGLES = false;
-const IMAGE_RESIZE_STEP = 64;
-
-function bytesFromBase64(base64: string): Uint8Array {
-  const binary = globalThis.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
 function resolveStorageUrl(pathOrUrl: string, bucket: "avatars" | "business-cards" | "stories"): string {
   if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
   return supabase.storage.from(bucket).getPublicUrl(pathOrUrl).data.publicUrl;
@@ -126,36 +126,100 @@ function parseMediaUrls(raw?: string | null): string[] {
   return [value];
 }
 
-function quantizeDecodePx(px: number, step = IMAGE_RESIZE_STEP, min = 128): number {
-  return Math.max(min, Math.round(Math.max(min, px) / step) * step);
-}
-
 function getPostImages(post: FeedPostItem) {
   const postMediaUrls = parseMediaUrls(post.media_url);
   return Array.from(new Set(postMediaUrls.map((url) => resolveStorageUrl(url, "stories"))));
+}
+
+function slideBlurhashesForPost(post: FeedPostItem, slideCount: number): (string | null)[] {
+  const raw = post.media_blurhashes;
+  if (!raw?.length) return Array.from({ length: slideCount }, () => null);
+  return Array.from({ length: slideCount }, (_, i) => raw[i] ?? null);
 }
 
 type FeedPostVm = {
   post: FeedPostItem;
   postImagesRaw: string[];
   postImages: string[];
+  postSlideBlurhashes: (string | null)[];
+  authorAvatarRaw: string | null;
   authorAvatar: string | null;
 };
+
+const PostCarouselSlide = memo(function PostCarouselSlide({
+  imageUri,
+  fallbackUri,
+  recyclingKey,
+  sliderHeight,
+  blurhash,
+}: {
+  imageUri: string;
+  fallbackUri: string | null;
+  recyclingKey: string;
+  sliderHeight: number;
+  blurhash?: string | null;
+}) {
+  return (
+    <SmartImage
+      uri={imageUri}
+      fallbackUri={fallbackUri}
+      blurhash={blurhash ?? undefined}
+      recyclingKey={recyclingKey}
+      style={[styles.sliderImage, { height: sliderHeight }]}
+      contentFit="cover"
+      transition={85}
+    />
+  );
+});
 
 const PostMediaCarousel = memo(function PostMediaCarousel({
   postId,
   postImages,
   postImagesRaw,
+  postSlideBlurhashes,
   width,
   sliderHeight,
 }: {
   postId: string;
   postImages: string[];
   postImagesRaw: string[];
+  postSlideBlurhashes: (string | null)[];
   width: number;
   sliderHeight: number;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    if (postImages.length === 0) return;
+    const neighborIdx = [activeIndex - 1, activeIndex, activeIndex + 1].filter(
+      (i) => i >= 0 && i < postImages.length,
+    );
+    const uris = neighborIdx.flatMap((i) => {
+      const primary = postImages[i];
+      const raw = postImagesRaw[i];
+      const out: string[] = [];
+      if (primary) out.push(primary);
+      if (raw && raw !== primary) out.push(raw);
+      return out;
+    });
+    const task = InteractionManager.runAfterInteractions(() => {
+      void preloadSmartImages(uris);
+    });
+    return () => task.cancel();
+  }, [activeIndex, postImages, postImagesRaw]);
+
+  const renderCarouselItem = useCallback<CarouselRenderItem<string>>(
+    ({ item: imageUri, index }) => (
+      <PostCarouselSlide
+        imageUri={imageUri}
+        fallbackUri={postImagesRaw[index] ?? null}
+        blurhash={postSlideBlurhashes[index] ?? null}
+        recyclingKey={`${postId}-feed-slider-${index}`}
+        sliderHeight={sliderHeight}
+      />
+    ),
+    [postId, postImagesRaw, postSlideBlurhashes, sliderHeight],
+  );
 
   return (
     <View>
@@ -168,16 +232,7 @@ const PostMediaCarousel = memo(function PostMediaCarousel({
         autoPlayInterval={5000}
         scrollAnimationDuration={650}
         onSnapToItem={setActiveIndex}
-        renderItem={({ item: imageUri, index }) => (
-          <SmartImage
-            uri={imageUri}
-            fallbackUri={postImagesRaw[index] ?? null}
-            recyclingKey={`${postId}-feed-slider-${index}`}
-            style={[styles.sliderImage, { height: sliderHeight }]}
-            contentFit="cover"
-            transition={200}
-          />
-        )}
+        renderItem={renderCarouselItem}
       />
       <View style={styles.sliderDots}>
         {postImages.map((_, idx) => (
@@ -252,7 +307,7 @@ export default function StoriesFeedScreen() {
   const [followOverrides, setFollowOverrides] = useState<Record<string, boolean>>({});
   const lastPostTapByIdRef = useRef<Record<string, number>>({});
   const postAddressFieldRef = useRef<View | null>(null);
-  const createStepFade = useRef(new Animated.Value(1)).current;
+  const createStepFade = useSharedValue(1);
   const isAddressSuggestionsOpen = !selectedGeocode && postAddressDraft.trim().length >= 2 && Boolean(mapsApiKey);
 
   const measurePostAddressFieldBottom = useCallback(() => {
@@ -265,14 +320,16 @@ export default function StoriesFeedScreen() {
 
   useEffect(() => {
     if (!createModalVisible) return;
-    createStepFade.setValue(0);
-    Animated.timing(createStepFade, {
-      toValue: 1,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
+    createStepFade.value = 0;
+    createStepFade.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
   }, [createModalVisible, createStep, createStepFade]);
+
+  const createStepFadeStyle = useAnimatedStyle(
+    () => ({
+      opacity: createStepFade.value,
+    }),
+    [createStepFade],
+  );
 
   useEffect(() => {
     const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
@@ -337,18 +394,34 @@ export default function StoriesFeedScreen() {
     () =>
       focusedPosts.map((post) => {
         const postImagesRaw = getPostImages(post);
+        const slideCount = postImagesRaw.length;
+        const dpr = PixelRatio.get();
+        const authorAvatarRaw = profileAvatar(post.profile?.avatar_url);
+        const authorAvatar = authorAvatarRaw
+          ? getOptimizedImageUrlPreset(authorAvatarRaw, "thumb", { dpr }) || authorAvatarRaw
+          : null;
         return {
           post,
           postImagesRaw,
           postImages: postImagesRaw.map(
             (url) => getOptimizedImageUrl(url, optimizedPostImageSize.width, optimizedPostImageSize.height, 78) || url,
           ),
-          authorAvatar: profileAvatar(post.profile?.avatar_url),
+          postSlideBlurhashes: slideBlurhashesForPost(post, slideCount),
+          authorAvatarRaw,
+          authorAvatar,
         };
       }),
     [focusedPosts, optimizedPostImageSize.height, optimizedPostImageSize.width],
   );
   const { data: postComments = [] } = usePostComments(selectedPostId ?? "");
+  const postPlaceImageDecodeSize = useMemo(() => {
+    const dpr = PixelRatio.get();
+    const innerW = POST_PLACE_CARD_WIDTH - POST_PLACE_CARD_PADDING_X * 2;
+    return {
+      w: quantizeDecodePx(Math.round(innerW * dpr)),
+      h: quantizeDecodePx(Math.round(POST_PLACE_IMAGE_HEIGHT * dpr)),
+    };
+  }, []);
   const topStories = useMemo(() => {
     if (!focusStoryId) return storiesStrip;
     const target = storiesStrip.find((story) => story.id === focusStoryId);
@@ -356,10 +429,41 @@ export default function StoriesFeedScreen() {
     return [target, ...storiesStrip.filter((story) => story.id !== focusStoryId)];
   }, [focusStoryId, storiesStrip]);
 
-  useEffect(() => {
-    const heroUris = focusedPostVms.slice(0, 6).flatMap((vm) => vm.postImages.slice(0, 2));
-    void preloadSmartImages(heroUris);
-  }, [focusedPostVms]);
+  const focusedPostVmsRef = useRef(focusedPostVms);
+  focusedPostVmsRef.current = focusedPostVms;
+
+  const feedViewabilityConfig = useMemo(
+    () => ({
+      itemVisiblePercentThreshold: 45,
+    }),
+    [],
+  );
+
+  const onFeedViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken<FeedPostVm>[] }) => {
+      const vms = focusedPostVmsRef.current;
+      if (!viewableItems.length || !vms.length) return;
+      let maxVisible = 0;
+      for (const token of viewableItems) {
+        if (token.isViewable && typeof token.index === "number") {
+          maxVisible = Math.max(maxVisible, token.index);
+        }
+      }
+      const windowEnd = Math.min(vms.length - 1, maxVisible + 4);
+      const uris: string[] = [];
+      for (let i = maxVisible; i <= windowEnd; i++) {
+        const vm = vms[i];
+        if (!vm) continue;
+        for (const u of vm.postImages.slice(0, 2)) {
+          if (u) uris.push(u);
+        }
+      }
+      InteractionManager.runAfterInteractions(() => {
+        void preloadSmartImages(uris);
+      });
+    },
+    [],
+  );
   const currentUserAvatarUrl = useMemo(() => {
     const metadataAvatar =
       typeof user?.user_metadata === "object" && user?.user_metadata && "avatar_url" in user.user_metadata
@@ -464,17 +568,20 @@ export default function StoriesFeedScreen() {
     });
   };
 
-  const redirectToAuth = () => {
+  const redirectToAuth = useCallback(() => {
     rootNavigation.navigate("Profile", { screen: "Auth" });
-  };
+  }, [rootNavigation]);
 
-  const runAuthedAction = (action: () => void) => {
-    if (!user) {
-      redirectToAuth();
-      return;
-    }
-    action();
-  };
+  const runAuthedAction = useCallback(
+    (action: () => void) => {
+      if (!user) {
+        redirectToAuth();
+        return;
+      }
+      action();
+    },
+    [redirectToAuth, user],
+  );
 
   const buildPostShareUrl = (postId: string) => `https://pixapp.kz/feed?focusPostId=${encodeURIComponent(postId)}`;
 
@@ -508,8 +615,8 @@ export default function StoriesFeedScreen() {
   const handleShareToStory = async () => {
     const postId = sharePostId;
     const placeId = sharePostPlaceId;
-    if (!postId || !placeId || !sharePostImages.length) {
-      Alert.alert("Could not open story composer", "Post image and place are required.");
+    if (!postId || !sharePostImages.length) {
+      Alert.alert("Could not open story composer", "Post images are required.");
       return;
     }
     setShareVisible(false);
@@ -586,37 +693,43 @@ export default function StoriesFeedScreen() {
     });
   }, [runAuthedAction]);
 
-  const openComments = (postId: string) => {
-    runAuthedAction(() => {
-      setSelectedPostId(postId);
-      setReplyTargetCommentId(null);
-      setExpandedCommentIds({});
-      setIsCommentsModalVisible(true);
-    });
-  };
-
-  const onToggleFollowAuthor = (authorId: string, displayName: string) => {
-    const isFollowing = followOverrides[authorId] ?? followingSet.has(authorId);
-    setFollowOverrides((prev) => ({ ...prev, [authorId]: !isFollowing }));
-    void toggleFollow
-      .mutateAsync({ followingId: authorId, isFollowing })
-      .then((result) => {
-        if (result.skipped) return;
-        Toast.show({
-          type: "success",
-          text1: result.nowFollowing ? "Added to followers" : "Removed from followers",
-          text2: displayName,
-        });
-      })
-      .catch((error) => {
-        setFollowOverrides((prev) => ({ ...prev, [authorId]: isFollowing }));
-        Toast.show({
-          type: "error",
-          text1: "Follow action failed",
-          text2: error instanceof Error ? error.message : "Please try again.",
-        });
+  const openComments = useCallback(
+    (postId: string) => {
+      runAuthedAction(() => {
+        setSelectedPostId(postId);
+        setReplyTargetCommentId(null);
+        setExpandedCommentIds({});
+        setIsCommentsModalVisible(true);
       });
-  };
+    },
+    [runAuthedAction],
+  );
+
+  const onToggleFollowAuthor = useCallback(
+    (authorId: string, displayName: string) => {
+      const isFollowing = followOverrides[authorId] ?? followingSet.has(authorId);
+      setFollowOverrides((prev) => ({ ...prev, [authorId]: !isFollowing }));
+      void toggleFollow
+        .mutateAsync({ followingId: authorId, isFollowing })
+        .then((result) => {
+          if (result.skipped) return;
+          Toast.show({
+            type: "success",
+            text1: result.nowFollowing ? "Added to followers" : "Removed from followers",
+            text2: displayName,
+          });
+        })
+        .catch((error) => {
+          setFollowOverrides((prev) => ({ ...prev, [authorId]: isFollowing }));
+          Toast.show({
+            type: "error",
+            text1: "Follow action failed",
+            text2: error instanceof Error ? error.message : "Please try again.",
+          });
+        });
+    },
+    [followOverrides, followingSet, toggleFollow],
+  );
 
   const togglePostLike = useCallback(
     (postId: string, reactionCount: number) => {
@@ -663,6 +776,190 @@ export default function StoriesFeedScreen() {
     [togglePostLike],
   );
 
+  const renderFocusedFeedPost = useCallback<ListRenderItem<FeedPostVm>>(
+    (info) => {
+      const vm = info.item;
+      const item = vm.post;
+      const postImagesRaw = vm.postImagesRaw;
+      const postImages = vm.postImages;
+      const postSlideBlurhashes = vm.postSlideBlurhashes;
+      const isContentExpanded = !!expandedPostContentIds[item.id];
+
+      return (
+        <View style={[styles.content, { backgroundColor: colors.background }]}>
+          <Pressable onPress={() => onPostCardPress(item.id, item.reaction_count)}>
+            {postImages.length > 1 ? (
+              <PostMediaCarousel
+                postId={item.id}
+                postImages={postImages}
+                postImagesRaw={postImagesRaw}
+                postSlideBlurhashes={postSlideBlurhashes}
+                width={width}
+                sliderHeight={sliderHeight}
+              />
+            ) : postImages[0] ? (
+              <SmartImage
+                uri={postImages[0]}
+                fallbackUri={postImagesRaw[0] ?? null}
+                blurhash={postSlideBlurhashes[0] ?? undefined}
+                recyclingKey={`${item.id}-feed-slider-single`}
+                style={[styles.sliderImage, { height: sliderHeight }]}
+                contentFit="cover"
+                transition={85}
+              />
+            ) : (
+              <View style={[styles.sliderFallback, { height: sliderHeight, backgroundColor: colors.card }]}>
+                <Ionicons name="image-outline" size={30} color={colors.textMuted} />
+              </View>
+            )}
+          </Pressable>
+
+          <View style={styles.actionsSection}>
+            <View style={styles.leftActions}>
+              <Pressable style={styles.actionBtn} onPress={() => togglePostLike(item.id, item.reaction_count)}>
+                <Ionicons name={likedPostIds[item.id] ? "heart" : "heart-outline"} size={24} color={colors.text} />
+                <Text style={[styles.actionCount, { color: colors.text }]}>
+                  {likeCountByPostId[item.id] ?? item.reaction_count}
+                </Text>
+              </Pressable>
+              <Pressable style={styles.actionBtn} onPress={() => openComments(item.id)}>
+                <Ionicons name="chatbubble-outline" size={23} color={colors.text} />
+                <Text style={[styles.actionCount, { color: colors.text }]}>{item.comment_count}</Text>
+              </Pressable>
+              {item.place_id ? (
+                <Pressable
+                  style={[styles.bookBtn, { backgroundColor: "#ec6544" }]}
+                  onPress={() =>
+                    runAuthedAction(() => {
+                      navigation.navigate("BookingFlow", { id: item.place_id! });
+                    })
+                  }
+                >
+                  <Ionicons name="calendar-outline" size={14} color="#fff" />
+                  <Text style={[styles.bookBtnText, { color: "#fff" }]}>Book</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            <Pressable
+              style={styles.shareBtn}
+              onPress={() =>
+                runAuthedAction(() => {
+                  setSharePostId(item.id);
+                  setSharePostPlaceId(item.place_id);
+                  setSharePostImages(postImagesRaw);
+                  setSharePlaceName(item.business_card?.name ?? item.place_name ?? "Place");
+                  setShareVisible(true);
+                })
+              }
+            >
+              <FontAwesome6 name="share" size={20} color={colors.text} />
+            </Pressable>
+          </View>
+
+          <View style={styles.commentsSection}>
+            <Pressable
+              onPress={() => {
+                setExpandedPostContentIds((prev) => {
+                  if (prev[item.id]) {
+                    const { [item.id]: _removed, ...rest } = prev;
+                    return rest;
+                  }
+                  return { ...prev, [item.id]: true };
+                });
+              }}
+            >
+              <Text style={[styles.storyText, { color: colors.text }]} numberOfLines={isContentExpanded ? undefined : 2}>
+                {item.content}
+              </Text>
+            </Pressable>
+            <Text style={[styles.publishedAtText, { color: colors.textMuted }]}>{formatRelativeTime(item.created_at)}</Text>
+            {item.comment_preview.slice(0, 2).map((comment) => (
+              <Text key={comment.id} style={[styles.commentText, { color: colors.text }]} numberOfLines={1}>
+                {comment.content}
+              </Text>
+            ))}
+          </View>
+
+          <View style={[styles.authorSection, { borderTopColor: colors.border }]}>
+            <View style={styles.authorInfo}>
+              {vm.authorAvatar ? (
+                <SmartImage
+                  uri={vm.authorAvatar}
+                  fallbackUri={vm.authorAvatarRaw}
+                  style={styles.avatarImage}
+                  contentFit="cover"
+                  skipBundledPlaceholder
+                />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.card }]}>
+                  <Ionicons name="person-outline" size={18} color={colors.text} />
+                </View>
+              )}
+              <View style={styles.authorNameRow}>
+                <Text style={[styles.authorName, { color: colors.text }]}>
+                  {profileName(item.profile?.first_name, item.profile?.last_name)}
+                </Text>
+                {item.profile?.is_verified ? <Ionicons name="checkmark-circle" size={14} color={colors.primary} /> : null}
+              </View>
+            </View>
+            {item.user_id !== user?.id ? (
+              <Pressable
+                style={[
+                  styles.followBtn,
+                  {
+                    borderColor: (followOverrides[item.user_id] ?? followingSet.has(item.user_id)) ? "#ec6544" : colors.border,
+                    backgroundColor: (followOverrides[item.user_id] ?? followingSet.has(item.user_id))
+                      ? "rgba(236,101,68,0.14)"
+                      : colors.background,
+                  },
+                ]}
+                onPress={() =>
+                  runAuthedAction(() =>
+                    onToggleFollowAuthor(item.user_id, profileName(item.profile?.first_name, item.profile?.last_name)),
+                  )
+                }
+                disabled={toggleFollow.isPending}
+              >
+                <Text
+                  style={[
+                    styles.followText,
+                    { color: (followOverrides[item.user_id] ?? followingSet.has(item.user_id)) ? "#ec6544" : colors.text },
+                  ]}
+                >
+                  {(followOverrides[item.user_id] ?? followingSet.has(item.user_id)) ? "Following" : "Follow"}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      );
+    },
+    [
+      colors.background,
+      colors.border,
+      colors.card,
+      colors.primary,
+      colors.text,
+      colors.textMuted,
+      expandedPostContentIds,
+      followOverrides,
+      followingSet,
+      height,
+      likeCountByPostId,
+      likedPostIds,
+      navigation,
+      onPostCardPress,
+      onToggleFollowAuthor,
+      openComments,
+      runAuthedAction,
+      sliderHeight,
+      toggleFollow.isPending,
+      togglePostLike,
+      user?.id,
+      width,
+    ],
+  );
+
   const canSendComment = commentInput.trim().length > 0 && !createPostComment.isPending;
 
   const uploadStoryPhotos = async (assets: ImagePicker.ImagePickerAsset[]) => {
@@ -670,25 +967,24 @@ export default function StoriesFeedScreen() {
     setUploadingStory(true);
     try {
       const uploadedUrls: string[] = [];
+      const blurHashes: (string | null)[] = [];
       for (const asset of assets) {
-        let fileBytes: ArrayBuffer | Uint8Array;
-        if (asset.base64) {
-          fileBytes = bytesFromBase64(asset.base64);
-        } else {
-          const response = await fetch(asset.uri);
-          if (!response.ok) throw new Error(`Failed to read selected image (${response.status})`);
-          fileBytes = await response.arrayBuffer();
+        const blurHash = await encodeBlurHashFromPickerAssetUri(asset.uri);
+        const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
+          maxLongEdgePx: STORY_STORAGE_MAX_LONG_EDGE,
+        });
+        if (!bytes.byteLength) {
+          throw new Error("Selected image is empty. Please try another image.");
         }
-        const mimeType = asset.mimeType || "image/jpeg";
-        const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
-        const path = `${user?.id ?? "anonymous"}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, fileBytes, {
+        const path = `${user?.id ?? "anonymous"}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExtension}`;
+        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
           upsert: true,
-          contentType: mimeType,
+          contentType,
         });
         if (uploadError) throw uploadError;
         const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
         uploadedUrls.push(data.publicUrl);
+        blurHashes.push(blurHash);
       }
       if (!uploadedUrls.length) return;
       await createStory.mutateAsync({
@@ -696,9 +992,10 @@ export default function StoriesFeedScreen() {
         content: "New story",
         mediaUrl: JSON.stringify(uploadedUrls),
         expiryTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        mediaBlurhashes: blurHashes.some((h) => h) ? blurHashes : null,
       });
     } catch (error) {
-      Alert.alert("Story failed", error instanceof Error ? error.message : "Could not upload story.");
+      Alert.alert("Story failed", formatErrorForAlert(error, "Could not upload story."));
     } finally {
       setUploadingStory(false);
     }
@@ -714,7 +1011,7 @@ export default function StoriesFeedScreen() {
       mediaTypes: ["images"],
       quality: 0.82,
       allowsEditing: true,
-      base64: true,
+      base64: false,
     });
     const asset = result.canceled ? null : result.assets[0];
     if (asset?.uri) await uploadStoryPhotos([asset]);
@@ -732,7 +1029,7 @@ export default function StoriesFeedScreen() {
       allowsEditing: false,
       allowsMultipleSelection: true,
       selectionLimit: 0,
-      base64: true,
+      base64: false,
     });
     if (!result.canceled && result.assets.length > 0) {
       await uploadStoryPhotos(result.assets);
@@ -779,37 +1076,38 @@ export default function StoriesFeedScreen() {
       setUploadingPostPhotos(true);
       setPostSubmitStage("uploading_photos");
       const uploadedUrls: string[] = [];
+      const blurHashes: (string | null)[] = [];
       for (let idx = 0; idx < postPhotos.length; idx += 1) {
         const asset = postPhotos[idx];
-        let fileBytes: ArrayBuffer | Uint8Array;
-        if (asset.base64) {
-          fileBytes = bytesFromBase64(asset.base64);
-        } else {
-          const response = await fetch(asset.uri);
-          if (!response.ok) throw new Error(`Failed to read selected image (${response.status})`);
-          fileBytes = await response.arrayBuffer();
+        const blurHash = await encodeBlurHashFromPickerAssetUri(asset.uri);
+        const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
+          maxLongEdgePx: POST_STORAGE_MAX_LONG_EDGE,
+        });
+        if (!bytes.byteLength) {
+          throw new Error("Selected image is empty. Please try another image.");
         }
-        const mimeType = asset.mimeType || "image/jpeg";
-        const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
-        const path = `${user?.id ?? "anonymous"}/post-${Date.now()}-${idx}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, fileBytes, {
+        const path = `${user?.id ?? "anonymous"}/post-${Date.now()}-${idx}.${fileExtension}`;
+        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
           upsert: true,
-          contentType: mimeType,
+          contentType,
         });
         if (uploadError) throw uploadError;
         const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
         uploadedUrls.push(data.publicUrl);
+        blurHashes.push(blurHash);
       }
 
       const placeIdForPost = matchedForSubmit.length > 0 ? selectedPostPlaceId : null;
 
       setPostSubmitStage("creating_post");
+      const mediaBlurhashes = blurHashes.some((h) => h) ? blurHashes : null;
       const payload =
         placeIdForPost != null
           ? {
               placeId: placeIdForPost,
               content,
               mediaUrl: uploadedUrls.length ? JSON.stringify(uploadedUrls) : null,
+              mediaBlurhashes,
             }
           : {
               geo: {
@@ -821,6 +1119,7 @@ export default function StoriesFeedScreen() {
               },
               content,
               mediaUrl: uploadedUrls.length ? JSON.stringify(uploadedUrls) : null,
+              mediaBlurhashes,
             };
 
       const created = (await createPost.mutateAsync(payload)) as unknown as { id: string | number };
@@ -839,7 +1138,7 @@ export default function StoriesFeedScreen() {
       setSelectedGooglePlaceId(null);
       rootNavigation.navigate("Feed", { screen: "FeedMain", params: { focusPostId: String(created.id) } });
     } catch (error) {
-      Alert.alert("Post failed", error instanceof Error ? error.message : "Could not publish post.");
+      Alert.alert("Post failed", formatErrorForAlert(error, "Could not publish post."));
     } finally {
       setUploadingPostPhotos(false);
       setPostSubmitStage(null);
@@ -857,7 +1156,7 @@ export default function StoriesFeedScreen() {
       quality: 0.82,
       allowsMultipleSelection: true,
       selectionLimit: MAX_POST_PHOTOS,
-      base64: true,
+      base64: false,
     });
     if (result.canceled) return;
     setPostPhotos((prev) => {
@@ -914,7 +1213,7 @@ export default function StoriesFeedScreen() {
         data={focusedPostVms}
         keyExtractor={(item) => item.post.id}
         estimatedItemSize={sliderHeight + 280}
-        getItemType={() => "feed-post"}
+        getItemType={(_item, _index) => "feed-post"}
         contentContainerStyle={styles.feedContent}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews
@@ -949,8 +1248,22 @@ export default function StoriesFeedScreen() {
               {topStories.map((story) => {
                 const name = profileName(story.profile?.first_name, story.profile?.last_name);
                 const storyMedia = parseMediaUrls(story.media_url);
-                const storyPreview = storyMedia[0] ? resolveStorageUrl(storyMedia[0], "stories") : null;
-                const avatar = storyPreview ?? profileAvatar(story.profile?.avatar_url);
+                const storyPreviewRaw = storyMedia[0] ? resolveStorageUrl(storyMedia[0], "stories") : null;
+                const stripDpr = PixelRatio.get();
+                const storyPreviewOpt = storyPreviewRaw
+                  ? getOptimizedImageUrlPreset(storyPreviewRaw, "thumb", { dpr: stripDpr }) || storyPreviewRaw
+                  : null;
+                const avatarRaw = profileAvatar(story.profile?.avatar_url);
+                const avatarOpt = avatarRaw
+                  ? getOptimizedImageUrlPreset(avatarRaw, "thumb", { dpr: stripDpr }) || avatarRaw
+                  : null;
+                const bubbleUri = storyPreviewOpt ?? avatarOpt;
+                const bubbleFallback = storyPreviewRaw ?? avatarRaw;
+                const bubbleBlur = storyPreviewRaw
+                  ? typeof story.media_blurhashes?.[0] === "string"
+                    ? story.media_blurhashes[0]
+                    : undefined
+                  : undefined;
                 const targetGroupIndex = storyGroups.findIndex((group) => group.user_id === story.user_id);
                 return (
                   <Pressable
@@ -972,8 +1285,14 @@ export default function StoriesFeedScreen() {
                     }}
                   >
                     <View style={[styles.storyBubbleRing, { borderColor: colors.primary }]}>
-                      {avatar ? (
-                        <SmartImage uri={avatar} style={styles.storyBubbleAvatar} contentFit="cover" />
+                      {bubbleUri ? (
+                        <SmartImage
+                          uri={bubbleUri}
+                          fallbackUri={bubbleFallback}
+                          blurhash={bubbleBlur}
+                          style={styles.storyBubbleAvatar}
+                          contentFit="cover"
+                        />
                       ) : (
                         <View style={[styles.storyBubbleAvatar, { backgroundColor: colors.card }]} />
                       )}
@@ -1023,156 +1342,9 @@ export default function StoriesFeedScreen() {
             ) : null}
           </View>
         }
-        renderItem={({ item: vm }) => {
-          const item = vm.post;
-          const postImagesRaw = vm.postImagesRaw;
-          const postImages = vm.postImages;
-          const isContentExpanded = !!expandedPostContentIds[item.id];
-
-          return (
-            <View style={[styles.content, { backgroundColor: colors.background }]}>
-              <Pressable onPress={() => onPostCardPress(item.id, item.reaction_count)}>
-                {postImages.length > 1 ? (
-                  <PostMediaCarousel
-                    postId={item.id}
-                    postImages={postImages}
-                    postImagesRaw={postImagesRaw}
-                    width={width}
-                    sliderHeight={sliderHeight}
-                  />
-                ) : postImages[0] ? (
-                  <SmartImage
-                    uri={postImages[0]}
-                    fallbackUri={postImagesRaw[0] ?? null}
-                    recyclingKey={`${item.id}-feed-slider-single`}
-                    style={[styles.sliderImage, { height: sliderHeight }]}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                ) : (
-                  <View style={[styles.sliderFallback, { height: sliderHeight, backgroundColor: colors.card }]}>
-                    <Ionicons name="image-outline" size={30} color={colors.textMuted} />
-                  </View>
-                )}
-              </Pressable>
-
-              <View style={styles.actionsSection}>
-                <View style={styles.leftActions}>
-                  <Pressable
-                    style={styles.actionBtn}
-                    onPress={() => togglePostLike(item.id, item.reaction_count)}
-                  >
-                    <Ionicons name={likedPostIds[item.id] ? "heart" : "heart-outline"} size={24} color={colors.text} />
-                    <Text style={[styles.actionCount, { color: colors.text }]}>
-                      {likeCountByPostId[item.id] ?? item.reaction_count}
-                    </Text>
-                  </Pressable>
-                  <Pressable style={styles.actionBtn} onPress={() => openComments(item.id)}>
-                    <Ionicons name="chatbubble-outline" size={23} color={colors.text} />
-                    <Text style={[styles.actionCount, { color: colors.text }]}>{item.comment_count}</Text>
-                  </Pressable>
-                  {item.place_id ? (
-                    <Pressable
-                      style={[styles.bookBtn, { backgroundColor: "#ec6544" }]}
-                      onPress={() =>
-                        runAuthedAction(() => {
-                          navigation.navigate("BookingFlow", { id: item.place_id! });
-                        })
-                      }
-                    >
-                      <Ionicons name="calendar-outline" size={14} color="#fff" />
-                      <Text style={[styles.bookBtnText, { color: "#fff" }]}>Book</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-                <Pressable
-                  style={styles.shareBtn}
-                  onPress={() =>
-                    runAuthedAction(() => {
-                      setSharePostId(item.id);
-                      setSharePostPlaceId(item.place_id);
-                      setSharePostImages(postImagesRaw);
-                      setSharePlaceName(item.business_card?.name ?? item.place_name ?? "Place");
-                      setShareVisible(true);
-                    })
-                  }
-                >
-                  <FontAwesome6 name="share" size={20} color={colors.text} />
-                </Pressable>
-              </View>
-
-              <View style={styles.commentsSection}>
-                <Pressable
-                  onPress={() => {
-                    setExpandedPostContentIds((prev) => {
-                      if (prev[item.id]) {
-                        const { [item.id]: _removed, ...rest } = prev;
-                        return rest;
-                      }
-                      return { ...prev, [item.id]: true };
-                    });
-                  }}
-                >
-                  <Text style={[styles.storyText, { color: colors.text }]} numberOfLines={isContentExpanded ? undefined : 2}>
-                    {item.content}
-                  </Text>
-                </Pressable>
-                <Text style={[styles.publishedAtText, { color: colors.textMuted }]}>{formatRelativeTime(item.created_at)}</Text>
-                {item.comment_preview.slice(0, 2).map((comment) => (
-                  <Text key={comment.id} style={[styles.commentText, { color: colors.text }]} numberOfLines={1}>
-                    {comment.content}
-                  </Text>
-                ))}
-              </View>
-
-              <View style={[styles.authorSection, { borderTopColor: colors.border }]}>
-                <View style={styles.authorInfo}>
-                  {vm.authorAvatar ? (
-                    <SmartImage uri={vm.authorAvatar} style={styles.avatarImage} contentFit="cover" skipBundledPlaceholder />
-                  ) : (
-                    <View style={[styles.avatarPlaceholder, { backgroundColor: colors.card }]}>
-                      <Ionicons name="person-outline" size={18} color={colors.text} />
-                    </View>
-                  )}
-                  <View style={styles.authorNameRow}>
-                    <Text style={[styles.authorName, { color: colors.text }]}>
-                      {profileName(item.profile?.first_name, item.profile?.last_name)}
-                    </Text>
-                    {item.profile?.is_verified ? <Ionicons name="checkmark-circle" size={14} color={colors.primary} /> : null}
-                  </View>
-                </View>
-                {item.user_id !== user?.id ? (
-                  <Pressable
-                    style={[
-                      styles.followBtn,
-                      {
-                        borderColor: (followOverrides[item.user_id] ?? followingSet.has(item.user_id)) ? "#ec6544" : colors.border,
-                        backgroundColor: (followOverrides[item.user_id] ?? followingSet.has(item.user_id))
-                          ? "rgba(236,101,68,0.14)"
-                          : colors.background,
-                      },
-                    ]}
-                    onPress={() =>
-                      runAuthedAction(() =>
-                        onToggleFollowAuthor(item.user_id, profileName(item.profile?.first_name, item.profile?.last_name)),
-                      )
-                    }
-                    disabled={toggleFollow.isPending}
-                  >
-                    <Text
-                      style={[
-                        styles.followText,
-                        { color: (followOverrides[item.user_id] ?? followingSet.has(item.user_id)) ? "#ec6544" : colors.text },
-                      ]}
-                    >
-                      {(followOverrides[item.user_id] ?? followingSet.has(item.user_id)) ? "Following" : "Follow"}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
-          );
-        }}
+        viewabilityConfig={feedViewabilityConfig}
+        onViewableItemsChanged={onFeedViewableItemsChanged}
+        renderItem={renderFocusedFeedPost}
         ListEmptyComponent={
           <View style={[styles.emptyStateWrap, { minHeight: Math.max(260, Math.floor(height * 0.45)) }]}>
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>No posts yet</Text>
@@ -1232,7 +1404,7 @@ export default function StoriesFeedScreen() {
         onChangeSearch={setShareSearch}
         resolveAvatarUri={profileAvatar}
         sharePostId={sharePostId}
-        sharePostPlaceId={sharePostPlaceId}
+        sharePostHasMedia={sharePostImages.length > 0}
         sharePlaceName={sharePlaceName}
         shareSending={shareSending}
         onAddToStory={handleShareToStory}
@@ -1261,7 +1433,7 @@ export default function StoriesFeedScreen() {
         maxHeightFraction={createStep === "post" ? 0.95 : 0.82}
         bodyScrollEnabled={!(Platform.OS === "android" && createStep === "post" && isAddressSuggestionsOpen)}
       >
-        <Animated.View style={[styles.createStepBody, { opacity: createStepFade }]}>
+        <Animated.View style={[styles.createStepBody, createStepFadeStyle]}>
           {createStep === "menu" ? (
             <View style={styles.createMenuBody}>
               <View style={styles.createOptionGrid}>
@@ -1480,7 +1652,19 @@ export default function StoriesFeedScreen() {
                       >
                         <View style={styles.postPlaceImageWrap}>
                           {place.imageUrl ? (
-                            <SmartImage uri={place.imageUrl} style={styles.postPlaceImage} contentFit="cover" />
+                            <SmartImage
+                              uri={
+                                getOptimizedImageUrl(
+                                  place.imageUrl,
+                                  postPlaceImageDecodeSize.w,
+                                  postPlaceImageDecodeSize.h,
+                                  72,
+                                ) || place.imageUrl
+                              }
+                              fallbackUri={place.imageUrl}
+                              style={styles.postPlaceImage}
+                              contentFit="cover"
+                            />
                           ) : (
                             <View
                               style={[styles.postPlaceImage, styles.postPlaceImageFallback, { backgroundColor: colors.background }]}

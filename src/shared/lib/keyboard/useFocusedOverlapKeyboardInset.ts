@@ -1,27 +1,23 @@
 /**
  * Дополнительный padding снизу только если нижний край сфокусированного
- * TextInput пересекается с клавиатурой (плюс gap). Синхронизирует duration
- * с keyboardWillChangeFrame / keyboardDidShow.
+ * TextInput пересекается с клавиатурой (плюс gap). Анимация — Reanimated (`withTiming`).
  */
 
 import { useCallback, useEffect, useRef } from "react";
 import type { ElementRef } from "react";
-import { Animated, Dimensions, Keyboard, Platform, TextInput } from "react-native";
+import { Dimensions, Keyboard, Platform, TextInput } from "react-native";
+import { Easing, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
 
 export interface UseFocusedOverlapKeyboardInsetOptions {
   gap: number;
   getFocusedInput: () => ElementRef<typeof TextInput> | null;
   enabled?: boolean;
-  /** Сразу при событии клавиатуры (до measure) — обновление ref’ов экрана. */
   onKeyboardFrame?: (keyboardTop: number, keyboardHeight: number) => void;
-  /** После measure — скролл к полю и т.п. */
   onKeyboardChange?: (keyboardTop: number, keyboardHeight: number) => void;
 }
 
 export interface FocusedOverlapKeyboardInsetResult {
-  /** Добавить к базовому paddingBottom: 0, если поле не перекрыто. */
-  extraInset: Animated.Value;
-  /** Клавиатура уже открыта — пересчитать overlap (смена фокуса между полями). */
+  extraInset: SharedValue<number>;
   recalculate: () => void;
 }
 
@@ -32,13 +28,13 @@ export function useFocusedOverlapKeyboardInset({
   onKeyboardFrame,
   onKeyboardChange,
 }: UseFocusedOverlapKeyboardInsetOptions): FocusedOverlapKeyboardInsetResult {
-  const extraInset = useRef(new Animated.Value(0)).current;
+  const extraInset = useSharedValue(0);
   const getFocusedInputRef = useRef(getFocusedInput);
   getFocusedInputRef.current = getFocusedInput;
-  const onKeyboardFrameRef = useRef(onKeyboardFrame);
-  onKeyboardFrameRef.current = onKeyboardFrame;
-  const onKeyboardChangeRef = useRef(onKeyboardChange);
-  onKeyboardChangeRef.current = onKeyboardChange;
+  const onKeyboardFrameRef = useRef(onKeyboardFrame ?? null);
+  onKeyboardFrameRef.current = onKeyboardFrame ?? null;
+  const onKeyboardChangeRef = useRef(onKeyboardChange ?? null);
+  onKeyboardChangeRef.current = onKeyboardChange ?? null;
 
   const lastFrameRef = useRef<{
     keyboardTop: number;
@@ -64,11 +60,10 @@ export function useFocusedOverlapKeyboardInset({
   const animateTo = useCallback(
     (overlap: number, duration?: number) => {
       if (!enabled) return;
-      Animated.timing(extraInset, {
-        toValue: overlap,
+      extraInset.value = withTiming(overlap, {
         duration: duration ?? 250,
-        useNativeDriver: false,
-      }).start();
+        easing: Easing.out(Easing.cubic),
+      });
     },
     [enabled, extraInset],
   );
@@ -138,10 +133,8 @@ export function useFocusedOverlapKeyboardInset({
       onKeyboardChangeRef.current?.(wh, 0);
     };
 
-    const showEvent =
-      Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const hideEvent =
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
     const showSub = Keyboard.addListener(showEvent, handleShow);
     const hideSub = Keyboard.addListener(hideEvent, handleHide);

@@ -1,4 +1,9 @@
 import { registerRootComponent } from 'expo';
+import { enableFreeze, enableScreens } from 'react-native-screens';
+
+/** Phase 6 baseline: native screen containers + react-freeze for `freezeOnBlur` (tabs/stacks). */
+enableScreens(true);
+enableFreeze(true);
 
 import App from './App';
 

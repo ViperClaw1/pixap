@@ -1,12 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface CreateStoryInput {
-  placeId: string;
+  /** Null when the story is not tied to a business listing (e.g. from address-only post). */
+  placeId: string | null;
   content: string;
   mediaUrl?: string | null;
   expiryTime?: string;
+  mediaBlurhashes?: (string | null)[] | null;
 }
 
 export const useCreateStory = () => {
@@ -14,21 +17,26 @@ export const useCreateStory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ placeId, content, mediaUrl, expiryTime }: CreateStoryInput) => {
+    mutationFn: async ({ placeId, content, mediaUrl, expiryTime, mediaBlurhashes }: CreateStoryInput) => {
       if (!user?.id) throw new Error("Authentication required");
       const text = content.trim();
+
+      const insertRow: Record<string, unknown> = {
+        user_id: user.id,
+        place_id: placeId ?? null,
+        // Keep content optional for story-from-post flow while preserving non-empty DB writes.
+        content: text || " ",
+        media_url: mediaUrl?.trim() ? mediaUrl.trim() : null,
+        expiry_time: expiryTime ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      };
+      if (mediaBlurhashes != null && mediaBlurhashes.length > 0) {
+        insertRow.media_blurhashes = mediaBlurhashes;
+      }
 
       const { data, error } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stories table may not be present in generated types yet
         .from("stories" as any)
-        .insert({
-          user_id: user.id,
-          place_id: placeId,
-          // Keep content optional for story-from-post flow while preserving non-empty DB writes.
-          content: text || " ",
-          media_url: mediaUrl?.trim() ? mediaUrl.trim() : null,
-          expiry_time: expiryTime ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        })
+        .insert(insertRow)
         .select()
         .single();
 
@@ -36,9 +44,11 @@ export const useCreateStory = () => {
       return data;
     },
     onSuccess: (_data, variables) => {
-      void queryClient.invalidateQueries({ queryKey: ["stories", "place", variables.placeId] });
-      void queryClient.invalidateQueries({ queryKey: ["stories", "strip"] });
-      void queryClient.invalidateQueries({ queryKey: ["stories", "feed"] });
+      if (variables.placeId) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.stories.placePrefix(variables.placeId) });
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.stories.strip });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.stories.feedPrefix });
     },
   });
 };

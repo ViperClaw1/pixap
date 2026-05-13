@@ -6,13 +6,13 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
   Alert,
   Platform,
   Dimensions,
-  Animated,
+  ScrollView,
 } from "react-native";
+import { runOnJS, useAnimatedReaction } from "react-native-reanimated";
 import { useFocusedOverlapKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons, FontAwesome, FontAwesome6 } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
@@ -38,8 +38,6 @@ import {
 
 WebBrowser.maybeCompleteAuthSession();
 
-const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
-
 type Mode = "login" | "signup" | "forgot";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Auth">;
@@ -52,7 +50,7 @@ export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const { colors, mode: themeMode } = useAppTheme();
   const { user, loading: authLoading, signIn, signUp } = useAuth();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
   const scrollOffsetYRef = useRef(0);
   const activeInputRef = useRef<TextInput | null>(null);
   const keyboardTopRef = useRef<number | null>(null);
@@ -74,6 +72,7 @@ export default function AuthScreen() {
   const [emailTouched, setEmailTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
+  const [keyboardOverlapPad, setKeyboardOverlapPad] = useState(0);
   const baseScrollPaddingBottom = Math.max(insets.bottom, 48);
   const { extraInset: keyboardExtraInset, recalculate: recalculateKeyboardInset } =
     useFocusedOverlapKeyboardInset({
@@ -90,10 +89,13 @@ export default function AuthScreen() {
         }
       },
     });
-  const animatedScrollPaddingBottom = useMemo(
-    () => Animated.add(new Animated.Value(baseScrollPaddingBottom), keyboardExtraInset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [baseScrollPaddingBottom],
+  useAnimatedReaction(
+    () => keyboardExtraInset.value,
+    (value, prev) => {
+      if (value === prev) return;
+      runOnJS(setKeyboardOverlapPad)(value);
+    },
+    [keyboardExtraInset],
   );
 
   const stylesThemed = useMemo(
@@ -189,8 +191,9 @@ export default function AuthScreen() {
     });
   }, []);
 
-  const onInputFocus = (ref: { current: TextInput | null }) => {
-    activeInputRef.current = ref.current;
+  const onInputFocus = (ref: { current: TextInput | null | undefined }) => {
+    /** React 19: `ref.current` must not be set to `undefined` — only `null` or the instance. */
+    activeInputRef.current = ref.current ?? null;
     const keyboardTop = keyboardTopRef.current;
     if (!isKeyboardVisibleRef.current || keyboardTop == null || !ref.current) return;
     recalculateKeyboardInset();
@@ -373,14 +376,14 @@ export default function AuthScreen() {
   const ph = colors.textMuted;
 
   return (
-    <AnimatedScrollView
+    <ScrollView
       ref={scrollRef}
       style={stylesThemed.root}
       contentContainerStyle={[
         stylesThemed.content,
         {
           paddingTop: Math.max(insets.top, 22),
-          paddingBottom: animatedScrollPaddingBottom,
+          paddingBottom: baseScrollPaddingBottom + keyboardOverlapPad,
         },
       ]}
       keyboardShouldPersistTaps="handled"
@@ -594,6 +597,6 @@ export default function AuthScreen() {
           <Text style={stylesThemed.bottomSwitchLink}>{t("auth.signInLink")}</Text>
         </Pressable>
       ) : null}
-    </AnimatedScrollView>
+    </ScrollView>
   );
 }

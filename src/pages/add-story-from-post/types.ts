@@ -2,7 +2,7 @@ import type { PublicProfileItem } from "@/entities/user";
 
 export type AddStoryFromPostRouteParams = {
   postId: string;
-  placeId: string;
+  placeId: string | null;
   postImages: string[];
 };
 

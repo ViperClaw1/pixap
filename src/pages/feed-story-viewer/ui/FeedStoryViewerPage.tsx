@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated,
+  BackHandler,
+  InteractionManager,
   Keyboard,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -10,6 +10,8 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { BlurView } from "expo-blur";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -30,7 +32,12 @@ type FeedStoryViewerRoute = RouteProp<BrowseFlowParamList, "FeedStoryViewer">;
 type FeedStoryViewerNav = NativeStackNavigationProp<BrowseFlowParamList, "FeedStoryViewer">;
 
 const AUTO_ADVANCE_MS = 5000;
-const KEYBOARD_GAP = -5;
+/** Reference width for scaling `gap` passed to `useKeyboardInset`. */
+const COMPOSER_GAP_REF_WIDTH_PX = 390;
+/** Android: tuned overlap (negative = lift composer higher vs raw keyboard height). */
+const COMPOSER_KEYBOARD_GAP_AT_REF_ANDROID = -110;
+/** iOS: `keyboardWillChangeFrame` already tracks overlap tightly; large negative gap lets the keyboard cover the bar. */
+const COMPOSER_KEYBOARD_GAP_AT_REF_IOS = -5;
 const DOUBLE_TAP_MS = 260;
 
 function parseStoryMediaUrl(raw?: string | null): string | null {
@@ -55,6 +62,18 @@ export default function FeedStoryViewerPage() {
   const navigation = useNavigation<FeedStoryViewerNav>();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+  const composerKeyboardGap = useMemo(() => {
+    const ref = COMPOSER_GAP_REF_WIDTH_PX;
+    if (Platform.OS === "android") {
+      return (COMPOSER_KEYBOARD_GAP_AT_REF_ANDROID / ref) * width;
+    }
+    return (COMPOSER_KEYBOARD_GAP_AT_REF_IOS / ref) * width;
+  }, [width]);
+  const composerFooterPaddingBottom = useMemo(
+    () =>
+      Platform.OS === "android" ? 4 + Math.max(insets.bottom, 6) : 10 + Math.max(insets.bottom, 8),
+    [insets.bottom],
+  );
   const { isDark } = useAppTheme();
   const composerTheme = useMemo(
     () =>
@@ -82,12 +101,20 @@ export default function FeedStoryViewerPage() {
   const [inputFocused, setInputFocused] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const keyboardInsetAnim = useKeyboardInset({
-    gap: KEYBOARD_GAP,
+    gap: composerKeyboardGap,
     useNativeDriver: true,
     onKeyboardChange: (_keyboardTop, keyboardHeight) => {
       setKeyboardOpen(keyboardHeight > 0);
     },
   });
+
+  const composerKeyboardStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ translateY: -keyboardInsetAnim.value }],
+    }),
+    [keyboardInsetAnim],
+  );
+
   const [previewOpen, setPreviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const lastTapRef = useRef<{ ts: number; storyId: string } | null>(null);
@@ -132,7 +159,7 @@ export default function FeedStoryViewerPage() {
 
   const { progress } = useStoryProgress({
     durationMs: AUTO_ADVANCE_MS,
-    paused: viewer.paused || inputFocused || keyboardOpen,
+    paused: viewer.paused || inputFocused || keyboardOpen || previewOpen,
     itemKey: storyId,
     onComplete: viewer.goToNextStory,
   });
@@ -160,8 +187,13 @@ export default function FeedStoryViewerPage() {
       currentFlatIndex + 1,
       currentFlatIndex + 2,
     ].filter((idx) => idx >= 0 && idx < flatStories.length);
-    const candidateUrls = candidateIndexes.map((idx) => parseStoryMediaUrl(flatStories[idx]?.story.media_url));
-    void preloadSmartImages(candidateUrls.map((url) => getOptimizedImageUrl(url, 1080, 1920, 78) || url));
+    const candidateUrls = candidateIndexes
+      .map((idx) => parseStoryMediaUrl(flatStories[idx]?.story.media_url))
+      .filter((url): url is string => Boolean(url));
+    const task = InteractionManager.runAfterInteractions(() => {
+      void preloadSmartImages(candidateUrls.map((url) => getOptimizedImageUrl(url, 1080, 1920, 78) || url));
+    });
+    return () => task.cancel();
   }, [currentFlatIndex, flatStories]);
 
 
@@ -205,6 +237,20 @@ export default function FeedStoryViewerPage() {
     lastTapRef.current = { ts: now, storyId: activeStory.id };
   }, [activeStory, setPaused]);
 
+  const closeImagePreview = useCallback(() => {
+    setPreviewOpen(false);
+    setPaused(false);
+  }, [setPaused]);
+
+  useEffect(() => {
+    if (!previewOpen) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      closeImagePreview();
+      return true;
+    });
+    return () => sub.remove();
+  }, [previewOpen, closeImagePreview]);
+
   if (!activeStory || !activeGroup) {
     return (
       <View style={styles.emptyWrap}>
@@ -215,151 +261,146 @@ export default function FeedStoryViewerPage() {
 
   return (
     <View style={styles.root}>
-      <Carousel
-        ref={carouselRef}
-        width={width}
-        height={height}
-        data={flatStories}
-        loop
-        onSnapToItem={(index) => {
-          const row = findByFlatIndex(index);
-          if (!row) return;
-          setCurrent(row.groupIndex, row.storyIndex);
-        }}
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.absoluteFill}
-            onPress={handleSlideTap}
-            onLongPress={() => setPaused(true)}
-            onPressOut={() => setPaused(false)}
-            delayLongPress={180}
-          >
-            <SmartImage
-              uri={getOptimizedImageUrl(parseStoryMediaUrl(item.story.media_url), 1080, 1920, 78)}
-              fallbackUri={parseStoryMediaUrl(item.story.media_url)}
-              recyclingKey={`feed-story-viewer-${item.story.id}`}
-              style={styles.absoluteFill}
-              contentFit="cover"
-              priority="high"
-            />
-          </Pressable>
-        )}
-      />
-
-      <View style={[styles.topProgressRow, { top: Math.max(4, insets.top + 4) }]}>
-        <StoryProgressBar
-          count={Math.max(1, activeGroup.stories.length)}
-          currentIndex={currentStoryIndex}
-          progress={progress}
-        />
-      </View>
-
-      <View style={[styles.topRow, { top: Math.max(22, insets.top + 22) }]}>
-        <Pressable style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={22} color="#111111" />
-        </Pressable>
-        <View style={styles.authorRow}>
-          {authorAvatar ? (
-            <SmartImage uri={authorAvatar} recyclingKey={authorAvatar} style={styles.authorAvatar} contentFit="cover" />
-          ) : (
-            <View style={styles.authorAvatarFallback}>
-              <Text style={styles.authorAvatarFallbackText}>{authorName.charAt(0).toUpperCase()}</Text>
-            </View>
-          )}
-          <View style={styles.authorMetaCol}>
-            <View style={styles.authorMetaTopRow}>
-              <Text style={styles.authorNameText} numberOfLines={1}>
-                {authorName}
-              </Text>
-              <Text style={styles.authorTimeText}>{publishedAgo}</Text>
-            </View>
-            <Text style={styles.authorStoryPreviewText} numberOfLines={1} ellipsizeMode="tail">
-              {activeStory.content?.trim() || " "}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.rightSpacer} />
-      </View>
-
-      <Animated.View
-        style={[
-          styles.bottomComposer,
-          {
-            bottom: 0,
-            backgroundColor: composerTheme.barBg,
-            paddingBottom: 10 + Math.max(insets.bottom, 8),
-            transform: [{ translateY: Animated.multiply(keyboardInsetAnim, -1) }],
-          },
-        ]}
-      >
-        <View style={styles.composerRow}>
-          <View style={styles.inputWrap}>
-            <RichTextarea
-              value={inputValue}
-              onChangeText={setInputValue}
-              placeholder="Send message…"
-              placeholderTextColor={composerTheme.placeholder}
-              onFocus={() => setInputFocused(true)}
-              onBlur={() => setInputFocused(false)}
-              textAlignVertical="center"
-              style={[
-                styles.input,
-                { color: composerTheme.text, borderColor: composerTheme.border },
-              ]}
-            />
-          </View>
-          <View style={styles.actionsRight}>
-            <Pressable style={styles.actionIcon} hitSlop={12} onPress={() => void onToggleLike()}>
-              <Ionicons
-                name={likeActive ? "heart" : "heart-outline"}
-                size={26}
-                color={likeActive ? "#F4212E" : composerTheme.icon}
-              />
-            </Pressable>
+      <View style={styles.storyChrome} collapsable={false}>
+        <Carousel
+          ref={carouselRef}
+          width={width}
+          height={height}
+          data={flatStories}
+          loop
+          onSnapToItem={(index) => {
+            const row = findByFlatIndex(index);
+            if (!row) return;
+            setCurrent(row.groupIndex, row.storyIndex);
+          }}
+          renderItem={({ item }) => (
             <Pressable
-              style={styles.actionIcon}
-              hitSlop={12}
-              onPress={() => navigation.navigate("StoryDiscussion", { storyId: activeStory.id, placeId: activeStory.place_id })}
+              style={styles.absoluteFill}
+              onPress={handleSlideTap}
+              onLongPress={() => setPaused(true)}
+              onPressOut={() => setPaused(false)}
+              delayLongPress={180}
             >
-              <Ionicons name="chatbubble-outline" size={24} color={composerTheme.icon} />
-            </Pressable>
-            <Pressable style={styles.actionIcon} hitSlop={12} onPress={() => void onSubmitReply()}>
-              <Ionicons
-                name="paper-plane-outline"
-                size={25}
-                color={inputValue.trim() ? composerTheme.icon : composerTheme.iconMuted}
-              />
-            </Pressable>
-          </View>
-        </View>
-      </Animated.View>
-
-      <Modal
-        visible={previewOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setPreviewOpen(false);
-          setPaused(false);
-        }}
-      >
-        <View style={styles.modalRoot}>
-          <Pressable
-            style={[styles.absoluteFill, { zIndex: 1 }]}
-            onPress={() => {
-              setPreviewOpen(false);
-              setPaused(false);
-            }}
-          >
-            {activeImageUrl ? (
               <SmartImage
-                uri={activeOptimizedImageUrl || activeImageUrl}
-                fallbackUri={activeImageUrl}
-                style={styles.modalBackdropImage}
+                uri={getOptimizedImageUrl(parseStoryMediaUrl(item.story.media_url), 1080, 1920, 78)}
+                fallbackUri={parseStoryMediaUrl(item.story.media_url)}
+                recyclingKey={`feed-story-viewer-${item.story.id}`}
+                style={styles.absoluteFill}
                 contentFit="cover"
+                priority="high"
+                transition={90}
               />
-            ) : null}
-            <View style={styles.modalBackdropDim} />
+            </Pressable>
+          )}
+        />
+
+        <View style={[styles.topProgressRow, { top: Math.max(4, insets.top + 4) }]}>
+          <StoryProgressBar
+            count={Math.max(1, activeGroup.stories.length)}
+            currentIndex={currentStoryIndex}
+            progress={progress}
+          />
+        </View>
+
+        <View style={[styles.topRow, { top: Math.max(22, insets.top + 22) }]}>
+          <Pressable style={styles.iconButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={22} color="#111111" />
+          </Pressable>
+          <View style={styles.authorRow}>
+            {authorAvatar ? (
+              <SmartImage uri={authorAvatar} recyclingKey={authorAvatar} style={styles.authorAvatar} contentFit="cover" />
+            ) : (
+              <View style={styles.authorAvatarFallback}>
+                <Text style={styles.authorAvatarFallbackText}>{authorName.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
+            <View style={styles.authorMetaCol}>
+              <View style={styles.authorMetaTopRow}>
+                <Text style={styles.authorNameText} numberOfLines={1}>
+                  {authorName}
+                </Text>
+                <Text style={styles.authorTimeText}>{publishedAgo}</Text>
+              </View>
+              <Text style={styles.authorStoryPreviewText} numberOfLines={1} ellipsizeMode="tail">
+                {activeStory.content?.trim() || " "}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.rightSpacer} />
+        </View>
+
+        <Animated.View
+          style={[
+            styles.bottomComposer,
+            {
+              bottom: 0,
+              backgroundColor: composerTheme.barBg,
+              paddingBottom: composerFooterPaddingBottom,
+            },
+            composerKeyboardStyle,
+          ]}
+        >
+          <View style={styles.composerRow}>
+            <View style={styles.inputWrap}>
+              <RichTextarea
+                value={inputValue}
+                onChangeText={setInputValue}
+                placeholder="Send message…"
+                placeholderTextColor={composerTheme.placeholder}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                textAlignVertical="center"
+                style={[
+                  styles.input,
+                  { color: composerTheme.text, borderColor: composerTheme.border },
+                ]}
+              />
+            </View>
+            <View style={styles.actionsRight}>
+              <Pressable style={styles.actionIcon} hitSlop={12} onPress={() => void onToggleLike()}>
+                <Ionicons
+                  name={likeActive ? "heart" : "heart-outline"}
+                  size={26}
+                  color={likeActive ? "#F4212E" : composerTheme.icon}
+                />
+              </Pressable>
+              <Pressable
+                style={styles.actionIcon}
+                hitSlop={12}
+                onPress={() => navigation.navigate("StoryDiscussion", { storyId: activeStory.id, placeId: activeStory.place_id })}
+              >
+                <Ionicons name="chatbubble-outline" size={24} color={composerTheme.icon} />
+              </Pressable>
+              <Pressable style={styles.actionIcon} hitSlop={12} onPress={() => void onSubmitReply()}>
+                <Ionicons
+                  name="paper-plane-outline"
+                  size={25}
+                  color={inputValue.trim() ? composerTheme.icon : composerTheme.iconMuted}
+                />
+              </Pressable>
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+
+      {previewOpen ? (
+        <View style={styles.previewOverlayRoot} pointerEvents="box-none">
+          <Pressable style={styles.absoluteFill} onPress={closeImagePreview}>
+            {Platform.OS === "web" ? (
+              <View style={[styles.absoluteFill, { backgroundColor: "rgba(0,0,0,0.58)" }]} />
+            ) : (
+              <>
+                <BlurView
+                  intensity={Platform.OS === "ios" ? 52 : 68}
+                  tint="dark"
+                  style={styles.absoluteFill}
+                  {...(Platform.OS === "android"
+                    ? { experimentalBlurMethod: "dimezisBlurView" as const, blurReductionFactor: 3.5 }
+                    : {})}
+                />
+                <View style={[styles.absoluteFill, styles.previewDimOverlay]} pointerEvents="none" />
+              </>
+            )}
           </Pressable>
           <View
             style={[
@@ -371,6 +412,7 @@ export default function FeedStoryViewerPage() {
                 left: Math.round((width - modalCardWidth) / 2),
               },
             ]}
+            pointerEvents="box-none"
           >
             <SmartImage
               uri={activeOptimizedImageUrl || activeImageUrl}
@@ -379,6 +421,7 @@ export default function FeedStoryViewerPage() {
               style={styles.modalCardImage}
               contentFit="cover"
               pointerEvents="none"
+              transition={100}
             />
             <View style={styles.modalCardHeader}>
               <View style={styles.modalAuthorWrap}>
@@ -404,7 +447,7 @@ export default function FeedStoryViewerPage() {
             </View>
           </View>
         </View>
-      </Modal>
+      ) : null}
     </View>
   );
 }
@@ -547,20 +590,20 @@ const styles = StyleSheet.create({
   emptyText: {
     color: "#ffffff",
   },
-  modalRoot: {
+  storyChrome: {
     flex: 1,
+  },
+  previewOverlayRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+  },
+  previewDimOverlay: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.28)",
-  },
-  modalBackdropImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  modalBackdropDim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.2)",
   },
   modalCard: {
     position: "absolute",
-    zIndex: 22,
+    zIndex: 110,
     borderRadius: 12,
     overflow: "hidden",
     backgroundColor: "#ffffff",

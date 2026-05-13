@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useAppTheme } from "@/contexts/ThemeContext";
 
 export type StorySourceOption = "camera" | "gallery";
@@ -15,20 +15,22 @@ type Props = {
 
 export function StorySourcePickerModal({ visible, onClose, onChoose }: Props) {
   const { colors } = useAppTheme();
-  const opacity = useRef(new Animated.Value(0)).current;
+  const opacity = useSharedValue(0);
 
   useEffect(() => {
     if (!visible) {
-      opacity.setValue(0);
+      opacity.value = 0;
       return;
     }
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
+    opacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
   }, [opacity, visible]);
+
+  const overlayStyle = useAnimatedStyle(
+    () => ({
+      opacity: opacity.value,
+    }),
+    [opacity],
+  );
 
   const swipeToCloseGesture = useMemo(
     () =>
@@ -60,7 +62,7 @@ export function StorySourcePickerModal({ visible, onClose, onChoose }: Props) {
 
   return (
     <GestureDetector gesture={swipeToCloseGesture}>
-      <Animated.View style={[styles.safeArea, { opacity }]}>
+      <Animated.View style={[styles.safeArea, overlayStyle]}>
         <View style={[styles.overlay, { backgroundColor: "rgba(0,0,0,0.48)" }]}>
           <Pressable style={styles.outsideTapArea} onPress={onClose} />
           <View style={[styles.container, { backgroundColor: colors.background, borderColor: colors.border }]}>

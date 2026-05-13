@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import type { StoryReactionType } from "@/types/stories";
 
@@ -78,15 +79,15 @@ export const useReactToStory = () => {
     },
     onSuccess: (_result, variables) => {
       if (variables.storyId) {
-        void queryClient.invalidateQueries({ queryKey: ["stories", "feed"] });
-        void queryClient.invalidateQueries({ queryKey: ["stories", "strip"] });
-        void queryClient.invalidateQueries({ queryKey: ["story_reactions", "story", variables.storyId] });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.stories.feedPrefix });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.stories.strip });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.stories.reactions(variables.storyId) });
       }
       if (variables.commentId || variables.replyId) {
         if (variables.storyId) {
-          void queryClient.invalidateQueries({ queryKey: ["story_comments", "story", variables.storyId] });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.stories.comments(variables.storyId) });
         } else {
-          void queryClient.invalidateQueries({ queryKey: ["story_comments"] });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.stories.commentsStoryPrefix });
         }
       }
     },

@@ -6,6 +6,35 @@
 - Constraints respected: no architecture rewrite, no speculative optimization, incremental only.
 - Runtime measurements: to be captured by user on Android release build using checklist below.
 
+## Recorded baseline (Android release)
+
+Captured externally on device; use as **Before** reference for the same scenario after changes.
+
+| Field | Value |
+|---|---|
+| Device | POCO C71 |
+| Build | Android release (production profile) |
+| Scenario | 30 s aggressive feed scroll + stories transitions |
+| avg_frame_ms | 12.82 |
+| p95_frame_ms | 15.8 |
+| frames_over_16ms | 1 |
+| frames_over_32ms | 0 |
+| frames_over_50ms | 0 |
+
+**Interpretation:** rendering pipeline is already healthy for this scenario: no severe pacing issues, no frames over 32 ms in sample, no evidence of catastrophic list virtualization bottleneck on this device.
+
+### Updated optimization priorities (post-baseline)
+
+1. Memory pressure profiling  
+2. Image pipeline optimization  
+3. Hermes JS spike analysis  
+4. Long-session runtime degradation  
+5. Network / media payload reduction  
+
+**Reduced priority:** broad FlashList rewrites, aggressive memoization sweeps, animation pipeline rewrites — only if new metrics justify them.
+
+Further work should emphasize memory stability, image decode/cache behavior, long-session responsiveness, startup overhead, and orchestration complexity — not speculative list rewrites.
+
 ## Inventory Summary
 
 - `SectionList`: not found in `src`.
@@ -48,6 +77,8 @@
 
 ## Migration Shortlist (Critical Only)
 
+Baseline on POCO C71 shows list rendering is already healthy for feed + stories; treat further FlashList/memo work as **optional** unless memory or long-session metrics regress.
+
 1. `stories-feed` (done) -> stabilize row memo boundaries.
 2. `stories-archive` grid (done) -> fix blocking open path.
 3. `search` (done) -> verify typed filtering under stress.
@@ -79,9 +110,14 @@
 
 | Scenario | Metric | Before | After | Delta | Notes |
 |---|---|---:|---:|---:|---|
-| Feed scroll + like | FPS avg |  |  |  |  |
+| 30 s feed + stories (POCO C71) | avg_frame_ms | 12.82 |  |  | Baseline 2026-05-13 |
+| 30 s feed + stories (POCO C71) | p95_frame_ms | 15.8 |  |  |  |
+| 30 s feed + stories (POCO C71) | frames_over_16ms | 1 |  |  |  |
+| 30 s feed + stories (POCO C71) | frames_over_32ms | 0 |  |  |  |
+| 30 s feed + stories (POCO C71) | frames_over_50ms | 0 |  |  |  |
+| Feed scroll + like | FPS avg |  |  |  | Optional: extend checklist |
 | Feed scroll + like | Dropped frames |  |  |  |  |
-| Feed scroll + like | Memory peak (MB) |  |  |  |  |
+| Feed scroll + like | Memory peak (MB) |  |  |  | TBD — next measurement pass |
 | Archive grid | FPS avg |  |  |  |  |
 | Archive grid | Tap-to-viewer latency (ms) |  |  |  |  |
 | Search typing + scroll | FPS avg |  |  |  |  |

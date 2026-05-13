@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
-import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list";
+import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -78,8 +78,14 @@ export default function SearchScreen() {
     [colors, isDark],
   );
 
-  const renderSearchItem = useCallback(
-    ({ item }: ListRenderItemInfo<(typeof filtered)[number]>) => {
+  const listContentPadding = useMemo(
+    () => ({ paddingBottom: 100 + insets.bottom }),
+    [insets.bottom],
+  );
+
+  const renderSearchItem = useCallback<ListRenderItem<(typeof filtered)[number]>>(
+    (info) => {
+      const item = info.item;
       const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
       return (
         <Pressable style={stylesThemed.row} onPress={() => navigation.navigate("PlaceDetail", { id: item.id })}>
@@ -130,7 +136,7 @@ export default function SearchScreen() {
         data={filtered}
         keyExtractor={(p) => p.id}
         estimatedItemSize={88}
-        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+        contentContainerStyle={listContentPadding}
         renderItem={renderSearchItem}
         removeClippedSubviews
         initialNumToRender={8}

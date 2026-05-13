@@ -1,5 +1,5 @@
-import { memo } from "react";
-import { ActivityIndicator, Dimensions, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { memo, useCallback } from "react";
+import { ActivityIndicator, Dimensions, FlatList, RefreshControl, StyleSheet, Text, View, type ListRenderItem } from "react-native";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import type { StoryReactionType } from "@/types/stories";
 import type { FeedStoryItem } from "@/entities/story";
@@ -42,6 +42,33 @@ function FeedListComponent({
 }: FeedListProps) {
   const { colors, isDark } = useAppTheme();
   const skeletonMediaWidth = Dimensions.get("window").width - 48;
+
+  const renderStoryItem = useCallback<ListRenderItem<FeedStoryItem>>(
+    ({ item }) => (
+      <FeedStoryCard
+        story={item}
+        canFollow={item.user_id !== currentUserId}
+        followPending={followPending}
+        onPressStory={() => onPressStory(item)}
+        onPressComments={() => onPressComments(item)}
+        onPressUser={() => onPressUser(item)}
+        onToggleFollow={() => onToggleFollow(item)}
+        onReact={(type) => onReact(item, type)}
+        onAuthRequired={onAuthRequired}
+      />
+    ),
+    [
+      currentUserId,
+      followPending,
+      onAuthRequired,
+      onPressComments,
+      onPressStory,
+      onPressUser,
+      onReact,
+      onToggleFollow,
+    ],
+  );
+
   if (loading && !stories.length) {
     return (
       <ShimmerProvider active>
@@ -76,20 +103,8 @@ function FeedListComponent({
       data={stories}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.content}
-      renderItem={({ item }) => (
-        <FeedStoryCard
-          story={item}
-          canFollow={item.user_id !== currentUserId}
-          followPending={followPending}
-          onPressStory={() => onPressStory(item)}
-          onPressComments={() => onPressComments(item)}
-          onPressUser={() => onPressUser(item)}
-          onToggleFollow={() => onToggleFollow(item)}
-          onReact={(type) => onReact(item, type)}
-          onAuthRequired={onAuthRequired}
-        />
-      )}
-      ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+      renderItem={renderStoryItem}
+      ItemSeparatorComponent={ListSeparator}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       onEndReachedThreshold={0.35}
       onEndReached={() => {
@@ -118,6 +133,10 @@ function FeedListComponent({
 
 export const FeedList = memo(FeedListComponent);
 
+function ListSeparator() {
+  return <View style={styles.itemSeparator} />;
+}
+
 const styles = StyleSheet.create({
   centered: {
     flex: 1,
@@ -128,6 +147,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 0,
+  },
+  itemSeparator: {
+    height: 10,
   },
   emptyWrap: {
     alignItems: "center",

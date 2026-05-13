@@ -4,6 +4,7 @@ import * as Linking from "expo-linking";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession";
 import { supabase } from "@/shared/api/supabase/client";
@@ -119,8 +120,8 @@ export default function AuthEmailCallbackPage() {
         return false;
       }
       debugLog("profiles update success, row id:", data.id);
-      await queryClient.invalidateQueries({ queryKey: ["profile", userId] });
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.user(userId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.root });
       return true;
     };
 

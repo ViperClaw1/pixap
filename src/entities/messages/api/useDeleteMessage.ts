@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 
 type DeleteMode = "me" | "everyone";
 
@@ -31,8 +32,8 @@ export function useDeleteMessage() {
       return { threadId };
     },
     onSuccess: (_res, vars) => {
-      void queryClient.invalidateQueries({ queryKey: ["messages", "thread", vars.threadId] });
-      void queryClient.invalidateQueries({ queryKey: ["messages", "inbox"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.threadPrefix(vars.threadId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.inboxPrefix });
     },
   });
 }

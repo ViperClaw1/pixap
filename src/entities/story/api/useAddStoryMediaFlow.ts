@@ -3,7 +3,9 @@ import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/shared/api/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { bytesFromBase64 } from "@/shared/lib/bytesFromBase64";
+import { STORY_STORAGE_MAX_LONG_EDGE, prepareImageForStorageUpload } from "@/shared/lib/prepareImageForStorageUpload";
+import { encodeBlurHashFromPickerAssetUri } from "@/shared/lib/encodeMediaBlurHash";
+import { formatErrorForAlert } from "@/shared/lib/formatErrorForAlert";
 import type { StorySourceOption } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 import { useCreateStory } from "./useCreateStory";
 
@@ -19,41 +21,34 @@ export function useAddStoryMediaFlow(placeId: string | null) {
       if (!placeId) return;
       setUploadingStory(true);
       try {
-        const uploadedUrls: string[] = [];
         const startedAt = Date.now();
+        const expiryTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
         for (let i = 0; i < assets.length; i += 1) {
           const asset = assets[i];
-          let fileBytes: ArrayBuffer | Uint8Array;
-          if (asset.base64) {
-            fileBytes = bytesFromBase64(asset.base64);
-          } else {
-            const response = await fetch(asset.uri);
-            if (!response.ok) throw new Error(`Failed to read selected image (${response.status})`);
-            fileBytes = await response.arrayBuffer();
+          const blurHash = await encodeBlurHashFromPickerAssetUri(asset.uri);
+          const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
+            maxLongEdgePx: STORY_STORAGE_MAX_LONG_EDGE,
+          });
+          if (!bytes.byteLength) {
+            throw new Error("Selected image is empty. Please try another image.");
           }
-          const mimeType = asset.mimeType || "image/jpeg";
-          const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
-          const path = `${user?.id ?? "anonymous"}/${startedAt}-${i}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
-          const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, fileBytes, {
+          const path = `${user?.id ?? "anonymous"}/${startedAt}-${i}-${Math.random().toString(36).slice(2, 10)}.${fileExtension}`;
+          const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
             upsert: true,
-            contentType: mimeType,
+            contentType,
           });
           if (uploadError) throw uploadError;
           const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
-          uploadedUrls.push(data.publicUrl);
-        }
-        if (!uploadedUrls.length) return;
-        const expiryTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-        for (const publicUrl of uploadedUrls) {
           await createStory.mutateAsync({
             placeId,
             content: "New story",
-            mediaUrl: publicUrl,
+            mediaUrl: data.publicUrl,
             expiryTime,
+            mediaBlurhashes: blurHash ? [blurHash] : null,
           });
         }
       } catch (error) {
-        Alert.alert("Story failed", error instanceof Error ? error.message : "Could not upload story.");
+        Alert.alert("Story failed", formatErrorForAlert(error, "Could not upload story."));
       } finally {
         setUploadingStory(false);
       }
@@ -71,7 +66,7 @@ export function useAddStoryMediaFlow(placeId: string | null) {
       mediaTypes: ["images"],
       quality: 0.82,
       allowsEditing: true,
-      base64: true,
+      base64: false,
     });
     const asset = result.canceled ? null : result.assets[0];
     if (asset?.uri) await uploadStoryPhotos([asset]);

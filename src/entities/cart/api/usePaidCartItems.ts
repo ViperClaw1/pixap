@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CartItem } from "./useCartItems";
 
 export const usePaidCartItems = () => {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["paid_cart_items", user?.id],
+    queryKey: queryKeys.cart.paidItems(user?.id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cart_items")
@@ -18,5 +19,6 @@ export const usePaidCartItems = () => {
       return data as CartItem[];
     },
     enabled: !!user,
+    staleTime: 45 * 1000,
   });
 };

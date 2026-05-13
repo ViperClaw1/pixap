@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 
 export function useMarkThreadRead() {
   const { user } = useAuth();
@@ -17,8 +18,9 @@ export function useMarkThreadRead() {
         .eq("user_id", user.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["messages", "inbox"] });
+    onSuccess: (_data, threadId) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.threadPrefix(threadId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.inboxPrefix });
     },
   });
 }

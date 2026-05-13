@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface CreatePostGeoPayload {
@@ -15,6 +16,7 @@ interface CreatePostInput {
   geo?: CreatePostGeoPayload | null;
   content: string;
   mediaUrl?: string | null;
+  mediaBlurhashes?: (string | null)[] | null;
 }
 
 export const useCreatePost = () => {
@@ -22,7 +24,7 @@ export const useCreatePost = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ placeId, geo, content, mediaUrl }: CreatePostInput) => {
+    mutationFn: async ({ placeId, geo, content, mediaUrl, mediaBlurhashes }: CreatePostInput) => {
       if (!user?.id) throw new Error("Authentication required");
       const text = content.trim();
       if (!text) throw new Error("Post content cannot be empty");
@@ -42,14 +44,14 @@ export const useCreatePost = () => {
         content: text,
         media_url: mediaUrl?.trim() ? mediaUrl.trim() : null,
       };
+      if (mediaBlurhashes != null && mediaBlurhashes.length > 0) {
+        row.media_blurhashes = mediaBlurhashes;
+      }
 
       if (hasPlace) {
         row.place_id = placeId!.trim();
-        row.geo_place_name = null;
-        row.geo_formatted_address = null;
-        row.geo_latitude = null;
-        row.geo_longitude = null;
-        row.geo_google_place_id = null;
+        // Do not send geo_* keys: older DBs without migration 20260513 lack these columns;
+        // PostgREST rejects unknown columns even when null.
       } else if (hasGeo) {
         row.place_id = null;
         row.geo_place_name = geo!.placeName?.trim() ? geo!.placeName!.trim() : null;
@@ -66,13 +68,26 @@ export const useCreatePost = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        const msg = typeof error.message === "string" ? error.message : "";
+        if (
+          msg.includes("geo_formatted_address") ||
+          msg.includes("geo_place_name") ||
+          msg.includes("geo_latitude")
+        ) {
+          throw new Error(
+            "В Supabase не применена миграция geo для постов без места. Выполните SQL из файла supabase/migrations/20260513_posts_optional_place_geo.sql (Dashboard → SQL или `supabase db push`), затем повторите публикацию.",
+            { cause: error },
+          );
+        }
+        throw error;
+      }
       return data;
     },
     onSuccess: (_data, variables) => {
-      void queryClient.invalidateQueries({ queryKey: ["posts", "feed"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.posts.feedPrefix });
       if (variables.placeId) {
-        void queryClient.invalidateQueries({ queryKey: ["posts", "place", variables.placeId] });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.posts.place(variables.placeId.trim()) });
       }
     },
   });

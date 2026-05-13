@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CartItem } from "@/entities/cart";
 
@@ -63,7 +64,7 @@ export function deriveBookingDisplayStatus(booking: Booking, linkedCartItem?: Ca
 export const useBookings = () => {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["bookings", user?.id],
+    queryKey: queryKeys.bookings.user(user?.id),
     queryFn: async () => {
       const query = supabase
         .from("bookings")
@@ -84,6 +85,7 @@ export const useBookings = () => {
       return rows;
     },
     enabled: !!user,
+    staleTime: 30 * 1000,
   });
 };
 
@@ -116,7 +118,7 @@ export const useCreateBooking = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["bookings"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix }),
   });
 };
 
@@ -132,6 +134,6 @@ export const useCancelBooking = () => {
         .eq("user_id", user!.id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["bookings"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix }),
   });
 };

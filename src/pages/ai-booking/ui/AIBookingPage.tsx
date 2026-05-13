@@ -5,11 +5,10 @@ import {
   Pressable,
   TextInput,
   ScrollView,
-  Animated,
-  Platform,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
@@ -81,6 +80,10 @@ const validationSchema = {
 export default function AIBookingPage() {
   const insets = useSafeAreaInsets();
   const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
+  const keyboardRootStyle = useAnimatedStyle(
+    () => ({ paddingBottom: keyboardInset.value }),
+    [keyboardInset],
+  );
   const { colors } = useAppTheme();
   const { user, session, loading: authLoading } = useAuth();
   const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
@@ -451,10 +454,7 @@ export default function AIBookingPage() {
   }
 
   return (
-    <Animated.View
-      style={[stylesThemed.root, { paddingBottom: keyboardInset }]}
-      {...androidSwipeBackPanHandlers}
-    >
+    <Animated.View style={[stylesThemed.root, keyboardRootStyle]} {...androidSwipeBackPanHandlers}>
       <ScrollView style={stylesThemed.root} contentContainerStyle={stylesThemed.scroll}>
         <View style={stylesThemed.semanticSection}>
           <View style={stylesThemed.topRow}>
