@@ -27,19 +27,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import { StorySourcePickerModal, type StorySourceOption } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
+import { STORY_STORAGE_MAX_LONG_EDGE, prepareImageForStorageUpload } from "@/shared/lib/prepareImageForStorageUpload";
+import { formatErrorForAlert } from "@/shared/lib/formatErrorForAlert";
 
 type ComposerRoute = RouteProp<BrowseFlowParamList, "StoryComposer">;
 type ComposerNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryComposer">;
 const STORIES_BUCKET = "stories";
-
-function bytesFromBase64(base64: string): Uint8Array {
-  const binary = globalThis.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
 
 export default function StoryComposerScreen() {
   const { colors } = useAppTheme();
@@ -61,25 +54,16 @@ export default function StoryComposerScreen() {
     try {
       const uploadedUrls: string[] = [];
       for (const asset of assets) {
-        let fileBytes: ArrayBuffer | Uint8Array;
-        if (asset.base64) {
-          fileBytes = bytesFromBase64(asset.base64);
-        } else {
-          const response = await fetch(asset.uri);
-          if (!response.ok) {
-            throw new Error(`Failed to read selected image (${response.status})`);
-          }
-          fileBytes = await response.arrayBuffer();
-        }
-        if (!fileBytes.byteLength) {
+        const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
+          maxLongEdgePx: STORY_STORAGE_MAX_LONG_EDGE,
+        });
+        if (!bytes.byteLength) {
           throw new Error("Selected image is empty. Please try another image.");
         }
-        const mimeType = asset.mimeType || "image/jpeg";
-        const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
-        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, fileBytes, {
+        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExtension}`;
+        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
           upsert: true,
-          contentType: mimeType,
+          contentType,
         });
         if (uploadError) throw uploadError;
         const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
@@ -91,7 +75,7 @@ export default function StoryComposerScreen() {
         navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
         return;
       }
-      const message = error instanceof Error ? error.message : "Could not upload story photo.";
+      const message = formatErrorForAlert(error, "Could not upload story photo.");
       Alert.alert("Upload failed", message);
     } finally {
       setUploadingPhoto(false);
@@ -108,7 +92,7 @@ export default function StoryComposerScreen() {
       mediaTypes: ["images"],
       quality: 0.82,
       allowsEditing: true,
-      base64: true,
+      base64: false,
     });
     const asset = result.canceled ? null : result.assets[0];
     if (asset?.uri) {
@@ -128,7 +112,7 @@ export default function StoryComposerScreen() {
       allowsEditing: false,
       allowsMultipleSelection: true,
       selectionLimit: 0,
-      base64: true,
+      base64: false,
     });
     if (!result.canceled && result.assets.length > 0) {
       await uploadStoryPhotos(result.assets);

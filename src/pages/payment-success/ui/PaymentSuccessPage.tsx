@@ -7,6 +7,8 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@/contexts/AuthContext";
+import { queryKeys } from "@/shared/api/queryKeys";
 import type { CartStackParamList, RootTabParamList } from "@/navigation/types";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import {
@@ -26,16 +28,17 @@ export default function PaymentSuccessScreen() {
   const navigation = useNavigation<PaymentSuccessNav>();
   const route = useRoute<PaymentSuccessRoute>();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
 
   useEffect(() => {
-    void queryClient.invalidateQueries({ queryKey: ["shopping_cart"] });
-    void queryClient.invalidateQueries({ queryKey: ["cart_items"] });
-    void queryClient.invalidateQueries({ queryKey: ["paid_cart_items"] });
-    void queryClient.invalidateQueries({ queryKey: ["paid_shopping_cart_items"] });
-    void queryClient.invalidateQueries({ queryKey: ["bookings"] });
-  }, [queryClient]);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.shopping.cartPrefix });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.cart.paidItems(user?.id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.shopping.paidCartItemsPrefix });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
+  }, [queryClient, user?.id]);
 
   useEffect(() => {
     if (route.params?.next !== "bookings") return;

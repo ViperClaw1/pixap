@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, PixelRatio, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import type { StoryReactionType } from "@/types/stories";
 import type { FeedStoryItem } from "@/entities/story";
@@ -7,7 +7,7 @@ import { isAuthRequiredError } from "@/lib/authRequired";
 import { ReactionBar } from "./ReactionBar";
 import { CommentPreview } from "./CommentPreview";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { getOptimizedImageUrlPreset } from "@/shared/lib/imagePresets";
 
 interface FeedStoryCardProps {
   story: FeedStoryItem;
@@ -41,7 +41,17 @@ function FeedStoryCardComponent({
     const last = story.profile?.last_name?.trim() ?? "";
     return `${first} ${last}`.trim() || "Unknown User";
   }, [story.profile?.first_name, story.profile?.last_name]);
-  const coverImage = useMemo(() => getOptimizedImageUrl(story.media_url, 720, 420), [story.media_url]);
+  const deviceDpr = PixelRatio.get();
+  const coverImage = useMemo(
+    () => (story.media_url ? getOptimizedImageUrlPreset(story.media_url, "medium", { dpr: deviceDpr }) : ""),
+    [deviceDpr, story.media_url],
+  );
+  const avatarUri = useMemo(() => {
+    const raw = story.profile?.avatar_url?.trim();
+    if (!raw) return "";
+    return getOptimizedImageUrlPreset(raw, "thumb", { dpr: deviceDpr }) || raw;
+  }, [deviceDpr, story.profile?.avatar_url]);
+  const coverBlurhash = story.media_blurhashes?.find((h): h is string => typeof h === "string" && h.length > 0);
 
   const onReactPress = async (type: StoryReactionType) => {
     const previousReaction = localReaction;
@@ -84,7 +94,13 @@ function FeedStoryCardComponent({
         <Pressable style={styles.userRow} onPress={onPressUser}>
           <View style={[styles.avatar, { borderColor: colors.border }]}>
             {story.profile?.avatar_url ? (
-              <SmartImage uri={story.profile.avatar_url} style={styles.avatarImage} contentFit="cover" skipBundledPlaceholder />
+              <SmartImage
+                uri={avatarUri}
+                fallbackUri={story.profile.avatar_url}
+                style={styles.avatarImage}
+                contentFit="cover"
+                skipBundledPlaceholder
+              />
             ) : (
               <Text style={[styles.avatarFallback, { color: colors.textMuted }]}>
                 {fullName.slice(0, 1).toUpperCase()}
@@ -131,6 +147,7 @@ function FeedStoryCardComponent({
         <SmartImage
           uri={coverImage || story.media_url}
           fallbackUri={story.media_url}
+          blurhash={coverBlurhash}
           style={styles.media}
           contentFit="cover"
           transition={150}

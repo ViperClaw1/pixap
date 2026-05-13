@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import type { MessageThreadItem, MessageParticipantProfile } from "@/types/messages";
 
 type ParticipantRow = {
@@ -32,7 +33,7 @@ export function useMessagesInbox(search: string) {
   const { user } = useAuth();
 
   const query = useQuery({
-    queryKey: ["messages", "inbox", user?.id ?? null],
+    queryKey: queryKeys.messages.inbox(user?.id ?? null),
     queryFn: async () => {
       if (!user?.id) return [] as MessageThreadItem[];
 
@@ -124,6 +125,7 @@ export function useMessagesInbox(search: string) {
       return items;
     },
     enabled: !!user?.id,
+    staleTime: 25 * 1000,
   });
 
   const filtered = useMemo(() => {

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface Notification {
@@ -14,7 +15,7 @@ export interface Notification {
 export const useNotifications = () => {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["notifications", user?.id],
+    queryKey: queryKeys.notifications.list(user?.id),
     staleTime: 30 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -32,7 +33,7 @@ export const useNotifications = () => {
 export const useUnreadCount = () => {
   const { user } = useAuth();
   const unreadCountQuery = useQuery({
-    queryKey: ["notifications", "unread_count", user?.id],
+    queryKey: queryKeys.notifications.unread(user?.id),
     queryFn: async () => {
       const { count, error } = await supabase
         .from("notifications")
@@ -56,8 +57,8 @@ export const useMarkAsRead = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      void queryClient.invalidateQueries({ queryKey: ["notifications", "unread_count"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.listPrefix });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadPrefix });
     },
   });
 };

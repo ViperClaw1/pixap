@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import {
   Modal,
   View,
@@ -10,9 +10,9 @@ import {
   useWindowDimensions,
   Alert,
   Linking,
-  Animated,
-  PanResponder,
 } from "react-native";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,6 +22,23 @@ import { fetchDirections, geocodeAddressDetailed, type TravelMode } from "@/shar
 import type { LatLng } from "@/shared/lib/polylineDecode";
 import { regionAroundPoint, regionFromCoordinates, type MapRegion } from "@/shared/lib/mapRegion";
 import { useAppTheme } from "@/contexts/ThemeContext";
+
+/** Стабильные маркеры: стабильный `coordinate` + `tracksViewChanges={false}` — меньше перерисовок нативных аннотаций. */
+const DirectionsUserMarker = memo(function DirectionsUserMarker({ coordinate }: { coordinate: LatLng }) {
+  const stable = useMemo(() => ({ latitude: coordinate.latitude, longitude: coordinate.longitude }), [coordinate]);
+  return <Marker coordinate={stable} title="You" pinColor="#22c55e" tracksViewChanges={false} />;
+});
+
+const DirectionsDestMarker = memo(function DirectionsDestMarker({
+  coordinate,
+  title,
+}: {
+  coordinate: LatLng;
+  title: string;
+}) {
+  const stable = useMemo(() => ({ latitude: coordinate.latitude, longitude: coordinate.longitude }), [coordinate]);
+  return <Marker coordinate={stable} title={title} pinColor="#ef4444" tracksViewChanges={false} />;
+});
 
 type Props = {
   visible: boolean;
@@ -102,12 +119,18 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
   const { colors, isDark } = useAppTheme();
   const fetchGeneration = useRef(0);
   const requestControllerRef = useRef<AbortController | null>(null);
-  const swipeY = useRef(new Animated.Value(0)).current;
-  const [mapRegion, setMapRegion] = useState<MapRegion | null>(null);
+  const swipeY = useSharedValue(0);
+  const sheetScreenH = useSharedValue(screenH);
+  const mapRef = useRef<MapView | null>(null);
 
   const apiKey = env.googleMapsWebApiKey;
 
-  const expanded = true;
+  const fitMapRegion = useCallback((region: MapRegion) => {
+    requestAnimationFrame(() => {
+      mapRef.current?.animateToRegion(region, 420);
+    });
+  }, []);
+
   const [travelMode, setTravelMode] = useState<TravelMode>("driving");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +140,11 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
   const [routeCoords, setRouteCoords] = useState<LatLng[]>([]);
   const [durationText, setDurationText] = useState<string | null>(null);
   const [distanceText, setDistanceText] = useState<string | null>(null);
+
+  const destCoordRef = useRef(destCoord);
+  destCoordRef.current = destCoord;
+  const routeCoordsRef = useRef(routeCoords);
+  routeCoordsRef.current = routeCoords;
 
   const styles = useMemo(
     () =>
@@ -229,47 +257,42 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
     [colors, isDark, insets.bottom, insets.top, screenH],
   );
 
-  const closeWithSwipe = useCallback(() => {
-    Animated.timing(swipeY, {
-      toValue: screenH,
-      duration: 180,
-      useNativeDriver: true,
-    }).start(() => {
-      swipeY.setValue(0);
-      onClose();
-    });
-  }, [onClose, screenH, swipeY]);
+  useEffect(() => {
+    sheetScreenH.value = screenH;
+  }, [screenH, sheetScreenH]);
 
-  const panResponder = useMemo(
+  const sheetSwipeStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ translateY: swipeY.value }],
+    }),
+    [swipeY],
+  );
+
+  const onCloseAfterSwipe = useCallback(() => {
+    swipeY.value = 0;
+    onClose();
+  }, [onClose, swipeY]);
+
+  const panGesture = useMemo(
     () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, g) => g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx),
-        onPanResponderMove: (_, g) => {
-          swipeY.setValue(Math.max(0, g.dy));
-        },
-        onPanResponderRelease: (_, g) => {
-          const shouldClose = g.dy > 90 || g.vy > 1;
+      Gesture.Pan()
+        .activeOffsetY(8)
+        .onUpdate((e) => {
+          swipeY.value = Math.max(0, e.translationY);
+        })
+        .onEnd((e) => {
+          const shouldClose = e.translationY > 90 || e.velocityY > 800;
           if (shouldClose) {
-            closeWithSwipe();
-            return;
+            swipeY.value = withTiming(sheetScreenH.value, { duration: 180 }, (finished) => {
+              if (finished) {
+                runOnJS(onCloseAfterSwipe)();
+              }
+            });
+          } else {
+            swipeY.value = withSpring(0, { damping: 18, stiffness: 200 });
           }
-          Animated.spring(swipeY, {
-            toValue: 0,
-            useNativeDriver: true,
-            bounciness: 4,
-            speed: 24,
-          }).start();
-        },
-        onPanResponderTerminate: () => {
-          Animated.spring(swipeY, {
-            toValue: 0,
-            useNativeDriver: true,
-            bounciness: 4,
-            speed: 24,
-          }).start();
-        },
-      }),
-    [closeWithSwipe, swipeY],
+        }),
+    [onCloseAfterSwipe, sheetScreenH, swipeY],
   );
 
   const loadRoute = useCallback(async () => {
@@ -289,9 +312,8 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
     setDistanceText(null);
 
     try {
-      let dest: LatLng | null = destCoord;
+      let dest: LatLng | null = destCoordRef.current;
       let lastGeocodeStatus: string | null = null;
-      let lastGeocodeMessage: string | undefined;
       let geocodeCandidates: string[] = [];
       if (!dest) {
         geocodeCandidates = buildGeocodeCandidates(trimmed, placeName);
@@ -302,7 +324,6 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
             break;
           }
           lastGeocodeStatus = geocodeResult.status;
-          lastGeocodeMessage = geocodeResult.message;
         }
 
         if (!dest) {
@@ -334,8 +355,8 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
         return;
       }
       setDestCoord(dest);
-      if (routeCoords.length < 2) {
-        setMapRegion(regionAroundPoint(dest, 0.035));
+      if (routeCoordsRef.current.length < 2) {
+        fitMapRegion(regionAroundPoint(dest, 0.035));
       }
 
       const currentPerm = await Location.getForegroundPermissionsAsync();
@@ -348,8 +369,8 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
         setPermissionDenied(true);
         setUserLoc(null);
         setLoading(false);
-        if (routeCoords.length < 2) {
-          setMapRegion(regionAroundPoint(dest, 0.032));
+        if (routeCoordsRef.current.length < 2) {
+          fitMapRegion(regionAroundPoint(dest, 0.032));
         }
         return;
       }
@@ -367,7 +388,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
         };
         setUserLoc(origin);
       }
-      if (routeCoords.length < 2 && isFiniteCoordinate(origin) && isFiniteCoordinate(dest)) {
+      if (routeCoordsRef.current.length < 2 && isFiniteCoordinate(origin) && isFiniteCoordinate(dest)) {
         setRouteCoords([origin, dest]);
       }
 
@@ -409,7 +430,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
         resolvedRouteCoords.length >= 2
           ? regionFromCoordinates(resolvedRouteCoords)
           : regionAroundPoint(endCoord, 0.032);
-      if (routeRegion) setMapRegion(routeRegion);
+      if (routeRegion) fitMapRegion(routeRegion);
       setDurationText(result.data.durationText);
       setDistanceText(result.data.distanceText);
       setLoading(false);
@@ -420,7 +441,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
       setError(e instanceof Error ? e.message : "Could not load directions.");
       setLoading(false);
     }
-  }, [address, apiKey, placeName, travelMode, routeCoords.length]);
+  }, [address, apiKey, fitMapRegion, placeName, travelMode]);
 
   const retryLocationPermission = useCallback(async () => {
     const current = await Location.getForegroundPermissionsAsync();
@@ -462,7 +483,6 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
       fetchGeneration.current += 1;
       requestControllerRef.current?.abort();
       requestControllerRef.current = null;
-      setMapRegion(null);
       setTravelMode("driving");
       setError(null);
       setRouteCoords([]);
@@ -473,7 +493,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
       setDistanceText(null);
       return;
     }
-    swipeY.setValue(0);
+    swipeY.value = 0;
     void loadRoute();
   }, [visible, loadRoute, swipeY]);
 
@@ -482,7 +502,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
     [destCoord],
   );
 
-  const polylineCoords = routeCoords.length >= 2 ? routeCoords : [];
+  const polylineCoords = useMemo(() => (routeCoords.length >= 2 ? routeCoords : []), [routeCoords]);
   // iOS + Google provider can be unstable in Expo Go during frequent route updates.
   const mapProvider = Platform.OS === "android" ? PROVIDER_GOOGLE : undefined;
 
@@ -509,18 +529,22 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <Animated.View style={[styles.sheet, styles.sheetExpanded, { transform: [{ translateY: swipeY }] }]}>
-          <View style={styles.curtainWrap} {...panResponder.panHandlers}>
-            <View style={styles.curtain} />
-          </View>
-          <View style={styles.header} {...panResponder.panHandlers}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {placeName}
-            </Text>
-            <Pressable style={styles.iconBtn} onPress={onClose} accessibilityLabel="Close">
-              <Ionicons name="close" size={22} color={colors.text} />
-            </Pressable>
-          </View>
+        <Animated.View style={[styles.sheet, styles.sheetExpanded, sheetSwipeStyle]}>
+          <GestureDetector gesture={panGesture}>
+            <View>
+              <View style={styles.curtainWrap}>
+                <View style={styles.curtain} />
+              </View>
+              <View style={styles.header}>
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                  {placeName}
+                </Text>
+                <Pressable style={styles.iconBtn} onPress={onClose} accessibilityLabel="Close">
+                  <Ionicons name="close" size={22} color={colors.text} />
+                </Pressable>
+              </View>
+            </View>
+          </GestureDetector>
 
           <Text style={styles.address} numberOfLines={2}>
             {address}
@@ -553,22 +577,22 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
 
           <View style={{ flex: 1 }}>
             <MapView
+              ref={mapRef}
               provider={mapProvider}
               style={styles.map}
               initialRegion={initialRegion}
-              region={mapRegion ?? initialRegion}
               showsUserLocation={!permissionDenied && !!userLoc}
               showsMyLocationButton={false}
             >
               {polylineCoords.length >= 2 ? (
                 <Polyline
                   coordinates={polylineCoords}
-                    strokeColor="#00C2FF"
-                    strokeWidth={6}
+                  strokeColor="#00C2FF"
+                  strokeWidth={6}
                 />
               ) : null}
-              {userLoc ? <Marker coordinate={userLoc} title="You" pinColor="#22c55e" /> : null}
-              {destCoord ? <Marker coordinate={destCoord} title={placeName} pinColor="#ef4444" /> : null}
+              {userLoc ? <DirectionsUserMarker coordinate={userLoc} /> : null}
+              {destCoord ? <DirectionsDestMarker coordinate={destCoord} title={placeName} /> : null}
             </MapView>
           </View>
 

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 
 export type FollowSuggestion = {
   id: string;
@@ -15,7 +16,7 @@ export function usePeopleToFollow(search: string) {
   const { user } = useAuth();
 
   const query = useQuery({
-    queryKey: ["messages", "follow-suggestions", user?.id ?? null, search.trim().toLowerCase()],
+    queryKey: queryKeys.messages.followSuggestions(user?.id ?? null, search.trim().toLowerCase()),
     queryFn: async () => {
       if (!user?.id) return [] as FollowSuggestion[];
       const value = search.trim();

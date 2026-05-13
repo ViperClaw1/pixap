@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import type { StoryProfile } from "@/types/stories";
 
@@ -89,7 +90,7 @@ export const useStoryComments = (storyId: string) => {
         "postgres_changes",
         { event: "*", schema: "public", table: "story_comments", filter: `story_id=eq.${storyId}` },
         () => {
-          void queryClient.invalidateQueries({ queryKey: ["story_comments", "story", storyId] });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.stories.comments(storyId) });
         },
       )
       .subscribe((status) => setRealtimeConnected(status === "SUBSCRIBED"));
@@ -97,7 +98,7 @@ export const useStoryComments = (storyId: string) => {
     const repliesChannel = supabase
       .channel(`story_replies_${storyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "story_replies" }, () => {
-        void queryClient.invalidateQueries({ queryKey: ["story_comments", "story", storyId] });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.stories.comments(storyId) });
       })
       .subscribe();
 
@@ -108,7 +109,7 @@ export const useStoryComments = (storyId: string) => {
   }, [queryClient, storyId]);
 
   return useQuery({
-    queryKey: ["story_comments", "story", storyId, user?.id],
+    queryKey: queryKeys.stories.commentsQuery(storyId, user?.id),
     queryFn: async () => {
       const { data, error } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table types are not yet regenerated

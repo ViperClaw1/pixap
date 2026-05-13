@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 
 export type EntitlementStatus = "active" | "trialing" | "grace_period" | "expired" | "revoked" | "billing_retry";
@@ -28,8 +29,9 @@ export function useEntitlement() {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["subscription-entitlement", user?.id],
+    queryKey: queryKeys.subscription.entitlement(user?.id),
     enabled: Boolean(user?.id),
+    staleTime: 120 * 1000,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("subscription_entitlements")
@@ -70,6 +72,6 @@ export function useEntitlement() {
   return {
     ...query,
     ...computed,
-    refresh: async () => queryClient.invalidateQueries({ queryKey: ["subscription-entitlement", user?.id] }),
+    refresh: async () => queryClient.invalidateQueries({ queryKey: queryKeys.subscription.entitlement(user?.id) }),
   };
 }

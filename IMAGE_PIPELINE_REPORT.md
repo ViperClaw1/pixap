@@ -6,6 +6,12 @@
 - Constraints respected: no architecture rewrite, no global state migration, incremental fixes only.
 - Runtime before/after measurements to be collected on Android release device.
 
+## Recorded baseline (Android release)
+
+Cross-reference: primary scroll/frame baseline for feed + stories is logged in [LIST_PERFORMANCE_REPORT.md](LIST_PERFORMANCE_REPORT.md) (POCO C71, 30 s aggressive feed scroll + stories transitions). Rendering metrics there show a **healthy frame budget** for that scenario; next passes should prioritize **memory, image decode/cache, JS spikes, long-session drift**, and **network payload** — not broad list rewrites.
+
+Image-specific **Before** cells below remain **TBD** until the same device runs the image checklist scenarios (memory peak, flicker count, media bytes).
+
 ## Current Pipeline Snapshot
 
 - Primary image stack: `expo-image` through `SmartImage`.
@@ -19,6 +25,10 @@
   - some avatar/story paths still use non-optimized URIs,
   - feed row rerender scope can still trigger excessive image work,
   - preload policies vary by screen and still need strict near-visible budget alignment.
+
+## Storage upload (client-side)
+
+Raster picks from `expo-image-picker` are normalized in [`src/shared/lib/prepareImageForStorageUpload.ts`](src/shared/lib/prepareImageForStorageUpload.ts) before `supabase.storage.from("stories").upload`: **long edge 2048 px** for post photos, **1080 px** for story media, output **JPEG** at **0.82** compression. The pipeline reads compressed pixels via **manipulator `base64`** (avoids `fetch(file://)` on some Android devices) and uploads a **sliced `ArrayBuffer`**. Picker uses **`base64: false`** so large selections do not retain huge base64 strings in memory. This cuts multi‑MB originals at the source; URLs already in the database are not rewritten. Trade-off: PNG transparency is flattened to JPEG.
 
 ## Detailed Findings
 
@@ -91,13 +101,14 @@
 
 | Scenario | Metric | Before | After | Delta | Notes |
 |---|---|---:|---:|---:|---|
-| Feed 60s scroll | FPS avg |  |  |  |  |
+| 30 s feed + stories (POCO C71) | avg_frame_ms | 12.82 |  |  | See list report |
+| 30 s feed + stories (POCO C71) | p95_frame_ms | 15.8 |  |  |  |
 | Feed 60s scroll | Hitch count |  |  |  |  |
-| Feed 60s scroll | Memory peak (MB) |  |  |  |  |
-| Story viewer transitions | FPS avg |  |  |  |  |
-| Story viewer transitions | Flicker count |  |  |  |  |
-| Place gallery swipes | Memory peak (MB) |  |  |  |  |
-| All scenarios | Media bytes (MB) |  |  |  |  |
+| Feed 60s scroll | Memory peak (MB) |  |  |  | TBD |
+| Story viewer transitions | FPS avg |  |  |  | TBD |
+| Story viewer transitions | Flicker count |  |  |  | TBD |
+| Place gallery swipes | Memory peak (MB) |  |  |  | TBD |
+| All scenarios | Media bytes (MB) |  |  |  | TBD |
 
 ## Regression Validation Gate
 

@@ -1,17 +1,11 @@
 /**
- * KeyboardStickyView — враппер для sticky-footer элементов (composer, кнопки).
- *
- * Анимирует translateY вверх синхронно с появлением клавиатуры,
- * так что footer всегда остаётся прямо над клавиатурой.
- *
- * Использование:
- *   <KeyboardStickyView bottomInset={insets.bottom} tabBarHeight={tabBarHeight}>
- *     <CommentComposer ... />
- *   </KeyboardStickyView>
+ * KeyboardStickyView — враппер для sticky-footer (composer, кнопки).
+ * `paddingBottom` анимируется через Reanimated (`useKeyboardInset`).
  */
 
 import React from "react";
-import { Animated, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset, type KeyboardInsetOptions } from "./useKeyboardInset";
 
 interface KeyboardStickyViewProps extends KeyboardInsetOptions {
@@ -19,20 +13,17 @@ interface KeyboardStickyViewProps extends KeyboardInsetOptions {
   style?: object;
 }
 
-export function KeyboardStickyView({
-  children,
-  style,
-  ...insetOptions
-}: KeyboardStickyViewProps) {
+export function KeyboardStickyView({ children, style, ...insetOptions }: KeyboardStickyViewProps) {
   const keyboardInset = useKeyboardInset(insetOptions);
 
-  return (
-    <Animated.View
-      style={[styles.container, style, { paddingBottom: keyboardInset }]}
-    >
-      {children}
-    </Animated.View>
+  const animatedStyle = useAnimatedStyle(
+    () => ({
+      paddingBottom: keyboardInset.value,
+    }),
+    [keyboardInset],
   );
+
+  return <Animated.View style={[styles.container, style, animatedStyle]}>{children}</Animated.View>;
 }
 
 const styles = StyleSheet.create({

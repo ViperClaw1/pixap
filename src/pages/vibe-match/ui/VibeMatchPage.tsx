@@ -6,17 +6,18 @@ import {
   StyleSheet,
   TextInput,
   ScrollView,
-  Animated,
   ActivityIndicator,
   Alert,
   Platform,
 } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQueries } from "@tanstack/react-query";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
@@ -79,6 +80,10 @@ type BookRowResult = { stop: VibePlanStop; ok: true } | { stop: VibePlanStop; ok
 export default function VibeMatchPage() {
   const insets = useSafeAreaInsets();
   const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
+  const keyboardRootStyle = useAnimatedStyle(
+    () => ({ paddingBottom: keyboardInset.value }),
+    [keyboardInset],
+  );
   const { colors } = useAppTheme();
   const navigation = useNavigation();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
@@ -147,7 +152,7 @@ export default function VibeMatchPage() {
     queries: plan.map((stop) => {
       const ymd = toYmd(new Date(stop.time_slot));
       return {
-        queryKey: ["available_slots", stop.venue_id, ymd] as const,
+        queryKey: queryKeys.availableSlots(stop.venue_id, ymd),
         queryFn: () => fetchAvailableSlotsForDay(stop.venue_id, ymd),
         enabled: plan.length > 0,
       };
@@ -413,7 +418,7 @@ export default function VibeMatchPage() {
   const errMsg = vibeError instanceof Error ? vibeError.message : vibeError ? String(vibeError) : "";
 
   return (
-    <Animated.View style={[stylesThemed.root, { paddingBottom: keyboardInset }]} {...androidSwipeBackPanHandlers}>
+    <Animated.View style={[stylesThemed.root, keyboardRootStyle]} {...androidSwipeBackPanHandlers}>
       <ScrollView contentContainerStyle={stylesThemed.scroll} keyboardShouldPersistTaps="handled">
         <View style={stylesThemed.topRow}>
           <Pressable style={stylesThemed.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back">

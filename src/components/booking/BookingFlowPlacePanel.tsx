@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Carousel from "react-native-reanimated-carousel";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -136,6 +136,20 @@ export function BookingFlowPlacePanel({
   );
   const heroFallback = useMemo(() => getLatestBusinessCardImage(place.images), [place.images]);
 
+  const renderHeroCarouselItem = useCallback(
+    ({ item, index }: { item: string; index: number }) => (
+      <SmartImage
+        uri={item}
+        fallbackUri={heroImagesRaw[index] ?? null}
+        recyclingKey={`${place.id}-booking-panel-${index}`}
+        style={stylesThemed.hero}
+        contentFit="cover"
+        transition={200}
+      />
+    ),
+    [heroImagesRaw, place.id, stylesThemed.hero],
+  );
+
   return (
     <View style={stylesThemed.wrap}>
       <View style={stylesThemed.heroWrap}>
@@ -147,16 +161,7 @@ export function BookingFlowPlacePanel({
               data={heroImages}
               loop={false}
               onSnapToItem={setHeroSlide}
-              renderItem={({ item, index }) => (
-                <SmartImage
-                  uri={item}
-                  fallbackUri={heroImagesRaw[index] ?? null}
-                  recyclingKey={`${place.id}-booking-panel-${index}`}
-                  style={stylesThemed.hero}
-                  contentFit="cover"
-                  transition={200}
-                />
-              )}
+              renderItem={renderHeroCarouselItem}
             />
             <View style={stylesThemed.dotsRow}>
               {heroImages.map((_, idx) => (

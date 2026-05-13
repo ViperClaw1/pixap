@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 
 export const ALL_CITIES_OPTION = "All cities";
 const BUSINESS_CARDS_STARTUP_LIMIT = 120;
@@ -24,7 +25,7 @@ export interface BusinessCard {
 
 export const useBusinessCards = (type?: "featured" | "recommended", city?: string | null) => {
   return useQuery({
-    queryKey: ["business_cards", type, city ?? null],
+    queryKey: queryKeys.businessCards.list(type, city ?? null),
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       let query = supabase
@@ -45,7 +46,7 @@ export const useBusinessCards = (type?: "featured" | "recommended", city?: strin
 
 export const useAvailableCities = () => {
   return useQuery({
-    queryKey: ["business_cards", "available_cities"],
+    queryKey: queryKeys.businessCards.availableCities,
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -65,7 +66,7 @@ export const useAvailableCities = () => {
 
 export const useBusinessCard = (id: string) => {
   return useQuery({
-    queryKey: ["business_card", id],
+    queryKey: queryKeys.businessCards.byId(id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("business_cards")
@@ -81,7 +82,7 @@ export const useBusinessCard = (id: string) => {
 
 export const useBusinessCardsByCategory = (categoryId: string) => {
   return useQuery({
-    queryKey: ["business_cards", "category", categoryId],
+    queryKey: queryKeys.businessCards.byCategory(categoryId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("business_cards")

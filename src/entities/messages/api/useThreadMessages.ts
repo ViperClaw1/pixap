@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import type { MessageParticipantProfile } from "@/types/messages";
 
 type MessageRow = {
@@ -42,7 +43,7 @@ export function useThreadMessages(threadId: string) {
   const { user } = useAuth();
 
   const query = useQuery({
-    queryKey: ["messages", "thread", threadId, user?.id ?? null],
+    queryKey: queryKeys.messages.thread(threadId, user?.id ?? null),
     queryFn: async () => {
       if (!threadId || !user?.id) {
         return {
@@ -138,6 +139,7 @@ export function useThreadMessages(threadId: string) {
       };
     },
     enabled: !!threadId && !!user?.id,
+    staleTime: 15 * 1000,
   });
 
   const peer = useMemo(() => {

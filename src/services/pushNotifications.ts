@@ -3,15 +3,22 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { supabase } from "@/shared/api/supabase/client";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+let notificationHandlerInstalled = false;
+
+/** Call once after first frame / interactions — avoids top-level side effect at import time. */
+export function ensurePushNotificationHandler(): void {
+  if (notificationHandlerInstalled) return;
+  notificationHandlerInstalled = true;
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 function resolveExpoProjectId(): string | undefined {
   const extra = Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined;

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface Profile {
@@ -22,7 +23,7 @@ export interface Profile {
 export const useProfile = () => {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["profile", user?.id],
+    queryKey: queryKeys.profile.user(user?.id),
     queryFn: async () => {
       const { data, error } = await supabase.from("profiles").select("*").eq("id", user!.id).single();
       if (error) throw error;
@@ -46,6 +47,6 @@ export const useUpdateProfile = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["profile"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.profile.root }),
   });
 };

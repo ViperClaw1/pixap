@@ -18,6 +18,8 @@ export interface PostItem {
   geo_longitude?: number | null;
   content: string;
   media_url: string | null;
+  /** BlurHash strings parallel to URLs in `media_url` when stored as JSON array (null slots = no hash). */
+  media_blurhashes?: (string | null)[] | null;
   created_at: string;
   reaction_count: number;
   comment_count: number;

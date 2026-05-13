@@ -2,14 +2,15 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys, USER_FOLLOWS_QUERY_KEY } from "@/shared/api/queryKeys";
 
-export const USER_FOLLOWS_QUERY_KEY = "user_follows";
+export { USER_FOLLOWS_QUERY_KEY };
 
 export function useMyFollowing() {
   const { user } = useAuth();
 
   const query = useQuery({
-    queryKey: [USER_FOLLOWS_QUERY_KEY, "mine", user?.id ?? null],
+    queryKey: queryKeys.userFollows.mine(user?.id ?? null),
     queryFn: async () => {
       if (!user?.id) return [] as string[];
       const { data, error } = await supabase
@@ -60,10 +61,10 @@ export function useToggleFollow() {
       return { skipped: false as const, nowFollowing: true };
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [USER_FOLLOWS_QUERY_KEY] });
-      void queryClient.invalidateQueries({ queryKey: ["stories", "feed"] });
-      void queryClient.invalidateQueries({ queryKey: ["profile", "social-metrics"] });
-      void queryClient.invalidateQueries({ queryKey: ["profile", "suggestions"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.userFollows.prefix });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.stories.feedPrefix });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.profile.socialMetrics(user?.id ?? null) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.profile.suggestionsPrefix });
     },
   });
 }

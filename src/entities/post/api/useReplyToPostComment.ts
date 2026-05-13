@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface ReplyToPostCommentInput {
@@ -32,8 +33,8 @@ export const useReplyToPostComment = () => {
       return data;
     },
     onSuccess: (_data, variables) => {
-      void queryClient.invalidateQueries({ queryKey: ["post_comments", "post", variables.postId] });
-      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.posts.comments(variables.postId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.posts.feedPrefix });
     },
   });
 };

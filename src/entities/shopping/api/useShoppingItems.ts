@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface ShoppingItem {
@@ -30,7 +31,7 @@ export interface ShoppingCartItem {
 
 export const useShoppingItems = (businessCardId: string) => {
   return useQuery({
-    queryKey: ["shopping_items", businessCardId, "main"],
+    queryKey: queryKeys.shoppingItems.main(businessCardId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shopping_items")
@@ -47,7 +48,7 @@ export const useShoppingItems = (businessCardId: string) => {
 
 export const useAdditionalItems = (businessCardId: string) => {
   return useQuery({
-    queryKey: ["shopping_items", businessCardId, "additional"],
+    queryKey: queryKeys.shoppingItems.additional(businessCardId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shopping_items")
@@ -66,7 +67,7 @@ export const useAdditionalItems = (businessCardId: string) => {
 export const useShoppingCart = () => {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["shopping_cart", user?.id],
+    queryKey: queryKeys.shopping.cart(user?.id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shopping_cart_items")
@@ -100,6 +101,7 @@ export const useShoppingCart = () => {
       return mainItems;
     },
     enabled: !!user,
+    staleTime: 20 * 1000,
   });
 };
 
@@ -124,28 +126,30 @@ export const useAddToShoppingCart = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["shopping_cart"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.shopping.cart(user?.id) }),
   });
 };
 
 export const useUpdateShoppingCartQuantity = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async ({ id, quantity }: { id: string; quantity: number }) => {
       const { error } = await supabase.from("shopping_cart_items").update({ quantity }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["shopping_cart"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.shopping.cart(user?.id) }),
   });
 };
 
 export const useRemoveShoppingCartItem = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("shopping_cart_items").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["shopping_cart"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.shopping.cart(user?.id) }),
   });
 };

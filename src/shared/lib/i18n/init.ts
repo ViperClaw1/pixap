@@ -32,25 +32,20 @@ function deviceLanguage(): AppLanguage {
   return normalizeLanguage(code ?? undefined);
 }
 
-let initPromise: Promise<void> | null = null;
+let bootstrapPromise: Promise<void> | null = null;
+let languageListenerAttached = false;
 
-export function initI18n(): Promise<void> {
+/**
+ * Fast i18n bootstrap: device locale only, no AsyncStorage — unblocks first paint.
+ */
+export function bootstrapI18n(): Promise<void> {
   if (i18n.isInitialized) {
     return Promise.resolve();
   }
-  if (initPromise) return initPromise;
+  if (bootstrapPromise) return bootstrapPromise;
 
-  initPromise = (async () => {
-    let stored: string | null = null;
-    try {
-      stored = await AsyncStorage.getItem(APP_LANGUAGE_STORAGE_KEY);
-    } catch {
-      /* keep stored === null */
-    }
-    const lng =
-      stored != null && APP_LANGUAGES.includes(stored as AppLanguage)
-        ? (stored as AppLanguage)
-        : deviceLanguage();
+  bootstrapPromise = (async () => {
+    const lng = deviceLanguage();
 
     await i18n.use(initReactI18next).init({
       resources: { ...bundledResources },
@@ -63,12 +58,37 @@ export function initI18n(): Promise<void> {
       react: { useSuspense: false },
     });
 
-    i18n.on("languageChanged", (next) => {
-      void AsyncStorage.setItem(APP_LANGUAGE_STORAGE_KEY, next).catch(() => undefined);
-    });
+    if (!languageListenerAttached) {
+      languageListenerAttached = true;
+      i18n.on("languageChanged", (next) => {
+        void AsyncStorage.setItem(APP_LANGUAGE_STORAGE_KEY, next).catch(() => undefined);
+      });
+    }
   })();
 
-  return initPromise;
+  return bootstrapPromise;
+}
+
+/**
+ * Apply saved language after first interactions (AsyncStorage).
+ */
+export async function hydrateI18nFromStorage(): Promise<void> {
+  if (!i18n.isInitialized) return;
+  let stored: string | null = null;
+  try {
+    stored = await AsyncStorage.getItem(APP_LANGUAGE_STORAGE_KEY);
+  } catch {
+    return;
+  }
+  if (stored != null && APP_LANGUAGES.includes(stored as AppLanguage) && stored !== i18n.language) {
+    await i18n.changeLanguage(stored as AppLanguage);
+  }
+}
+
+/** Full init (bootstrap + storage) — for tests or callers that need storage before UI. */
+export async function initI18n(): Promise<void> {
+  await bootstrapI18n();
+  await hydrateI18nFromStorage();
 }
 
 export { i18n };

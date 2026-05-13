@@ -11,9 +11,11 @@ export interface StoryProfile {
 export interface StoryItem {
   id: string;
   user_id: string;
-  place_id: string;
+  place_id: string | null;
   content: string;
   media_url: string | null;
+  /** BlurHash strings parallel to `media_url` entries (null slots = no hash). */
+  media_blurhashes?: (string | null)[] | null;
   created_at: string;
   reaction_count: number;
   comment_count: number;
@@ -42,11 +44,12 @@ export interface StoryComposerRouteParams {
 
 export interface AddStoryFromPostRouteParams {
   postId: string;
-  placeId: string;
+  /** Null when the source post has no linked business_card (geo-only post). */
+  placeId: string | null;
   postImages: string[];
 }
 
 export interface StoryDiscussionRouteParams {
   storyId: string;
-  placeId: string;
+  placeId: string | null;
 }

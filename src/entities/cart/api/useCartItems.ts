@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface CartItem {
@@ -56,7 +57,7 @@ export const useCartItems = () => {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "cart_items", filter: `user_id=eq.${user.id}` },
         () => {
-          void queryClient.invalidateQueries({ queryKey: ["cart_items", user.id] });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.cart.items(user.id) });
         },
       )
       .subscribe();
@@ -66,7 +67,7 @@ export const useCartItems = () => {
   }, [user?.id, queryClient]);
 
   return useQuery({
-    queryKey: ["cart_items", user?.id],
+    queryKey: queryKeys.cart.items(user?.id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cart_items")
@@ -78,6 +79,8 @@ export const useCartItems = () => {
       return data as CartItem[];
     },
     enabled: !!user,
+    staleTime: 20 * 1000,
+    gcTime: 5 * 60 * 1000,
     refetchInterval: (query) => {
       const list = query.state.data as CartItem[] | undefined;
       if (!list?.length) return false;
@@ -88,7 +91,7 @@ export const useCartItems = () => {
 
 export const useConfirmServiceCartBooking = () => {
   const queryClient = useQueryClient();
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   return useMutation({
     mutationFn: async ({ cartItemId, action }: { cartItemId: string; action: "confirm" | "pay" }) => {
       const token = session?.access_token;
@@ -105,8 +108,8 @@ export const useConfirmServiceCartBooking = () => {
       return payload;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["cart_items"] });
-      void queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cart.items(user?.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
     },
   });
 };
@@ -139,17 +142,18 @@ export const useCreateCartItem = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart_items"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.cart.items(user?.id) }),
   });
 };
 
 export const useDeleteCartItem = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("cart_items").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart_items"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.cart.items(user?.id) }),
   });
 };

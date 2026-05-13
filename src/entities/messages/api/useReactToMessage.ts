@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 
 export function useReactToMessage() {
   const { user } = useAuth();
@@ -35,7 +36,7 @@ export function useReactToMessage() {
       return { threadId };
     },
     onSuccess: (_res, vars) => {
-      void queryClient.invalidateQueries({ queryKey: ["messages", "thread", vars.threadId] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.threadPrefix(vars.threadId) });
     },
   });
 }

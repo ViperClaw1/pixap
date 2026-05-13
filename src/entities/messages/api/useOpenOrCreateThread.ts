@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 
 type ParticipantRow = { thread_id: string; user_id: string };
 
@@ -87,7 +88,7 @@ export function useOpenOrCreateThread() {
       return { threadId, created: true as const };
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["messages", "inbox"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.inboxPrefix });
     },
   });
 }

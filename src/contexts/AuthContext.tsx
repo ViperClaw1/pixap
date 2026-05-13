@@ -2,9 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import type { Session, User } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
+import { InteractionManager } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { env } from "@/shared/lib/env";
 import { isInvalidRefreshTokenError } from "@/shared/lib/supabaseAuth";
+import { clearSessionCaches } from "@/shared/lib/clearSessionCaches";
 import { registerNativePushToken } from "@/services/pushNotifications";
 
 interface SignInResult {
@@ -35,6 +38,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const queryClient = useQueryClient();
+  const hadAuthenticatedUserRef = useRef(false);
+
   const isUserAlreadyExistsError = (message: string) => {
     const normalized = message.toLowerCase();
     return (
@@ -120,10 +126,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (user?.id) {
+    if (!user?.id) return;
+    const task = InteractionManager.runAfterInteractions(() => {
       void registerNativePushToken(user.id);
-    }
+    });
+    return () => task.cancel();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) {
+      hadAuthenticatedUserRef.current = true;
+      return;
+    }
+    if (!loading && hadAuthenticatedUserRef.current) {
+      hadAuthenticatedUserRef.current = false;
+      void clearSessionCaches(queryClient);
+    }
+  }, [loading, queryClient, user?.id]);
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
     const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-signup", {

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ShoppingCartItem, ShoppingItem } from "./useShoppingItems";
 
@@ -32,7 +33,7 @@ function buildPaidShoppingTree(
 export const usePaidShoppingCartItems = () => {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["paid_shopping_cart_items", user?.id],
+    queryKey: queryKeys.shopping.paidCartItems(user?.id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shopping_cart_items")

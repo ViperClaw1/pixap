@@ -13,6 +13,7 @@ import { CommonActions, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CartStackParamList } from "@/navigation/types";
 import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { supabase } from "@/shared/api/supabase/client";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
 import {
@@ -111,7 +112,7 @@ export default function CartPage() {
         })
         .finally(() => {
           n8nStartingRef.current.delete(item.id);
-          void queryClient.invalidateQueries({ queryKey: ["cart_items", user.id] });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.cart.items(user.id) });
         });
     }
   }, [tab, paidServiceDrafts, loading, user, session?.access_token, queryClient]);

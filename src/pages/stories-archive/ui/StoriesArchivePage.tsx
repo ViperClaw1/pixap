@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  InteractionManager,
   PanResponder,
   PixelRatio,
   Pressable,
@@ -10,8 +11,10 @@ import {
   View,
   useWindowDimensions,
   ScrollView,
+  type ViewStyle,
+  type TextStyle,
 } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import MapView, { Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 import Supercluster from "supercluster";
 import { useNavigation } from "@react-navigation/native";
@@ -25,7 +28,7 @@ import { rotateStoriesFromIndex } from "@/entities/story/lib/archiveViewer";
 import type { StoryGroup, StoryItem } from "@/types/stories";
 import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { parseStoryMediaUrls, resolveStoryStorageUrl } from "@/shared/lib/storyMediaUrls";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
 import { chunkCells, toYmd, firstOfMonthContaining, type CalendarCell } from "@/shared/lib/bookingCalendar";
 import { StoryArchiveGridThumb } from "./StoryArchiveGridThumb";
 
@@ -49,10 +52,34 @@ type GridCell = {
   thumbFallbackUri?: string;
 };
 
-/** Buckets decode size so tiny layout width / DPR changes do not rewrite Supabase render URLs (disk cache hits). */
-function quantizeDecodePx(px: number, step = 64, min = 96): number {
-  return Math.max(min, Math.round(Math.max(min, px) / step) * step);
-}
+type StoryArchiveGridCellProps = {
+  item: GridCell;
+  tileWidth: number;
+  tileHeight: number;
+  cardBackground: string;
+  onPressCell: (cell: GridCell) => void;
+};
+
+const StoryArchiveGridCell = memo(function StoryArchiveGridCell({
+  item,
+  tileWidth,
+  tileHeight,
+  cardBackground,
+  onPressCell,
+}: StoryArchiveGridCellProps) {
+  const onPress = useCallback(() => {
+    onPressCell(item);
+  }, [item, onPressCell]);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{ width: tileWidth, height: tileHeight, backgroundColor: cardBackground }}
+    >
+      <StoryArchiveGridThumb uri={item.thumbUri} fallbackUri={item.thumbFallbackUri} recyclingKey={item.key} />
+    </Pressable>
+  );
+});
 
 const WEEKDAYS_MON = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const GRID_COLUMNS = 3;
@@ -105,6 +132,71 @@ function defaultRegionForCoords(coords: Array<{ latitude: number; longitude: num
 type ClusterPointProps = { storyId: string };
 
 type MapClusterItem = Supercluster.PointFeature<ClusterPointProps> | Supercluster.ClusterFeature<Supercluster.ClusterProperties>;
+
+type ArchiveClusterMarkerProps = {
+  clusterId: number;
+  latitude: number;
+  longitude: number;
+  pointCount: number;
+  bubbleStyle: ViewStyle;
+  countTextStyle: TextStyle;
+  onPress: () => void;
+};
+
+const ArchiveMapClusterMarker = memo(function ArchiveMapClusterMarker({
+  clusterId,
+  latitude,
+  longitude,
+  pointCount,
+  bubbleStyle,
+  countTextStyle,
+  onPress,
+}: ArchiveClusterMarkerProps) {
+  const coordinate = useMemo(() => ({ latitude, longitude }), [latitude, longitude]);
+  return (
+    <Marker
+      coordinate={coordinate}
+      identifier={`archive-c-${clusterId}`}
+      tracksViewChanges={false}
+      onPress={onPress}
+    >
+      <View style={bubbleStyle}>
+        <Text style={countTextStyle}>{pointCount}</Text>
+      </View>
+    </Marker>
+  );
+});
+
+type ArchiveStoryMarkerProps = {
+  storyId: string;
+  latitude: number;
+  longitude: number;
+  thumbUri: string | null;
+  thumbStyle: ViewStyle;
+  fallbackStyle: ViewStyle;
+  onPress: () => void;
+};
+
+const ArchiveMapStoryMarker = memo(function ArchiveMapStoryMarker({
+  storyId,
+  latitude,
+  longitude,
+  thumbUri,
+  thumbStyle,
+  fallbackStyle,
+  onPress,
+}: ArchiveStoryMarkerProps) {
+  const coordinate = useMemo(() => ({ latitude, longitude }), [latitude, longitude]);
+  return (
+    <Marker coordinate={coordinate} identifier={`archive-s-${storyId}`} tracksViewChanges={false} onPress={onPress}>
+      {thumbUri ? (
+        <SmartImage uri={thumbUri} style={thumbStyle} contentFit="cover" recyclingKey={thumbUri} />
+      ) : (
+        <View style={fallbackStyle} />
+      )}
+    </Marker>
+  );
+});
 
 export function StoriesArchiveView({ onRequestClose, overlayActive = true }: StoriesArchiveViewProps) {
   const navigation = useNavigation<Nav>();
@@ -223,20 +315,50 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
     return out;
   }, [stories, storyMediaById, gridTileWidth, gridTileHeight]);
 
+  const handleGridCellPress = useCallback(
+    (item: GridCell) => {
+      void (async () => {
+        const fullPayload = await ensureAllPagesLoaded();
+        const allStories = fullPayload.stories;
+        if (!allStories.length) return;
+        const si = allStories.findIndex((story) => story.id === item.storyId);
+        const safeIndex = si >= 0 ? si : 0;
+        const placeId = allStories[safeIndex]?.place_id ?? "";
+        openViewer(allStories, safeIndex, placeId, { [item.storyId]: item.mediaIndex });
+      })();
+    },
+    [ensureAllPagesLoaded, openViewer],
+  );
+
+  const renderArchiveGridItem = useCallback<ListRenderItem<GridCell>>(
+    (info) => (
+      <StoryArchiveGridCell
+        item={info.item}
+        tileWidth={gridTileWidth}
+        tileHeight={gridTileHeight}
+        cardBackground={colors.card}
+        onPressCell={handleGridCellPress}
+      />
+    ),
+    [colors.card, gridTileHeight, gridTileWidth, handleGridCellPress],
+  );
+
   useEffect(() => {
-    if (!overlayActive || !stories.length || !gridItems.length) return;
+    if (!overlayActive || !stories.length || !gridItems.length || tab !== "grid") return;
     const viewportRows = Math.max(1, Math.ceil(tabBodyMinHeight / gridTileHeight));
-    const preloadCount = Math.min(gridItems.length, (viewportRows + 3) * GRID_COLUMNS);
-    void preloadSmartImages(
-      Array.from(
-        new Set(
-          gridItems
-            .slice(0, preloadCount)
-            .flatMap((g) => [g.thumbUri, g.thumbFallbackUri].filter((u): u is string => Boolean(u))),
-        ),
+    const preloadCount = Math.min(gridItems.length, (viewportRows + 2) * GRID_COLUMNS);
+    const batch = Array.from(
+      new Set(
+        gridItems
+          .slice(0, preloadCount)
+          .flatMap((g) => [g.thumbUri, g.thumbFallbackUri].filter((u): u is string => Boolean(u))),
       ),
     );
-  }, [overlayActive, stories.length, gridItems, tabBodyMinHeight, gridTileHeight]);
+    const task = InteractionManager.runAfterInteractions(() => {
+      void preloadSmartImages(batch);
+    });
+    return () => task.cancel();
+  }, [overlayActive, stories.length, gridItems, tabBodyMinHeight, gridTileHeight, tab]);
 
   const calendarData = useMemo(() => {
     if (tab !== "calendar") {
@@ -471,6 +593,14 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
         },
         clusterCount: { fontWeight: "800", color: colors.text, fontSize: 15 },
         mapMarkerThumb: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: "#fff" },
+        mapMarkerThumbEmpty: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          borderWidth: 2,
+          borderColor: "#fff",
+          backgroundColor: colors.card,
+        },
       }),
     [colors, insets.top],
   );
@@ -504,33 +634,7 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
             void fetchNextPage();
           }
         }}
-        getItemLayout={(_, index) => ({
-          length: gridTileHeight,
-          offset: Math.floor(index / GRID_COLUMNS) * gridTileHeight,
-          index,
-        })}
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => {
-              void (async () => {
-                const fullPayload = await ensureAllPagesLoaded();
-                const allStories = fullPayload.stories;
-                if (!allStories.length) return;
-                const si = allStories.findIndex((story) => story.id === item.storyId);
-                const safeIndex = si >= 0 ? si : 0;
-                const placeId = allStories[safeIndex]?.place_id ?? "";
-                openViewer(allStories, safeIndex, placeId, { [item.storyId]: item.mediaIndex });
-              })();
-            }}
-            style={{
-              width: gridTileWidth,
-              height: gridTileHeight,
-              backgroundColor: colors.card,
-            }}
-          >
-            <StoryArchiveGridThumb uri={item.thumbUri} fallbackUri={item.thumbFallbackUri} recyclingKey={item.key} />
-          </Pressable>
-        )}
+        renderItem={renderArchiveGridItem}
         ListFooterComponent={
           isFetchingNextPage ? (
             <View style={{ paddingVertical: 12 }}>
@@ -649,32 +753,32 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
             const isCluster = Boolean(props.cluster) && props.cluster_id != null && (props.point_count ?? 0) >= 2;
             if (isCluster && props.cluster_id != null) {
               return (
-                <Marker
-                  key={`c-${props.cluster_id}-${lat}-${lng}`}
-                  coordinate={{ latitude: lat, longitude: lng }}
+                <ArchiveMapClusterMarker
+                  key={`c-${props.cluster_id}`}
+                  clusterId={props.cluster_id}
+                  latitude={lat}
+                  longitude={lng}
+                  pointCount={props.point_count ?? 0}
+                  bubbleStyle={stylesThemed.clusterBubble}
+                  countTextStyle={stylesThemed.clusterCount}
                   onPress={() => handleMapFeaturePress(f)}
-                >
-                  <View style={stylesThemed.clusterBubble}>
-                    <Text style={stylesThemed.clusterCount}>{props.point_count}</Text>
-                  </View>
-                </Marker>
+                />
               );
             }
             const sid = props.storyId;
             const story = sid ? storyById.get(sid) : undefined;
             const uri = story ? (storyMediaById.get(story.id) ?? [])[0] ?? null : null;
             return (
-              <Marker
-                key={`s-${sid ?? "x"}-${lat}-${lng}`}
-                coordinate={{ latitude: lat, longitude: lng }}
+              <ArchiveMapStoryMarker
+                key={`s-${sid ?? "x"}`}
+                storyId={sid ?? "x"}
+                latitude={lat}
+                longitude={lng}
+                thumbUri={uri}
+                thumbStyle={stylesThemed.mapMarkerThumb}
+                fallbackStyle={stylesThemed.mapMarkerThumbEmpty}
                 onPress={() => handleMapFeaturePress(f)}
-              >
-                {uri ? (
-                  <SmartImage uri={uri} style={stylesThemed.mapMarkerThumb} contentFit="cover" recyclingKey={uri} />
-                ) : (
-                  <View style={[stylesThemed.mapMarkerThumb, { backgroundColor: colors.card }]} />
-                )}
-              </Marker>
+              />
             );
           })}
         </MapView>

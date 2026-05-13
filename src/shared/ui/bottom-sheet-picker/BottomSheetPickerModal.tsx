@@ -1,19 +1,7 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Animated,
-  Keyboard,
-  Modal,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  type StyleProp,
-  StyleSheet,
-  Text,
-  type ViewStyle,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Keyboard, Modal, Platform, Pressable, ScrollView, type StyleProp, StyleSheet, Text, type ViewStyle, View, useWindowDimensions } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/contexts/ThemeContext";
@@ -50,8 +38,8 @@ export function BottomSheetPickerModal({
   const sheetMaxHeight = windowHeight * maxHeightFraction;
   const scrollMaxHeight = Math.max(120, sheetMaxHeight - SHEET_HEADER_HEIGHT - Math.max(insets.bottom, 8));
 
-  const translateY = useRef(new Animated.Value(0)).current;
-  // Android adjusts window via windowSoftInputMode; only iOS needs sheet to translate up.
+  const dragY = useSharedValue(0);
+  const dragStart = useSharedValue(0);
   const keyboardInsetAnim = useKeyboardInset({
     gap: KEYBOARD_GAP,
     useNativeDriver: true,
@@ -62,39 +50,57 @@ export function BottomSheetPickerModal({
       }
     },
   });
+
   const metricsRef = useRef({ windowHeight, sheetMaxHeight });
   metricsRef.current = { windowHeight, sheetMaxHeight };
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   useEffect(() => {
-    if (visible) translateY.setValue(0);
-  }, [visible, translateY]);
+    if (visible) dragY.value = 0;
+  }, [dragY, visible]);
 
+  const finishClose = useCallback(() => {
+    onCloseRef.current();
+  }, []);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => g.dy > 10 && Math.abs(g.dy) > Math.abs(g.dx) * 1.2,
-      onPanResponderMove: (_, g) => {
-        if (g.dy > 0) translateY.setValue(g.dy);
-      },
-      onPanResponderRelease: (_, g) => {
-        const { windowHeight: wh, sheetMaxHeight: smh } = metricsRef.current;
-        const threshold = Math.min(100, smh * 0.2);
-        if (g.dy > threshold || g.vy > 0.45) {
-          Animated.timing(translateY, {
-            toValue: wh,
-            duration: 240,
-            useNativeDriver: true,
-          }).start(({ finished }) => {
-            if (finished) onCloseRef.current();
-          });
-        } else {
-          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 8 }).start();
-        }
-      },
+  const handlePanEnd = useCallback(
+    (dy: number, vy: number) => {
+      const { windowHeight: wh, sheetMaxHeight: smh } = metricsRef.current;
+      const threshold = Math.min(100, smh * 0.2);
+      if (dy > threshold || vy > 450) {
+        dragY.value = withTiming(wh, { duration: 240 }, (finished) => {
+          if (finished) runOnJS(finishClose)();
+        });
+      } else {
+        dragY.value = withSpring(0, { damping: 22, stiffness: 220 });
+      }
+    },
+    [dragY, finishClose],
+  );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .onStart(() => {
+          dragStart.value = dragY.value;
+        })
+        .onUpdate((e) => {
+          const next = dragStart.value + e.translationY;
+          dragY.value = next > 0 ? next : 0;
+        })
+        .onEnd((e) => {
+          runOnJS(handlePanEnd)(dragY.value, e.velocityY);
+        }),
+    [dragStart, dragY, handlePanEnd],
+  );
+
+  const sheetAnimatedStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ translateY: dragY.value - keyboardInsetAnim.value }],
     }),
-  ).current;
+    [dragY, keyboardInsetAnim],
+  );
 
   const stylesThemed = useMemo(
     () =>
@@ -114,7 +120,6 @@ export function BottomSheetPickerModal({
           borderTopRightRadius: 16,
           borderWidth: 1,
           borderColor: colors.border,
-          // Keep Android sheet padding stable to prevent end/start-of-keyboard-animation height jump.
           paddingBottom: isAndroid ? Math.max(insets.bottom, 10) : isKeyboardOpen ? 0 : Math.max(insets.bottom, 10),
         },
         grabberWrap: {
@@ -147,8 +152,6 @@ export function BottomSheetPickerModal({
     [colors.border, colors.card, colors.text, colors.textMuted, insets.bottom, isAndroid, isKeyboardOpen, sheetMaxHeight],
   );
 
-  const composedTranslateY = Animated.add(translateY, Animated.multiply(keyboardInsetAnim, -1));
-
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={{ flex: 1 }}>
@@ -160,20 +163,22 @@ export function BottomSheetPickerModal({
           }}
           accessibilityLabel="Dismiss"
         />
-        <Animated.View style={[stylesThemed.sheet, { transform: [{ translateY: composedTranslateY }] }]}>
-          <View {...panResponder.panHandlers}>
-            <Pressable
-              style={stylesThemed.grabberWrap}
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Close picker"
-            >
-              <View style={stylesThemed.grabberHit}>
-                <View style={stylesThemed.grabber} />
-              </View>
-            </Pressable>
-            <Text style={stylesThemed.title}>{title}</Text>
-          </View>
+        <Animated.View style={[stylesThemed.sheet, sheetAnimatedStyle]}>
+          <GestureDetector gesture={panGesture}>
+            <View>
+              <Pressable
+                style={stylesThemed.grabberWrap}
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Close picker"
+              >
+                <View style={stylesThemed.grabberHit}>
+                  <View style={stylesThemed.grabber} />
+                </View>
+              </Pressable>
+              <Text style={stylesThemed.title}>{title}</Text>
+            </View>
+          </GestureDetector>
           <ScrollView
             style={{ maxHeight: scrollMaxHeight }}
             contentContainerStyle={bodyContentContainerStyle}

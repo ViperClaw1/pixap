@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { Animated, Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import Carousel, { type ICarouselInstance } from "react-native-reanimated-carousel";
@@ -37,6 +38,12 @@ export default function AddStoryFromPostPage() {
       setKeyboardOpen(keyboardHeight > 0);
     },
   });
+  const bottomAreaKeyboardStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ translateY: -keyboardInsetAnim.value }],
+    }),
+    [keyboardInsetAnim],
+  );
   const [captionFocused, setCaptionFocused] = useState(false);
   const [index, setIndex] = useState(0);
   const safeImages = useMemo(() => params.postImages.filter((item) => item.trim().length > 0), [params.postImages]);
@@ -127,8 +134,8 @@ export default function AddStoryFromPostPage() {
             paddingBottom: Math.max(insets.bottom, 12),
             backgroundColor: colors.background,
             borderTopColor: colors.border,
-            transform: [{ translateY: Animated.multiply(keyboardInsetAnim, -1) }],
           },
+          bottomAreaKeyboardStyle,
         ]}
       >
         <View style={[styles.captionWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>

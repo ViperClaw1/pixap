@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, FlatList, Platform, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Platform, Pressable, Text, View } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -136,6 +137,13 @@ export default function MessageThreadPage() {
 
   const keyboardInsetAnim = useKeyboardInset({ tabBarHeight });
 
+  const contentAnimatedStyle = useAnimatedStyle(
+    () => ({
+      paddingBottom: keyboardInsetAnim.value,
+    }),
+    [keyboardInsetAnim],
+  );
+
   const pickImages = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -209,7 +217,7 @@ export default function MessageThreadPage() {
 
   return (
     <View style={stylesThemed.root} {...androidSwipeBackPanHandlers}>
-      <Animated.View style={[stylesThemed.content, { paddingBottom: keyboardInsetAnim }]}>
+      <Animated.View style={[stylesThemed.content, contentAnimatedStyle]}>
         <View style={stylesThemed.header}>
           <Pressable style={stylesThemed.backBtn} onPress={leaveThread}>
             <Ionicons name="arrow-back" size={20} color={colors.text} />

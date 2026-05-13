@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 
 export function useAddFollowerReference() {
   const { user } = useAuth();
@@ -38,8 +39,8 @@ export function useAddFollowerReference() {
       return { alreadyAdded: false as const };
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["profile"] });
-      void queryClient.invalidateQueries({ queryKey: ["public_profiles"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.publicProfiles.root });
     },
   });
 }

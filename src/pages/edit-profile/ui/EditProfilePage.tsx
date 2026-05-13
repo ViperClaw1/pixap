@@ -9,9 +9,9 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
-  Animated,
   Platform,
 } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { useProfile, useUpdateProfile } from "@/entities/user";
 import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/shared/api/supabase/client";
@@ -38,18 +39,28 @@ import {
 } from "@/shared/ui/phone-input";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { AVATAR_STORAGE_MAX_LONG_EDGE, prepareImageForStorageUpload } from "@/shared/lib/prepareImageForStorageUpload";
 
 const AVATARS_BUCKET = "avatars";
 const KEYBOARD_GAP = 16;
 
-function bytesFromBase64(base64: string): Uint8Array {
-  const binary = globalThis.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
+const USERNAME_REGEX = /^[a-z0-9._-]+$/;
+const USERNAME_MIN_LENGTH = 3;
+const USERNAME_MAX_LENGTH = 30;
+
+const deriveDefaultUsername = (email?: string | null): string => {
+  const local = (email ?? "").split("@")[0]?.trim().toLowerCase() ?? "";
+  return local.slice(0, USERNAME_MAX_LENGTH);
+};
+
+const validateUsername = (value: string): string | null => {
+  const trimmed = value.trim();
+  if (!trimmed) return "Username is required.";
+  if (trimmed.length < USERNAME_MIN_LENGTH) return `Username must be at least ${USERNAME_MIN_LENGTH} characters.`;
+  if (trimmed.length > USERNAME_MAX_LENGTH) return `Username must be at most ${USERNAME_MAX_LENGTH} characters.`;
+  if (!USERNAME_REGEX.test(trimmed)) return "Username can only contain lowercase letters, numbers, '.', '_' or '-'.";
+  return null;
+};
 
 function EditProfileScreenContent() {
   const { t } = useTranslation();
@@ -61,21 +72,32 @@ function EditProfileScreenContent() {
   const { data: profile } = useProfile();
   const tabBarHeight = useBottomTabBarHeight();
   const keyboardInsetAnim = useKeyboardInset({ tabBarHeight, gap: KEYBOARD_GAP });
+  const isIos = Platform.OS === "ios";
+  const keyboardWrapStyle = useAnimatedStyle(() => {
+    if (isIos) {
+      return { transform: [{ translateY: -keyboardInsetAnim.value }] };
+    }
+    return { paddingBottom: keyboardInsetAnim.value };
+  }, [isIos, keyboardInsetAnim]);
+
   const update = useUpdateProfile();
   const queryClient = useQueryClient();
   const authNavigation = navigation as unknown as NavigationProp<ParamListBase>;
   const scrollRef = useRef<ScrollView>(null);
   const stackNavigation = navigation as unknown as NavigationProp<ParamListBase>;
+  const [username, setUsername] = useState(
+    profile?.username?.trim() || deriveDefaultUsername(profile?.email ?? user?.email),
+  );
   const [first, setFirst] = useState(profile?.first_name ?? "");
   const [last, setLast] = useState(profile?.last_name ?? "");
   const [phoneValue, setPhoneValue] = useState<PhoneValue>(DEFAULT_PHONE_VALUE);
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [avatarUrl, setAvatarUrl] = useState<string>(profile?.avatar_url ?? ((user?.user_metadata?.avatar_url as string) ?? ""));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [firstError, setFirstError] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [bioError, setBioError] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [phoneTouched, setPhoneTouched] = useState(false);
 
@@ -85,6 +107,8 @@ function EditProfileScreenContent() {
 
   useEffect(() => {
     if (!profile) return;
+    const storedUsername = profile.username?.trim();
+    setUsername(storedUsername || deriveDefaultUsername(profile.email ?? user?.email));
     setFirst(profile.first_name ?? "");
     setLast(profile.last_name ?? "");
     setPhoneValue(parseStoredPhone(profile.phone));
@@ -122,7 +146,7 @@ function EditProfileScreenContent() {
       mediaTypes: ["images"],
       quality: 0.8,
       allowsEditing: true,
-      base64: true,
+      base64: false,
     });
     if (!result.canceled && result.assets[0]?.uri) {
       await uploadAvatar(result.assets[0]);
@@ -139,7 +163,7 @@ function EditProfileScreenContent() {
       mediaTypes: ["images"],
       quality: 0.8,
       allowsEditing: true,
-      base64: true,
+      base64: false,
     });
     if (!result.canceled && result.assets[0]?.uri) {
       await uploadAvatar(result.assets[0]);
@@ -153,26 +177,17 @@ function EditProfileScreenContent() {
     }
     setUploadingAvatar(true);
     try {
-      let fileBytes: ArrayBuffer | Uint8Array;
-      if (asset.base64) {
-        fileBytes = bytesFromBase64(asset.base64);
-      } else {
-        const response = await fetch(asset.uri);
-        if (!response.ok) {
-          throw new Error(`Failed to read selected image (${response.status})`);
-        }
-        fileBytes = await response.arrayBuffer();
-      }
-      if (!fileBytes.byteLength) {
+      const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
+        maxLongEdgePx: AVATAR_STORAGE_MAX_LONG_EDGE,
+      });
+      if (!bytes.byteLength) {
         throw new Error("Selected image is empty (0 bytes).");
       }
 
-      const mimeType = asset.mimeType || "image/jpeg";
-      const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
-      const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from(AVATARS_BUCKET).upload(path, fileBytes, {
+      const path = `${user.id}/${Date.now()}.${fileExtension}`;
+      const { error: uploadError } = await supabase.storage.from(AVATARS_BUCKET).upload(path, bytes, {
         upsert: true,
-        contentType: mimeType,
+        contentType,
       });
       if (uploadError) throw uploadError;
       const { data } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(path);
@@ -188,7 +203,7 @@ function EditProfileScreenContent() {
       if (profileUpdateError) {
         throw profileUpdateError;
       }
-      await queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.user(user.id) });
     } catch (error: unknown) {
       if (isAuthRequiredError(error)) {
         navigateToAuthScreen(authNavigation);
@@ -202,25 +217,28 @@ function EditProfileScreenContent() {
   };
 
   const save = async () => {
+    const normalizedUsername = username.trim().toLowerCase();
     const trimmedFirst = first.trim();
     const trimmedLast = last.trim();
     const trimmedBio = bio.trim();
     const trimmedAvatar = avatarUrl.trim();
+    const nextUsernameError = validateUsername(normalizedUsername);
     const nextPhoneError = getPhoneValidationMessage(phoneValue);
 
+    setUsernameError(nextUsernameError);
     setFirstError(trimmedFirst ? null : "First name is required.");
     setLastError(trimmedLast ? null : "Last name is required.");
-    setBioError(null);
     setAvatarError(null);
     setPhoneError(nextPhoneError);
     setPhoneTouched(true);
 
-    if (!trimmedFirst || !trimmedLast || nextPhoneError) {
+    if (nextUsernameError || !trimmedFirst || !trimmedLast || nextPhoneError) {
       return;
     }
     const phoneToSave = serializePhone(phoneValue) || null;
     try {
       await update.mutateAsync({
+        username: normalizedUsername,
         first_name: trimmedFirst,
         last_name: trimmedLast,
         phone: phoneToSave,
@@ -296,14 +314,7 @@ function EditProfileScreenContent() {
 
   return (
     <View style={stylesThemed.root} {...androidSwipeBackPanHandlers}>
-      <Animated.View
-        style={[
-          stylesThemed.root,
-          Platform.OS === "ios"
-            ? { transform: [{ translateY: Animated.multiply(keyboardInsetAnim, -1) }] }
-            : { paddingBottom: keyboardInsetAnim },
-        ]}
-      >
+      <Animated.View style={[stylesThemed.root, keyboardWrapStyle]}>
       <ScrollView
         ref={scrollRef}
         style={stylesThemed.root}
@@ -345,6 +356,22 @@ function EditProfileScreenContent() {
           </View>
         </View>
 
+        <Text style={stylesThemed.label}>Username</Text>
+        <TextInput
+          style={[stylesThemed.input, usernameError ? stylesThemed.inputError : null]}
+          value={username}
+          onChangeText={(value) => {
+            const next = value.toLowerCase().slice(0, USERNAME_MAX_LENGTH);
+            setUsername(next);
+            if (usernameError && !validateUsername(next)) setUsernameError(null);
+          }}
+          autoCapitalize="none"
+          autoCorrect={false}
+          spellCheck={false}
+          placeholder="username"
+          placeholderTextColor={colors.textMuted}
+        />
+        {usernameError ? <Text style={stylesThemed.errorText}>{usernameError}</Text> : null}
         <Text style={stylesThemed.label}>First name</Text>
         <TextInput
           style={[stylesThemed.input, firstError ? stylesThemed.inputError : null]}
@@ -382,18 +409,14 @@ function EditProfileScreenContent() {
           />
         </View>
         {phoneError ? <Text style={stylesThemed.errorText}>{phoneError}</Text> : null}
-        <Text style={stylesThemed.label}>Bio</Text>
+        <Text style={stylesThemed.label}>Bio (optional)</Text>
         <RichTextarea
           value={bio}
-          onChangeText={(value) => {
-            setBio(value);
-            if (bioError && value.trim()) setBioError(null);
-          }}
+          onChangeText={setBio}
           placeholder="Tell people about yourself..."
           placeholderTextColor={colors.textMuted}
-          style={[stylesThemed.input, { minHeight: 96, maxHeight: 180 }, bioError ? stylesThemed.inputError : null]}
+          style={[stylesThemed.input, { minHeight: 96, maxHeight: 180 }]}
         />
-        {bioError ? <Text style={stylesThemed.errorText}>{bioError}</Text> : null}
         {avatarError ? <Text style={stylesThemed.errorText}>{avatarError}</Text> : null}
         <Pressable style={stylesThemed.btn} onPress={() => void save()} disabled={update.isPending || uploadingAvatar}>
           <Text style={stylesThemed.btnText}>{update.isPending ? "Saving..." : "Save"}</Text>

@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
 
 export const useFavorites = () => {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["favorites", user?.id],
+    queryKey: queryKeys.favorites.user(user?.id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("favorites")
@@ -42,6 +43,6 @@ export const useToggleFavorite = () => {
         if (error) throw error;
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["favorites"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.favorites.prefix }),
   });
 };

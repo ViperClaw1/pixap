@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/contexts/AuthContext";
-
 interface ReactToPostInput {
   postId: string;
   type: "like";
@@ -60,8 +60,7 @@ export const useReactToPost = () => {
       return { action: "inserted" as const, data };
     },
     onSuccess: (_result, variables) => {
-      void queryClient.invalidateQueries({ queryKey: ["posts", "feed"] });
-      void queryClient.invalidateQueries({ queryKey: ["post_reactions", "post", variables.postId] });
-    },
-  });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.posts.feedPrefix });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.posts.reactions(variables.postId) });
+    },  });
 };

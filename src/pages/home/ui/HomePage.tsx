@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   Alert,
   TextInput,
+  type ListRenderItem,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -24,8 +25,9 @@ import {
   groupCitiesByCountry,
   filterCityGroups,
   matchesSearchTokens,
+  type BusinessCard,
 } from "@/entities/business-card";
-import { useCategories, CategoryIcon, resolveCategoryIconSpec } from "@/entities/category";
+import { useCategories, CategoryIcon, resolveCategoryIconSpec, type Category } from "@/entities/category";
 import { useUnreadCount } from "@/entities/notification";
 import { useProfile, useUpdateProfile } from "@/entities/user";
 import type { HomeStackParamList, RootTabParamList } from "@/navigation/types";
@@ -83,7 +85,9 @@ export default function HomeScreen() {
   const { data: categories = [], isLoading: lc } = useCategories();
   const unread = useUnreadCount();
 
-  const goPlace = (id: string) => navigation.navigate("PlaceDetail", { id });
+  const goPlace = useCallback((id: string) => {
+    navigation.navigate("PlaceDetail", { id });
+  }, [navigation]);
 
   /** Horizontal padding 16 + 16 from `content` — matches full-width recommended cards */
   const recommendedCardWidth = windowWidth - 32;
@@ -293,8 +297,43 @@ export default function HomeScreen() {
     [colors, insets.bottom, isDark],
   );
 
-  const visibleRecommended = recommended.slice(0, visibleRecommendedCount);
+  const visibleRecommended = useMemo(
+    () => recommended.slice(0, visibleRecommendedCount),
+    [recommended, visibleRecommendedCount],
+  );
   const canShowMoreRecommended = visibleRecommendedCount < recommended.length;
+
+  const renderCategoryRow = useCallback<ListRenderItem<Category>>(
+    ({ item }) => {
+      const iconSpec = resolveCategoryIconSpec(item.name);
+      return (
+        <Pressable style={stylesThemed.pill} onPress={() => navigation.navigate("Category", { id: item.id })}>
+          <View style={stylesThemed.pillContent}>
+            <View style={stylesThemed.pillIconWrap}>
+              <CategoryIcon spec={iconSpec} size={14} color={colors.primary} />
+            </View>
+            <Text style={stylesThemed.pillText}>{item.name}</Text>
+          </View>
+        </Pressable>
+      );
+    },
+    [colors.primary, navigation, stylesThemed],
+  );
+
+  const renderFeaturedRow = useCallback<ListRenderItem<BusinessCard>>(
+    ({ item }) => (
+      <View style={stylesThemed.featuredCardWrap}>
+        <BusinessPlaceCard
+          place={item}
+          variant="vertical"
+          colors={colors}
+          isDark={isDark}
+          onOpen={() => goPlace(item.id)}
+        />
+      </View>
+    ),
+    [colors, goPlace, isDark, stylesThemed.featuredCardWrap],
+  );
 
   return (
     <ShimmerProvider active={homeQueriesLoading}>
@@ -376,19 +415,7 @@ export default function HomeScreen() {
             data={categories}
             keyExtractor={(c) => c.id}
             showsHorizontalScrollIndicator={false}
-            renderItem={({ item }) => {
-              const iconSpec = resolveCategoryIconSpec(item.name);
-              return (
-                <Pressable style={stylesThemed.pill} onPress={() => navigation.navigate("Category", { id: item.id })}>
-                  <View style={stylesThemed.pillContent}>
-                    <View style={stylesThemed.pillIconWrap}>
-                      <CategoryIcon spec={iconSpec} size={14} color={colors.primary} />
-                    </View>
-                    <Text style={stylesThemed.pillText}>{item.name}</Text>
-                  </View>
-                </Pressable>
-              );
-            }}
+            renderItem={renderCategoryRow}
           />
         )}
 
@@ -406,17 +433,7 @@ export default function HomeScreen() {
             data={featured}
             keyExtractor={(p) => p.id}
             showsHorizontalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <View style={stylesThemed.featuredCardWrap}>
-                <BusinessPlaceCard
-                  place={item}
-                  variant="vertical"
-                  colors={colors}
-                  isDark={isDark}
-                  onOpen={() => goPlace(item.id)}
-                />
-              </View>
-            )}
+            renderItem={renderFeaturedRow}
           />
         )}
 

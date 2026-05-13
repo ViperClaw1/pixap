@@ -11,7 +11,8 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 60 * 1000,
-      gcTime: 15 * 60 * 1000,
+      /** Короче глобальный gc: меньше «висячих» данных неактивных экранов в памяти. */
+      gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: "always",
       retry: 1,

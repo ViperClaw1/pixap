@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator, ScrollView, Animated, Platform, Keyboard } from "react-native";
+import { Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator, Platform, Keyboard } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
-
-const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import * as Linking from "expo-linking";
@@ -27,6 +26,15 @@ export default function ResetPasswordScreen() {
   const { colors } = useAppTheme();
   const { updatePassword } = useAuth();
   const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
+  const scrollContentStyle = useAnimatedStyle(
+    () => ({
+      flexGrow: 1,
+      justifyContent: "center",
+      paddingTop: Math.max(insets.top, 24),
+      paddingBottom: Math.max(insets.bottom, 24) + keyboardInset.value,
+    }),
+    [insets.top, insets.bottom, keyboardInset],
+  );
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -63,8 +71,6 @@ export default function ResetPasswordScreen() {
         content: {
           flexGrow: 1,
           justifyContent: "center",
-          paddingTop: Math.max(insets.top, 24),
-          paddingBottom: Math.max(insets.bottom, 24),
         },
         title: { fontSize: 24, fontWeight: "800", color: colors.text, marginBottom: 8 },
         hint: { color: colors.textMuted, marginBottom: 16, fontSize: 14 },
@@ -108,13 +114,13 @@ export default function ResetPasswordScreen() {
         btnDisabled: { opacity: 0.6 },
         btnText: primaryPressableTextStyle,
       }),
-    [colors, insets.top, insets.bottom],
+    [colors],
   );
 
   return (
-    <AnimatedScrollView
+    <Animated.ScrollView
       style={stylesThemed.root}
-      contentContainerStyle={[stylesThemed.content, { paddingBottom: keyboardInset }]}
+      contentContainerStyle={[stylesThemed.content, scrollContentStyle]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
     >
@@ -228,6 +234,6 @@ export default function ResetPasswordScreen() {
       >
         <Text style={stylesThemed.btnText}>{t(RESET_PASSWORD_COPY_KEYS.btnUpdate)}</Text>
       </Pressable>
-    </AnimatedScrollView>
+    </Animated.ScrollView>
   );
 }

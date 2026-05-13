@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 
 export interface PublicProfileItem {
   id: string;
@@ -12,7 +13,7 @@ export interface PublicProfileItem {
 
 export const usePublicProfiles = (search: string, enabled = true) => {
   return useQuery({
-    queryKey: ["public_profiles", "search", search.trim().toLowerCase()],
+    queryKey: queryKeys.publicProfiles.search(search.trim().toLowerCase()),
     queryFn: async () => {
       const value = search.trim();
       let query = supabase

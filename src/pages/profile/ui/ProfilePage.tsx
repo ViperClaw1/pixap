@@ -38,7 +38,12 @@ import {
   PRIVACY_URL,
   STORIES_BUCKET,
 } from "../model/constants";
-import { bytesFromBase64 } from "../model/bytesFromBase64";
+import {
+  POST_STORAGE_MAX_LONG_EDGE,
+  STORY_STORAGE_MAX_LONG_EDGE,
+  prepareImageForStorageUpload,
+} from "@/shared/lib/prepareImageForStorageUpload";
+import { formatErrorForAlert } from "@/shared/lib/formatErrorForAlert";
 import { profileFullName } from "../model/format";
 
 type Nav = CompositeNavigationProp<
@@ -661,7 +666,7 @@ function ProfileScreenContent() {
       quality: 0.82,
       allowsMultipleSelection: true,
       selectionLimit: MAX_POST_PHOTOS,
-      base64: true,
+      base64: false,
     });
     if (result.canceled) return;
     setPostPhotos((prev) => {
@@ -682,7 +687,7 @@ function ProfileScreenContent() {
       quality: 0.82,
       allowsMultipleSelection: true,
       selectionLimit: MAX_POST_PHOTOS,
-      base64: true,
+      base64: false,
     });
     if (result.canceled) return;
     setStoryPhotos((prev) => {
@@ -700,20 +705,16 @@ function ProfileScreenContent() {
       const uploadedUrls: string[] = [];
       for (let idx = 0; idx < postPhotos.length; idx += 1) {
         const asset = postPhotos[idx];
-        let fileBytes: ArrayBuffer | Uint8Array;
-        if (asset.base64) {
-          fileBytes = bytesFromBase64(asset.base64);
-        } else {
-          const response = await fetch(asset.uri);
-          if (!response.ok) throw new Error(`Failed to read selected image (${response.status})`);
-          fileBytes = await response.arrayBuffer();
+        const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
+          maxLongEdgePx: POST_STORAGE_MAX_LONG_EDGE,
+        });
+        if (!bytes.byteLength) {
+          throw new Error("Selected image is empty. Please try another image.");
         }
-        const mimeType = asset.mimeType || "image/jpeg";
-        const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
-        const path = `${user?.id ?? "anonymous"}/post-${Date.now()}-${idx}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, fileBytes, {
+        const path = `${user?.id ?? "anonymous"}/post-${Date.now()}-${idx}.${fileExtension}`;
+        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
           upsert: true,
-          contentType: mimeType,
+          contentType,
         });
         if (uploadError) throw uploadError;
         const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
@@ -732,20 +733,16 @@ function ProfileScreenContent() {
       const uploadedUrls: string[] = [];
       for (let idx = 0; idx < storyPhotos.length; idx += 1) {
         const asset = storyPhotos[idx];
-        let fileBytes: ArrayBuffer | Uint8Array;
-        if (asset.base64) {
-          fileBytes = bytesFromBase64(asset.base64);
-        } else {
-          const response = await fetch(asset.uri);
-          if (!response.ok) throw new Error(`Failed to read selected image (${response.status})`);
-          fileBytes = await response.arrayBuffer();
+        const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
+          maxLongEdgePx: STORY_STORAGE_MAX_LONG_EDGE,
+        });
+        if (!bytes.byteLength) {
+          throw new Error("Selected image is empty. Please try another image.");
         }
-        const mimeType = asset.mimeType || "image/jpeg";
-        const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? (mimeType === "image/png" ? "png" : "jpg");
-        const path = `${user?.id ?? "anonymous"}/story-${Date.now()}-${idx}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, fileBytes, {
+        const path = `${user?.id ?? "anonymous"}/story-${Date.now()}-${idx}.${fileExtension}`;
+        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
           upsert: true,
-          contentType: mimeType,
+          contentType,
         });
         if (uploadError) throw uploadError;
         const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
@@ -778,7 +775,7 @@ function ProfileScreenContent() {
       resetPostComposer();
       goToFeedWithFocus({ postId: String(created.id) });
     } catch (error) {
-      Alert.alert("Post failed", error instanceof Error ? error.message : "Could not publish post.");
+      Alert.alert("Post failed", formatErrorForAlert(error, "Could not publish post."));
     }
   };
 
@@ -803,7 +800,7 @@ function ProfileScreenContent() {
       resetPostComposer();
       goToFeedWithFocus({ storyId: String(created.id) });
     } catch (error) {
-      Alert.alert("Story failed", error instanceof Error ? error.message : "Could not publish story.");
+      Alert.alert("Story failed", formatErrorForAlert(error, "Could not publish story."));
     }
   };
 

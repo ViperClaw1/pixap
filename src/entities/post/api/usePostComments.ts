@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import type { PostProfile } from "@/types/posts";
 
 export interface PostReply {
@@ -24,6 +25,12 @@ export interface PostComment {
   replies: PostReply[];
 }
 
+const EMPTY_POST_COMMENTS: PostComment[] = [];
+
+function selectStablePostComments(data: PostComment[]) {
+  return data.length === 0 ? EMPTY_POST_COMMENTS : data;
+}
+
 export const usePostComments = (postId: string) => {
   const queryClient = useQueryClient();
   const [realtimeConnected, setRealtimeConnected] = useState(true);
@@ -33,7 +40,7 @@ export const usePostComments = (postId: string) => {
     const channel = supabase
       .channel(`post_comments_${postId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "post_comments", filter: `post_id=eq.${postId}` }, () => {
-        void queryClient.invalidateQueries({ queryKey: ["post_comments", "post", postId] });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.posts.comments(postId) });
       })
       .subscribe((status) => setRealtimeConnected(status === "SUBSCRIBED"));
 
@@ -43,7 +50,7 @@ export const usePostComments = (postId: string) => {
   }, [postId, queryClient]);
 
   return useQuery({
-    queryKey: ["post_comments", "post", postId],
+    queryKey: queryKeys.posts.comments(postId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("post_comments" as any)
@@ -92,5 +99,6 @@ export const usePostComments = (postId: string) => {
     },
     enabled: !!postId,
     refetchInterval: realtimeConnected ? false : 15000,
+    select: selectStablePostComments,
   });
 };

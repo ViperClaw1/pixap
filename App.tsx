@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { InteractionManager, Text, View } from "react-native";
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
@@ -9,22 +9,35 @@ import { AppProviders } from "@/app";
 import AppNavigator from "@/navigation/AppNavigator";
 import { linking } from "@/navigation/linking";
 import { rootNavigationRef } from "@/navigation/rootNavigationRef";
-import { initI18n } from "@/shared/lib/i18n";
+import { bootstrapI18n, hydrateI18nFromStorage } from "@/shared/lib/i18n";
 import { subscribeSupabaseAuthDeepLinks } from "@/shared/lib/subscribeSupabaseAuthDeepLinks";
 import PermissionsOnboardingScreen from "@/pages/permissions-onboarding";
 import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/shared/lib/permissionsStorage";
 import { supabaseConfigError } from "@/shared/api/supabase/client";
 import { logStartupDiagnostics } from "@/shared/lib/startupDiagnostics";
 import { useAppToastConfig } from "@/shared/ui/app-toast/createAppToastConfig";
+import { ensurePushNotificationHandler } from "@/services/pushNotifications";
+import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+if (__DEV__) {
+  resetStartupTiming();
+}
 
 function NavigationRoot() {
   const { colors, isDark } = useAppTheme();
   const toastConfig = useAppToastConfig(colors);
 
   useEffect(() => {
-    return subscribeSupabaseAuthDeepLinks(rootNavigationRef);
+    let unsubscribe: (() => void) | undefined;
+    const task = InteractionManager.runAfterInteractions(() => {
+      unsubscribe = subscribeSupabaseAuthDeepLinks(rootNavigationRef);
+    });
+    return () => {
+      task.cancel();
+      unsubscribe?.();
+    };
   }, []);
 
   const base = isDark ? DarkTheme : DefaultTheme;
@@ -42,7 +55,14 @@ function NavigationRoot() {
   };
 
   return (
-    <NavigationContainer ref={rootNavigationRef} linking={linking} theme={navigationTheme}>
+    <NavigationContainer
+      ref={rootNavigationRef}
+      linking={linking}
+      theme={navigationTheme}
+      onReady={() => {
+        markStartup("navigation_container_ready");
+      }}
+    >
       <AppNavigator />
       <StatusBar style={isDark ? "light" : "dark"} />
       <Toast config={toastConfig} />
@@ -54,31 +74,36 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [showPerms, setShowPerms] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
-      logStartupDiagnostics();
-    });
-    return () => {
-      task.cancel();
-    };
-  }, []);
+  const deferredRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    deferredRef.current = null;
+
     void (async () => {
       try {
-        const i18nPromise = initI18n();
+        markStartup("boot_effect_start");
         const permsPromise = hasSeenPermissionsIntro();
-        await i18nPromise;
+        await bootstrapI18n();
+        markStartup("i18n_bootstrap_done");
         if (!cancelled) {
           setReady(true);
           SplashScreen.hide();
+          markStartup("splash_hidden");
         }
         const seen = await permsPromise;
         if (!cancelled) {
           setShowPerms(!seen);
         }
+        if (cancelled) return;
+        deferredRef.current = InteractionManager.runAfterInteractions(() => {
+          logStartupDiagnostics();
+          ensurePushNotificationHandler();
+          markStartup("deferred_tasks_start");
+          void hydrateI18nFromStorage().then(() => {
+            markStartup("i18n_storage_hydrated");
+          });
+        });
       } catch (error) {
         if (!cancelled) {
           setBootError(error instanceof Error ? error.message : "Startup failed");
@@ -87,8 +112,11 @@ export default function App() {
         }
       }
     })();
+
     return () => {
       cancelled = true;
+      deferredRef.current?.cancel();
+      deferredRef.current = null;
     };
   }, []);
 

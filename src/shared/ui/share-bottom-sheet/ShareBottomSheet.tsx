@@ -16,8 +16,8 @@ type Props = {
   resolveAvatarUri: (value?: string | null) => string | null;
   /** Shared post id; required for actions. */
   sharePostId: string | null;
-  /** Catalogue place id; required for “Add to story”. Null when the post only has a standalone address. */
-  sharePostPlaceId: string | null;
+  /** True when the post has at least one image URL for story-from-post. */
+  sharePostHasMedia: boolean;
   sharePlaceName: string;
   shareSending: boolean;
   onAddToStory: () => Promise<void>;
@@ -39,7 +39,7 @@ export function ShareBottomSheet({
   onChangeSearch,
   resolveAvatarUri,
   sharePostId,
-  sharePostPlaceId,
+  sharePostHasMedia,
   sharePlaceName,
   shareSending,
   onAddToStory,
@@ -59,7 +59,7 @@ export function ShareBottomSheet({
 
   const hasSelectedUser = !!selectedUser;
   const canRunUserAction = !!sharePostId && hasSelectedUser && !shareSending;
-  const canRunAddStoryAction = !!sharePostId && !!sharePostPlaceId && hasSelectedUser && !shareSending;
+  const canRunAddStoryAction = !!sharePostId && sharePostHasMedia && hasSelectedUser && !shareSending;
   const canRunGlobalAction = !!sharePostId && hasSelectedUser && !shareSending;
 
   return (

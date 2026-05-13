@@ -5,6 +5,7 @@ import { OtpInput } from "react-native-otp-entry";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/shared/api/queryKeys";
 import Toast from "react-native-toast-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/contexts/ThemeContext";
@@ -139,8 +140,8 @@ export default function VerifyEmailOtpPage() {
     }
 
     if (flow === "verify") {
-      await queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.user(user?.id) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.root });
       navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
       return;
     }

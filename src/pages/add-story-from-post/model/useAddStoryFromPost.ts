@@ -6,7 +6,7 @@ import { useOpenOrCreateThread, useSendMessage } from "@/entities/messages";
 import { buildShareStoryMessageBody } from "@/shared/lib/placeShareMessage";
 
 type Params = {
-  placeId: string;
+  placeId: string | null;
   postImages: string[];
 };
 

@@ -4,13 +4,15 @@ import { supabase } from "@/shared/api/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { StoryItem, StoryProfile, StoryReactionType } from "@/types/stories";
 import { STORIES_QUERY_KEY } from "./useStories";
+import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
 
 type StoryRow = {
   id: string;
   user_id: string;
-  place_id: string;
+  place_id: string | null;
   content: string;
   media_url: string | null;
+  media_blurhashes?: unknown;
   created_at: string;
 };
 
@@ -48,6 +50,10 @@ type ArchivedStoriesPage = {
 
 const ARCHIVE_PAGE_SIZE = 60;
 
+function isMissingMediaBlurhashesError(message?: string) {
+  return (message ?? "").toLowerCase().includes("media_blurhashes");
+}
+
 export function composeArchivedStoriesPayload(
   pages: ArchivedStoriesPage[],
 ): ArchivedStoriesPayload {
@@ -66,6 +72,7 @@ export function composeArchivedStoriesPayload(
         place_id: row.place_id,
         content: row.content,
         media_url: row.media_url,
+        media_blurhashes: parseMediaBlurhashesColumn(row.media_blurhashes),
         created_at: row.created_at,
         reaction_count: page.reactionsCount.get(row.id) ?? 0,
         comment_count: page.commentsCount.get(row.id) ?? 0,
@@ -84,6 +91,9 @@ export function useMyArchivedStories() {
   const query = useInfiniteQuery({
     queryKey: storiesArchiveQueryKey(user?.id ?? ""),
     staleTime: 5 * 60 * 1000,
+    gcTime: 8 * 60 * 1000,
+    /** Ограничиваем число страниц в кэше — иначе длинный скролл архива раздувает память RQ. */
+    maxPages: 24,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     initialPageParam: 0,
@@ -105,14 +115,29 @@ export function useMyArchivedStories() {
 
       const to = offset + ARCHIVE_PAGE_SIZE - 1;
       const from = offset;
-      const { data: pagedStoriesData, error: pagedStoriesError } = await supabase
+      const storiesSelectWithBlur = "id, user_id, place_id, content, media_url, created_at, media_blurhashes";
+      const storiesSelectLegacy = "id, user_id, place_id, content, media_url, created_at";
+
+      let { data: pagedStoriesData, error: pagedStoriesError } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .from("stories" as any)
-        .select("id, user_id, place_id, content, media_url, created_at")
+        .select(storiesSelectWithBlur)
         .eq("user_id", userId)
         .lt("created_at", cutoff)
         .order("created_at", { ascending: false })
         .range(from, to);
+      if (pagedStoriesError && isMissingMediaBlurhashesError(pagedStoriesError.message)) {
+        const retry = await supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .from("stories" as any)
+          .select(storiesSelectLegacy)
+          .eq("user_id", userId)
+          .lt("created_at", cutoff)
+          .order("created_at", { ascending: false })
+          .range(from, to);
+        pagedStoriesData = retry.data;
+        pagedStoriesError = retry.error;
+      }
       if (pagedStoriesError) throw pagedStoriesError;
       const rows = (pagedStoriesData ?? []) as unknown as StoryRow[];
       if (!rows.length) {
@@ -127,7 +152,7 @@ export function useMyArchivedStories() {
       }
 
       const storyIds = rows.map((s) => s.id);
-      const placeIds = Array.from(new Set(rows.map((s) => s.place_id)));
+      const placeIds = Array.from(new Set(rows.map((s) => s.place_id).filter((id): id is string => Boolean(id))));
 
       const [{ data: profilesData }, { data: commentsData }, { data: reactionsData }, myReactionsResult, placesResult] =
         await Promise.all([
@@ -139,8 +164,10 @@ export function useMyArchivedStories() {
           supabase.from("story_reactions" as any).select("id, story_id").in("story_id", storyIds),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           supabase.from("story_reactions" as any).select("story_id, type").eq("user_id", userId).in("story_id", storyIds),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          supabase.from("business_cards" as any).select("id, latitude, longitude").in("id", placeIds),
+          placeIds.length
+            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              supabase.from("business_cards" as any).select("id, latitude, longitude").in("id", placeIds)
+            : Promise.resolve({ data: [] as unknown[] }),
         ]);
 
       const profileRow = profilesData as unknown as ProfileRow | null;
@@ -179,6 +206,7 @@ export function useMyArchivedStories() {
         }
       }
       for (const row of rows) {
+        if (!row.place_id) continue;
         const c = placeCoords.get(row.place_id);
         if (c) coordsByStoryId[row.id] = { latitude: c.lat, longitude: c.lng };
       }

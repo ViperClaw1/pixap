@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 
 /** Community place attached to a feed post — minimal required catalogue fields */
 export interface CreateCommunityBusinessCardInput {
@@ -35,8 +36,8 @@ export const useCreateBusinessCardFromGeocode = () => {
       return data as { id: string };
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["business_cards"] });
-      void queryClient.invalidateQueries({ queryKey: ["business_card"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.businessCards.listPrefix });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.businessCards.singlePrefix });
     },
   });
 };

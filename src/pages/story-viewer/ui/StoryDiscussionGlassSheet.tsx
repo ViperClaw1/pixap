@@ -1,16 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Animated,
-  Keyboard,
-  Modal,
-  PanResponder,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Keyboard, Modal, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -22,7 +13,6 @@ import { StoryDiscussionPanelInner } from "@/pages/story-discussion/ui/StoryDisc
 const KEYBOARD_GAP = -5;
 /** Grabber + title — must stay in sync with layout below */
 const CHROME_FIXED = 78;
-/** Emoji row + composer — approximate; pairs with list viewport cap */
 /** Panel footer (emoji + composer + safe area) — keep in sync with StoryDiscussionPanelInner */
 const FOOTER_FIXED = 198;
 
@@ -36,7 +26,6 @@ type Props = {
 export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDismiss }: Props) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const translateY = useRef(new Animated.Value(windowHeight)).current;
   const [isKeyboardOpen, setKeyboardOpen] = useState(false);
   const keyboardInsetAnim = useKeyboardInset({
     gap: KEYBOARD_GAP,
@@ -45,8 +34,12 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
       setKeyboardOpen(keyboardHeight > 0);
     },
   });
+
+  const sheetTranslate = useSharedValue(windowHeight);
+  const panStart = useSharedValue(0);
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
+
   const sheetMinH = windowHeight * 0.5;
   const sheetMaxH = windowHeight * 0.75;
   const maxListViewport = Math.max(80, sheetMaxH - CHROME_FIXED - FOOTER_FIXED);
@@ -61,7 +54,6 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
   const metricsRef = useRef({ windowHeight, sheetH });
   metricsRef.current = { windowHeight, sheetH };
 
-
   useEffect(() => {
     if (visible) {
       setListContentH(0);
@@ -70,47 +62,53 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
 
   useEffect(() => {
     if (visible) {
-      translateY.setValue(windowHeight);
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        damping: 26,
-        stiffness: 280,
-      }).start();
+      sheetTranslate.value = windowHeight;
+      sheetTranslate.value = withSpring(0, { damping: 26, stiffness: 280 });
     } else {
-      translateY.setValue(windowHeight);
+      sheetTranslate.value = windowHeight;
     }
-  }, [visible, translateY, windowHeight]);
+  }, [sheetTranslate, visible, windowHeight]);
 
-  const animateCloseThenDismiss = () => {
+  const runDismiss = useCallback(() => {
+    onDismissRef.current();
+  }, []);
+
+  const animateCloseThenDismiss = useCallback(() => {
     Keyboard.dismiss();
     const wh = metricsRef.current.windowHeight;
-    Animated.timing(translateY, {
-      toValue: wh,
-      duration: 260,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) onDismissRef.current();
+    sheetTranslate.value = withTiming(wh, { duration: 260 }, (finished) => {
+      if (finished) runOnJS(runDismiss)();
     });
-  };
+  }, [runDismiss, sheetTranslate]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => g.dy > 10 && Math.abs(g.dy) > Math.abs(g.dx) * 1.2,
-      onPanResponderMove: (_, g) => {
-        if (g.dy > 0) translateY.setValue(g.dy);
-      },
-      onPanResponderRelease: (_, g) => {
-        const sh = metricsRef.current.sheetH;
-        const threshold = Math.min(100, sh * 0.14);
-        if (g.dy > threshold || g.vy > 0.45) {
-          animateCloseThenDismiss();
-          return;
-        }
-        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 8 }).start();
-      },
-    }),
-  ).current;
+  const handlePanEnd = useCallback(
+    (dy: number, vy: number) => {
+      const sh = metricsRef.current.sheetH;
+      const threshold = Math.min(100, sh * 0.14);
+      if (dy > threshold || vy > 450) {
+        animateCloseThenDismiss();
+        return;
+      }
+      sheetTranslate.value = withSpring(0, { damping: 22, stiffness: 220 });
+    },
+    [animateCloseThenDismiss, sheetTranslate],
+  );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .onStart(() => {
+          panStart.value = sheetTranslate.value;
+        })
+        .onUpdate((e) => {
+          const next = panStart.value + e.translationY;
+          sheetTranslate.value = next > 0 ? next : 0;
+        })
+        .onEnd((e) => {
+          runOnJS(handlePanEnd)(sheetTranslate.value, e.velocityY);
+        }),
+    [handlePanEnd, panStart, sheetTranslate],
+  );
 
   const onRequireAuth = () => {
     animateCloseThenDismiss();
@@ -119,7 +117,12 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
     });
   };
 
-  const composedTranslateY = Animated.add(translateY, Animated.multiply(keyboardInsetAnim, -1));
+  const sheetAnimatedStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ translateY: sheetTranslate.value - keyboardInsetAnim.value }],
+    }),
+    [keyboardInsetAnim, sheetTranslate],
+  );
 
   const glassFooterBg = Platform.OS === "web" ? "rgba(28,28,30,0.92)" : "rgba(28,28,30,0.72)";
 
@@ -131,7 +134,14 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
             <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.62)" }]} />
           ) : (
             <>
-              <BlurView intensity={Platform.OS === "ios" ? 55 : 40} tint="dark" style={StyleSheet.absoluteFill} />
+              <BlurView
+                intensity={Platform.OS === "ios" ? 55 : 56}
+                tint="dark"
+                style={StyleSheet.absoluteFill}
+                {...(Platform.OS === "android"
+                  ? { experimentalBlurMethod: "dimezisBlurView" as const, blurReductionFactor: 3.5 }
+                  : {})}
+              />
               <View style={[StyleSheet.absoluteFill, styles.dimOverlay]} pointerEvents="none" />
             </>
           )}
@@ -144,20 +154,22 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
               height: sheetH,
               maxHeight: sheetMaxH,
               paddingBottom: isKeyboardOpen ? 0 : Math.max(insets.bottom, 10),
-              transform: [{ translateY: composedTranslateY }],
             },
+            sheetAnimatedStyle,
           ]}
         >
           <View style={styles.glassUnderlay}>
             <View style={[StyleSheet.absoluteFillObject, styles.glassTint]} />
           </View>
           <View style={styles.keyboardArea}>
-            <View {...panResponder.panHandlers}>
-              <Pressable onPress={() => Keyboard.dismiss()} style={styles.grabberOuter}>
-                <View style={styles.grabberInner} />
-              </Pressable>
-              <Text style={styles.sheetTitle}>Comments</Text>
-            </View>
+            <GestureDetector gesture={panGesture}>
+              <View>
+                <Pressable onPress={() => Keyboard.dismiss()} style={styles.grabberOuter}>
+                  <View style={styles.grabberInner} />
+                </Pressable>
+                <Text style={styles.sheetTitle}>Comments</Text>
+              </View>
+            </GestureDetector>
             <View style={styles.innerClip}>
               <StoryDiscussionPanelInner
                 storyId={storyId}
