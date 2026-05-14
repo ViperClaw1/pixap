@@ -77,13 +77,41 @@ function validateAndRepairShape(raw: unknown, places: PlaceIn[]): AiShape {
   return { message, filters, rerankedPlaceIds, excludedPlaceIds, explanation };
 }
 
-async function callGeminiJson(args: {
+/**
+ * Models are tried in order until `generateContent` succeeds (404/403 → next).
+ * Override order with secret `GEMINI_MODEL` (single id tried first).
+ * @see https://ai.google.dev/api/rest/v1beta/models
+ */
+const MODEL_FALLBACK_CHAIN = [
+  "gemini-2.5-flash",
+  "gemini-3-flash-preview",
+  "gemini-2.5-flash-preview",
+  "gemini-1.5-flash-002",
+  "gemini-1.5-flash-8b",
+  "gemini-2.0-flash-001",
+] as const;
+
+function buildCandidateModels(): string[] {
+  const env = (Deno.env.get("GEMINI_MODEL") ?? "").trim();
+  const out: string[] = [];
+  if (env) out.push(env);
+  for (const m of MODEL_FALLBACK_CHAIN) {
+    if (!out.includes(m)) out.push(m);
+  }
+  return out;
+}
+
+type GeminiTryOk = { kind: "ok"; modelUsed: string; data: unknown };
+type GeminiTryHttp = { kind: "http"; modelId: string; status: number; body: string };
+
+async function tryGeminiGenerate(args: {
   system: string;
   userPayload: string;
   apiKey: string;
-}): Promise<unknown> {
+  modelId: string;
+}): Promise<GeminiTryOk | GeminiTryHttp> {
   const url =
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(args.modelId)}:generateContent`;
   const body = {
     systemInstruction: { parts: [{ text: args.system }] },
     contents: [
@@ -107,30 +135,63 @@ async function callGeminiJson(args: {
   });
   const text = await res.text();
   if (!res.ok) {
-    console.error("[pixai-booking-chat] Gemini HTTP", res.status, text.slice(0, 400));
-    throw new Error(`Gemini error (${res.status})`);
+    return { kind: "http", modelId: args.modelId, status: res.status, body: text.slice(0, 600) };
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(text) as Record<string, unknown>;
   } catch {
-    throw new Error("Invalid Gemini response envelope");
+    return { kind: "http", modelId: args.modelId, status: 502, body: "Invalid Gemini response envelope" };
   }
   const p = parsed as Record<string, unknown>;
   const candidates = p.candidates;
   if (!Array.isArray(candidates) || candidates.length === 0) {
-    throw new Error("No candidates from Gemini");
+    return { kind: "http", modelId: args.modelId, status: 502, body: "No candidates from Gemini" };
   }
   const parts = (candidates[0] as Record<string, unknown>)?.content as Record<string, unknown> | undefined;
   const partsArr = parts?.parts;
   if (!Array.isArray(partsArr) || partsArr.length === 0) {
-    throw new Error("No content parts from Gemini");
+    return { kind: "http", modelId: args.modelId, status: 502, body: "No content parts from Gemini" };
   }
   const t = (partsArr[0] as Record<string, unknown>)?.text;
   if (typeof t !== "string" || !t.trim()) {
-    throw new Error("Empty model text");
+    return { kind: "http", modelId: args.modelId, status: 502, body: "Empty model text" };
   }
-  return extractJsonObject(t);
+  try {
+    const data = extractJsonObject(t);
+    return { kind: "ok", modelUsed: args.modelId, data };
+  } catch {
+    return { kind: "http", modelId: args.modelId, status: 502, body: "Model text was not valid JSON" };
+  }
+}
+
+async function callGeminiJsonWithModelFallback(args: {
+  system: string;
+  userPayload: string;
+  apiKey: string;
+}): Promise<unknown> {
+  const models = buildCandidateModels();
+  let lastHttp: GeminiTryHttp | null = null;
+  for (const modelId of models) {
+    const r = await tryGeminiGenerate({ ...args, modelId });
+    if (r.kind === "ok") {
+      if (modelId !== models[0]) {
+        console.info("[pixai-booking-chat] Gemini model in use:", r.modelUsed);
+      }
+      return r.data;
+    }
+    lastHttp = r;
+    if (r.status !== 404 && r.status !== 403) {
+      console.error("[pixai-booking-chat] Gemini HTTP", r.modelId, r.status, r.body);
+      throw new Error(`Gemini error (${r.status})`);
+    }
+    console.warn("[pixai-booking-chat] Model unavailable, next:", r.modelId, r.status);
+  }
+  if (lastHttp) {
+    console.error("[pixai-booking-chat] All models failed", lastHttp.modelId, lastHttp.status, lastHttp.body);
+    throw new Error(`Gemini error (${lastHttp.status})`);
+  }
+  throw new Error("Gemini: no model candidates");
 }
 
 Deno.serve(async (req) => {
@@ -221,7 +282,7 @@ Output must be a single JSON object with keys: message (string), filters (object
 
     let rawModel: unknown;
     try {
-      rawModel = await callGeminiJson({ system, userPayload, apiKey });
+      rawModel = await callGeminiJsonWithModelFallback({ system, userPayload, apiKey });
     } catch (e) {
       console.error("[pixai-booking-chat] Gemini failed:", (e as Error)?.message ?? e);
       return new Response(

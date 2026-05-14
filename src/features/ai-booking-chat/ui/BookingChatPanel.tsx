@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { Pressable, Text, useWindowDimensions, View, StyleSheet } from "react-native";
-import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
+  StyleSheet,
+} from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ThemeColors } from "@/shared/theme/palettes";
@@ -27,6 +34,8 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const panelH = Math.min(winH * 0.48, 420);
+
+  const safeBottom = Math.max(12, insets.bottom);
 
   const tabs = useBookingChatStore((s) => s.tabs);
   const activeTabId = useBookingChatStore((s) => s.activeTabId);
@@ -118,62 +127,76 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
   if (!open) return null;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.35)" }]} onPress={onClose} />
-      <Animated.View
-        entering={SlideInDown.springify().damping(22).stiffness(220)}
-        exiting={SlideOutDown.duration(180)}
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: panelH + insets.bottom,
-          paddingBottom: Math.max(12, insets.bottom),
-          paddingHorizontal: 12,
-          paddingTop: 10,
-          backgroundColor: colors.card,
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-          borderWidth: 1,
-          borderColor: colors.border,
-          flexDirection: "column",
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-          <Text style={{ color: colors.text, fontWeight: "800", fontSize: 17 }}>Booking assistant</Text>
-          <Pressable accessibilityLabel="Close assistant" onPress={onClose} hitSlop={10}>
-            <Ionicons name="chevron-down" size={26} color={colors.text} />
-          </Pressable>
-        </View>
-
-        <BookingChatTabsStrip
-          tabs={tabs}
-          activeTabId={activeTabId}
-          colors={colors}
-          onSelect={setActiveTab}
-          onAdd={() => addTab(catalogRevision)}
-          onCloseTab={closeTab}
+    <KeyboardAvoidingView
+      style={StyleSheet.absoluteFill}
+      behavior="padding"
+    >
+      <View style={{ flex: 1 }} pointerEvents="box-none">
+        <Pressable
+          style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.35)" }]}
+          onPress={() => {
+            Keyboard.dismiss();
+            onClose();
+          }}
         />
+        <View style={{ flex: 1, justifyContent: "flex-end" }} pointerEvents="box-none">
+          <View
+            style={{
+              height: panelH + safeBottom,
+              paddingHorizontal: 12,
+              paddingTop: 10,
+              paddingBottom: safeBottom,
+              backgroundColor: colors.card,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              borderWidth: 1,
+              borderColor: colors.border,
+              flexDirection: "column",
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <Text style={{ color: colors.text, fontWeight: "800", fontSize: 17 }}>Booking assistant</Text>
+              <Pressable
+                accessibilityLabel="Close assistant"
+                onPress={() => {
+                  Keyboard.dismiss();
+                  onClose();
+                }}
+                hitSlop={10}
+              >
+                <Ionicons name="chevron-down" size={26} color={colors.text} />
+              </Pressable>
+            </View>
 
-        {sendError ? (
-          <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>{sendError}</Text>
-        ) : null}
+            <BookingChatTabsStrip
+              tabs={tabs}
+              activeTabId={activeTabId}
+              colors={colors}
+              onSelect={setActiveTab}
+              onAdd={() => addTab(catalogRevision)}
+              onCloseTab={closeTab}
+            />
 
-        <View style={{ flex: 1, minHeight: 80 }}>
-          <FlashList<BookingChatMessage>
-            data={activeMessages}
-            keyExtractor={(item) => item.id}
-            estimatedItemSize={76}
-            renderItem={renderMessage}
-            contentContainerStyle={{ paddingVertical: 8 }}
-            keyboardShouldPersistTaps="handled"
-          />
+            {sendError ? (
+              <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>{sendError}</Text>
+            ) : null}
+
+            <View style={{ flex: 1, minHeight: 80 }}>
+              <FlashList<BookingChatMessage>
+                data={activeMessages}
+                keyExtractor={(item) => item.id}
+                estimatedItemSize={76}
+                renderItem={renderMessage}
+                contentContainerStyle={{ paddingVertical: 8 }}
+                keyboardShouldPersistTaps="handled"
+              />
+            </View>
+
+            <BookingChatComposer colors={colors} disabled={places.length === 0} sending={isSending} onSend={onSend} />
+          </View>
         </View>
-
-        <BookingChatComposer colors={colors} disabled={places.length === 0} sending={isSending} onSend={onSend} />
-      </Animated.View>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

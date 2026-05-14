@@ -32,7 +32,7 @@ flowchart TB
 ## 3. Gemini и Edge
 
 - Функция: [`supabase/functions/pixai-booking-chat/index.ts`](supabase/functions/pixai-booking-chat/index.ts).
-- Секрет: **`GEMINI_API_KEY`** в настройках проекта Supabase. Без ключа функция возвращает 200 с безопасным текстом и исходным порядком id (без вызова внешнего API).
+- Секрет **`GEMINI_API_KEY`**. Опционально **`GEMINI_MODEL`** (одна модель — первая в очереди). Если она отвечает 404/403, edge перебирает встроенную цепочку (`gemini-2.5-flash` → `gemini-3-flash-preview` → …). Небезверсионные id вроде `gemini-1.5-flash` в v1beta часто недоступны.
 - Клиент: [`invokePixaiBookingChatWithAuth`](src/features/ai-booking-chat/api/invokePixaiBookingChat.ts) + адаптер [`defaultBookingChatProvider`](src/features/ai-booking-chat/api/geminiBookingChatAdapter.ts).
 - Валидация id на сервере: [`validateAndRepairShape`](supabase/functions/pixai-booking-chat/index.ts); на клиенте — [`sanitizeAiBookingChatResult`](src/features/ai-booking-chat/lib/sanitizeAiBookingChatResult.ts).
 
