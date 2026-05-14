@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
   Pressable,
   TextInput,
-  ScrollView,
   Alert,
   ActivityIndicator,
+  Platform,
+  ScrollView,
+  Keyboard,
+  type KeyboardEvent,
 } from "react-native";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
-import { useKeyboardInset } from "@/shared/lib/keyboard";
+import { CommonActions, useFocusEffect, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
@@ -22,8 +24,6 @@ import { usePixAI, type PixAIFlowPayload, type PixAIPlace, type PixAISlot } from
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import { useSubscriptionPaywallRedirect } from "@/features/subscription-paywall-redirect";
-import { CommonActions, useNavigation } from "@react-navigation/native";
-import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import {
   ALL_CITIES_OPTION,
   useAvailableCities,
@@ -60,12 +60,14 @@ import {
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { useShallow } from "zustand/react/shallow";
 import {
-  BookingChatDock,
+  BookingInlineAssistantChat,
   buildBookingContextFromPage,
   buildEffectivePlaces,
   useBookingChatStore,
+  type BookingInlineThreadStyles,
   type BookingRecommendationView,
 } from "@/features/ai-booking-chat";
+import { createMessageThreadStyles } from "@/pages/message-thread/ui/messageThreadStyles";
 
 const DEFAULT_BOOKING_REC_VIEW: BookingRecommendationView = {
   rerankedPlaceIds: [],
@@ -93,12 +95,92 @@ const validationSchema = {
 
 export default function AIBookingPage() {
   const insets = useSafeAreaInsets();
-  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
-  const keyboardRootStyle = useAnimatedStyle(
-    () => ({ paddingBottom: keyboardInset.value }),
-    [keyboardInset],
+  const stableBottomInsetRef = useRef(Math.max(insets.bottom, 12));
+  if (insets.bottom > stableBottomInsetRef.current) {
+    stableBottomInsetRef.current = insets.bottom;
+  }
+  const stableBottomInset = stableBottomInsetRef.current;
+  const bookingComposerScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bookingComposerFocusedRef = useRef(false);
+  const bookingScrollRef = useRef<ScrollView>(null);
+  const bookingScrollYRef = useRef(0);
+  const bookingScrollLayoutRef = useRef({ viewH: 0, contentH: 0 });
+  const bookingComposerInputRef = useRef<TextInput>(null);
+  const keyboardTopScreenRef = useRef<number | null>(null);
+
+  const scrollBookingContentToUncoverComposer = useCallback(() => {
+    if (!bookingComposerFocusedRef.current) return;
+    const keyboardTop = keyboardTopScreenRef.current;
+    if (keyboardTop == null) return;
+    const input = bookingComposerInputRef.current;
+    if (!input) return;
+    const margin = 12;
+    input.measureInWindow((_x, y, _w, h) => {
+      const bottom = y + h;
+      const overlap = bottom - (keyboardTop - margin);
+      if (overlap <= 0) return;
+      const { viewH, contentH } = bookingScrollLayoutRef.current;
+      const maxY = Math.max(0, contentH - viewH);
+      const nextY = Math.min(maxY, bookingScrollYRef.current + overlap);
+      if (nextY <= bookingScrollYRef.current + 0.5) return;
+      bookingScrollRef.current?.scrollTo({ y: nextY, animated: true });
+    });
+  }, []);
+
+  useEffect(() => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const onShow = (e: KeyboardEvent) => {
+      const { height, screenY } = e.endCoordinates;
+      if (!height || height < 1) {
+        keyboardTopScreenRef.current = null;
+        return;
+      }
+      keyboardTopScreenRef.current = screenY;
+      scrollBookingContentToUncoverComposer();
+    };
+    const onHide = () => {
+      keyboardTopScreenRef.current = null;
+    };
+    const subShow = Keyboard.addListener(showEvt, onShow);
+    const subHide = Keyboard.addListener(hideEvt, onHide);
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, [scrollBookingContentToUncoverComposer]);
+
+  const onBookingComposerInputFocus = useCallback(() => {
+    bookingComposerFocusedRef.current = true;
+    const prev = bookingComposerScrollTimeoutRef.current;
+    if (prev != null) clearTimeout(prev);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollBookingContentToUncoverComposer();
+      });
+    });
+    bookingComposerScrollTimeoutRef.current = setTimeout(() => {
+      bookingComposerScrollTimeoutRef.current = null;
+      scrollBookingContentToUncoverComposer();
+    }, 280);
+  }, [scrollBookingContentToUncoverComposer]);
+
+  const onBookingComposerInputBlur = useCallback(() => {
+    bookingComposerFocusedRef.current = false;
+    const pending = bookingComposerScrollTimeoutRef.current;
+    if (pending != null) {
+      clearTimeout(pending);
+      bookingComposerScrollTimeoutRef.current = null;
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      useBookingChatStore.getState().resetBookingSessionForScreenEntry();
+    }, []),
   );
-  const { colors } = useAppTheme();
+
+  const { colors, mode } = useAppTheme();
   const { user, session, loading: authLoading } = useAuth();
   const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
   const shouldEnforcePaywall = !__DEV__ && Constants.appOwnership !== "expo";
@@ -176,6 +258,24 @@ export default function AIBookingPage() {
   const stylesThemed = useMemo(
     () => createAIBookingStyles(colors, { top: insets.top, bottom: insets.bottom }),
     [colors, insets.bottom, insets.top],
+  );
+
+  const messageThreadStyles = useMemo(
+    () => createMessageThreadStyles(colors, mode, insets.top, stableBottomInset),
+    [colors, mode, insets.top, stableBottomInset],
+  );
+
+  const inlineBubbleStyles = useMemo(
+    (): BookingInlineThreadStyles => ({
+      bubbleWrapMine: messageThreadStyles.bubbleWrapMine,
+      bubbleWrapPeer: messageThreadStyles.bubbleWrapPeer,
+      bubble: messageThreadStyles.bubble,
+      bubbleMine: messageThreadStyles.bubbleMine,
+      bubblePeer: messageThreadStyles.bubblePeer,
+      bubbleTextMine: messageThreadStyles.bubbleTextMine,
+      bubbleTextPeer: messageThreadStyles.bubbleTextPeer,
+    }),
+    [messageThreadStyles],
   );
 
   useEffect(() => {
@@ -266,28 +366,27 @@ export default function AIBookingPage() {
 
   const isRestaurantTable = selectedCategoryId === RESTAURANT_TABLE_KEY;
 
-  const bookingChatContext = useMemo(
-    () =>
-      buildBookingContextFromPage({
-        city: selectedCity,
-        categoryLabel: isRestaurantTable ? "Restaurant table" : selectedCategoryName || "Service",
-        scopeLabel: scope === "nearby" ? "Near me (5 miles)" : "All places in city",
-        requestComment: requestComment.trim() || undefined,
-        selectedPlace,
-        bookingDateYmd,
-        selectedSlot,
-      }),
-    [
-      selectedCity,
-      isRestaurantTable,
-      selectedCategoryName,
-      scope,
-      requestComment,
+  const bookingChatContext = useMemo(() => {
+    if (!selectedCity?.trim() || selectedCity === ALL_CITIES_OPTION) return null;
+    return buildBookingContextFromPage({
+      city: selectedCity,
+      categoryLabel: isRestaurantTable ? "Restaurant table" : selectedCategoryName || "Service",
+      scopeLabel: scope === "nearby" ? "Near me (5 miles)" : "All places in city",
+      requestComment: requestComment.trim() || undefined,
       selectedPlace,
       bookingDateYmd,
-      selectedSlot,
-    ],
-  );
+      selectedSlot: selectedSlot ? { label: selectedSlot.label } : null,
+    });
+  }, [
+    selectedCity,
+    isRestaurantTable,
+    selectedCategoryName,
+    scope,
+    requestComment,
+    selectedPlace,
+    bookingDateYmd,
+    selectedSlot,
+  ]);
 
   const selectedCategoryRow = categories.find((c) => c.id === selectedCategoryId);
   const categoryDropdownLabel = isRestaurantTable
@@ -360,14 +459,22 @@ export default function AIBookingPage() {
     };
 
     try {
-      await runFlow(payload);
+      const result = await runFlow(payload);
+      const placeCount = result.places?.length ?? 0;
+      const scopeText = scope === "nearby" ? "Near me (5 miles)" : "All places in my city";
+      const requestType = isRestaurantTable ? "Restaurant table" : selectedCategoryName || "places";
+      const resultsLine = `I found ${placeCount} ${requestType} ${scopeText}. Pick one and I will suggest the best available slots.`;
+
       setHasSearched(true);
       setCurrentStep("places");
+      let nextRev = 0;
       setCatalogRevision((prev) => {
-        const next = prev + 1;
-        useBookingChatStore.getState().bumpCatalogRevision(next);
-        return next;
+        nextRev = prev + 1;
+        return nextRev;
       });
+      setTimeout(() => {
+        useBookingChatStore.getState().bumpCatalogRevisionWithOpening(nextRev, resultsLine);
+      }, 0);
     } catch (error) {
       if (isAuthRequiredError(error)) {
         navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
@@ -524,8 +631,29 @@ export default function AIBookingPage() {
 
   return (
     <View style={stylesThemed.root} {...androidSwipeBackPanHandlers}>
-      <Animated.View style={[stylesThemed.root, keyboardRootStyle]}>
-      <ScrollView style={stylesThemed.root} contentContainerStyle={stylesThemed.scroll}>
+      <ScrollView
+        ref={bookingScrollRef}
+        style={stylesThemed.root}
+        contentContainerStyle={stylesThemed.scroll}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          bookingScrollYRef.current = e.nativeEvent.contentOffset.y;
+        }}
+        onLayout={(e) => {
+          bookingScrollLayoutRef.current = {
+            ...bookingScrollLayoutRef.current,
+            viewH: e.nativeEvent.layout.height,
+          };
+        }}
+        onContentSizeChange={(_w, h) => {
+          bookingScrollLayoutRef.current = {
+            ...bookingScrollLayoutRef.current,
+            contentH: h,
+          };
+        }}
+      >
         <View style={stylesThemed.semanticSection}>
           <View style={stylesThemed.topRow}>
             <Pressable style={stylesThemed.backBtn} onPress={() => navigation.goBack()}>
@@ -636,6 +764,25 @@ export default function AIBookingPage() {
 
         <AIBookingTranscript messages={messages} styles={stylesThemed} />
 
+        {(currentStep === "places" || currentStep === "booking") &&
+        hasSearched &&
+        placeOptions.length > 0 &&
+        bookingChatContext ? (
+          <View style={stylesThemed.semanticSection}>
+            <Text style={stylesThemed.stepTitle}>Step 4. Pix AI assistant</Text>
+            <BookingInlineAssistantChat
+              catalogRevision={catalogRevision}
+              bookingContext={bookingChatContext}
+              places={placeOptions}
+              colors={colors}
+              threadStyles={inlineBubbleStyles}
+              composerInputRef={bookingComposerInputRef}
+              onComposerInputFocus={onBookingComposerInputFocus}
+              onComposerInputBlur={onBookingComposerInputBlur}
+            />
+          </View>
+        ) : null}
+
         {(currentStep === "places" || currentStep === "booking") && hasSearched && placeOptions.length > 0 ? (
           <AIBookingSuggestedPlaces
             styles={stylesThemed}
@@ -680,6 +827,28 @@ export default function AIBookingPage() {
           />
         ) : null}
       </ScrollView>
+
+      <View style={stylesThemed.footer}>
+        <View style={stylesThemed.row}>
+          {currentStep !== "city" ? (
+            <Pressable
+              style={[stylesThemed.secondaryBtn, { flex: 1 }]}
+              onPress={() =>
+                setCurrentStep((step) =>
+                  step === "booking" ? "places" : step === "places" ? "scope" : step === "scope" ? "category" : "city",
+                )
+              }
+            >
+              <Text style={stylesThemed.secondaryBtnText}>Back step</Text>
+            </Pressable>
+          ) : null}
+          {currentStep === "places" ? (
+            <Pressable style={[stylesThemed.primaryBtn, { flex: 1 }]} onPress={() => setCurrentStep("scope")}>
+              <Text style={stylesThemed.primaryBtnText}>Refine search</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
 
       <BottomSheetPickerModal
         visible={cityPickerVisible}
@@ -786,44 +955,6 @@ export default function AIBookingPage() {
           {isRestaurantTable ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
         </Pressable>
       </BottomSheetPickerModal>
-
-      <View style={stylesThemed.footer}>
-        <View style={stylesThemed.row}>
-          {currentStep !== "city" ? (
-            <Pressable
-              style={[stylesThemed.secondaryBtn, { flex: 1 }]}
-              onPress={() =>
-                setCurrentStep((step) =>
-                  step === "booking" ? "places" : step === "places" ? "scope" : step === "scope" ? "category" : "city",
-                )
-              }
-            >
-              <Text style={stylesThemed.secondaryBtnText}>Back step</Text>
-            </Pressable>
-          ) : null}
-          {currentStep === "places" ? (
-            <Pressable style={[stylesThemed.primaryBtn, { flex: 1 }]} onPress={() => setCurrentStep("scope")}>
-              <Text style={stylesThemed.primaryBtnText}>Refine search</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-      </Animated.View>
-
-      <BookingChatDock
-        visible={
-          currentStep === "booking" &&
-          Boolean(selectedPlace) &&
-          Boolean(bookingChatContext) &&
-          hasSearched &&
-          placeOptions.length > 0
-        }
-        catalogRevision={catalogRevision}
-        bookingContext={bookingChatContext}
-        places={placeOptions}
-        colors={colors}
-        fabBottomOffset={58 + Math.max(10, insets.bottom)}
-      />
     </View>
   );
 }

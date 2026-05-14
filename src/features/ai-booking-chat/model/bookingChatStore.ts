@@ -1,4 +1,7 @@
 import { create } from "zustand";
+import { clearBookingOpeningTypewriterRegistry } from "../lib/bookingOpeningTypewriterRegistry";
+import { buildAssistantReplyText } from "../lib/buildAssistantReplyText";
+import { BOOKING_ASSISTANT_GREETING } from "./constants";
 import type {
   AiBookingChatResult,
   BookingChatContext,
@@ -20,18 +23,14 @@ function newTabId(): string {
   return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-const DEFAULT_GREETING =
-  "I can refine this list using only the places shown — tell me vibe, budget, or must-haves.";
+function assistantMsg(id: string, content: string, createdAt: number): BookingChatMessage {
+  return { id, role: "assistant", content, createdAt };
+}
 
 function createTab(catalogRevision: number, title?: string): BookingChatTab {
   const id = newTabId();
   const now = Date.now();
-  const greeting: BookingChatMessage = {
-    id: `m-${now}`,
-    role: "assistant",
-    content: DEFAULT_GREETING,
-    createdAt: now,
-  };
+  const greeting = assistantMsg(`m-${now}`, BOOKING_ASSISTANT_GREETING, now);
   return {
     id,
     title: title ?? "Chat",
@@ -44,16 +43,17 @@ function createTab(catalogRevision: number, title?: string): BookingChatTab {
 }
 
 export type BookingChatStore = {
-  panelOpen: boolean;
   catalogRevision: number;
   tabs: BookingChatTab[];
   activeTabId: string | null;
   sendError: string | null;
   isSending: boolean;
-
+  /** Bottom-sheet assistant (FAB) visibility */
+  panelOpen: boolean;
   setPanelOpen: (open: boolean) => void;
-  /** Called from page when a new place search completes */
-  bumpCatalogRevision: (next: number) => void;
+
+  /** After a new place search: bump revision, reset recommendations, seed opening messages on active tab */
+  bumpCatalogRevisionWithOpening: (next: number, resultsScanLine: string) => void;
   ensureActiveTab: (catalogRevision: number) => void;
   addTab: (catalogRevision: number) => void;
   closeTab: (tabId: string) => void;
@@ -62,29 +62,79 @@ export type BookingChatStore = {
   appendUserMessage: (tabId: string, text: string) => void;
   appendAssistantMessage: (tabId: string, text: string) => void;
   applyAiResult: (tabId: string, result: AiBookingChatResult, catalogRevision: number) => void;
+  /** Empty assistant bubble; returns message id for streaming patches. */
+  appendAssistantShellForStream: (tabId: string) => string;
+  patchAssistantMessageContent: (tabId: string, messageId: string, content: string) => void;
+  finalizeAssistantStream: (tabId: string, messageId: string, result: AiBookingChatResult, catalogRevision: number) => void;
   setSendState: (patch: { isSending?: boolean; sendError?: string | null }) => void;
+  /** Clears tabs when user opens Pix AI Smart Booking again (fresh assistant session). */
+  resetBookingSessionForScreenEntry: () => void;
 };
 
 export const useBookingChatStore = create<BookingChatStore>((set) => ({
-  panelOpen: false,
   catalogRevision: 0,
   tabs: [],
   activeTabId: null,
   sendError: null,
   isSending: false,
+  panelOpen: false,
 
   setPanelOpen: (open) => set({ panelOpen: open }),
 
-  bumpCatalogRevision: (next) =>
+  resetBookingSessionForScreenEntry: () => {
+    clearBookingOpeningTypewriterRegistry();
+    set({
+      tabs: [],
+      activeTabId: null,
+      sendError: null,
+      isSending: false,
+      panelOpen: false,
+      /** Сбрасываем вместе с вкладками — иначе после повторного входа bump с тем же next, что в store, выходит раньше времени и не создаёт чат. */
+      catalogRevision: 0,
+    });
+  },
+
+  bumpCatalogRevisionWithOpening: (next, resultsScanLine) =>
     set((s) => {
-      if (next === s.catalogRevision) return s;
+      // Не дублировать тот же bump при уже заполненных вкладках; если вкладок нет — всегда сидируем (после reset / рассинхрона с локальным state страницы).
+      if (next === s.catalogRevision && s.tabs.length > 0) return s;
+      const now = Date.now();
+      const pair: BookingChatMessage[] = [
+        assistantMsg(`a-${now}-1`, BOOKING_ASSISTANT_GREETING, now),
+        assistantMsg(`a-${now}-2`, resultsScanLine, now + 1),
+      ];
+
+      if (s.tabs.length === 0) {
+        const id = newTabId();
+        const tab: BookingChatTab = {
+          id,
+          title: "Chat",
+          createdAt: now,
+          updatedAt: now,
+          messages: pair,
+          recommendationView: emptyView(),
+          catalogRevision: next,
+        };
+        return { tabs: [tab], activeTabId: id, catalogRevision: next, sendError: null };
+      }
+
+      const activeId =
+        s.activeTabId && s.tabs.some((t) => t.id === s.activeTabId) ? s.activeTabId! : s.tabs[0]!.id;
+
       return {
         catalogRevision: next,
-        tabs: s.tabs.map((t) => ({
-          ...t,
-          catalogRevision: next,
-          recommendationView: emptyView(),
-        })),
+        tabs: s.tabs.map((t) => {
+          const isActive = t.id === activeId;
+          return {
+            ...t,
+            catalogRevision: next,
+            recommendationView: emptyView(),
+            messages: isActive
+              ? pair
+              : [assistantMsg(`a-${now}-g-${t.id}`, BOOKING_ASSISTANT_GREETING, now)],
+            updatedAt: now,
+          };
+        }),
       };
     }),
 
@@ -164,12 +214,63 @@ export const useBookingChatStore = create<BookingChatStore>((set) => ({
     }));
   },
 
+  appendAssistantShellForStream: (tabId) => {
+    const now = Date.now();
+    const id =
+      typeof globalThis.crypto?.randomUUID === "function"
+        ? `a-stream-${globalThis.crypto.randomUUID()}`
+        : `a-stream-${now}-${Math.random().toString(36).slice(2, 9)}`;
+    const msg: BookingChatMessage = { id, role: "assistant", content: "", createdAt: now };
+    set((s) => ({
+      tabs: s.tabs.map((t) =>
+        t.id === tabId ? { ...t, messages: [...t.messages, msg], updatedAt: now } : t,
+      ),
+    }));
+    return id;
+  },
+
+  patchAssistantMessageContent: (tabId, messageId, content) => {
+    const now = Date.now();
+    set((s) => ({
+      tabs: s.tabs.map((t) => {
+        if (t.id !== tabId) return t;
+        return {
+          ...t,
+          messages: t.messages.map((m) => (m.id === messageId ? { ...m, content } : m)),
+          updatedAt: now,
+        };
+      }),
+    }));
+  },
+
+  finalizeAssistantStream: (tabId, messageId, result, catalogRevision) => {
+    const now = Date.now();
+    const assistantText = buildAssistantReplyText(result);
+    set((s) => ({
+      tabs: s.tabs.map((t) =>
+        t.id === tabId
+          ? {
+              ...t,
+              messages: t.messages.map((m) =>
+                m.id === messageId ? { ...m, content: assistantText, createdAt: m.createdAt } : m,
+              ),
+              updatedAt: now,
+              catalogRevision,
+              recommendationView: {
+                rerankedPlaceIds: result.rerankedPlaceIds,
+                excludedPlaceIds: result.excludedPlaceIds,
+                filters: result.filters ?? {},
+              },
+            }
+          : t,
+      ),
+      catalogRevision,
+    }));
+  },
+
   applyAiResult: (tabId, result, catalogRevision) => {
     const now = Date.now();
-    const assistantText =
-      result.explanation && result.explanation.trim().length > 0
-        ? `${result.message}\n\n${result.explanation}`
-        : result.message;
+    const assistantText = buildAssistantReplyText(result);
     const msg: BookingChatMessage = {
       id: `a-${now}`,
       role: "assistant",
@@ -212,14 +313,15 @@ export function buildBookingContextFromPage(input: {
   bookingDateYmd: string | null;
   selectedSlot: { label: string } | null;
 }): BookingChatContext | null {
-  if (!input.selectedPlace) return null;
+  if (!input.city?.trim()) return null;
+  const sel = input.selectedPlace;
   return {
-    city: input.city,
+    city: input.city.trim(),
     categoryLabel: input.categoryLabel,
     scopeLabel: input.scopeLabel,
     requestComment: input.requestComment,
-    selectedPlaceId: input.selectedPlace.id,
-    selectedPlaceName: input.selectedPlace.name,
+    selectedPlaceId: sel?.id ?? "",
+    selectedPlaceName: sel?.name ?? "",
     bookingDateYmd: input.bookingDateYmd,
     selectedSlotLabel: input.selectedSlot?.label ?? null,
   };

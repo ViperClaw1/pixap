@@ -72,7 +72,7 @@ export function createMessageThreadStyles(
     bubbleWrapMine: { alignItems: "flex-end" },
     bubbleWrapPeer: { alignItems: "flex-start" },
     bubble: {
-      width: "80%",
+      maxWidth: "80%",
       borderRadius: 14,
       paddingHorizontal: 12,
       paddingVertical: 8,
@@ -89,12 +89,77 @@ export function createMessageThreadStyles(
     },
     bubbleTextMine: { color: colors.onPrimary, fontSize: 15, lineHeight: 20 },
     bubbleTextPeer: { color: colors.text, fontSize: 15, lineHeight: 20 },
-    bubbleAttachments: { marginTop: 8, flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    bubbleAttachments: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    bubbleAttachmentsMine: { justifyContent: "flex-end" },
+    /** Медиа + текст: внешняя оболочка — maxWidth + прижатие к краю; ширина по контенту внутри */
+    bubbleMediaShellMine: { maxWidth: "80%", alignSelf: "flex-end" },
+    bubbleMediaShellPeer: { maxWidth: "80%", alignSelf: "flex-start" },
+    /** Карточка внутри shell: без maxWidth, колонка растягивает детей по ширине контента */
+    bubbleRichMessageCard: {
+      borderRadius: 14,
+      overflow: "hidden",
+      alignItems: "stretch",
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+    },
+    bubbleAttachmentsBleed: { alignSelf: "stretch", gap: 4 },
+    bubblePaddedFooter: {
+      paddingHorizontal: 12,
+      paddingTop: 8,
+      paddingBottom: 8,
+      paddingRight: 12,
+    },
+    /** Одно фото/видео + подпись — верх совпадает со скруглением пузыря (хвост у исходящих справа) */
+    bubbleAttachmentBleedSingleMine: {
+      alignSelf: "stretch",
+      minWidth: 160,
+      height: 200,
+      backgroundColor: colors.surface,
+      borderWidth: 0,
+      borderRadius: 0,
+      borderTopLeftRadius: 14,
+      borderTopRightRadius: 6,
+    },
+    bubbleAttachmentBleedSinglePeer: {
+      alignSelf: "stretch",
+      minWidth: 160,
+      height: 200,
+      backgroundColor: colors.surface,
+      borderWidth: 0,
+      borderRadius: 0,
+      borderTopLeftRadius: 6,
+      borderTopRightRadius: 14,
+    },
+    /** Сообщения только со стикером / вложениями — без цветного пузыря */
+    bareMediaAttachments: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      maxWidth: "82%",
+    },
+    bareMediaAttachmentsMine: { alignSelf: "flex-end", justifyContent: "flex-end" },
+    bareMediaAttachmentsPeer: { alignSelf: "flex-start", justifyContent: "flex-start" },
     bubbleAttachmentImage: {
       width: 160,
       height: 160,
       borderRadius: 10,
       backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    bubbleAttachmentSticker: {
+      width: 80,
+      height: 80,
+      borderRadius: 12,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    bubbleAttachmentPlaceholder: {
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     bubbleMetaRow: {
       marginTop: 4,
@@ -104,9 +169,13 @@ export function createMessageThreadStyles(
     },
     bubbleMetaRowMine: { alignSelf: "flex-end" },
     bubbleMetaRowPeer: { alignSelf: "flex-start" },
+    /** Метаданные под «голым» медиа (не на цветном пузыре) */
+    bubbleMetaRowBareMine: { alignSelf: "flex-end", marginTop: 4 },
+    bubbleMetaRowBarePeer: { alignSelf: "flex-start", marginTop: 4 },
     bubbleMeta: { fontSize: 11 },
     bubbleMetaMine: { color: mode === "dark" ? "rgba(17,24,39,0.78)" : "rgba(255,255,255,0.72)" },
     bubbleMetaPeer: { color: mode === "dark" ? "rgba(255,255,255,0.52)" : "rgba(17,24,39,0.48)" },
+    bubbleMetaBare: { color: colors.textMuted },
     readIndicator: { marginTop: 0.5 },
     reactionRow: { marginTop: 5, flexDirection: "row", flexWrap: "wrap", gap: 6 },
     reactionChip: {
@@ -208,6 +277,10 @@ export function createMessageThreadStyles(
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
+    },
+    attachmentThumbPlaceholder: {
+      alignItems: "center",
+      justifyContent: "center",
     },
     attachmentRemove: {
       position: "absolute",
