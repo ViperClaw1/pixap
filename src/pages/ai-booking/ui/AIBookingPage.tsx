@@ -523,7 +523,8 @@ export default function AIBookingPage() {
   }
 
   return (
-    <Animated.View style={[stylesThemed.root, keyboardRootStyle]} {...androidSwipeBackPanHandlers}>
+    <View style={stylesThemed.root} {...androidSwipeBackPanHandlers}>
+      <Animated.View style={[stylesThemed.root, keyboardRootStyle]}>
       <ScrollView style={stylesThemed.root} contentContainerStyle={stylesThemed.scroll}>
         <View style={stylesThemed.semanticSection}>
           <View style={stylesThemed.topRow}>
@@ -807,6 +808,7 @@ export default function AIBookingPage() {
           ) : null}
         </View>
       </View>
+      </Animated.View>
 
       <BookingChatDock
         visible={
@@ -822,6 +824,6 @@ export default function AIBookingPage() {
         colors={colors}
         fabBottomOffset={58 + Math.max(10, insets.bottom)}
       />
-    </Animated.View>
+    </View>
   );
 }
