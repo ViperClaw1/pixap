@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Text, type TextStyle } from "react-native";
+import { Text, type StyleProp, type TextStyle } from "react-native";
 import {
   isBookingOpeningTypewriterComplete,
   markBookingOpeningTypewriterComplete,
@@ -9,7 +9,7 @@ import { scheduleBookingChatLayoutAnimation } from "../lib/scheduleBookingChatLa
 
 type Props = {
   fullText: string;
-  textStyle: TextStyle;
+  textStyle: StyleProp<TextStyle>;
   tickMs?: number;
   /** When set, typewriter runs once per key (e.g. message id); later mounts show full text immediately. */
   runOnceKey?: string;

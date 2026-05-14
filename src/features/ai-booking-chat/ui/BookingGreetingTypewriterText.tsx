@@ -1,9 +1,9 @@
-import type { TextStyle } from "react-native";
+import type { StyleProp, TextStyle } from "react-native";
 import { BOOKING_ASSISTANT_GREETING } from "../model/constants";
 import { BookingTypewriterText } from "./BookingTypewriterText";
 
 type Props = {
-  textStyle: TextStyle;
+  textStyle: StyleProp<TextStyle>;
   /** Assistant message id — animation plays once per message until session reset. */
   runOnceKey: string;
 };
