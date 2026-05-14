@@ -63,6 +63,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...googleMapsConfig,
     },
     package: "com.pixap.pixap",
+    softwareKeyboardLayoutMode: "resize",
     adaptiveIcon: {
       backgroundColor: "#ffffff",
       foregroundImage: "./assets/icon.png",
@@ -122,6 +123,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         sounds: [],
       },
     ],
+    "expo-video",
   ],
   extra: {
     ...config.extra,

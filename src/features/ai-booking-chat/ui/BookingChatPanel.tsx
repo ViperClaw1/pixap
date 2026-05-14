@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo } from "react";
 import {
   Keyboard,
-  KeyboardAvoidingView,
+  type KeyboardEvent,
+  Platform,
   Pressable,
   Text,
   useWindowDimensions,
@@ -10,13 +11,25 @@ import {
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import { Ionicons } from "@expo/vector-icons";
 import type { BookingChatContext, BookingChatMessage } from "../model/types";
 import type { PixAIPlace } from "@/entities/pixai";
 import { useBookingChatStore } from "../model/bookingChatStore";
-import { defaultBookingChatProvider } from "../api/geminiBookingChatAdapter";
-import { sanitizeAiBookingChatResult } from "../lib/sanitizeAiBookingChatResult";
+import { executeBookingAssistantTurn } from "../lib/executeBookingAssistantTurn";
+import type { BookingChatListRow } from "../lib/flattenChainedOpeningMessages";
+import { bookingChatListRowKey, flattenChainedOpeningMessages } from "../lib/flattenChainedOpeningMessages";
+import { BookingChainedOpeningAssistantPair } from "./BookingChainedOpeningAssistantPair";
 import { BookingChatComposer } from "./BookingChatComposer";
 import { BookingChatMessageRow } from "./BookingChatMessageRow";
 import { BookingChatTabsStrip } from "./BookingChatTabsStrip";
@@ -30,12 +43,18 @@ type PanelProps = {
   colors: ThemeColors;
 };
 
+const SPRING_OPEN = { damping: 22, stiffness: 220, mass: 0.75 } as const;
+
 function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, places, colors }: PanelProps) {
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const panelH = Math.min(winH * 0.48, 420);
-
   const safeBottom = Math.max(12, insets.bottom);
+  const sheetOffY = useMemo(() => Math.min(winH * 0.65, panelH + safeBottom + 120), [winH, panelH, safeBottom]);
+
+  const translateY = useSharedValue(sheetOffY);
+  const keyboardOffset = useSharedValue(0);
+  const panStartY = useSharedValue(0);
 
   const tabs = useBookingChatStore((s) => s.tabs);
   const activeTabId = useBookingChatStore((s) => s.activeTabId);
@@ -47,18 +66,46 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
     return t?.messages ?? [];
   }, [tabs, activeTabId]);
 
+  const listRows = useMemo(() => flattenChainedOpeningMessages(activeMessages), [activeMessages]);
+
   const ensureActiveTab = useBookingChatStore((s) => s.ensureActiveTab);
   const addTab = useBookingChatStore((s) => s.addTab);
   const closeTab = useBookingChatStore((s) => s.closeTab);
   const setActiveTab = useBookingChatStore((s) => s.setActiveTab);
-  const appendUserMessage = useBookingChatStore((s) => s.appendUserMessage);
-  const applyAiResult = useBookingChatStore((s) => s.applyAiResult);
-  const appendAssistantMessage = useBookingChatStore((s) => s.appendAssistantMessage);
-  const setSendState = useBookingChatStore((s) => s.setSendState);
 
   useEffect(() => {
     if (open) ensureActiveTab(catalogRevision);
   }, [open, catalogRevision, ensureActiveTab]);
+
+  useEffect(() => {
+    if (open) {
+      translateY.value = withSpring(0, SPRING_OPEN);
+    } else {
+      translateY.value = withTiming(sheetOffY, { duration: 260 });
+    }
+  }, [open, sheetOffY, translateY]);
+
+  useEffect(() => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const onShow = (e: KeyboardEvent) => {
+      const h = e.endCoordinates.height;
+      const duration =
+        Platform.OS === "ios" && typeof e.duration === "number" && e.duration > 0 ? e.duration : 240;
+      keyboardOffset.value = withTiming(h, { duration: Math.max(120, duration) });
+    };
+    const onHide = (e: KeyboardEvent) => {
+      const duration =
+        Platform.OS === "ios" && typeof e.duration === "number" && e.duration > 0 ? e.duration : 200;
+      keyboardOffset.value = withTiming(0, { duration: Math.max(100, duration) });
+    };
+    const subShow = Keyboard.addListener(showEvt, onShow);
+    const subHide = Keyboard.addListener(hideEvt, onHide);
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, [keyboardOffset]);
 
   const placeLite = useMemo(
     () =>
@@ -75,7 +122,19 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
   const orderedIds = useMemo(() => places.map((p) => p.id), [places]);
 
   const renderMessage = useCallback(
-    ({ item }: { item: BookingChatMessage }) => <BookingChatMessageRow item={item} colors={colors} />,
+    ({ item }: { item: BookingChatListRow }) => {
+      if (item.kind === "chained_opening") {
+        return (
+          <BookingChainedOpeningAssistantPair
+            variant="panel"
+            colors={colors}
+            first={item.first}
+            second={item.second}
+          />
+        );
+      }
+      return <BookingChatMessageRow item={item.item} colors={colors} />;
+    },
     [colors],
   );
 
@@ -93,58 +152,74 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
         )
         .map((m: BookingChatMessage & { role: "user" | "assistant" }) => ({ role: m.role, content: m.content }));
 
-      appendUserMessage(tabId, text);
-      setSendState({ isSending: true, sendError: null });
-      try {
-        const raw = await defaultBookingChatProvider.sendTurn({
-          bookingContext,
-          places: placeLite,
-          history: prior,
-          userText: text,
-        });
-        const safe = sanitizeAiBookingChatResult(raw, orderedIds);
-        applyAiResult(tabId, safe, catalogRevision);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "Request failed";
-        appendAssistantMessage(tabId, `Sorry — ${msg}. Your place list was not changed.`);
-        setSendState({ sendError: msg });
-      } finally {
-        setSendState({ isSending: false });
-      }
+      await executeBookingAssistantTurn({
+        tabId,
+        userText: text,
+        catalogRevision,
+        bookingContext,
+        places: placeLite,
+        orderedIds,
+        prior,
+      });
     },
-    [
-      appendUserMessage,
-      appendAssistantMessage,
-      applyAiResult,
-      bookingContext,
-      catalogRevision,
-      orderedIds,
-      placeLite,
-      setSendState,
-    ],
+    [bookingContext, catalogRevision, orderedIds, placeLite],
   );
 
-  if (!open) return null;
+  const requestClose = useCallback(() => {
+    Keyboard.dismiss();
+    onClose();
+  }, [onClose]);
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(open)
+        .activeOffsetY(12)
+        .failOffsetX([-32, 32])
+        .onStart(() => {
+          panStartY.value = translateY.value;
+        })
+        .onUpdate((e) => {
+          const y = Math.max(0, panStartY.value + e.translationY);
+          translateY.value = y;
+        })
+        .onEnd((e) => {
+          const dismiss = translateY.value > 100 || e.velocityY > 900;
+          if (dismiss) {
+            runOnJS(requestClose)();
+          } else {
+            translateY.value = withSpring(0, SPRING_OPEN);
+          }
+        }),
+    [open, panStartY, requestClose],
+  );
+
+  const backdropStyle = useAnimatedStyle(() => {
+    const o = interpolate(translateY.value, [0, sheetOffY * 0.5], [0.35, 0], Extrapolation.CLAMP);
+    return { opacity: o };
+  }, [sheetOffY]);
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value - keyboardOffset.value }],
+  }));
 
   return (
-    <KeyboardAvoidingView
-      style={StyleSheet.absoluteFill}
-      behavior="padding"
-    >
-      <View style={{ flex: 1 }} pointerEvents="box-none">
+    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+      <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]} pointerEvents={open ? "auto" : "none"}>
         <Pressable
-          style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.35)" }]}
-          onPress={() => {
-            Keyboard.dismiss();
-            onClose();
-          }}
+          style={StyleSheet.absoluteFill}
+          onPress={requestClose}
+          accessibilityLabel="Dismiss booking assistant"
         />
-        <View style={{ flex: 1, justifyContent: "flex-end" }} pointerEvents="box-none">
-          <View
-            style={{
+      </Animated.View>
+
+      <View style={{ flex: 1, justifyContent: "flex-end" }} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            {
               height: panelH + safeBottom,
               paddingHorizontal: 12,
-              paddingTop: 10,
+              paddingTop: 6,
               paddingBottom: safeBottom,
               backgroundColor: colors.card,
               borderTopLeftRadius: 16,
@@ -152,53 +227,75 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
               borderWidth: 1,
               borderColor: colors.border,
               flexDirection: "column",
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <Text style={{ color: colors.text, fontWeight: "800", fontSize: 17 }}>Booking assistant</Text>
-              <Pressable
-                accessibilityLabel="Close assistant"
-                onPress={() => {
-                  Keyboard.dismiss();
-                  onClose();
-                }}
-                hitSlop={10}
-              >
-                <Ionicons name="chevron-down" size={26} color={colors.text} />
-              </Pressable>
+            },
+            sheetStyle,
+          ]}
+          pointerEvents={open ? "auto" : "none"}
+        >
+          <GestureDetector gesture={panGesture}>
+            <View style={styles.sheetHandleZone}>
+              <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+              <View style={styles.sheetHeaderRow}>
+                <Text style={{ color: colors.text, fontWeight: "800", fontSize: 17 }}>Booking assistant</Text>
+                <Pressable
+                  accessibilityLabel="Close assistant"
+                  onPress={requestClose}
+                  hitSlop={10}
+                >
+                  <Ionicons name="chevron-down" size={26} color={colors.text} />
+                </Pressable>
+              </View>
             </View>
+          </GestureDetector>
 
-            <BookingChatTabsStrip
-              tabs={tabs}
-              activeTabId={activeTabId}
-              colors={colors}
-              onSelect={setActiveTab}
-              onAdd={() => addTab(catalogRevision)}
-              onCloseTab={closeTab}
+          <BookingChatTabsStrip
+            tabs={tabs}
+            activeTabId={activeTabId}
+            colors={colors}
+            onSelect={setActiveTab}
+            onAdd={() => addTab(catalogRevision)}
+            onCloseTab={closeTab}
+          />
+
+          {sendError ? (
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>{sendError}</Text>
+          ) : null}
+
+          <View style={{ flex: 1, minHeight: 80 }}>
+            <FlashList<BookingChatListRow>
+              data={listRows}
+              keyExtractor={bookingChatListRowKey}
+              estimatedItemSize={100}
+              renderItem={renderMessage}
+              contentContainerStyle={{ paddingVertical: 8 }}
+              keyboardShouldPersistTaps="handled"
             />
-
-            {sendError ? (
-              <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>{sendError}</Text>
-            ) : null}
-
-            <View style={{ flex: 1, minHeight: 80 }}>
-              <FlashList<BookingChatMessage>
-                data={activeMessages}
-                keyExtractor={(item) => item.id}
-                estimatedItemSize={76}
-                renderItem={renderMessage}
-                contentContainerStyle={{ paddingVertical: 8 }}
-                keyboardShouldPersistTaps="handled"
-              />
-            </View>
-
-            <BookingChatComposer colors={colors} disabled={places.length === 0} sending={isSending} onSend={onSend} />
           </View>
-        </View>
+
+          <BookingChatComposer colors={colors} disabled={places.length === 0} sending={isSending} onSend={onSend} />
+        </Animated.View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  sheetHandleZone: {
+    paddingBottom: 4,
+  },
+  grabber: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    alignSelf: "center",
+    marginBottom: 10,
+  },
+  sheetHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+});
 
 type DockProps = {
   /** Step booking + selected place */

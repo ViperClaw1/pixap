@@ -75,7 +75,7 @@ type OrchestratorResponse = {
   plan?: unknown;
 };
 
-type FlowRunResult = OrchestratorResponse & { catalogFallback?: boolean };
+export type FlowRunResult = OrchestratorResponse & { catalogFallback?: boolean };
 
 function parseVibeStops(raw: unknown): VibePlanStop[] {
   if (!Array.isArray(raw)) return [];
@@ -351,8 +351,8 @@ export function usePixAI() {
   });
 
   const runFlow = useCallback(
-    async (flow: PixAIFlowPayload) => {
-      await flowMutation.mutateAsync(flow);
+    async (flow: PixAIFlowPayload): Promise<FlowRunResult> => {
+      return flowMutation.mutateAsync(flow);
     },
     [flowMutation],
   );

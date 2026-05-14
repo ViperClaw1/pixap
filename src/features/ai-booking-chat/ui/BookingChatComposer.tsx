@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type Ref } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,9 +8,21 @@ type Props = {
   disabled: boolean;
   sending: boolean;
   onSend: (text: string) => void;
+  /** Ref на поле ввода — для измерения и минимального скролла при клавиатуре (экран бронирования). */
+  inputRef?: Ref<TextInput>;
+  onInputFocus?: () => void;
+  onInputBlur?: () => void;
 };
 
-export function BookingChatComposer({ colors, disabled, sending, onSend }: Props) {
+export function BookingChatComposer({
+  colors,
+  disabled,
+  sending,
+  onSend,
+  inputRef,
+  onInputFocus,
+  onInputBlur,
+}: Props) {
   const [text, setText] = useState("");
   const submit = useCallback(() => {
     const t = text.trim();
@@ -22,6 +34,7 @@ export function BookingChatComposer({ colors, disabled, sending, onSend }: Props
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, paddingTop: 6 }}>
       <TextInput
+        ref={inputRef}
         style={{
           flex: 1,
           minHeight: 40,
@@ -40,6 +53,8 @@ export function BookingChatComposer({ colors, disabled, sending, onSend }: Props
         onChangeText={setText}
         multiline
         editable={!disabled && !sending}
+        onFocus={() => onInputFocus?.()}
+        onBlur={() => onInputBlur?.()}
       />
       <Pressable
         accessibilityRole="button"
