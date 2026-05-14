@@ -15,7 +15,7 @@ import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import { useQueries } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAppTheme } from "@/contexts/ThemeContext";
@@ -25,8 +25,11 @@ import { useSubscriptionPaywallRedirect } from "@/features/subscription-paywall-
 import { useEntitlement } from "@/entities/subscription";
 import { useProfile } from "@/entities/user";
 import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } from "@/entities/pixai";
-import { fetchAvailableSlotsForDay } from "@/entities/booking";
+import { fetchAvailableSlotsForDay, useCreateBooking } from "@/entities/booking";
 import { useCreateCartItem } from "@/entities/cart";
+import { supabase } from "@/shared/api/supabase/client";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
+import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import {
   ALL_CITIES_OPTION,
   useAvailableCities,
@@ -49,7 +52,6 @@ import {
   primaryPressableTextStyle,
 } from "@/shared/theme/primaryPressable";
 import { toYmd } from "@/shared/lib/bookingCalendar";
-import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 
 const MOOD_PRESETS = ["romantic evening", "drunk friday", "family brunch", "solo chill", "celebration night"] as const;
@@ -57,6 +59,41 @@ const MOOD_PRESETS = ["romantic evening", "drunk friday", "family brunch", "solo
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const SLOT_MATCH_MS = 45 * 60 * 1000;
+
+function scheduleN8nWaBookingStart(cartItemId: string, accessToken: string) {
+  void supabase.functions
+    .invoke("n8n-wa-booking-start", {
+      body: { cart_item_id: cartItemId },
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    .then((res) => {
+      const { error, data } = res;
+      if (!error) return;
+      let details = error.message;
+      const rawBody = (error as { context?: { body?: string } }).context?.body;
+      if (rawBody) {
+        try {
+          const parsed = JSON.parse(rawBody) as { error?: string; step?: string; hint?: string };
+          details = `${parsed.error ?? error.message}${parsed.step ? ` [${parsed.step}]` : ""}${
+            parsed.hint ? ` — ${parsed.hint}` : ""
+          }`;
+        } catch {
+          details = `${details} ${rawBody.slice(0, 220)}`;
+        }
+      } else if (data && typeof data === "object" && data !== null && "error" in data) {
+        const parsed = data as { error?: string; step?: string; hint?: string };
+        details = `${parsed.error ?? error.message}${parsed.step ? ` [${parsed.step}]` : ""}${
+          parsed.hint ? ` — ${parsed.hint}` : ""
+        }`;
+      }
+      console.warn("[n8n-wa-booking-start] invoke failed", details);
+    })
+    .catch((error) => {
+      if (__DEV__) {
+        console.warn("[n8n-wa-booking-start] invoke failed", error);
+      }
+    });
+}
 
 /** Closest available slot to proposed time within SLOT_MATCH_MS; otherwise null. */
 function resolveBookingDateTime(slots: PixAISlot[], proposedIso: string): string | null {
@@ -75,6 +112,8 @@ function resolveBookingDateTime(slots: PixAISlot[], proposedIso: string): string
   return null;
 }
 
+type VibeBookingAction = "all" | "partial" | "retry";
+
 type BookRowResult = { stop: VibePlanStop; ok: true } | { stop: VibePlanStop; ok: false; message: string };
 
 export default function VibeMatchPage() {
@@ -87,7 +126,7 @@ export default function VibeMatchPage() {
   const { colors } = useAppTheme();
   const navigation = useNavigation();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
   const shouldEnforcePaywall = !__DEV__ && Constants.appOwnership !== "expo";
 
@@ -106,6 +145,7 @@ export default function VibeMatchPage() {
   const { data: profile } = useProfile();
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
   const { runVibePlan, isVibeLoading, vibeResult, vibeError, resetVibePlan } = usePixAI();
+  const createBooking = useCreateBooking();
   const createCartItem = useCreateCartItem();
 
   const [mood, setMood] = useState("");
@@ -119,7 +159,8 @@ export default function VibeMatchPage() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [comment, setComment] = useState("");
   const [lastBookResults, setLastBookResults] = useState<BookRowResult[] | null>(null);
-  const [bookingInProgress, setBookingInProgress] = useState(false);
+  const [bookingAction, setBookingAction] = useState<VibeBookingAction | null>(null);
+  const bookingBusy = bookingAction !== null;
 
   const plan = vibeResult?.plan ?? [];
 
@@ -174,7 +215,17 @@ export default function VibeMatchPage() {
     });
   }, [plan, slotQueries]);
 
-  const allBookable = plan.length > 0 && stopAvailability.every((x) => x.bookable) && !stopAvailability.some((x) => x.loading || x.error);
+  const slotsAvailabilityReady =
+    plan.length > 0 && !stopAvailability.some((x) => x.loading || x.error);
+  const anyBookable = stopAvailability.some((x) => x.bookable);
+  const allBookable =
+    plan.length > 0 && stopAvailability.every((x) => x.bookable) && slotsAvailabilityReady;
+  const partialBookEnabled = slotsAvailabilityReady && anyBookable && !allBookable;
+
+  const bookableStops = useMemo(
+    () => plan.filter((_, i) => stopAvailability[i]?.bookable),
+    [plan, stopAvailability],
+  );
 
   const stylesThemed = useMemo(
     () =>
@@ -331,17 +382,28 @@ export default function VibeMatchPage() {
   }, [customerEmail, customerName, customerPhone, persons]);
 
   const runBookStops = useCallback(
-    async (stops: VibePlanStop[]) => {
+    async (stops: VibePlanStop[], action: VibeBookingAction) => {
       const err = validateForm();
       if (err) {
         Alert.alert("Form", err);
         return;
       }
-      setBookingInProgress(true);
+      if (!isProfileComplete(profile)) {
+        Alert.alert("Profile incomplete", "Please, fill out all your profile data before booking.");
+        navigation.getParent()?.dispatch(
+          CommonActions.navigate({
+            name: "Profile",
+            params: { screen: "EditProfile" },
+          }),
+        );
+        return;
+      }
+      setBookingAction(action);
       try {
         const results: BookRowResult[] = [];
         const p = Number(persons);
         const phoneToSave = serializePhone(customerPhone);
+        const accessToken = session?.access_token;
         for (const stop of stops) {
           const i = plan.findIndex((x) => x.venue_id === stop.venue_id);
           if (i < 0) continue;
@@ -351,11 +413,24 @@ export default function VibeMatchPage() {
             results.push({ stop, ok: false, message: "No available slot near suggested time." });
             continue;
           }
+          const price = Number(stop.booking_price ?? 0);
           try {
-            await createCartItem.mutateAsync({
+            await createBooking.mutateAsync({
               business_card_id: stop.venue_id,
               date_time: dateTime,
-              cost: stop.booking_price,
+              cost: price,
+              persons: p,
+              customer_name: customerName.trim(),
+              customer_phone: phoneToSave,
+              customer_email: customerEmail.trim(),
+              comment: comment.trim() || null,
+              payment_status: price > 0 ? "pending" : "paid",
+              status: "upcoming",
+            });
+            const createdCartItem = await createCartItem.mutateAsync({
+              business_card_id: stop.venue_id,
+              date_time: dateTime,
+              cost: price,
               persons: p,
               customer_name: customerName.trim(),
               customer_phone: phoneToSave,
@@ -363,8 +438,16 @@ export default function VibeMatchPage() {
               comment: comment.trim() || null,
               is_restaurant_table: stop.is_restaurant_table,
             });
+            if (accessToken && createdCartItem?.id) {
+              scheduleN8nWaBookingStart(createdCartItem.id, accessToken);
+            }
             results.push({ stop, ok: true });
           } catch (e) {
+            if (isAuthRequiredError(e)) {
+              setLastBookResults(results);
+              navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+              return;
+            }
             const message = e instanceof Error ? e.message : String(e);
             results.push({ stop, ok: false, message });
           }
@@ -373,25 +456,45 @@ export default function VibeMatchPage() {
         const failed = results.filter((r) => !r.ok);
         const okc = results.filter((r) => r.ok).length;
         if (failed.length === 0) {
-          Alert.alert("Booked", `${okc} reservation(s) added to your cart.`);
-        } else {
+          const anyPaid = stops.some((s) => Number(s.booking_price ?? 0) > 0);
+          Alert.alert(
+            anyPaid ? "Draft created" : "Booking confirmed",
+            anyPaid
+              ? `${okc} draft booking(s) in Bookings. Venue check runs in the background.`
+              : `${okc} booking(s) are now in Bookings.`,
+          );
+        } else if (okc > 0) {
           Alert.alert(
             "Partial booking",
-            `${okc} succeeded, ${failed.length} failed. You can retry failed stops below.`,
+            `${okc} added to Bookings, ${failed.length} failed. You can retry failed stops below.`,
+          );
+        } else {
+          Alert.alert("Booking failed", "No reservations were created. Check messages below and try again.");
+        }
+        if (okc > 0) {
+          navigation.getParent()?.dispatch(
+            CommonActions.navigate({
+              name: "Bookings",
+              params: { screen: "BookingsMain" },
+            }),
           );
         }
       } finally {
-        setBookingInProgress(false);
+        setBookingAction(null);
       }
     },
     [
       comment,
+      createBooking,
       createCartItem,
       customerEmail,
       customerName,
       customerPhone,
+      navigation,
       persons,
       plan,
+      profile,
+      session?.access_token,
       stopAvailability,
       validateForm,
     ],
@@ -402,8 +505,13 @@ export default function VibeMatchPage() {
       Alert.alert("Availability", "Every stop needs a free slot near the suggested time. Wait for slots to load or adjust the plan.");
       return;
     }
-    await runBookStops(plan);
+    await runBookStops(plan, "all");
   }, [allBookable, plan, runBookStops]);
+
+  const onPartialBook = useCallback(async () => {
+    if (!partialBookEnabled || bookableStops.length === 0) return;
+    await runBookStops(bookableStops, "partial");
+  }, [bookableStops, partialBookEnabled, runBookStops]);
 
   const failedStops = useMemo(
     () => (lastBookResults?.filter((r): r is Extract<BookRowResult, { ok: false }> => !r.ok) ?? []).map((r) => r.stop),
@@ -412,7 +520,7 @@ export default function VibeMatchPage() {
 
   const onRetryFailed = useCallback(async () => {
     if (failedStops.length === 0) return;
-    await runBookStops(failedStops);
+    await runBookStops(failedStops, "retry");
   }, [failedStops, runBookStops]);
 
   const errMsg = vibeError instanceof Error ? vibeError.message : vibeError ? String(vibeError) : "";
@@ -574,19 +682,45 @@ export default function VibeMatchPage() {
               style={[
                 primaryPressableStyle,
                 { height: SHARED_PRESSABLE_HEIGHT, borderRadius: SHARED_PRESSABLE_RADIUS },
-                (!allBookable || bookingInProgress) && { opacity: 0.55 },
+                (!allBookable || bookingBusy) && { opacity: 0.55 },
               ]}
-              disabled={!allBookable || bookingInProgress}
+              disabled={!allBookable || bookingBusy}
               onPress={() => void onBookAll()}
+              accessibilityLabel="Book all stops with a free slot"
             >
-              {bookingInProgress ? (
+              {bookingAction === "all" ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={primaryPressableTextStyle}>Book all</Text>
               )}
             </Pressable>
+            {!allBookable && plan.length > 0 && (anyBookable || !slotsAvailabilityReady) ? (
+              <Pressable
+                style={[
+                  primaryPressableStyle,
+                  { height: SHARED_PRESSABLE_HEIGHT, borderRadius: SHARED_PRESSABLE_RADIUS },
+                  (!partialBookEnabled || bookingBusy) && { opacity: 0.55 },
+                ]}
+                disabled={!partialBookEnabled || bookingBusy}
+                onPress={() => void onPartialBook()}
+                accessibilityLabel="Book only stops that have a free slot"
+              >
+                {bookingAction === "partial" ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={primaryPressableTextStyle}>
+                    Partial book{partialBookEnabled ? ` (${bookableStops.length})` : ""}
+                  </Text>
+                )}
+              </Pressable>
+            ) : null}
             {failedStops.length > 0 ? (
-              <Pressable onPress={() => void onRetryFailed()} style={{ alignItems: "center", paddingVertical: 8 }}>
+              <Pressable
+                onPress={() => void onRetryFailed()}
+                disabled={bookingBusy}
+                style={{ alignItems: "center", paddingVertical: 8, flexDirection: "row", justifyContent: "center", gap: 8 }}
+              >
+                {bookingAction === "retry" ? <ActivityIndicator color={colors.primary} /> : null}
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>Retry failed ({failedStops.length})</Text>
               </Pressable>
             ) : null}
@@ -594,7 +728,7 @@ export default function VibeMatchPage() {
               <View style={{ gap: 6 }}>
                 {lastBookResults.map((r, idx) => (
                   <Text key={idx} style={{ color: r.ok ? colors.textMuted : "#c45c26", fontSize: 12 }}>
-                    {r.stop.name}: {r.ok ? "added to cart" : r.message}
+                    {r.stop.name}: {r.ok ? "added to Bookings" : r.message}
                   </Text>
                 ))}
               </View>
