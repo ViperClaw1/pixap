@@ -231,6 +231,7 @@ export default function MessageThreadPage() {
     return (
       <MessageThreadListItem
         item={item.message}
+        groupedWithPrevious={item.groupedWithPrevious}
         styles={styles}
         colors={colors}
         mode={mode}

@@ -64,6 +64,7 @@ export const messageThreadStaticStyles = StyleSheet.create({
   },
   bubbleWrapMine: { alignItems: "flex-end" },
   bubbleWrapPeer: { alignItems: "flex-start" },
+  bubbleGroupedWithPrevious: { marginTop: 4 },
   bubble: {
     maxWidth: "80%",
     borderRadius: 14,
@@ -133,8 +134,8 @@ export const messageThreadStaticStyles = StyleSheet.create({
   bubbleAttachmentSticker: {
     width: 80,
     height: 80,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 0,
+    backgroundColor: "transparent",
   },
   bubbleAttachmentPlaceholder: {
     alignItems: "center",
@@ -223,14 +224,12 @@ export const messageThreadStaticStyles = StyleSheet.create({
     gap: 8,
   },
   stickerChip: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1,
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
-  stickerImage: { width: 28, height: 28, borderRadius: 8 },
+  stickerImage: { width: 32, height: 32 },
   attachmentStrip: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   attachmentThumbWrap: { position: "relative" },
   attachmentThumb: {
@@ -335,8 +334,7 @@ export function messageThreadThemeStyles(
       borderColor: colors.border,
     },
     bubbleAttachmentSticker: {
-      backgroundColor: colors.card,
-      borderColor: colors.border,
+      backgroundColor: "transparent",
     },
     bubbleAttachmentPlaceholder: { borderColor: colors.border },
     bubbleMetaMine: {
@@ -376,10 +374,7 @@ export function messageThreadThemeStyles(
       borderColor: colors.border,
       backgroundColor: colors.background,
     },
-    stickerChip: {
-      borderColor: colors.border,
-      backgroundColor: colors.card,
-    },
+    stickerChip: {},
     attachmentThumb: {
       backgroundColor: colors.surface,
       borderColor: colors.border,

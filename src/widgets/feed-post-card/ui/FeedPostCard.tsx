@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type TextLayoutEvent } from "react-native";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
 import { profileName } from "@/pages/stories-feed/lib/feedPostHelpers";
@@ -95,7 +96,7 @@ export const FeedPostCard = memo(function FeedPostCard({
       <View style={styles.actionsSection}>
         <View style={styles.leftActions}>
           <Pressable style={styles.actionBtn} onPress={onLike}>
-            <Ionicons name={isLiked ? "heart" : "heart-outline"} size={24} color={colors.text} />
+            <AnimatedLikeHeart liked={isLiked} size={24} color={colors.text} likedColor={colors.text} />
             <Text style={[styles.actionCount, { color: colors.text }]}>{likeCount}</Text>
           </Pressable>
           <Pressable style={styles.actionBtn} onPress={onOpenComments}>

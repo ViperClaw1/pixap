@@ -15,6 +15,7 @@ import { detectAttachmentKind, MessageVideoThumbnail } from "@/features/message-
 
 type Props = {
   item: MessageBubble;
+  groupedWithPrevious?: boolean;
   styles: MessageThreadStyles;
   colors: ThemeColors;
   mode: ThemeMode;
@@ -163,6 +164,7 @@ function MessageBodyText({
 
 function MessageThreadListItemComponent({
   item: message,
+  groupedWithPrevious = false,
   styles: s,
   colors,
   mode,
@@ -227,7 +229,12 @@ function MessageThreadListItemComponent({
           : undefined
       }
     >
-      <View style={isMine ? s.bubbleWrapMine : s.bubbleWrapPeer}>
+      <View
+        style={[
+          isMine ? s.bubbleWrapMine : s.bubbleWrapPeer,
+          groupedWithPrevious ? s.bubbleGroupedWithPrevious : null,
+        ]}
+      >
         {bareMediaOnly ? (
           <>
             <View

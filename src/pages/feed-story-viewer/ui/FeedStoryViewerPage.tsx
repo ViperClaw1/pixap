@@ -25,6 +25,7 @@ import { useStoryProgress, useStoryViewer, useReplyToStory, useReactToStory } fr
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { StoryMediaSlide } from "@/widgets/stories-strip";
+import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import Toast from "react-native-toast-message";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
@@ -442,10 +443,11 @@ export default function FeedStoryViewerPage() {
             </View>
             <View style={styles.actionsRight}>
               <Pressable style={styles.actionIcon} hitSlop={12} onPress={() => void onToggleLike()}>
-                <Ionicons
-                  name={likeActive ? "heart" : "heart-outline"}
+                <AnimatedLikeHeart
+                  liked={likeActive}
                   size={26}
-                  color={likeActive ? "#F4212E" : composerTheme.icon}
+                  color={composerTheme.icon}
+                  likedColor="#F4212E"
                 />
               </Pressable>
               <Pressable

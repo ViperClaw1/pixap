@@ -85,17 +85,21 @@ export function SmartImage({
     }
   }, [chain.length, chainKey, onSourcesExhausted, skipBundledPlaceholder]);
 
-  const sourceIndex = Math.min(chain.length - 1, attempt);
+  const maxAttempts = chain.length > 0 ? chain.length + retryCount : 0;
+  const sourcesExhausted = chain.length > 0 && attempt >= maxAttempts;
+  const sourceIndex = Math.min(Math.max(chain.length - 1, 0), attempt);
   /** Без кастомного `cacheKey`: ключ кэша = `uri`, как у `Image.prefetch` — повторный mount попадает в disk/memory. */
   const source =
-    sourceIndex >= 0 && sourceIndex < chain.length ? { uri: chain[sourceIndex]!, priority } : undefined;
+    !sourcesExhausted && sourceIndex >= 0 && sourceIndex < chain.length
+      ? { uri: chain[sourceIndex]!, priority }
+      : undefined;
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
       setAttempt((a) => {
-        const maxAttempts = chain.length + retryCount;
-        const next = a < maxAttempts ? a + 1 : a;
-        if (next >= maxAttempts && chain.length > 0) {
+        const limit = chain.length + retryCount;
+        const next = a < limit ? a + 1 : a;
+        if (next >= limit && chain.length > 0) {
           onSourcesExhausted?.();
         }
         return next;

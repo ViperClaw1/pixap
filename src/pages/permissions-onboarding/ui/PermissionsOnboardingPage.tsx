@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import * as Notifications from "expo-notifications";
+import { supabase } from "@/shared/api/supabase/client";
+import { registerNativePushToken } from "@/shared/lib/push/pushNotifications";
 import { setSeenPermissionsIntro } from "@/shared/lib/permissionsStorage";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 
@@ -25,6 +27,10 @@ export default function PermissionsOnboardingScreen({ onComplete }: Props) {
     setBusy(true);
     try {
       await Notifications.requestPermissionsAsync();
+      const { data } = await supabase.auth.getUser();
+      if (data.user?.id) {
+        await registerNativePushToken(data.user.id);
+      }
     } finally {
       await setSeenPermissionsIntro();
       setBusy(false);

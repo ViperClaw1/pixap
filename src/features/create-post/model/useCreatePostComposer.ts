@@ -47,6 +47,7 @@ export function useCreatePostComposer(
   const [step, setStep] = useState<"menu" | "post">("menu");
   const [postInput, setPostInput] = useState("");
   const [postInputError, setPostInputError] = useState(false);
+  const [postPhotosError, setPostPhotosError] = useState(false);
   const [selectedPostPlaceId, setSelectedPostPlaceId] = useState<string | null>(null);
   const [postPlaceError, setPostPlaceError] = useState(false);
   const [postPhotos, setPostPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
@@ -76,6 +77,7 @@ export function useCreatePostComposer(
     setStep("menu");
     setPostInput("");
     setPostInputError(false);
+    setPostPhotosError(false);
     setSelectedPostPlaceId(null);
     setPostPlaceError(false);
     setPostPhotos([]);
@@ -214,7 +216,9 @@ export function useCreatePostComposer(
     setPostPhotos((prev) => {
       const merged = [...prev, ...result.assets];
       const dedup = merged.filter((asset, index, all) => all.findIndex((candidate) => candidate.uri === asset.uri) === index);
-      return dedup.slice(0, MAX_POST_PHOTOS);
+      const next = dedup.slice(0, MAX_POST_PHOTOS);
+      if (next.length) setPostPhotosError(false);
+      return next;
     });
   }, []);
 
@@ -242,6 +246,11 @@ export function useCreatePostComposer(
       return;
     }
 
+    if (!postPhotos.length) {
+      setPostPhotosError(true);
+      return;
+    }
+
     if (createPost.isPending || uploadingPostPhotos) return;
 
     try {
@@ -252,8 +261,12 @@ export function useCreatePostComposer(
         blurHashes.push(await encodeBlurHashFromPickerAssetUri(asset.uri));
       }
       const uploadedUrls = await uploadPostPickerAssets(postPhotos, user?.id);
+      if (!uploadedUrls.length) {
+        throw new Error("Photo upload failed. Please try again.");
+      }
 
       const placeIdForPost = matchedForSubmit.length > 0 ? selectedPostPlaceId : null;
+      const mediaUrl = JSON.stringify(uploadedUrls);
 
       setPostSubmitStage("creating_post");
       const mediaBlurhashes = blurHashes.some((h) => h) ? blurHashes : null;
@@ -262,7 +275,7 @@ export function useCreatePostComposer(
           ? {
               placeId: placeIdForPost,
               content,
-              mediaUrl: uploadedUrls.length ? JSON.stringify(uploadedUrls) : null,
+              mediaUrl,
               mediaBlurhashes,
             }
           : {
@@ -274,7 +287,7 @@ export function useCreatePostComposer(
                 googlePlaceId: selectedGooglePlaceId,
               },
               content,
-              mediaUrl: uploadedUrls.length ? JSON.stringify(uploadedUrls) : null,
+              mediaUrl,
               mediaBlurhashes,
             };
 
@@ -360,8 +373,10 @@ export function useCreatePostComposer(
     createStepFadeStyle,
     postInput,
     postInputError,
+    postPhotosError,
     setPostInput,
     setPostInputError,
+    setPostPhotosError,
     selectedPostPlaceId,
     setSelectedPostPlaceId,
     postPlaceError,

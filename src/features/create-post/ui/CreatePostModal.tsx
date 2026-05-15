@@ -243,13 +243,23 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                   )
                 ) : null}
 
-                <Pressable style={[s.postUploaderBox, { borderColor: colors.border }]} onPress={() => void c.pickPostPhotos()}>
+                <Text style={[s.postFieldLabel, { color: colors.text }]}>
+                  Photos<Text style={{ color: colors.danger }}> *</Text>
+                </Text>
+                <Text style={[s.postFieldHint, { color: colors.textMuted }]}>Required — at least one image.</Text>
+                <Pressable
+                  style={[s.postUploaderBox, { borderColor: c.postPhotosError ? colors.danger : colors.border }]}
+                  onPress={() => void c.pickPostPhotos()}
+                >
                   <Ionicons name="images-outline" size={22} color={colors.textMuted} />
                   <Text style={[s.postUploaderText, { color: colors.textMuted }]}>Tap to add photos</Text>
                   <Text style={[s.postPhotoCount, { color: colors.textMuted }]}>
                     {c.postPhotos.length ? `${c.postPhotos.length}/${MAX_POST_PHOTOS} selected` : `Up to ${MAX_POST_PHOTOS} photos`}
                   </Text>
                 </Pressable>
+                {c.postPhotosError ? (
+                  <Text style={[s.postFieldError, { color: colors.danger }]}>Please add at least one photo.</Text>
+                ) : null}
 
                 {c.postPhotos.length ? (
                   <View style={s.postPhotosList}>

@@ -36,6 +36,7 @@ import type { StoryItem, StoryReactionType } from "@/shared/model/types/stories"
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { StorySlide } from "@/widgets/stories-strip";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
+import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import Toast from "react-native-toast-message";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
@@ -370,10 +371,11 @@ export default function StoryViewerScreen() {
                   </View>
                   <View style={styles.igActions}>
                     <Pressable hitSlop={12} style={styles.igIconHit} onPress={() => void onReact("like")}>
-                      <Ionicons
-                        name={localReaction === "like" ? "heart" : "heart-outline"}
+                      <AnimatedLikeHeart
+                        liked={localReaction === "like"}
                         size={26}
-                        color={localReaction === "like" ? "#F4212E" : "#FFFFFF"}
+                        color="#FFFFFF"
+                        likedColor="#F4212E"
                       />
                     </Pressable>
                     <Pressable hitSlop={12} style={styles.igIconHit} onPress={() => setDiscussionOpen(true)}>

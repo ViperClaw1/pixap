@@ -27,7 +27,8 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.consume-push-outbox]
-verify_jwt = true
+# Invoked by pg_cron/pg_net with service role bearer (not a user session JWT).
+verify_jwt = false
 
 [functions.pixai-booking-chat]
 verify_jwt = false

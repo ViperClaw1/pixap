@@ -1,4 +1,13 @@
 /**
+ * Supabase Storage Image Transformations (`/render/image/`) require a paid add-on.
+ * Without it, transformed URLs return 403 and break feed/story media in the app.
+ * Set `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1` after enabling transforms in the project.
+ */
+export function isSupabaseImageTransformEnabled(): boolean {
+  return process.env.EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM === "1";
+}
+
+/**
  * Buckets decode dimensions so small layout/DPR changes do not rewrite Supabase render URLs (stable cache keys).
  */
 export function quantizeDecodePx(px: number, step = 64, min = 128): number {
@@ -6,7 +15,7 @@ export function quantizeDecodePx(px: number, step = 64, min = 128): number {
 }
 
 /**
- * Optimized image URL for list thumbnails (Supabase render API when applicable).
+ * Optimized image URL for list thumbnails (Supabase render API when enabled on the project).
  */
 export function getOptimizedImageUrl(
   url: string | null | undefined,
@@ -22,7 +31,7 @@ export function getOptimizedImageUrl(
     return url;
   }
 
-  if (url.includes("supabase.co/storage/v1/object/public/")) {
+  if (isSupabaseImageTransformEnabled() && url.includes("supabase.co/storage/v1/object/public/")) {
     const params = new URLSearchParams();
     params.set("width", String(width));
     if (height) params.set("height", String(height));

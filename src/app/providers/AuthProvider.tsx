@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import type { Session, User } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
-import { InteractionManager } from "react-native";
+import { AppState, InteractionManager } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { env } from "@/shared/lib/env";
@@ -126,10 +126,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!user?.id) return;
-    const task = InteractionManager.runAfterInteractions(() => {
+    const register = () => {
       void registerNativePushToken(user.id);
+    };
+    const task = InteractionManager.runAfterInteractions(register);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") register();
     });
-    return () => task.cancel();
+    return () => {
+      task.cancel();
+      sub.remove();
+    };
   }, [user?.id]);
 
   useEffect(() => {
