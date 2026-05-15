@@ -4,14 +4,11 @@ import {
   View,
   Text,
   Pressable,
-  StyleSheet,
-  FlatList,
-  ScrollView,
   useWindowDimensions,
   Alert,
   TextInput,
-  type ListRenderItem,
 } from "react-native";
+import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
@@ -43,6 +40,15 @@ import {
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { LanguagePickerModal } from "@/shared/ui/app-header/LanguagePickerModal";
 import { NotificationsSheetModal } from "@/shared/ui/notifications-sheet";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { homePageStaticStyles, homePageThemeStyles } from "./homePageStyles";
+import {
+  CATEGORY_PILL_ESTIMATED_WIDTH,
+  FEATURED_CARD_ESTIMATED_WIDTH,
+  RECOMMENDED_BATCH_SIZE,
+  RECOMMENDED_ITEM_ESTIMATED_SIZE,
+} from "../model/constants";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, "HomeMain">,
@@ -50,7 +56,6 @@ type Nav = CompositeNavigationProp<
 >;
 
 export default function HomeScreen() {
-  const RECOMMENDED_BATCH_SIZE = 20;
   const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
@@ -115,186 +120,13 @@ export default function HomeScreen() {
     }
   };
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: { flex: 1, backgroundColor: colors.background },
-        content: { padding: 14, paddingBottom: 24 },
-        header: {
-          minHeight: 46,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 8,
-        },
-        headerLeft: { flexDirection: "row", alignItems: "center", gap: 6, zIndex: 1 },
-        headerRight: { flexDirection: "row", alignItems: "center", gap: 6, zIndex: 1 },
-        logo: {
-          position: "absolute",
-          left: 0,
-          right: 0,
-          textAlign: "center",
-          fontSize: 24,
-          fontWeight: "800",
-          color: colors.text,
-          letterSpacing: -0.4,
-          pointerEvents: "none",
-        },
-        sub: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
-        citySelector: {
-          marginTop: 6,
-          paddingHorizontal: 10,
-          paddingVertical: 5,
-          borderRadius: 9,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          alignSelf: "flex-start",
-        },
-        citySelectorText: { fontSize: 12, color: colors.text, fontWeight: "600" },
-        bellWrap: { position: "relative" },
-        bellBadge: {
-          position: "absolute",
-          top: -4,
-          right: -4,
-          minWidth: 18,
-          height: 18,
-          borderRadius: 9,
-          paddingHorizontal: 4,
-          backgroundColor: colors.primary,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        bellBadgeText: { color: colors.onPrimary, fontSize: 10, fontWeight: "800" },
-        aiBookingBtn: {
-          width: 40,
-          height: 40,
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 18,
-          backgroundColor: colors.notification,
-          borderWidth: 1,
-          borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.35)",
-          shadowColor: colors.notification,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: isDark ? 0.45 : 0.35,
-          shadowRadius: 6,
-          elevation: 5,
-        },
-        vibeMatchBtn: {
-          width: 40,
-          height: 40,
-          borderRadius: 18,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        searchBtn: {
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-          paddingHorizontal: 14,
-          height: 46,
-          borderRadius: 14,
-          marginTop: 8,
-          marginBottom: 18,
-          justifyContent: "center",
-        },
-        searchBtnText: { color: colors.textMuted, fontSize: 14 },
-        sectionTitle: { fontSize: 18, fontWeight: "800", marginBottom: 10, color: colors.text, letterSpacing: -0.2 },
-        sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-        link: { fontSize: 12, color: colors.link, fontWeight: "600" },
-        pill: {
-          paddingHorizontal: 14,
-          paddingVertical: 10,
-          backgroundColor: colors.card,
-          borderRadius: 999,
-          marginRight: 8,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        pillContent: { flexDirection: "row", alignItems: "center", gap: 8 },
-        pillIconWrap: {
-          width: 24,
-          height: 24,
-          borderRadius: 12,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.background,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        pillText: { color: colors.text },
-        categoriesFlatList: { marginBottom: 12 },
-        featuredCardWrap: { marginRight: 12 },
-        recommendedGap: { marginBottom: 12 },
-        showMoreBtn: {
-          marginTop: 4,
-          marginBottom: 8,
-          alignSelf: "center",
-          paddingHorizontal: 18,
-          height: 44,
-          borderRadius: 12,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#ec6544",
-        },
-        showMoreBtnText: { color: "#ffffff", fontSize: 14, fontWeight: "700" },
-        cityRow: {
-          paddingHorizontal: 14,
-          paddingVertical: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        },
-        cityRowText: { color: colors.text, fontSize: 14 },
-        cityCheck: { color: colors.primary, fontWeight: "700", fontSize: 12 },
-        citySearchBox: {
-          marginHorizontal: 14,
-          marginBottom: 10,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          paddingHorizontal: 12,
-          height: 44,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.background,
-        },
-        citySearchInput: {
-          flex: 1,
-          fontSize: 15,
-          color: colors.text,
-          paddingVertical: 0,
-        },
-        countryHeader: {
-          paddingHorizontal: 14,
-          paddingTop: 10,
-          paddingBottom: 6,
-          backgroundColor: colors.background,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.border,
-        },
-        countryHeaderText: {
-          fontSize: 12,
-          fontWeight: "800",
-          color: colors.textMuted,
-          letterSpacing: 0.3,
-          textTransform: "uppercase",
-        },
-        cityPickerEmpty: {
-          paddingHorizontal: 14,
-          paddingVertical: 20,
-          alignItems: "center",
-        },
-        cityPickerEmptyText: { fontSize: 14, color: colors.textMuted, textAlign: "center" },
-      }),
-    [colors, insets.bottom, isDark],
+  const themed = useThemeStyles(
+    ({ colors: c, isDark: dark }) => homePageThemeStyles(c, dark),
+    [],
+  );
+  const styles = useMemo(
+    () => mergeStaticAndThemed(homePageStaticStyles, themed),
+    [themed],
   );
 
   const visibleRecommended = useMemo(
@@ -307,22 +139,22 @@ export default function HomeScreen() {
     ({ item }) => {
       const iconSpec = resolveCategoryIconSpec(item.name);
       return (
-        <Pressable style={stylesThemed.pill} onPress={() => navigation.navigate("Category", { id: item.id })}>
-          <View style={stylesThemed.pillContent}>
-            <View style={stylesThemed.pillIconWrap}>
+        <Pressable style={styles.pill} onPress={() => navigation.navigate("Category", { id: item.id })}>
+          <View style={styles.pillContent}>
+            <View style={styles.pillIconWrap}>
               <CategoryIcon spec={iconSpec} size={14} color={colors.primary} />
             </View>
-            <Text style={stylesThemed.pillText}>{item.name}</Text>
+            <Text style={styles.pillText}>{item.name}</Text>
           </View>
         </Pressable>
       );
     },
-    [colors.primary, navigation, stylesThemed],
+    [colors.primary, navigation, styles],
   );
 
   const renderFeaturedRow = useCallback<ListRenderItem<BusinessCard>>(
     ({ item }) => (
-      <View style={stylesThemed.featuredCardWrap}>
+      <View style={styles.featuredCardWrap}>
         <BusinessPlaceCard
           place={item}
           variant="vertical"
@@ -332,44 +164,56 @@ export default function HomeScreen() {
         />
       </View>
     ),
-    [colors, goPlace, isDark, stylesThemed.featuredCardWrap],
+    [colors, goPlace, isDark, styles.featuredCardWrap],
   );
 
-  return (
-    <ShimmerProvider active={homeQueriesLoading}>
-      <ScrollView
-        style={stylesThemed.root}
-        contentContainerStyle={[stylesThemed.content, { paddingTop: Math.max(insets.top, 12) }]}
-      >
-        <View style={stylesThemed.header}>
-          <View style={stylesThemed.headerLeft}>
+  const renderRecommendedRow = useCallback<ListRenderItem<BusinessCard>>(
+    ({ item }) => (
+      <View style={styles.recommendedGap}>
+        <BusinessPlaceCard
+          place={item}
+          variant="horizontal"
+          colors={colors}
+          isDark={isDark}
+          onOpen={() => goPlace(item.id)}
+        />
+      </View>
+    ),
+    [colors, goPlace, isDark, styles.recommendedGap],
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
             <Pressable
-              style={stylesThemed.aiBookingBtn}
+              style={styles.aiBookingBtn}
               accessibilityRole="button"
               accessibilityLabel={t("home.a11y.openPixaiBooking")}
               onPress={() => navigation.navigate("AIBooking")}
             >
-              <Ionicons name="sparkles" size={18} color={isDark ? "#0a0a0a" : "#ffffff"} />
+              <Ionicons name="sparkles" size={18} color={colors.onPrimary} />
             </Pressable>
             <Pressable
-              style={[stylesThemed.vibeMatchBtn, stylesThemed.bellWrap]}
+              style={[styles.vibeMatchBtn, styles.bellWrap]}
               accessibilityRole="button"
               accessibilityLabel={t("home.a11y.openNotifications")}
               onPress={() => setNotificationsOpen(true)}
             >
               <Ionicons name="notifications-outline" size={20} color={colors.text} />
               {unread > 0 ? (
-                <View style={stylesThemed.bellBadge}>
-                  <Text style={stylesThemed.bellBadgeText}>{unread > 9 ? "9+" : String(unread)}</Text>
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unread > 9 ? "9+" : String(unread)}</Text>
                 </View>
               ) : null}
             </Pressable>
           </View>
-          <Text style={stylesThemed.logo}>Pixap</Text>
-          <View style={stylesThemed.headerRight}>
+          <Text style={styles.logo}>Pixap</Text>
+          <View style={styles.headerRight}>
             
             <Pressable
-              style={stylesThemed.vibeMatchBtn}
+              style={styles.vibeMatchBtn}
               accessibilityRole="button"
               accessibilityLabel={t("home.a11y.openPixaiVibeMatch")}
               onPress={() => navigation.navigate("VibeMatch")}
@@ -377,7 +221,7 @@ export default function HomeScreen() {
               <Ionicons name="color-filter" size={20} color={colors.primary} />
             </Pressable>
             <Pressable
-              style={stylesThemed.vibeMatchBtn}
+              style={styles.vibeMatchBtn}
               accessibilityRole="button"
               accessibilityLabel={t("language.choose")}
               onPress={() => setLanguageOpen(true)}
@@ -390,80 +234,116 @@ export default function HomeScreen() {
         <LanguagePickerModal visible={languageOpen} onClose={() => setLanguageOpen(false)} />
         <NotificationsSheetModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
         <Pressable
-          style={stylesThemed.citySelector}
+          style={styles.citySelector}
           onPress={() => {
             setCitySearchQuery("");
             setCityModalVisible(true);
           }}
         >
-          <Text style={stylesThemed.citySelectorText}>
+          <Text style={styles.citySelectorText}>
             {selectedCity === ALL_CITIES_OPTION ? t("home.allCities") : selectedCity}
           </Text>
         </Pressable>
 
-        <Pressable style={stylesThemed.searchBtn} onPress={() => navigation.navigate("SearchMain")}>
-          <Text style={stylesThemed.searchBtnText}>{t("home.searchPlaceholder")}</Text>
+        <Pressable style={styles.searchBtn} onPress={() => navigation.navigate("SearchMain")}>
+          <Text style={styles.searchBtnText}>{t("home.searchPlaceholder")}</Text>
         </Pressable>
 
-        <Text style={stylesThemed.sectionTitle}>{t("home.categories")}</Text>
+        <Text style={styles.sectionTitle}>{t("home.categories")}</Text>
         {lc ? (
           <CategorySkeletonRow />
         ) : (
-          <FlatList
+          <FlashList
             horizontal
-            style={stylesThemed.categoriesFlatList}
+            style={styles.categoriesFlatList}
             data={categories}
             keyExtractor={(c) => c.id}
+            estimatedItemSize={CATEGORY_PILL_ESTIMATED_WIDTH}
             showsHorizontalScrollIndicator={false}
             renderItem={renderCategoryRow}
           />
         )}
 
-        <View style={stylesThemed.sectionRow}>
-          <Text style={stylesThemed.sectionTitle}>{t("home.featured")}</Text>
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>{t("home.featured")}</Text>
           <Pressable onPress={() => navigation.navigate("SearchMain")}>
-            <Text style={stylesThemed.link}>{t("home.seeAll")}</Text>
+            <Text style={styles.link}>{t("home.seeAll")}</Text>
           </Pressable>
         </View>
         {lf ? (
           <FeaturedSkeletonRow />
         ) : (
-          <FlatList
+          <FlashList
             horizontal
             data={featured}
             keyExtractor={(p) => p.id}
+            estimatedItemSize={FEATURED_CARD_ESTIMATED_WIDTH}
             showsHorizontalScrollIndicator={false}
             renderItem={renderFeaturedRow}
           />
         )}
 
-        <Text style={[stylesThemed.sectionTitle, { marginTop: 20 }]}>{t("home.recommended")}</Text>
-        {lr ? (
-          <RecommendedSkeletonList cardWidth={recommendedCardWidth} />
-        ) : (
-          <>
-            {visibleRecommended.map((p) => (
-              <View key={p.id} style={stylesThemed.recommendedGap}>
-                <BusinessPlaceCard
-                  place={p}
-                  variant="horizontal"
-                  colors={colors}
-                  isDark={isDark}
-                  onOpen={() => goPlace(p.id)}
-                />
-              </View>
-            ))}
-            {canShowMoreRecommended ? (
-              <Pressable
-                style={stylesThemed.showMoreBtn}
-                onPress={() => setVisibleRecommendedCount((prev) => prev + RECOMMENDED_BATCH_SIZE)}
-              >
-                <Text style={stylesThemed.showMoreBtnText}>{t("home.showMore")}</Text>
-              </Pressable>
-            ) : null}
-          </>
-        )}
-      </ScrollView>
+        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{t("home.recommended")}</Text>
+        {lr ? <RecommendedSkeletonList cardWidth={recommendedCardWidth} /> : null}
+      </>
+    ),
+    [
+      categories,
+      colors,
+      featured,
+      isDark,
+      languageOpen,
+      lc,
+      lf,
+      lr,
+      navigation,
+      notificationsOpen,
+      recommendedCardWidth,
+      renderCategoryRow,
+      renderFeaturedRow,
+      selectedCity,
+      styles,
+      t,
+      unread,
+    ],
+  );
+
+  const listFooter = useMemo(
+    () =>
+      !lr && canShowMoreRecommended ? (
+        <Pressable
+          style={styles.showMoreBtn}
+          onPress={() => setVisibleRecommendedCount((prev) => prev + RECOMMENDED_BATCH_SIZE)}
+        >
+          <Text style={styles.showMoreBtnText}>{t("home.showMore")}</Text>
+        </Pressable>
+      ) : null,
+    [canShowMoreRecommended, lr, styles.showMoreBtn, styles.showMoreBtnText, t],
+  );
+
+  const listContentStyle = useMemo(
+    () => [styles.content, { paddingTop: Math.max(insets.top, 12) }],
+    [insets.top, styles.content],
+  );
+
+  return (
+    <ShimmerProvider active={homeQueriesLoading}>
+      <FlashList
+        style={styles.root}
+        data={lr ? [] : visibleRecommended}
+        keyExtractor={(p) => p.id}
+        estimatedItemSize={RECOMMENDED_ITEM_ESTIMATED_SIZE}
+        renderItem={renderRecommendedRow}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={listFooter}
+        contentContainerStyle={listContentStyle}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+        initialNumToRender={8}
+        maxToRenderPerBatch={10}
+        windowSize={8}
+        updateCellsBatchingPeriod={40}
+      />
 
       <BottomSheetPickerModal
         visible={cityModalVisible}
@@ -474,14 +354,14 @@ export default function HomeScreen() {
         title={t("home.chooseCity")}
         maxHeightFraction={0.72}
       >
-        <View style={stylesThemed.citySearchBox}>
+        <View style={styles.citySearchBox}>
           <Ionicons name="search-outline" size={20} color={colors.textMuted} />
           <TextInput
             value={citySearchQuery}
             onChangeText={setCitySearchQuery}
             placeholder={t("home.citySearchPlaceholder")}
             placeholderTextColor={colors.textMuted}
-            style={stylesThemed.citySearchInput}
+            style={styles.citySearchInput}
             autoCorrect={false}
             autoCapitalize="none"
             clearButtonMode="while-editing"
@@ -491,31 +371,31 @@ export default function HomeScreen() {
         {showAllCitiesOption ? (
           <Pressable
             key={ALL_CITIES_OPTION}
-            style={stylesThemed.cityRow}
+            style={styles.cityRow}
             onPress={() => void handleSelectCity(ALL_CITIES_OPTION)}
           >
-            <Text style={stylesThemed.cityRowText}>{t("home.allCities")}</Text>
-            {selectedCity === ALL_CITIES_OPTION ? <Text style={stylesThemed.cityCheck}>{t("home.selected")}</Text> : null}
+            <Text style={styles.cityRowText}>{t("home.allCities")}</Text>
+            {selectedCity === ALL_CITIES_OPTION ? <Text style={styles.cityCheck}>{t("home.selected")}</Text> : null}
           </Pressable>
         ) : null}
 
         {filteredCityGroups.map(({ country, cities }) => (
           <View key={country}>
-            <View style={stylesThemed.countryHeader}>
-              <Text style={stylesThemed.countryHeaderText}>{country}</Text>
+            <View style={styles.countryHeader}>
+              <Text style={styles.countryHeaderText}>{country}</Text>
             </View>
             {cities.map((city) => (
-              <Pressable key={city} style={stylesThemed.cityRow} onPress={() => void handleSelectCity(city)}>
-                <Text style={stylesThemed.cityRowText}>{city}</Text>
-                {city === selectedCity ? <Text style={stylesThemed.cityCheck}>{t("home.selected")}</Text> : null}
+              <Pressable key={city} style={styles.cityRow} onPress={() => void handleSelectCity(city)}>
+                <Text style={styles.cityRowText}>{city}</Text>
+                {city === selectedCity ? <Text style={styles.cityCheck}>{t("home.selected")}</Text> : null}
               </Pressable>
             ))}
           </View>
         ))}
 
         {!showAllCitiesOption && filteredCityGroups.length === 0 ? (
-          <View style={stylesThemed.cityPickerEmpty}>
-            <Text style={stylesThemed.cityPickerEmptyText}>{t("home.noCitiesMatch")}</Text>
+          <View style={styles.cityPickerEmpty}>
+            <Text style={styles.cityPickerEmptyText}>{t("home.noCitiesMatch")}</Text>
           </View>
         ) : null}
       </BottomSheetPickerModal>

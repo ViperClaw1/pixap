@@ -16,6 +16,7 @@ export interface MessageThreadItem {
   last_sender_avatar_url: string | null;
   unread_count: number;
   participants: MessageParticipantProfile[];
+  is_support?: boolean;
 }
 
 export interface Message {

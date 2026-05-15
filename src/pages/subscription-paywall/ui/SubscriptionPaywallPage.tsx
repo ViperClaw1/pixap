@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,6 +9,7 @@ import { useSubscription } from "@/entities/subscription";
 import { useEntitlement } from "@/entities/subscription";
 import { env } from "@/shared/lib/env";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { useSubscriptionPaywallStyles } from "./subscriptionPaywallStyles";
 
 const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
 const GOOGLE_SUBSCRIPTION_URL = "https://play.google.com/store/account/subscriptions";
@@ -31,46 +32,7 @@ export default function SubscriptionPaywallScreen() {
     navigation.navigate("AIBooking");
   }, [isActive, navigation]);
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        root: { flex: 1, backgroundColor: colors.background },
-        content: { paddingHorizontal: 16, paddingTop: Math.max(12, insets.top), paddingBottom: Math.max(24, insets.bottom) },
-        card: {
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          padding: 14,
-          gap: 10,
-          marginBottom: 12,
-        },
-        title: { color: colors.text, fontSize: 24, fontWeight: "800" },
-        subtitle: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
-        plan: { color: colors.text, fontWeight: "700", fontSize: 16 },
-        feature: { color: colors.text, fontSize: 14 },
-        cta: {
-          backgroundColor: colors.primary,
-          borderRadius: 12,
-          paddingVertical: 12,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        ctaText: { color: colors.onPrimary, fontWeight: "700" },
-        secondary: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 12,
-          paddingVertical: 11,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.background,
-        },
-        secondaryText: { color: colors.text, fontWeight: "700" },
-        legal: { color: colors.textMuted, fontSize: 12, textAlign: "center", marginTop: 6 },
-      }),
-    [colors, insets.bottom, insets.top],
-  );
+  const styles = useSubscriptionPaywallStyles(insets.top, insets.bottom);
 
   const monthlyProduct = products.find((product) => {
     const productRecord = product as unknown as { id?: string; productId?: string };

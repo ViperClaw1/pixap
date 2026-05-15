@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { OtpInput } from "react-native-otp-entry";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
@@ -12,7 +12,9 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useProfile } from "@/entities/user";
 import type { ProfileStackParamList } from "@/app/navigation/types";
-import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { verifyEmailOtpStaticStyles, verifyEmailOtpThemeStyles } from "./verifyEmailOtpStyles";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "VerifyEmailOtp">;
 type ScreenRoute = RouteProp<ProfileStackParamList, "VerifyEmailOtp">;
@@ -34,71 +36,13 @@ export default function VerifyEmailOtpPage() {
   const profileEmail = (profile?.email ?? user?.email ?? "").trim();
   const email = (flow === "recovery" ? flowEmail : profileEmail).toLowerCase();
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: {
-          flex: 1,
-          backgroundColor: colors.background,
-          paddingHorizontal: 20,
-          justifyContent: "center",
-        },
-        backButton: {
-          position: "absolute",
-          top: Math.max(insets.top, 12),
-          left: 16,
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 2,
-        },
-        title: {
-          color: colors.text,
-          fontSize: 32,
-          fontWeight: "800",
-          marginBottom: 10,
-        },
-        description: {
-          color: colors.textMuted,
-          fontSize: 14,
-          lineHeight: 21,
-          marginBottom: 22,
-        },
-        otpWrap: {
-          marginBottom: 16,
-          minHeight: 56,
-          justifyContent: "center",
-        },
-        resendBtn: {
-          minHeight: 42,
-          alignSelf: "flex-start",
-          alignItems: "center",
-          justifyContent: "center",
-          paddingHorizontal: 0,
-          paddingVertical: 0,
-        },
-        resendBtnText: {
-          color: colors.primary,
-          fontSize: 14,
-          fontWeight: "700",
-        },
-        verifyBtn: {
-          ...primaryPressableStyle,
-          minHeight: 46,
-          borderRadius: 12,
-          marginTop: 14,
-        },
-        verifyBtnText: {
-          ...primaryPressableTextStyle,
-          fontSize: 15,
-        },
-      }),
-    [colors, insets.top],
+  const themed = useThemeStyles(
+    ({ colors: c }) => verifyEmailOtpThemeStyles(c, insets.top),
+    [insets.top],
+  );
+  const styles = useMemo(
+    () => mergeStaticAndThemed(verifyEmailOtpStaticStyles, themed),
+    [themed],
   );
 
   const sendCode = async () => {
@@ -150,20 +94,20 @@ export default function VerifyEmailOtpPage() {
   };
 
   return (
-    <View style={stylesThemed.root}>
+    <View style={styles.root}>
       <Pressable
-        style={stylesThemed.backButton}
+        style={styles.backButton}
         onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate("ProfileMain"))}
       >
         <Ionicons name="chevron-back" size={20} color={colors.text} />
       </Pressable>
-      <Text style={stylesThemed.title}>Verify your email</Text>
-      <Text style={stylesThemed.description}>
+      <Text style={styles.title}>Verify your email</Text>
+      <Text style={styles.description}>
         {flow === "verify"
           ? `We sent a 6-digit verification code to ${email || "your email"}. Enter it below to confirm your account.`
           : `We sent a 6-digit password reset code to ${email || "your email"}. Enter it to continue.`}
       </Text>
-      <View style={stylesThemed.otpWrap}>
+      <View style={styles.otpWrap}>
         <OtpInput
           numberOfDigits={6}
           focusColor={colors.primary}
@@ -186,18 +130,18 @@ export default function VerifyEmailOtpPage() {
           }}
         />
       </View>
-      <Pressable style={stylesThemed.resendBtn} onPress={() => void sendCode()} disabled={sending}>
+      <Pressable style={styles.resendBtn} onPress={() => void sendCode()} disabled={sending}>
         {sending ? (
           <ActivityIndicator size="small" color={colors.primary} />
         ) : (
-          <Text style={stylesThemed.resendBtnText}>Resend code</Text>
+          <Text style={styles.resendBtnText}>Resend code</Text>
         )}
       </Pressable>
-      <Pressable style={stylesThemed.verifyBtn} onPress={() => void submitCode(code)} disabled={verifying}>
+      <Pressable style={styles.verifyBtn} onPress={() => void submitCode(code)} disabled={verifying}>
         {verifying ? (
           <ActivityIndicator size="small" color={colors.onPrimary} />
         ) : (
-          <Text style={stylesThemed.verifyBtnText}>Verify</Text>
+          <Text style={styles.verifyBtnText}>Verify</Text>
         )}
       </Pressable>
     </View>

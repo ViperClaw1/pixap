@@ -9,6 +9,7 @@ import { env } from "@/shared/lib/env";
 import { isInvalidRefreshTokenError } from "@/shared/lib/supabaseAuth";
 import { clearSessionCaches } from "@/shared/lib/clearSessionCaches";
 import { registerNativePushToken } from "@/shared/lib/push/pushNotifications";
+import { devError, devInfo, devWarn } from "@/shared/lib/devLog";
 
 interface SignInResult {
   error: string | null;
@@ -111,10 +112,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           finishInit();
           return;
         }
-        if (__DEV__) {
-          const message = error instanceof Error ? error.message : "Unknown auth initialization error";
-          console.warn("[auth] getSession failed:", message);
-        }
+        const message = error instanceof Error ? error.message : "Unknown auth initialization error";
+        devWarn("[auth] getSession failed:", message);
         applySession(null);
         finishInit();
       });
@@ -198,23 +197,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const sendVerificationOtp = async (email: string) => {
-    if (__DEV__) {
-      console.info("[auth][sendVerificationOtp] invoke auth-email-verify", { email });
-    }
+    devInfo("[auth][sendVerificationOtp] invoke auth-email-verify", { email });
     const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-verify", {
       body: {
         email,
       },
     });
     if (error) {
-      if (__DEV__) console.error("[auth][sendVerificationOtp] edge invoke error:", error.message);
+      devError("[auth][sendVerificationOtp] edge invoke error:", error.message);
       return { error: error.message };
     }
     if (data && typeof data === "object" && "error" in data && data.error) {
-      if (__DEV__) console.error("[auth][sendVerificationOtp] edge response error:", String(data.error));
+      devError("[auth][sendVerificationOtp] edge response error:", String(data.error));
       return { error: String(data.error) };
     }
-    if (__DEV__) console.info("[auth][sendVerificationOtp] edge invoke success");
+    devInfo("[auth][sendVerificationOtp] edge invoke success");
     return { error: null };
   };
 
@@ -262,7 +259,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const resendVerification = async (email: string) => {
     // Backward compatibility for existing callers.
     const result = await sendVerificationOtp(email);
-    if (__DEV__) console.info("[auth][resendVerification] deprecated alias used");
+    devInfo("[auth][resendVerification] deprecated alias used");
     return result;
   };
 

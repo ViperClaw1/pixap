@@ -24,7 +24,8 @@ export function usePeopleToFollow(search: string) {
       let request = supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- view is managed by SQL migrations
         .from("public_profiles" as any)
-        .select("id, first_name, last_name, avatar_url, username")
+        .select("id, first_name, last_name, avatar_url, username, account_role")
+        .eq("account_role", "user")
         .limit(80);
 
       if (value.length) {

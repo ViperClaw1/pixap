@@ -22,6 +22,7 @@ import { fetchDirections, geocodeAddressDetailed, type TravelMode } from "@/shar
 import type { LatLng } from "@/shared/lib/polylineDecode";
 import { regionAroundPoint, regionFromCoordinates, type MapRegion } from "@/shared/lib/mapRegion";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useDirectionsModalStyles } from "./directionsModalStyles";
 
 /** Стабильные маркеры: стабильный `coordinate` + `tracksViewChanges={false}` — меньше перерисовок нативных аннотаций. */
 const DirectionsUserMarker = memo(function DirectionsUserMarker({ coordinate }: { coordinate: LatLng }) {
@@ -46,6 +47,8 @@ type Props = {
   placeName: string;
   address: string;
 };
+
+const ROUTE_POLYLINE_MAX_POINTS = 260;
 
 const MODES: { key: TravelMode; label: string }[] = [
   { key: "driving", label: "Drive" },
@@ -102,9 +105,8 @@ function buildRenderableRoute(coords: LatLng[]): LatLng[] {
   }
   if (deduped.length < 2) return [];
 
-  const maxPoints = 260;
-  if (deduped.length <= maxPoints) return deduped;
-  const step = Math.ceil(deduped.length / maxPoints);
+  if (deduped.length <= ROUTE_POLYLINE_MAX_POINTS) return deduped;
+  const step = Math.ceil(deduped.length / ROUTE_POLYLINE_MAX_POINTS);
   const compact: LatLng[] = [];
   for (let i = 0; i < deduped.length; i += step) compact.push(deduped[i]);
   const last = deduped[deduped.length - 1];
@@ -146,116 +148,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
   const routeCoordsRef = useRef(routeCoords);
   routeCoordsRef.current = routeCoords;
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        backdrop: {
-          flex: 1,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          justifyContent: "flex-end",
-        },
-        sheet: {
-          backgroundColor: colors.card,
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-          overflow: "hidden",
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-        },
-        sheetExpanded: {
-          flex: 1,
-          marginTop: insets.top,
-          borderTopLeftRadius: 18,
-          borderTopRightRadius: 18,
-          maxHeight: screenH,
-        },
-        curtainWrap: {
-          alignItems: "center",
-          paddingTop: 8,
-          paddingBottom: 2,
-        },
-        curtain: {
-          width: 44,
-          height: 5,
-          borderRadius: 999,
-          backgroundColor: colors.textMuted,
-          opacity: 0.65,
-        },
-        header: {
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 16,
-          paddingTop: 12,
-          paddingBottom: 8,
-          gap: 8,
-        },
-        headerTitle: { flex: 1, fontSize: 17, fontWeight: "700", color: colors.text },
-        iconBtn: {
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: colors.border,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        address: { paddingHorizontal: 16, fontSize: 13, color: colors.textMuted, marginBottom: 8 },
-        map: {
-          width: "100%",
-          minHeight: 220,
-          flex: 1,
-        },
-        banner: {
-          marginHorizontal: 16,
-          marginBottom: 8,
-          padding: 10,
-          borderRadius: 10,
-          backgroundColor: isDark ? "rgba(234,179,8,0.15)" : "rgba(234,179,8,0.2)",
-        },
-        bannerRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-        bannerIconBtn: {
-          width: 28,
-          height: 28,
-          borderRadius: 14,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.08)",
-        },
-        bannerText: { fontSize: 12, color: colors.text, flex: 1, flexShrink: 1, lineHeight: 16 },
-        errorBox: {
-          marginHorizontal: 16,
-          marginBottom: 8,
-          padding: 10,
-          borderRadius: 10,
-          backgroundColor: isDark ? "rgba(248,113,113,0.12)" : "rgba(220,38,38,0.08)",
-        },
-        errorText: { fontSize: 12, color: colors.danger },
-        footer: {
-          paddingHorizontal: 16,
-          paddingTop: 10,
-          paddingBottom: Platform.OS === "ios" ? Math.max(insets.bottom, 16) : 16,
-          gap: 10,
-        },
-        metaRow: { flexDirection: "row", gap: 12, alignItems: "center" },
-        metaText: { fontSize: 13, fontWeight: "600", color: colors.text },
-        modeRow: { flexDirection: "row", gap: 8 },
-        modeChip: {
-          flex: 1,
-          paddingVertical: 10,
-          borderRadius: 12,
-          backgroundColor: colors.border,
-          alignItems: "center",
-        },
-        modeChipActive: { backgroundColor: colors.primary },
-        modeLabel: { fontSize: 12, fontWeight: "700", color: colors.text },
-        modeLabelActive: { color: colors.onPrimary },
-        closeBtn: { alignItems: "center", paddingVertical: 8 },
-        closeText: { fontSize: 14, color: colors.link, fontWeight: "600" },
-        configBox: { padding: 20 },
-        configTitle: { fontSize: 16, fontWeight: "700", color: colors.text, marginBottom: 8 },
-        configBody: { fontSize: 13, color: colors.textMuted, lineHeight: 20 },
-      }),
-    [colors, isDark, insets.bottom, insets.top, screenH],
-  );
+  const styles = useDirectionsModalStyles(insets.top, insets.bottom, screenH);
 
   useEffect(() => {
     sheetScreenH.value = screenH;

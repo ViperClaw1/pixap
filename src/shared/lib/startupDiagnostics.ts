@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { supabaseConfigError } from "@/shared/api/supabase/client";
+import { devLog } from "@/shared/lib/devLog";
 type Extra = {
   supabaseUrl?: string;
   supabaseAnonKey?: string;
@@ -50,5 +51,5 @@ export function logStartupDiagnostics(): void {
   };
 
   // Never log secrets; only booleans/hostnames and safe metadata.
-  console.log("[startup]", JSON.stringify(diagnostics));
+  devLog("[startup]", JSON.stringify(diagnostics));
 }

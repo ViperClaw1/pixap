@@ -1,20 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, Pressable, FlatList, ActivityIndicator, Alert, ScrollView, RefreshControl } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Alert, RefreshControl } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Linking from "expo-linking";
-import { useAuth } from "@/app/providers/AuthProvider";
-import { useCartItems, useConfirmServiceCartBooking, type CartItem } from "@/entities/cart";
-import { useShoppingCart } from "@/entities/shopping";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { useAutoStartN8nWaBookingForPaidItems, useCartItems, useConfirmServiceCartBooking, type CartItem } from "@/entities/cart";
+import { useShoppingCart } from "@/entities/shopping";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CartStackParamList } from "@/app/navigation/types";
-import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/shared/api/queryKeys";
-import { supabase } from "@/shared/api/supabase/client";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import {
   buildAvailabilityMessage,
@@ -22,29 +21,26 @@ import {
   resolveShoppingWhatsAppPhone,
   shoppingCartContextLines,
 } from "@/entities/shopping/lib/whatsappAvailability";
-import { createCartStyles, ServiceCartRow, ShopRow } from "@/widgets/cart";
+import { ServiceCartRow, ShopRow, useCartStyles } from "@/widgets/cart";
 
 export default function CartPage() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<CartStackParamList>>();
-  const stylesThemed = useMemo(() => createCartStyles(colors, insets.bottom), [colors, insets.bottom]);
+  const stylesThemed = useCartStyles(insets.bottom);
   const { user, session, loading } = useAuth();
   useAuthSessionRedirect({
     authLoading: loading,
     hasUser: Boolean(user),
     navigation: navigation as unknown as NavigationProp<ParamListBase>,
   });
-  const queryClient = useQueryClient();
   const confirmServiceBooking = useConfirmServiceCartBooking();
   const [tab, setTab] = useState<"services" | "shopping">("services");
   const [checkingShopWa, setCheckingShopWa] = useState(false);
   const { data: cartItems = [], isLoading: cl, refetch: refetchCartItems } = useCartItems();
   const [servicesRefreshing, setServicesRefreshing] = useState(false);
   const { data: shoppingItems = [], isLoading: sl } = useShoppingCart();
-  const n8nStartingRef = useRef(new Set<string>());
-  const n8nStartFailedRef = useRef(new Set<string>());
   const handleAuthRequired = () => navigateToAuthScreen(navigation);
   const paidServiceDrafts = useMemo(
     () => cartItems.filter((item) => item.status === "created" && Number(item.cost ?? 0) > 0),
@@ -55,67 +51,12 @@ export default function CartPage() {
     [paidServiceDrafts],
   );
 
-  useEffect(() => {
-    if (tab !== "services" || loading || !user) return;
-    const accessToken = session?.access_token;
-    if (!accessToken) return;
-    for (const item of paidServiceDrafts) {
-      if (item.wa_n8n_started_at) continue;
-      if (n8nStartFailedRef.current.has(item.id)) continue;
-      if (n8nStartingRef.current.has(item.id)) continue;
-      if (!item.business_card?.contact_whatsapp?.trim()) {
-        n8nStartFailedRef.current.add(item.id);
-        continue;
-      }
-      n8nStartingRef.current.add(item.id);
-      void supabase.functions
-        .invoke("n8n-wa-booking-start", {
-          body: { cart_item_id: item.id },
-          headers: { Authorization: `Bearer ${accessToken}` },
-        })
-        .then((res) => {
-          const { data, error } = res;
-          if (!error) return;
-          let msg = error.message;
-          const ctx = (error as { context?: { body?: string } }).context;
-          const rawBody = ctx?.body;
-          if (rawBody) {
-            try {
-              const j = JSON.parse(rawBody) as {
-                error?: string;
-                hint?: string;
-                step?: string;
-                n8n_status?: number;
-                n8n_message?: string;
-                n8n_body_preview?: string;
-                wa_booking_status?: number;
-                wa_booking_body_preview?: string;
-              };
-              if (j.error) {
-                msg = `${msg} [${j.step ?? "?"}] ${j.error}`;
-                if (j.n8n_message) msg += `: ${j.n8n_message}`;
-                if (j.hint) msg += ` — ${j.hint}`;
-                const upstream = j.wa_booking_status ?? j.n8n_status;
-                if (upstream != null) {
-                  msg += j.wa_booking_status != null ? ` (booking service HTTP ${upstream})` : ` (n8n HTTP ${upstream})`;
-                }
-              }
-            } catch {
-              msg = `${msg} ${rawBody.slice(0, 160)}`;
-            }
-          } else if (data && typeof data === "object" && data !== null && "error" in data) {
-            const j = data as { error?: string; hint?: string };
-            if (typeof j.error === "string") msg = `${msg}: ${j.error}${j.hint ? ` — ${j.hint}` : ""}`;
-          }
-          console.warn("[n8n-wa-booking-start]", msg);
-          n8nStartFailedRef.current.add(item.id);
-        })
-        .finally(() => {
-          n8nStartingRef.current.delete(item.id);
-          void queryClient.invalidateQueries({ queryKey: queryKeys.cart.items(user.id) });
-        });
-    }
-  }, [tab, paidServiceDrafts, loading, user, session?.access_token, queryClient]);
+  useAutoStartN8nWaBookingForPaidItems(
+    paidServiceDrafts,
+    tab === "services" && !loading && Boolean(user),
+    session?.access_token,
+    user?.id,
+  );
 
   if (loading) {
     return (
@@ -212,15 +153,15 @@ export default function CartPage() {
         cl ? (
           <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
         ) : (
-          <FlatList
+          <FlashList
             data={paymentAwaitingServices}
             keyExtractor={(i) => i.id}
+            estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.cartService}
             contentContainerStyle={{ padding: 16, paddingBottom: 100 + insets.bottom }}
             refreshControl={
               <RefreshControl
                 refreshing={servicesRefreshing}
                 onRefresh={() => {
-                  n8nStartFailedRef.current.clear();
                   setServicesRefreshing(true);
                   void refetchCartItems().finally(() => setServicesRefreshing(false));
                 }}
@@ -237,41 +178,53 @@ export default function CartPage() {
                 onAuthRequired={handleAuthRequired}
               />
             )}
+            removeClippedSubviews
+            initialNumToRender={8}
+            maxToRenderPerBatch={10}
+            windowSize={8}
+            updateCellsBatchingPeriod={40}
           />
         )
       ) : sl ? (
         <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 + insets.bottom }}>
-          {shoppingItems.length === 0 ? (
-            <Text style={stylesThemed.empty}>{t("cart.emptyShopping")}</Text>
-          ) : (
-            shoppingItems.map((item) => (
-              <ShopRow
-                key={item.id}
-                item={item}
-                stylesThemed={stylesThemed}
-                labelColor={colors.text}
-                onAuthRequired={handleAuthRequired}
-              />
-            ))
+        <FlashList
+          data={shoppingItems}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.cartShopping}
+          contentContainerStyle={{ padding: 16, paddingBottom: 120 + insets.bottom }}
+          ListEmptyComponent={<Text style={stylesThemed.empty}>{t("cart.emptyShopping")}</Text>}
+          ListFooterComponent={
+            shoppingItems.length > 0 ? (
+              <View style={stylesThemed.payBar}>
+                <Text style={stylesThemed.totalLabel}>{t("cart.total")}</Text>
+                <Text style={stylesThemed.totalVal}>{shoppingTotal.toLocaleString()} $</Text>
+                <Pressable
+                  style={[stylesThemed.payBtn, checkingShopWa && { opacity: 0.6 }]}
+                  disabled={checkingShopWa}
+                  onPress={() => void checkShoppingAvailability()}
+                >
+                  <Text style={stylesThemed.payBtnText}>
+                    {checkingShopWa ? t("cart.opening") : t("cart.checkAvailability")}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <ShopRow
+              item={item}
+              stylesThemed={stylesThemed}
+              labelColor={colors.text}
+              onAuthRequired={handleAuthRequired}
+            />
           )}
-          {shoppingItems.length > 0 ? (
-            <View style={stylesThemed.payBar}>
-              <Text style={stylesThemed.totalLabel}>{t("cart.total")}</Text>
-              <Text style={stylesThemed.totalVal}>{shoppingTotal.toLocaleString()} $</Text>
-              <Pressable
-                style={[stylesThemed.payBtn, checkingShopWa && { opacity: 0.6 }]}
-                disabled={checkingShopWa}
-                onPress={() => void checkShoppingAvailability()}
-              >
-                <Text style={stylesThemed.payBtnText}>
-                  {checkingShopWa ? t("cart.opening") : t("cart.checkAvailability")}
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </ScrollView>
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={8}
+          updateCellsBatchingPeriod={40}
+        />
       )}
     </View>
   );

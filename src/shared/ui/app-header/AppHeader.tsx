@@ -7,6 +7,11 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useUnreadCount } from "@/entities/notification";
 import { LanguagePickerModal } from "@/shared/ui/app-header/LanguagePickerModal";
 import { NotificationsSheetModal } from "@/shared/ui/notifications-sheet";
+import {
+  APP_HEADER_HORIZONTAL_PAD,
+  APP_HEADER_ICON_BTN_SIZE,
+  APP_HEADER_ICON_GAP,
+} from "./appHeaderLayoutConstants";
 
 type AppHeaderProps = {
   title: string;
@@ -45,9 +50,9 @@ function AppHeaderComponent({
 
   /** Pixel widths from screen edges so the title stays visually centered (symmetric insets). */
   const { titleInsetLeft, titleInsetRight } = useMemo(() => {
-    const pad = 12;
-    const btn = 34;
-    const gap = 6;
+    const pad = APP_HEADER_HORIZONTAL_PAD;
+    const btn = APP_HEADER_ICON_BTN_SIZE;
+    const gap = APP_HEADER_ICON_GAP;
     const leftCluster = pad + btn + (showNotificationsBell ? gap + btn : 0);
     const rightCluster = pad + btn + gap + (hasRightAction ? btn : 0);
     const symmetric = Math.max(leftCluster, rightCluster);

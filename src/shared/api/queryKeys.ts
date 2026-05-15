@@ -47,6 +47,7 @@ export const queryKeys = {
   },
   profile: {
     user: (userId: string | undefined | null) => ["profile", userId ?? null] as const,
+    phone: (userId: string | undefined | null) => ["profile", "phone", userId ?? null] as const,
     root: ["profile"] as const,
     socialMetrics: (userId: string | null) => ["profile", "social-metrics", userId] as const,
     suggestionsPrefix: ["profile", "suggestions"] as const,

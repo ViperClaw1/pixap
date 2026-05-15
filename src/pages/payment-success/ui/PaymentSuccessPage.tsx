@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -11,12 +11,9 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { CartStackParamList, RootTabParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import {
-  SHARED_PRESSABLE_HEIGHT,
-  SHARED_PRESSABLE_RADIUS,
-  primaryPressableStyle,
-  primaryPressableTextStyle,
-} from "@/shared/theme/primaryPressable";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { paymentSuccessStaticStyles, paymentSuccessThemeStyles } from "./paymentSuccessStyles";
 
 type PaymentSuccessNav = CompositeNavigationProp<
   NativeStackNavigationProp<CartStackParamList, "PaymentSuccess">,
@@ -30,7 +27,6 @@ export default function PaymentSuccessScreen() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const { colors } = useAppTheme();
 
   useEffect(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.shopping.cartPrefix });
@@ -45,34 +41,13 @@ export default function PaymentSuccessScreen() {
     navigation.navigate("Bookings", { screen: "BookingsMain" });
   }, [route.params?.next, navigation]);
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: {
-          flex: 1,
-          justifyContent: "center",
-          padding: 24,
-          backgroundColor: colors.background,
-          paddingBottom: Math.max(insets.bottom, 24),
-        },
-        title: { fontSize: 24, fontWeight: "800", marginBottom: 8, color: colors.text },
-        body: { color: colors.textMuted, marginBottom: 24 },
-        btn: {
-          ...primaryPressableStyle,
-        },
-        btnText: primaryPressableTextStyle,
-        secondaryBtn: {
-          marginTop: 12,
-          minHeight: SHARED_PRESSABLE_HEIGHT,
-          borderRadius: SHARED_PRESSABLE_RADIUS,
-          alignItems: "center",
-          justifyContent: "center",
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        secondaryBtnText: { color: colors.text, fontWeight: "700" },
-      }),
-    [colors, insets.bottom],
+  const themed = useThemeStyles(
+    ({ colors: c }) => paymentSuccessThemeStyles(c, insets.bottom),
+    [insets.bottom],
+  );
+  const styles = useMemo(
+    () => mergeStaticAndThemed(paymentSuccessStaticStyles, themed),
+    [themed],
   );
 
   const goBookings = () => {
@@ -80,14 +55,14 @@ export default function PaymentSuccessScreen() {
   };
 
   return (
-    <View style={stylesThemed.root}>
-      <Text style={stylesThemed.title}>Payment successful</Text>
-      <Text style={stylesThemed.body}>Thank you! Your order is confirmed.</Text>
-      <Pressable style={stylesThemed.btn} onPress={() => navigation.navigate("CartMain")}>
-        <Text style={stylesThemed.btnText}>Back to cart</Text>
+    <View style={styles.root}>
+      <Text style={styles.title}>Payment successful</Text>
+      <Text style={styles.body}>Thank you! Your order is confirmed.</Text>
+      <Pressable style={styles.btn} onPress={() => navigation.navigate("CartMain")}>
+        <Text style={styles.btnText}>Back to cart</Text>
       </Pressable>
-      <Pressable style={stylesThemed.secondaryBtn} onPress={goBookings}>
-        <Text style={stylesThemed.secondaryBtnText}>View bookings</Text>
+      <Pressable style={styles.secondaryBtn} onPress={goBookings}>
+        <Text style={styles.secondaryBtnText}>View bookings</Text>
       </Pressable>
     </View>
   );

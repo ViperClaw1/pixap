@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Platform, Pressable, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { ActivityIndicator, Alert, Platform, Pressable, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
@@ -20,7 +22,8 @@ import { formatRelativeLastSeen, peerFullName } from "../model/format";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import type { MessageThreadListRow } from "../model/types";
-import { createMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
+import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
+import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import { MessageThreadListItem } from "./MessageThreadListItem";
 import {
   AttachmentViewerModal,
@@ -32,8 +35,10 @@ type MessageThreadRoute = RouteProp<CartStackParamList, "MessageThread">;
 type MessageThreadNav = NativeStackNavigationProp<CartStackParamList, "MessageThread">;
 
 export default function MessageThreadPage() {
+  const { t } = useTranslation();
   const navigation = useNavigation<MessageThreadNav>();
   const { params } = useRoute<MessageThreadRoute>();
+  const isSupport = params.isSupport === true;
   const insets = useSafeAreaInsets();
   const stableBottomInsetRef = useRef(insets.bottom);
   if (insets.bottom > stableBottomInsetRef.current) {
@@ -78,11 +83,10 @@ export default function MessageThreadPage() {
     [navigation],
   );
 
-  const peerName = peerFullName(
-    peer?.first_name ?? params.peerFirstName ?? null,
-    peer?.last_name ?? params.peerLastName ?? null,
-  );
-  const peerAvatar = peer?.avatar_url ?? params.peerAvatarUrl ?? null;
+  const peerName = isSupport
+    ? (params.threadTitle ?? t("messages.support"))
+    : peerFullName(peer?.first_name ?? params.peerFirstName ?? null, peer?.last_name ?? params.peerLastName ?? null);
+  const peerAvatar = isSupport ? null : (peer?.avatar_url ?? params.peerAvatarUrl ?? null);
   const rows = useMessageThreadListRows(messages);
 
   const openDeleteOptions = (messageId: string, isMine: boolean) => {
@@ -137,10 +141,7 @@ export default function MessageThreadPage() {
     ]);
   };
 
-  const stylesThemed = useMemo(
-    () => createMessageThreadStyles(colors, mode, insets.top, stableBottomInset),
-    [colors, insets.top, mode, stableBottomInset],
-  );
+  const styles = useMessageThreadStyles(insets.top, stableBottomInset);
 
   const keyboardInsetAnim = useKeyboardInset({ tabBarHeight });
 
@@ -214,20 +215,23 @@ export default function MessageThreadPage() {
     setAttachmentViewer({ uri, mimeType: null, name: null });
   }, []);
 
+  /** FlashList при первом mount с data=[] и center-стилем не пересчитывает layout после fetch. */
+  const awaitingInitialMessages = isLoading && rows.length === 0;
+
   const keyExtractor = useCallback((row: MessageThreadListRow) => row.key, []);
 
   const renderRow = useCallback(({ item }: { item: MessageThreadListRow }) => {
     if (item.kind === "divider") {
       return (
-        <View style={stylesThemed.dividerWrap}>
-          <Text style={stylesThemed.dividerText}>{item.label}</Text>
+        <View style={styles.dividerWrap}>
+          <Text style={styles.dividerText}>{item.label}</Text>
         </View>
       );
     }
     return (
       <MessageThreadListItem
         item={item.message}
-        styles={stylesThemed}
+        styles={styles}
         colors={colors}
         mode={mode}
         peerLastSeenAt={peerLastSeenAt}
@@ -261,74 +265,88 @@ export default function MessageThreadPage() {
     peerLastSeenAt,
     reactToMessage,
     reactionPickerMessageId,
-    stylesThemed,
+    styles,
   ]);
 
   return (
-    <View style={stylesThemed.root} {...androidSwipeBackPanHandlers}>
-      <Animated.View style={[stylesThemed.content, contentAnimatedStyle]}>
-        <View style={stylesThemed.header}>
-          <Pressable style={stylesThemed.backBtn} onPress={leaveThread}>
+    <View style={styles.root} {...androidSwipeBackPanHandlers}>
+      <Animated.View style={[styles.content, contentAnimatedStyle]}>
+        <View style={styles.header}>
+          <Pressable style={styles.backBtn} onPress={leaveThread}>
             <Ionicons name="arrow-back" size={20} color={colors.text} />
           </Pressable>
-          <View style={stylesThemed.headerCenter}>
-            <Text style={stylesThemed.peerName} numberOfLines={1}>
+          <View style={styles.headerCenter}>
+            <Text style={styles.peerName} numberOfLines={1}>
               {peerName}
             </Text>
-            <Text style={stylesThemed.peerSeen}>{formatRelativeLastSeen(peerLastSeenAt)}</Text>
+            <Text style={styles.peerSeen}>{formatRelativeLastSeen(peerLastSeenAt)}</Text>
           </View>
-          <SmartImage uri={peerAvatar} style={stylesThemed.peerAvatar} contentFit="cover" />
+          {isSupport ? (
+            <View style={[styles.peerAvatar, styles.supportPeerAvatar, { backgroundColor: colors.accent }]}>
+              <Ionicons name="headset-outline" size={20} color={colors.onAccent} />
+            </View>
+          ) : (
+            <SmartImage uri={peerAvatar} style={styles.peerAvatar} contentFit="cover" />
+          )}
         </View>
 
-        <FlatList
-          style={stylesThemed.list}
-          data={rows}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={[stylesThemed.listContent, !rows.length ? stylesThemed.emptyListContent : null]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          renderItem={renderRow}
-          removeClippedSubviews
-          initialNumToRender={18}
-          maxToRenderPerBatch={14}
-          windowSize={10}
-          updateCellsBatchingPeriod={40}
-          ListEmptyComponent={
-            <View style={stylesThemed.emptyWrap}>
-              {isLoading ? <ActivityIndicator color={colors.primary} /> : <Text style={stylesThemed.emptyText}>No messages yet.</Text>}
-            </View>
-          }
-        />
+        {awaitingInitialMessages ? (
+          <View style={[styles.list, styles.listContent, styles.listLoading]}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : (
+          <FlashList
+            key={params.threadId}
+            style={styles.list}
+            data={rows}
+            keyExtractor={keyExtractor}
+            estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageBubble}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            renderItem={renderRow}
+            removeClippedSubviews
+            initialNumToRender={18}
+            maxToRenderPerBatch={14}
+            windowSize={10}
+            updateCellsBatchingPeriod={40}
+            ListEmptyComponent={
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyText}>No messages yet.</Text>
+              </View>
+            }
+          />
+        )}
 
-        <View style={stylesThemed.footer}>
+        <View style={styles.footer}>
           {isStickerPanelOpen ? (
-            <View style={stylesThemed.stickerPanel}>
+            <View style={styles.stickerPanel}>
               {STICKER_URLS.map((stickerUri) => (
                 <Pressable
                   key={stickerUri}
-                  style={stylesThemed.stickerChip}
+                  style={styles.stickerChip}
                   onPress={() =>
                     setAttachments((prev) =>
                       mergeDrafts(prev, [{ uri: stickerUri, mimeType: "image/png", name: "sticker.png" }]),
                     )
                   }
                 >
-                  <SmartImage uri={stickerUri} style={stylesThemed.stickerImage} contentFit="contain" />
+                  <SmartImage uri={stickerUri} style={styles.stickerImage} contentFit="contain" />
                 </Pressable>
               ))}
             </View>
           ) : null}
           {attachments.length ? (
-            <View style={stylesThemed.attachmentStrip}>
+            <View style={styles.attachmentStrip}>
               {attachments.map((a) => {
                 const k = detectAttachmentKind(a.uri, a.mimeType);
                 return (
-                  <View key={a.uri} style={stylesThemed.attachmentThumbWrap}>
+                  <View key={a.uri} style={styles.attachmentThumbWrap}>
                     <Pressable onPress={() => openAttachmentViewer(a.uri, a)}>
                       {k === "image" ? (
-                        <SmartImage uri={a.uri} style={stylesThemed.attachmentThumb} contentFit="cover" />
+                        <SmartImage uri={a.uri} style={styles.attachmentThumb} contentFit="cover" />
                       ) : (
-                        <View style={[stylesThemed.attachmentThumb, stylesThemed.attachmentThumbPlaceholder]}>
+                        <View style={[styles.attachmentThumb, styles.attachmentThumbPlaceholder]}>
                           <Ionicons
                             name={k === "video" ? "videocam-outline" : "document-text-outline"}
                             size={22}
@@ -338,7 +356,7 @@ export default function MessageThreadPage() {
                       )}
                     </Pressable>
                     <Pressable
-                      style={stylesThemed.attachmentRemove}
+                      style={styles.attachmentRemove}
                       onPress={() => setAttachments((prev) => prev.filter((item) => item.uri !== a.uri))}
                     >
                       <Ionicons name="close" size={12} color={colors.textMuted} />
@@ -348,29 +366,29 @@ export default function MessageThreadPage() {
               })}
             </View>
           ) : null}
-          <View style={stylesThemed.composerRow}>
+          <View style={styles.composerRow}>
             <Pressable
               accessibilityHint="Long press to attach a file"
-              style={stylesThemed.attachBtn}
+              style={styles.attachBtn}
               onPress={() => void pickMedia()}
               onLongPress={() => void pickDocument()}
             >
               <Ionicons name="attach-outline" size={18} color={colors.textMuted} />
             </Pressable>
-            <View style={stylesThemed.inputWrap}>
+            <View style={styles.inputWrap}>
               <RichTextarea
                 value={draft}
                 onChangeText={setDraft}
                 placeholder="Write a message..."
                 placeholderTextColor={colors.textMuted}
-                style={stylesThemed.input}
+                style={styles.input}
               />
             </View>
-            <Pressable style={stylesThemed.stickerBtn} onPress={toggleStickerPanel}>
+            <Pressable style={styles.stickerBtn} onPress={toggleStickerPanel}>
               <Ionicons name="happy-outline" size={18} color={colors.textMuted} />
             </Pressable>
             <Pressable
-              style={[stylesThemed.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}
+              style={[styles.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}
               disabled={(!draft.trim().length && !attachments.length) || sendMessage.isPending}
               onPress={() => {
                 void sendMessage

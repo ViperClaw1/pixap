@@ -3,13 +3,12 @@ import {
   View,
   Text,
   Pressable,
-  StyleSheet,
-  FlatList,
   Modal,
   ActivityIndicator,
   Alert,
   ScrollView,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -27,7 +26,10 @@ import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
-import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { shoppingItemsStaticStyles, shoppingItemsThemeStyles } from "./shoppingItemsStyles";
+import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 
 type R = RouteProp<BrowseFlowParamList, "ShoppingItems">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "ShoppingItems">;
@@ -49,57 +51,13 @@ export default function ShoppingItemsScreen() {
 
   const isRestaurant = place?.category?.name === "Restaurants";
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: { flex: 1, backgroundColor: colors.background },
-        centered: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background },
-        header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
-        back: { fontSize: 22, color: colors.text },
-        title: { fontSize: 18, fontWeight: "700", color: colors.text },
-        sub: { fontSize: 12, color: colors.textMuted },
-        row: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-          padding: 12,
-          backgroundColor: colors.card,
-          borderRadius: 12,
-          marginBottom: 10,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        name: { fontWeight: "700", color: colors.text },
-        price: { color: colors.textMuted, marginTop: 4 },
-        plus: { fontSize: 22, fontWeight: "700", color: colors.text },
-        modalBackdrop: {
-          flex: 1,
-          backgroundColor: "rgba(0,0,0,0.4)",
-          justifyContent: "flex-end",
-        },
-        modalCard: {
-          backgroundColor: colors.card,
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-          padding: 20,
-          paddingBottom: Math.max(insets.bottom, 20),
-          maxHeight: "70%",
-          borderTopWidth: 1,
-          borderColor: colors.border,
-        },
-        modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12, color: colors.text },
-        extraRow: { flexDirection: "row", alignItems: "center", paddingVertical: 8, gap: 8 },
-        extraLabel: { flex: 1, color: colors.text },
-        qtyBtn: { fontSize: 20, paddingHorizontal: 8, color: colors.text },
-        qtyVal: { minWidth: 24, textAlign: "center", color: colors.text },
-        primary: {
-          marginTop: 16,
-          ...primaryPressableStyle,
-        },
-        primaryText: primaryPressableTextStyle,
-        cancel: { textAlign: "center", marginTop: 12, color: colors.textMuted },
-      }),
-    [colors, insets.bottom],
+  const themed = useThemeStyles(
+    ({ colors: c }) => shoppingItemsThemeStyles(c, insets.bottom),
+    [insets.bottom],
+  );
+  const styles = useMemo(
+    () => mergeStaticAndThemed(shoppingItemsStaticStyles, themed),
+    [themed],
   );
 
   const openFlow = (item: ShoppingItem) => {
@@ -146,54 +104,60 @@ export default function ShoppingItemsScreen() {
 
   if (placeLoading || isLoading) {
     return (
-      <View style={stylesThemed.centered}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={stylesThemed.root}>
-      <View style={[stylesThemed.header, { paddingTop: Math.max(insets.top, 16) }]}>
+    <View style={styles.root}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Text style={stylesThemed.back}>←</Text>
+          <Text style={styles.back}>←</Text>
         </Pressable>
         <View>
-          <Text style={stylesThemed.title}>{isRestaurant ? "Menu" : "Shop items"}</Text>
-          <Text style={stylesThemed.sub}>{place?.name}</Text>
+          <Text style={styles.title}>{isRestaurant ? "Menu" : "Shop items"}</Text>
+          <Text style={styles.sub}>{place?.name}</Text>
         </View>
       </View>
 
-      <FlatList
+      <FlashList
         data={items}
         keyExtractor={(i) => i.id}
+        estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.shoppingItem}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 + insets.bottom }}
         renderItem={({ item }) => (
-          <Pressable style={stylesThemed.row} onPress={() => openFlow(item)}>
+          <Pressable style={styles.row} onPress={() => openFlow(item)}>
             <SmartImage
               uri={item.image}
               fallbackUri={getLatestBusinessCardImage(place?.images)}
               recyclingKey={`${item.id}-${id}`}
-              style={styles.thumb}
+              style={shoppingItemsStaticStyles.thumb}
               contentFit="cover"
             />
             <View style={{ flex: 1 }}>
-              <Text style={stylesThemed.name}>{item.name}</Text>
-              <Text style={stylesThemed.price}>{Number(item.price).toLocaleString()} ₸</Text>
+              <Text style={styles.name}>{item.name}</Text>
+              <Text style={styles.price}>{Number(item.price).toLocaleString()} ₸</Text>
             </View>
-            <Text style={stylesThemed.plus}>+</Text>
+            <Text style={styles.plus}>+</Text>
           </Pressable>
         )}
+        removeClippedSubviews
+        initialNumToRender={8}
+        maxToRenderPerBatch={10}
+        windowSize={8}
+        updateCellsBatchingPeriod={40}
       />
 
       <Modal visible={modalOpen} animationType="slide" transparent>
-        <View style={stylesThemed.modalBackdrop}>
-          <View style={stylesThemed.modalCard}>
-            <Text style={stylesThemed.modalTitle}>Extras</Text>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Extras</Text>
             <ScrollView>
               {additionalItems.map((ex) => (
-                <View key={ex.id} style={stylesThemed.extraRow}>
-                  <Text style={stylesThemed.extraLabel}>{ex.name}</Text>
+                <View key={ex.id} style={styles.extraRow}>
+                  <Text style={styles.extraLabel}>{ex.name}</Text>
                   <Pressable
                     onPress={() =>
                       setExtraQty((q) => ({
@@ -202,9 +166,9 @@ export default function ShoppingItemsScreen() {
                       }))
                     }
                   >
-                    <Text style={stylesThemed.qtyBtn}>−</Text>
+                    <Text style={styles.qtyBtn}>−</Text>
                   </Pressable>
-                  <Text style={stylesThemed.qtyVal}>{extraQty[ex.id] ?? 0}</Text>
+                  <Text style={styles.qtyVal}>{extraQty[ex.id] ?? 0}</Text>
                   <Pressable
                     onPress={() =>
                       setExtraQty((q) => ({
@@ -213,19 +177,19 @@ export default function ShoppingItemsScreen() {
                       }))
                     }
                   >
-                    <Text style={stylesThemed.qtyBtn}>+</Text>
+                    <Text style={styles.qtyBtn}>+</Text>
                   </Pressable>
                 </View>
               ))}
             </ScrollView>
             <Pressable
-              style={stylesThemed.primary}
+              style={styles.primary}
               onPress={() => selectedItem && void confirmAdd(selectedItem, extraQty)}
             >
-              <Text style={stylesThemed.primaryText}>Add to cart</Text>
+              <Text style={styles.primaryText}>Add to cart</Text>
             </Pressable>
             <Pressable onPress={() => setModalOpen(false)}>
-              <Text style={stylesThemed.cancel}>Cancel</Text>
+              <Text style={styles.cancel}>Cancel</Text>
             </Pressable>
           </View>
         </View>
@@ -233,7 +197,3 @@ export default function ShoppingItemsScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  thumb: { width: 56, height: 56, borderRadius: 8 },
-});

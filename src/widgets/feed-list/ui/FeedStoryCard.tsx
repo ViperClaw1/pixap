@@ -124,8 +124,8 @@ function FeedStoryCardComponent({
             style={[
               styles.followBtn,
               {
-                borderColor: story.is_followed_author ? colors.border : "#ec6544",
-                backgroundColor: story.is_followed_author ? colors.card : "#ec6544",
+                borderColor: story.is_followed_author ? colors.border : colors.accent,
+                backgroundColor: story.is_followed_author ? colors.card : colors.accent,
               },
             ]}
           >

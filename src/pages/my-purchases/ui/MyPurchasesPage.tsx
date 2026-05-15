@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +11,9 @@ import { usePaidShoppingCartItems } from "@/entities/shopping";
 import type { ShoppingCartItem } from "@/entities/shopping";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { myPurchasesStaticStyles, myPurchasesThemeStyles } from "./myPurchasesStyles";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "MyPurchases">;
 
@@ -58,57 +61,10 @@ export default function MyPurchasesScreen() {
 
   const loadingPurchases = loadingBookings || loadingShopping;
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: { flex: 1, backgroundColor: colors.background },
-        header: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          paddingHorizontal: 8,
-          paddingBottom: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-        },
-        headerTitle: { fontSize: 20, fontWeight: "800", color: colors.text, flex: 1 },
-        card: {
-          backgroundColor: colors.card,
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: colors.border,
-          marginBottom: 16,
-          padding: 16,
-        },
-        purchaseCard: {
-          backgroundColor: colors.surface,
-          borderRadius: 14,
-          borderWidth: 1,
-          borderColor: colors.border,
-          padding: 14,
-          marginBottom: 10,
-        },
-        typePill: {
-          alignSelf: "flex-start",
-          marginBottom: 8,
-          paddingHorizontal: 8,
-          paddingVertical: 4,
-          borderRadius: 8,
-          backgroundColor: colors.card,
-        },
-        typePillText: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
-        purchaseLabel: { fontSize: 11, fontWeight: "600", color: colors.textMuted, marginTop: 8 },
-        purchaseValue: { fontSize: 14, color: colors.text, marginTop: 2 },
-        childLine: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
-        bookingBlock: {
-          marginTop: 10,
-          paddingTop: 10,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-        },
-        emptyText: { color: colors.textMuted, textAlign: "center", marginTop: 12, fontSize: 14 },
-      }),
-    [colors],
+  const themed = useThemeStyles(({ colors: c }) => myPurchasesThemeStyles(c));
+  const styles = useMemo(
+    () => mergeStaticAndThemed(myPurchasesStaticStyles, themed),
+    [themed],
   );
 
   if (!loading && !user) {
@@ -116,13 +72,13 @@ export default function MyPurchasesScreen() {
   }
 
   return (
-    <View style={[stylesThemed.root, { paddingTop: Math.max(insets.top, 12) }]}>
-      <View style={stylesThemed.header}>
+    <View style={[styles.root, { paddingTop: Math.max(insets.top, 12) }]}>
+      <View style={styles.header}>
         <Pressable style={{ padding: 8 }} onPress={() => navigation.goBack()} hitSlop={12}>
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Ionicons name="bag-handle-outline" size={22} color={colors.textMuted} />
-        <Text style={stylesThemed.headerTitle}>My purchases</Text>
+        <Text style={styles.headerTitle}>My purchases</Text>
       </View>
       <ScrollView
         contentContainerStyle={{
@@ -131,10 +87,10 @@ export default function MyPurchasesScreen() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[stylesThemed.card, { marginTop: 16 }]}>
+        <View style={[styles.card, { marginTop: 16 }]}>
           {loadingPurchases ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
           {!loadingPurchases && mergedRows.length === 0 ? (
-            <Text style={stylesThemed.emptyText}>No paid purchases yet.</Text>
+            <Text style={styles.emptyText}>No paid purchases yet.</Text>
           ) : null}
           {!loadingPurchases
             ? mergedRows.map((row) => {
@@ -144,48 +100,48 @@ export default function MyPurchasesScreen() {
                   const paidAt = item.paid_at ? new Date(item.paid_at).toLocaleString() : "—";
                   const amount = item.persons != null && item.persons > 0 ? item.persons : 1;
                   return (
-                    <View key={`b-${item.id}`} style={stylesThemed.purchaseCard}>
-                      <View style={stylesThemed.typePill}>
-                        <Text style={stylesThemed.typePillText}>Booking</Text>
+                    <View key={`b-${item.id}`} style={styles.purchaseCard}>
+                      <View style={styles.typePill}>
+                        <Text style={styles.typePillText}>Booking</Text>
                       </View>
-                      <Text style={stylesThemed.purchaseLabel}>Item name</Text>
-                      <Text style={stylesThemed.purchaseValue}>{businessName}</Text>
-                      <Text style={stylesThemed.purchaseLabel}>Business card name</Text>
-                      <Text style={stylesThemed.purchaseValue}>{businessName}</Text>
-                      <Text style={stylesThemed.purchaseLabel}>Price</Text>
-                      <Text style={stylesThemed.purchaseValue}>{Number(item.cost).toLocaleString()} ₸</Text>
-                      <Text style={stylesThemed.purchaseLabel}>Amount</Text>
-                      <Text style={stylesThemed.purchaseValue}>
+                      <Text style={styles.purchaseLabel}>Item name</Text>
+                      <Text style={styles.purchaseValue}>{businessName}</Text>
+                      <Text style={styles.purchaseLabel}>Business card name</Text>
+                      <Text style={styles.purchaseValue}>{businessName}</Text>
+                      <Text style={styles.purchaseLabel}>Price</Text>
+                      <Text style={styles.purchaseValue}>{Number(item.cost).toLocaleString()} ₸</Text>
+                      <Text style={styles.purchaseLabel}>Amount</Text>
+                      <Text style={styles.purchaseValue}>
                         {amount} {amount === 1 ? "person" : "persons"}
                       </Text>
-                      <Text style={stylesThemed.purchaseLabel}>Payment date & time</Text>
-                      <Text style={stylesThemed.purchaseValue}>{paidAt}</Text>
+                      <Text style={styles.purchaseLabel}>Payment date & time</Text>
+                      <Text style={styles.purchaseValue}>{paidAt}</Text>
 
-                      <View style={stylesThemed.bookingBlock}>
-                        <Text style={stylesThemed.purchaseLabel}>Booking</Text>
-                        <Text style={stylesThemed.purchaseValue}>Persons: {item.persons ?? "—"}</Text>
+                      <View style={styles.bookingBlock}>
+                        <Text style={styles.purchaseLabel}>Booking</Text>
+                        <Text style={styles.purchaseValue}>Persons: {item.persons ?? "—"}</Text>
                         {item.customer_name ? (
                           <>
-                            <Text style={stylesThemed.purchaseLabel}>Customer name</Text>
-                            <Text style={stylesThemed.purchaseValue}>{item.customer_name}</Text>
+                            <Text style={styles.purchaseLabel}>Customer name</Text>
+                            <Text style={styles.purchaseValue}>{item.customer_name}</Text>
                           </>
                         ) : null}
                         {item.customer_phone ? (
                           <>
-                            <Text style={stylesThemed.purchaseLabel}>Phone</Text>
-                            <Text style={stylesThemed.purchaseValue}>{item.customer_phone}</Text>
+                            <Text style={styles.purchaseLabel}>Phone</Text>
+                            <Text style={styles.purchaseValue}>{item.customer_phone}</Text>
                           </>
                         ) : null}
                         {item.customer_email ? (
                           <>
-                            <Text style={stylesThemed.purchaseLabel}>Email</Text>
-                            <Text style={stylesThemed.purchaseValue}>{item.customer_email}</Text>
+                            <Text style={styles.purchaseLabel}>Email</Text>
+                            <Text style={styles.purchaseValue}>{item.customer_email}</Text>
                           </>
                         ) : null}
                         {item.comment?.trim() ? (
                           <>
-                            <Text style={stylesThemed.purchaseLabel}>Comment</Text>
-                            <Text style={stylesThemed.purchaseValue}>{item.comment.trim()}</Text>
+                            <Text style={styles.purchaseLabel}>Comment</Text>
+                            <Text style={styles.purchaseValue}>{item.comment.trim()}</Text>
                           </>
                         ) : null}
                       </View>
@@ -200,26 +156,26 @@ export default function MyPurchasesScreen() {
                 const lineTotal = shoppingLineTotal(item);
                 const qtyTotal = shoppingQtyTotal(item);
                 return (
-                  <View key={`s-${item.id}`} style={stylesThemed.purchaseCard}>
-                    <View style={stylesThemed.typePill}>
-                      <Text style={stylesThemed.typePillText}>Shopping</Text>
+                  <View key={`s-${item.id}`} style={styles.purchaseCard}>
+                    <View style={styles.typePill}>
+                      <Text style={styles.typePillText}>Shopping</Text>
                     </View>
-                    <Text style={stylesThemed.purchaseLabel}>Item name</Text>
-                    <Text style={stylesThemed.purchaseValue}>{itemName}</Text>
-                    <Text style={stylesThemed.purchaseLabel}>Business card name</Text>
-                    <Text style={stylesThemed.purchaseValue}>{businessName}</Text>
-                    <Text style={stylesThemed.purchaseLabel}>Price</Text>
-                    <Text style={stylesThemed.purchaseValue}>{lineTotal.toLocaleString()} ₸</Text>
-                    <Text style={stylesThemed.purchaseLabel}>Amount</Text>
-                    <Text style={stylesThemed.purchaseValue}>
+                    <Text style={styles.purchaseLabel}>Item name</Text>
+                    <Text style={styles.purchaseValue}>{itemName}</Text>
+                    <Text style={styles.purchaseLabel}>Business card name</Text>
+                    <Text style={styles.purchaseValue}>{businessName}</Text>
+                    <Text style={styles.purchaseLabel}>Price</Text>
+                    <Text style={styles.purchaseValue}>{lineTotal.toLocaleString()} ₸</Text>
+                    <Text style={styles.purchaseLabel}>Amount</Text>
+                    <Text style={styles.purchaseValue}>
                       {qtyTotal} {qtyTotal === 1 ? "item" : "items"}
                     </Text>
-                    <Text style={stylesThemed.purchaseLabel}>Payment date & time</Text>
-                    <Text style={stylesThemed.purchaseValue}>{paidAt}</Text>
+                    <Text style={styles.purchaseLabel}>Payment date & time</Text>
+                    <Text style={styles.purchaseValue}>{paidAt}</Text>
                     {(item.children ?? []).length > 0 ? (
                       <View style={{ marginTop: 8 }}>
                         {(item.children ?? []).map((c) => (
-                          <Text key={c.id} style={stylesThemed.childLine}>
+                          <Text key={c.id} style={styles.childLine}>
                             + {c.shopping_item?.name ?? "—"} ×{c.quantity}
                           </Text>
                         ))}

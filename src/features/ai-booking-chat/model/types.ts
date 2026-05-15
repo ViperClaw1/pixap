@@ -27,13 +27,7 @@ export type BookingRecommendationView = {
   filters: Record<string, unknown>;
 };
 
-export type AiBookingChatResult = {
-  message: string;
-  filters: Record<string, unknown>;
-  rerankedPlaceIds: string[];
-  excludedPlaceIds: string[];
-  explanation?: string;
-};
+export type { AiBookingChatResult } from "@/entities/pixai/model/aiBookingChatTypes";
 
 export type BookingChatTab = {
   id: string;

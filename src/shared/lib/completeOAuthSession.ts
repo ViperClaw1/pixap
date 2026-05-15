@@ -1,5 +1,6 @@
 import * as Linking from "expo-linking";
 import { supabase } from "@/shared/api/supabase/client";
+import { devError, devInfo } from "@/shared/lib/devLog";
 
 /**
  * Finishes Supabase OAuth from the callback URL returned by the auth session
@@ -8,9 +9,7 @@ import { supabase } from "@/shared/api/supabase/client";
 export async function completeOAuthFromCallbackUrl(
   href: string | null,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  if (__DEV__) {
-    console.info("[OAuth][complete] incoming href:", href ?? "null");
-  }
+  devInfo("[OAuth][complete] incoming href:", href ?? "null");
   if (!href) return { ok: false, message: "Missing callback URL" };
 
   const parsed = Linking.parse(href);
@@ -18,16 +17,14 @@ export async function completeOAuthFromCallbackUrl(
   const code = firstString(qp.code);
   const errorParam = firstString(qp.error);
   const errorDesc = firstString(qp.error_description);
-  if (__DEV__) {
-    console.info(
-      "[OAuth][complete] hasCode:",
-      Boolean(code),
-      "error:",
-      errorParam ?? "none",
-      "path:",
-      parsed.path ?? "n/a",
-    );
-  }
+  devInfo(
+    "[OAuth][complete] hasCode:",
+    Boolean(code),
+    "error:",
+    errorParam ?? "none",
+    "path:",
+    parsed.path ?? "n/a",
+  );
 
   if (errorParam) {
     return { ok: false, message: decodeOAuthErrorMessage(errorDesc ?? errorParam) };
@@ -36,14 +33,10 @@ export async function completeOAuthFromCallbackUrl(
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(href);
     if (error) {
-      if (__DEV__) {
-        console.error("[OAuth][complete] exchangeCodeForSession error:", error.message);
-      }
+      devError("[OAuth][complete] exchangeCodeForSession error:", error.message);
       return { ok: false, message: error.message };
     }
-    if (__DEV__) {
-      console.info("[OAuth][complete] exchangeCodeForSession success");
-    }
+    devInfo("[OAuth][complete] exchangeCodeForSession success");
     return { ok: true };
   }
 
@@ -58,14 +51,10 @@ export async function completeOAuthFromCallbackUrl(
         refresh_token: refreshToken,
       });
       if (error) {
-        if (__DEV__) {
-          console.error("[OAuth][complete] setSession error:", error.message);
-        }
+        devError("[OAuth][complete] setSession error:", error.message);
         return { ok: false, message: error.message };
       }
-      if (__DEV__) {
-        console.info("[OAuth][complete] setSession success from hash tokens");
-      }
+      devInfo("[OAuth][complete] setSession success from hash tokens");
       return { ok: true };
     }
   }

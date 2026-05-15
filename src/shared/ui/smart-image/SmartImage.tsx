@@ -18,6 +18,8 @@ export type SmartImageProps = Omit<ImageProps, "source"> & {
   blurhash?: string;
   /** Optional network priority */
   priority?: ImageSource["priority"];
+  /** Fired when every URI in the chain (and retries) failed and no bundled asset is shown. */
+  onSourcesExhausted?: () => void;
 };
 
 function normalizeUri(raw: string | null | undefined): string | null {
@@ -65,6 +67,7 @@ export function SmartImage({
   retryCount: retryCountProp,
   blurhash,
   priority,
+  onSourcesExhausted,
   ...rest
 }: SmartImageProps) {
   const chain = useMemo(() => buildUriChain(uri, fallbackUri), [uri, fallbackUri]);
@@ -76,6 +79,12 @@ export function SmartImage({
     setAttempt(0);
   }, [chainKey]);
 
+  useEffect(() => {
+    if (chain.length === 0 && skipBundledPlaceholder) {
+      onSourcesExhausted?.();
+    }
+  }, [chain.length, chainKey, onSourcesExhausted, skipBundledPlaceholder]);
+
   const sourceIndex = Math.min(chain.length - 1, attempt);
   /** Без кастомного `cacheKey`: ключ кэша = `uri`, как у `Image.prefetch` — повторный mount попадает в disk/memory. */
   const source =
@@ -83,10 +92,17 @@ export function SmartImage({
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
-      setAttempt((a) => (a < chain.length + retryCount ? a + 1 : a));
+      setAttempt((a) => {
+        const maxAttempts = chain.length + retryCount;
+        const next = a < maxAttempts ? a + 1 : a;
+        if (next >= maxAttempts && chain.length > 0) {
+          onSourcesExhausted?.();
+        }
+        return next;
+      });
       onError?.(event);
     },
-    [chain.length, onError, retryCount],
+    [chain.length, onError, onSourcesExhausted, retryCount],
   );
 
   const rk = recyclingKey ?? (chainKey ? `${chainKey}#${attempt}` : "smartimg-fallback");

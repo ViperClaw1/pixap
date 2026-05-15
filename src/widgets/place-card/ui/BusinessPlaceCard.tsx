@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { PixelRatio, View, Text, Pressable, StyleSheet } from "react-native";
+import { PixelRatio, View, Text, Pressable } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
@@ -9,6 +9,8 @@ import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import type { ThemeColors } from "@/shared/theme/palettes";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { businessPlaceCardStaticStyles, businessPlaceCardThemeStyles } from "./businessPlaceCardStyles";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 
 type Props = {
@@ -51,106 +53,7 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
   const toggleFavorite = useToggleFavorite();
 
   const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        /** Recommended row — matches web horizontal PlaceCard */
-        hRoot: {
-          flexDirection: "row",
-          gap: 12,
-          padding: 12,
-          backgroundColor: colors.card,
-          borderRadius: 20,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          width: "100%",
-        },
-        hImageWrap: {
-          width: IMAGE_HORIZONTAL,
-          height: IMAGE_HORIZONTAL,
-          borderRadius: 12,
-          overflow: "hidden",
-          flexShrink: 0,
-        },
-        hImage: { width: "100%", height: "100%" },
-        hHeartBtn: {
-          position: "absolute",
-          top: 4,
-          right: 4,
-          width: 28,
-          height: 28,
-          borderRadius: 14,
-          backgroundColor: isDark ? "rgba(26,26,26,0.85)" : "rgba(255,255,255,0.9)",
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        hBody: { flex: 1, minWidth: 0, justifyContent: "space-between", paddingVertical: 2 },
-        hTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
-        hAddress: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
-        hTagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
-        tagPill: {
-          paddingHorizontal: 8,
-          paddingVertical: 4,
-          borderRadius: 999,
-          backgroundColor: isDark ? "#0d0d0f" : "#f4f4f5",
-          maxWidth: "100%",
-        },
-        tagText: {
-          fontSize: 10,
-          fontWeight: "500",
-          color: isDark ? "#e8e8ea" : "#27272a",
-        },
-        /** Featured column — matches web vertical PlaceCard */
-        vRoot: { width: IMAGE_VERTICAL_W, flexShrink: 0 },
-        vImageBlock: {
-          width: IMAGE_VERTICAL_W,
-          height: IMAGE_VERTICAL_H,
-          borderRadius: 12,
-          overflow: "hidden",
-          backgroundColor: colors.border,
-        },
-        vImage: { width: "100%", height: "100%" },
-        vHeartBtn: {
-          position: "absolute",
-          top: 8,
-          left: 8,
-          width: 32,
-          height: 32,
-          borderRadius: 16,
-          backgroundColor: isDark ? "rgba(26,26,26,0.85)" : "rgba(255,255,255,0.9)",
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        vRatingPill: {
-          position: "absolute",
-          top: 8,
-          right: 8,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 4,
-          paddingHorizontal: 8,
-          paddingVertical: 4,
-          borderRadius: 999,
-          backgroundColor: isDark ? "rgba(26,26,26,0.9)" : "rgba(255,255,255,0.92)",
-        },
-        vRatingText: { fontSize: 12, fontWeight: "600", color: colors.text },
-        vMeta: { marginTop: 8, paddingHorizontal: 2 },
-        vName: { fontSize: 14, fontWeight: "600", color: colors.text },
-        vTagsRow: { flexDirection: "row", flexWrap: "nowrap", gap: TAG_GAP, marginTop: 6, overflow: "hidden" },
-        vTagPill: {
-          paddingHorizontal: 8,
-          paddingVertical: 4,
-          borderRadius: 999,
-          backgroundColor: isDark ? "#0d0d0f" : "#f4f4f5",
-          borderWidth: 1,
-          borderColor: colors.border,
-          maxWidth: "100%",
-        },
-        vTagText: {
-          fontSize: 10,
-          fontWeight: "600",
-          color: isDark ? "#e8e8ea" : "#27272a",
-        },
-      }),
+    () => mergeStaticAndThemed(businessPlaceCardStaticStyles, businessPlaceCardThemeStyles(colors, isDark)),
     [colors, isDark],
   );
 

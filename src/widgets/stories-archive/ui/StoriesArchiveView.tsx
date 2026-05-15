@@ -31,6 +31,7 @@ import { parseStoryMediaUrls, resolveStoryStorageUrl } from "@/shared/lib/storyM
 import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
 import { chunkCells, toYmd, firstOfMonthContaining, type CalendarCell } from "@/shared/lib/bookingCalendar";
 import { StoryArchiveGridThumb } from "./StoryArchiveGridThumb";
+import { useStoriesArchiveStyles } from "./storiesArchiveStyles";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -85,6 +86,8 @@ const WEEKDAYS_MON = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const GRID_COLUMNS = 3;
 const GRID_BATCH_ROWS = 7;
 const ARCHIVE_TAB_ORDER: ArchiveTab[] = ["grid", "calendar", "map"];
+const MAP_REGION_EDGE_PADDING = 0.02;
+const MAP_REGION_MIN_DELTA = 0.08;
 
 function buildMonthCellsMondayFirst(year: number, month: number): CalendarCell[] {
   const firstDow = new Date(year, month, 1).getDay();
@@ -118,9 +121,8 @@ function defaultRegionForCoords(coords: Array<{ latitude: number; longitude: num
     minLng = Math.min(minLng, c.longitude);
     maxLng = Math.max(maxLng, c.longitude);
   }
-  const pad = 0.02;
-  const latDelta = Math.max(maxLat - minLat + pad, 0.08);
-  const lngDelta = Math.max(maxLng - minLng + pad, 0.08);
+  const latDelta = Math.max(maxLat - minLat + MAP_REGION_EDGE_PADDING, MAP_REGION_MIN_DELTA);
+  const lngDelta = Math.max(maxLng - minLng + MAP_REGION_EDGE_PADDING, MAP_REGION_MIN_DELTA);
   return {
     latitude: (minLat + maxLat) / 2,
     longitude: (minLng + maxLng) / 2,
@@ -503,113 +505,13 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
     [clusterIndex, handleClusterPress, initialMapRegion, mapRegion, openViewer, storyById],
   );
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: { flex: 1, backgroundColor: colors.background },
-        header: {
-          paddingTop: Math.max(insets.top, 10),
-          paddingBottom: 10,
-          paddingHorizontal: 12,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.border,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        },
-        headerTitle: {
-          flex: 1,
-          textAlign: "center",
-          fontWeight: "700",
-          fontSize: 17,
-          color: colors.text,
-        },
-        iconBtn: {
-          width: 38,
-          height: 38,
-          borderRadius: 10,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        tabRow: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-around",
-          paddingVertical: 8,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.border,
-        },
-        tabBtn: { alignItems: "center", paddingVertical: 6, minWidth: 56 },
-        tabUnderline: {
-          marginTop: 6,
-          height: 2,
-          width: 28,
-          borderRadius: 2,
-          backgroundColor: colors.primary,
-        },
-        emptyText: { textAlign: "center", color: colors.textMuted, marginTop: 32, paddingHorizontal: 24 },
-        monthHeader: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: 8,
-          paddingVertical: 10,
-        },
-        monthTitle: { fontWeight: "700", color: colors.text, fontSize: 16 },
-        calRow: { flexDirection: "row" },
-        /** Заголовок дней недели — отдельно от ячеек месяца. */
-        calHeaderCell: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 4, minWidth: 0 },
-        /** Фиксированная высота ячейки дня: пустые и с превью одной высоты. */
-        calDaySlot: {
-          flex: 1,
-          minWidth: 0,
-          height: 56,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        calWeekLabel: { fontSize: 11, color: colors.textMuted },
-        calDayNum: { fontSize: 13, color: colors.text, textAlign: "center" },
-        calCircle: {
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          overflow: "hidden",
-          borderWidth: 2,
-          borderColor: colors.border,
-        },
-        clusterBubble: {
-          minWidth: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: colors.card,
-          borderWidth: 2,
-          borderColor: colors.primary,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingHorizontal: 8,
-        },
-        clusterCount: { fontWeight: "800", color: colors.text, fontSize: 15 },
-        mapMarkerThumb: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: "#fff" },
-        mapMarkerThumbEmpty: {
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          borderWidth: 2,
-          borderColor: "#fff",
-          backgroundColor: colors.card,
-        },
-      }),
-    [colors, insets.top],
-  );
+  const styles = useStoriesArchiveStyles(insets.top);
 
   const renderGrid = () => {
     if (!gridItems.length) {
       return (
         <View style={{ minHeight: tabBodyMinHeight, justifyContent: "center", paddingHorizontal: 24 }}>
-          <Text style={[stylesThemed.emptyText, { marginTop: 0 }]}>Archived stories have no images to show in the grid.</Text>
+          <Text style={[styles.emptyText, { marginTop: 0 }]}>Archived stories have no images to show in the grid.</Text>
         </View>
       );
     }
@@ -657,42 +559,42 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
         style={{ flex: 1, minHeight: tabBodyMinHeight }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
       >
-        <View style={stylesThemed.monthHeader}>
+        <View style={styles.monthHeader}>
           <Pressable
-            style={stylesThemed.iconBtn}
+            style={styles.iconBtn}
             onPress={() => setVisibleMonth(new Date(y, mo - 1, 1))}
             accessibilityLabel="Previous month"
           >
             <Ionicons name="chevron-back" size={20} color={colors.text} />
           </Pressable>
-          <Text style={stylesThemed.monthTitle}>{monthLabel}</Text>
+          <Text style={styles.monthTitle}>{monthLabel}</Text>
           <Pressable
-            style={stylesThemed.iconBtn}
+            style={styles.iconBtn}
             onPress={() => setVisibleMonth(new Date(y, mo + 1, 1))}
             accessibilityLabel="Next month"
           >
             <Ionicons name="chevron-forward" size={20} color={colors.text} />
           </Pressable>
         </View>
-        <View style={stylesThemed.calRow}>
+        <View style={styles.calRow}>
           {WEEKDAYS_MON.map((d) => (
-            <View key={d} style={stylesThemed.calHeaderCell}>
-              <Text style={stylesThemed.calWeekLabel}>{d}</Text>
+            <View key={d} style={styles.calHeaderCell}>
+              <Text style={styles.calWeekLabel}>{d}</Text>
             </View>
           ))}
         </View>
         {rows.map((row, ri) => (
-          <View style={stylesThemed.calRow} key={`cal-row-${ri}`}>
+          <View style={styles.calRow} key={`cal-row-${ri}`}>
             {row.map((cell, ci) => {
               if (cell.kind === "pad") {
-                return <View key={`pad-${ri}-${ci}`} style={stylesThemed.calDaySlot} />;
+                return <View key={`pad-${ri}-${ci}`} style={styles.calDaySlot} />;
               }
               const dayStories = calendarData.storiesByYmd.get(cell.ymd) ?? [];
               const thumb = calendarData.previewThumbByYmd.get(cell.ymd) ?? null;
               return (
                 <Pressable
                   key={cell.ymd}
-                  style={stylesThemed.calDaySlot}
+                  style={styles.calDaySlot}
                   disabled={!dayStories.length}
                   onPress={() => {
                     const sorted = [...dayStories];
@@ -701,7 +603,7 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
                   }}
                 >
                   {thumb ? (
-                    <View style={stylesThemed.calCircle}>
+                    <View style={styles.calCircle}>
                       <SmartImage uri={thumb} style={{ width: "100%", height: "100%" }} contentFit="cover" />
                       <View
                         style={{
@@ -715,7 +617,7 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
                       </View>
                     </View>
                   ) : (
-                    <Text style={stylesThemed.calDayNum}>{cell.day}</Text>
+                    <Text style={styles.calDayNum}>{cell.day}</Text>
                   )}
                 </Pressable>
               );
@@ -730,7 +632,7 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
     if (!mapCoordsList.length) {
       return (
         <View style={{ minHeight: tabBodyMinHeight, justifyContent: "center", paddingHorizontal: 24 }}>
-          <Text style={[stylesThemed.emptyText, { marginTop: 0 }]}>No stories with a place location on the map.</Text>
+          <Text style={[styles.emptyText, { marginTop: 0 }]}>No stories with a place location on the map.</Text>
         </View>
       );
     }
@@ -759,8 +661,8 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
                   latitude={lat}
                   longitude={lng}
                   pointCount={props.point_count ?? 0}
-                  bubbleStyle={stylesThemed.clusterBubble}
-                  countTextStyle={stylesThemed.clusterCount}
+                  bubbleStyle={styles.clusterBubble}
+                  countTextStyle={styles.clusterCount}
                   onPress={() => handleMapFeaturePress(f)}
                 />
               );
@@ -775,8 +677,8 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
                 latitude={lat}
                 longitude={lng}
                 thumbUri={uri}
-                thumbStyle={stylesThemed.mapMarkerThumb}
-                fallbackStyle={stylesThemed.mapMarkerThumbEmpty}
+                thumbStyle={styles.mapMarkerThumb}
+                fallbackStyle={styles.mapMarkerThumbEmpty}
                 onPress={() => handleMapFeaturePress(f)}
               />
             );
@@ -787,31 +689,31 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
   };
 
   return (
-    <View style={[stylesThemed.root, { paddingBottom: insets.bottom }]} {...archiveSwipeHandlers}>
-      <View style={stylesThemed.header}>
-        <Pressable style={stylesThemed.iconBtn} onPress={onRequestClose} accessibilityLabel="Back">
+    <View style={[styles.root, { paddingBottom: insets.bottom }]} {...archiveSwipeHandlers}>
+      <View style={styles.header}>
+        <Pressable style={styles.iconBtn} onPress={onRequestClose} accessibilityLabel="Back">
           <Ionicons name="arrow-back" size={20} color={colors.text} />
         </Pressable>
-        <Text style={stylesThemed.headerTitle} numberOfLines={1}>
+        <Text style={styles.headerTitle} numberOfLines={1}>
           Stories archive
         </Text>
-        <Pressable style={stylesThemed.iconBtn} onPress={toggleThemeMode} accessibilityLabel="Toggle theme">
+        <Pressable style={styles.iconBtn} onPress={toggleThemeMode} accessibilityLabel="Toggle theme">
           <Ionicons name={mode === "dark" ? "sunny-outline" : "moon-outline"} size={20} color={colors.text} />
         </Pressable>
       </View>
 
-      <View style={stylesThemed.tabRow}>
-        <Pressable style={stylesThemed.tabBtn} onPress={() => setTab("grid")}>
+      <View style={styles.tabRow}>
+        <Pressable style={styles.tabBtn} onPress={() => setTab("grid")}>
           <Ionicons name="apps-outline" size={22} color={tab === "grid" ? colors.primary : colors.textMuted} />
-          {tab === "grid" ? <View style={stylesThemed.tabUnderline} /> : <View style={{ height: 8 }} />}
+          {tab === "grid" ? <View style={styles.tabUnderline} /> : <View style={{ height: 8 }} />}
         </Pressable>
-        <Pressable style={stylesThemed.tabBtn} onPress={() => setTab("calendar")}>
+        <Pressable style={styles.tabBtn} onPress={() => setTab("calendar")}>
           <Ionicons name="calendar-outline" size={22} color={tab === "calendar" ? colors.primary : colors.textMuted} />
-          {tab === "calendar" ? <View style={stylesThemed.tabUnderline} /> : <View style={{ height: 8 }} />}
+          {tab === "calendar" ? <View style={styles.tabUnderline} /> : <View style={{ height: 8 }} />}
         </Pressable>
-        <Pressable style={stylesThemed.tabBtn} onPress={() => setTab("map")}>
+        <Pressable style={styles.tabBtn} onPress={() => setTab("map")}>
           <Ionicons name="location-outline" size={22} color={tab === "map" ? colors.primary : colors.textMuted} />
-          {tab === "map" ? <View style={stylesThemed.tabUnderline} /> : <View style={{ height: 8 }} />}
+          {tab === "map" ? <View style={styles.tabUnderline} /> : <View style={{ height: 8 }} />}
         </Pressable>
       </View>
 
@@ -819,14 +721,14 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
         <ActivityIndicator style={{ marginTop: 32 }} color={colors.primary} />
       ) : isError ? (
         <View style={{ padding: 16 }}>
-          <Text style={stylesThemed.emptyText}>Could not load archive.</Text>
+          <Text style={styles.emptyText}>Could not load archive.</Text>
           <Pressable onPress={() => void refetch()} style={{ alignSelf: "center", marginTop: 12 }}>
             <Text style={{ color: colors.primary, fontWeight: "700" }}>Retry</Text>
           </Pressable>
         </View>
       ) : !stories.length ? (
         <View style={{ minHeight: tabBodyMinHeight, justifyContent: "center", paddingHorizontal: 24 }}>
-          <Text style={[stylesThemed.emptyText, { marginTop: 0 }]}>No stories older than 24 hours yet.</Text>
+          <Text style={[styles.emptyText, { marginTop: 0 }]}>No stories older than 24 hours yet.</Text>
         </View>
       ) : (
         <View style={{ flex: 1, minHeight: tabBodyMinHeight, minWidth: "100%", position: "relative" }}>

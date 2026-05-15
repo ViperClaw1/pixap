@@ -79,6 +79,9 @@
     "toastFollowFailed": "Folgen fehlgeschlagen",
     "toastTryAgain": "Bitte erneut versuchen.",
     "toastCouldNotOpenChat": "Chat konnte nicht geöffnet werden",
+    "toastCouldNotOpenSupport": "Support-Chat konnte nicht geöffnet werden",
+    "support": "Support",
+    "supportSubtitle": "Chat mit unserem Team",
     "followed": "Gefolgt"
   },
   "bookings": {
@@ -192,5 +195,14 @@
       "toastUpdatedBody": "Du bist angemeldet. Willkommen zurück.",
       "btnUpdate": "Passwort aktualisieren"
     }
+  },
+  "errorBoundary": {
+    "retry": "Erneut versuchen",
+    "appTitle": "Etwas ist schiefgelaufen",
+    "appDescription": "Die App ist auf einen unerwarteten Fehler gestoßen. Sie können es erneut versuchen.",
+    "feedTitle": "Feed nicht verfügbar",
+    "feedDescription": "Der Feed konnte nicht geladen werden. Tippen Sie unten, um es erneut zu versuchen.",
+    "bookingTitle": "Buchung nicht verfügbar",
+    "bookingDescription": "Beim Öffnen der Buchung ist ein Fehler aufgetreten. Tippen Sie unten, um es erneut zu versuchen."
   }
 }

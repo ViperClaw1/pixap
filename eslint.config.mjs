@@ -7,9 +7,12 @@ import globals from "globals";
 const FEATURE_SLICES = [
   "ai-booking-chat",
   "auth-session-redirect",
+  "create-post",
+  "create-story",
   "email-verification-otp",
   "message-attachments",
   "message-link-preview",
+  "post-share",
   "subscription-paywall-redirect",
 ];
 

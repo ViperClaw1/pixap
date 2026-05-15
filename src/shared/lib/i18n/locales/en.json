@@ -79,6 +79,9 @@
     "toastFollowFailed": "Follow action failed",
     "toastTryAgain": "Please try again.",
     "toastCouldNotOpenChat": "Could not open chat",
+    "toastCouldNotOpenSupport": "Could not open support chat",
+    "support": "Support",
+    "supportSubtitle": "Chat with our team",
     "followed": "Followed"
   },
   "bookings": {
@@ -192,5 +195,14 @@
       "toastUpdatedBody": "You're signed in. Welcome back.",
       "btnUpdate": "Update password"
     }
+  },
+  "errorBoundary": {
+    "retry": "Try again",
+    "appTitle": "Something went wrong",
+    "appDescription": "The app ran into an unexpected error. You can try again.",
+    "feedTitle": "Feed unavailable",
+    "feedDescription": "We couldn't load the feed. Tap below to try again.",
+    "bookingTitle": "Booking unavailable",
+    "bookingDescription": "Something went wrong while opening booking. Tap below to try again."
   }
 }

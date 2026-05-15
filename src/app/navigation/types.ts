@@ -56,6 +56,8 @@ export type CartStackParamList = {
     peerLastName?: string | null;
     peerAvatarUrl?: string | null;
     initialDraft?: string;
+    isSupport?: boolean;
+    threadTitle?: string;
   };
   PaymentSuccess: { next?: "bookings" } | undefined;
   PaymentCanceled: undefined;

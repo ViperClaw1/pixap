@@ -21,7 +21,7 @@ export function LanguagePickerModal({ visible, onClose }: LanguagePickerModalPro
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable style={[styles.backdrop, { backgroundColor: colors.scrim }]} onPress={onClose}>
         <Pressable
           style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={(e) => e.stopPropagation()}
@@ -51,7 +51,6 @@ export function LanguagePickerModal({ visible, onClose }: LanguagePickerModalPro
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "center",
     paddingHorizontal: 24,
   },

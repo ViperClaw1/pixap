@@ -4,12 +4,13 @@ import * as Linking from "expo-linking";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/shared/api/queryKeys";
+import { markProfileVerifiedAndInvalidate } from "@/entities/user";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession";
-import { supabase } from "@/shared/api/supabase/client";
+import { waitForAuthUserId } from "@/entities/user";
 import type { ProfileStackParamList, RootTabParamList } from "@/app/navigation/types";
 import Toast from "react-native-toast-message";
+import { devInfo } from "@/shared/lib/devLog";
 
 const CALLBACK_TIMEOUT_MS = 20000;
 
@@ -38,20 +39,6 @@ function pickFlowFromUrl(href: string | null): "verify" | "recovery" {
   return raw === "recovery" ? "recovery" : "verify";
 }
 
-async function waitForAuthUserId(maxAttempts = 15, delayMs = 120): Promise<string | null> {
-  for (let i = 0; i < maxAttempts; i += 1) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (session?.access_token && session.user?.id) {
-      const { data, error } = await supabase.auth.getUser();
-      if (!error && data.user?.id) return data.user.id;
-    }
-    await new Promise((r) => setTimeout(r, delayMs));
-  }
-  return null;
-}
-
 export default function AuthEmailCallbackPage() {
   const navigation = useNavigation<ProfileNav>();
   const route = useRoute<RouteProp<ProfileStackParamList, "AuthEmailCallback">>();
@@ -64,8 +51,7 @@ export default function AuthEmailCallbackPage() {
 
   useEffect(() => {
     const debugLog = (...args: unknown[]) => {
-      if (!__DEV__) return;
-      console.info("[AuthEmailCallback]", ...args);
+      devInfo("[AuthEmailCallback]", ...args);
     };
 
     const clearCallbackTimeout = () => {
@@ -110,18 +96,12 @@ export default function AuthEmailCallbackPage() {
 
     const markProfileAsVerified = async (userId: string) => {
       debugLog("Updating profiles.is_verified for user:", userId);
-      const { data, error } = await supabase.from("profiles").update({ is_verified: true }).eq("id", userId).select("id").maybeSingle();
-      if (error) {
-        debugLog("profiles update failed:", error.message);
+      const ok = await markProfileVerifiedAndInvalidate(queryClient, userId);
+      if (!ok) {
+        debugLog("profiles update failed or no row returned.");
         return false;
       }
-      if (!data?.id) {
-        debugLog("profiles update: no row returned (0 updated or blocked).");
-        return false;
-      }
-      debugLog("profiles update success, row id:", data.id);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.user(userId) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.root });
+      debugLog("profiles update success for user:", userId);
       return true;
     };
 

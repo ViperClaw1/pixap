@@ -5,20 +5,30 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useBusinessCard } from "@/entities/business-card";
-import { useCreateCartItem } from "@/entities/cart";
+import { useCreateCartItem, useStartN8nWaBooking } from "@/entities/cart";
 import { useCreateBooking } from "@/entities/booking";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useProfile } from "@/entities/user";
-import { supabase } from "@/shared/api/supabase/client";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { bookingFlowThemedStaticStyles, bookingFlowThemedThemeStyles } from "./bookingFlowThemeStyles";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { BookingFlowPlacePanel } from "@/shared/ui/booking-place-panel";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { devWarn } from "@/shared/lib/devLog";
+import {
+  BOOKING_FLOW_DEFAULT_GUESTS,
+  BOOKING_FLOW_MAX_GUESTS,
+  BOOKING_FLOW_MIN_GUESTS,
+  BOOKING_FLOW_TIME_SLOTS,
+  BOOKING_FLOW_TOTAL_STEPS,
+} from "../model/constants";
 
 import {
   CALENDAR_MONTHS_AHEAD,
@@ -31,8 +41,6 @@ import {
   buildMonthCells,
   chunkCells,
 } from "@/shared/lib/bookingCalendar";
-
-const timeSlots = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
 
 function profileString(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -56,62 +64,19 @@ export default function BookingFlowPage() {
   const toggleFavorite = useToggleFavorite();
   const createCartItem = useCreateCartItem();
   const createBooking = useCreateBooking();
+  const startN8nWaBooking = useStartN8nWaBooking();
 
   const [step, setStep] = useState(0);
   const [selectedDateYmd, setSelectedDateYmd] = useState(() => toYmd(new Date()));
   const [visibleCalendarMonth, setVisibleCalendarMonth] = useState<Date>(() => firstOfMonthContaining(new Date()));
   const [selectedTime, setSelectedTime] = useState("");
-  const [guests, setGuests] = useState(2);
+  const [guests, setGuests] = useState(BOOKING_FLOW_DEFAULT_GUESTS);
   const useMonotoneDarkBackground = isDark && (step === 0 || step === 2);
   const selectedDate = useMemo(() => fromYmd(selectedDateYmd), [selectedDateYmd]);
+  const themed = useThemeStyles(({ colors: c, isDark: dark }) => bookingFlowThemedThemeStyles(c, dark));
   const themedStyles = useMemo(
-    () =>
-      StyleSheet.create({
-        headerBack: { color: colors.text },
-        headerTitle: { color: colors.text },
-        headerStep: { color: colors.textMuted },
-        sectionText: { color: colors.text },
-        guestButton: {
-          backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        guestButtonText: { color: colors.text },
-        guestCountText: { color: colors.text },
-        calendarPanel: {
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        calendarNavBtn: {
-          backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        calendarMonthTitle: { color: colors.text },
-        calendarDowCell: { color: colors.textMuted },
-        calendarCellDayInner: { backgroundColor: colors.card },
-        calendarCellDayText: { color: colors.text },
-        calendarCellToday: { borderColor: colors.textMuted },
-        calendarCellSelected: {
-          borderColor: colors.text,
-          backgroundColor: isDark ? "#262626" : "#f3f4f6",
-        },
-        calendarCellPast: { opacity: 0.42 },
-        calendarCellPastText: { color: colors.textMuted },
-        timeCell: {
-          backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        timeCellText: { color: colors.text },
-        timeCellSel: { backgroundColor: colors.text, borderColor: colors.text },
-        timeCellTextSel: { color: colors.background, fontWeight: "700" },
-        confirmText: { color: colors.text },
-        confirmPrice: { color: colors.textMuted },
-        footer: { borderTopColor: colors.border, backgroundColor: colors.background },
-      }),
-    [colors, isDark],
+    () => mergeStaticAndThemed(bookingFlowThemedStaticStyles, themed),
+    [themed],
   );
   const calendarCells = useMemo(
     () => buildMonthCells(visibleCalendarMonth.getFullYear(), visibleCalendarMonth.getMonth()),
@@ -120,7 +85,6 @@ export default function BookingFlowPage() {
 
   if (!place) return null;
 
-  const totalSteps = 2;
   const todayYmd = toYmd(startOfLocalDay(new Date()));
   const earliestBookableMonth = firstOfMonthContaining(new Date());
   const latestBookableMonth = new Date(
@@ -183,38 +147,11 @@ export default function BookingFlowPage() {
       });
       const accessToken = session?.access_token;
       if (accessToken && createdCartItem?.id) {
-        void supabase.functions
-          .invoke("n8n-wa-booking-start", {
-            body: { cart_item_id: createdCartItem.id },
-            headers: { Authorization: `Bearer ${accessToken}` },
-          })
-          .then((res) => {
-            const { error, data } = res;
-            if (!error) return;
-            let details = error.message;
-            const rawBody = (error as { context?: { body?: string } }).context?.body;
-            if (rawBody) {
-              try {
-                const parsed = JSON.parse(rawBody) as { error?: string; step?: string; hint?: string };
-                details = `${parsed.error ?? error.message}${parsed.step ? ` [${parsed.step}]` : ""}${
-                  parsed.hint ? ` — ${parsed.hint}` : ""
-                }`;
-              } catch {
-                details = `${details} ${rawBody.slice(0, 220)}`;
-              }
-            } else if (data && typeof data === "object" && data !== null && "error" in data) {
-              const parsed = data as { error?: string; step?: string; hint?: string };
-              details = `${parsed.error ?? error.message}${parsed.step ? ` [${parsed.step}]` : ""}${
-                parsed.hint ? ` — ${parsed.hint}` : ""
-              }`;
-            }
-            console.warn("[n8n-wa-booking-start] invoke failed", details);
-          })
-          .catch((error) => {
-            if (__DEV__) {
-              console.warn("[n8n-wa-booking-start] invoke failed", error);
-            }
-          });
+        void startN8nWaBooking.mutateAsync({ cartItemId: createdCartItem.id, accessToken }).catch((error) => {
+          if (__DEV__) {
+            devWarn("[n8n-wa-booking-start] invoke failed", error instanceof Error ? error.message : error);
+          }
+        });
       }
       Alert.alert(
         price > 0 ? "Draft created" : "Booking confirmed",
@@ -247,7 +184,7 @@ export default function BookingFlowPage() {
           <View>
             <Text style={[styles.title, themedStyles.headerTitle]}>Book {place.name}</Text>
             <Text style={[styles.stepText, themedStyles.headerStep]}>
-              Step {step + 1} of {totalSteps + 1}
+              Step {step + 1} of {BOOKING_FLOW_TOTAL_STEPS + 1}
             </Text>
           </View>
         </View>
@@ -274,11 +211,11 @@ export default function BookingFlowPage() {
             >
               <Text style={[styles.section, themedStyles.sectionText]}>Number of guests</Text>
               <View style={styles.guestRow}>
-                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.max(1, guests - 1))}>
+                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.max(BOOKING_FLOW_MIN_GUESTS, guests - 1))}>
                   <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>−</Text>
                 </Pressable>
                 <Text style={[styles.guestCount, themedStyles.guestCountText]}>{guests}</Text>
-                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.min(20, guests + 1))}>
+                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.min(BOOKING_FLOW_MAX_GUESTS, guests + 1))}>
                   <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>+</Text>
                 </Pressable>
               </View>
@@ -371,7 +308,7 @@ export default function BookingFlowPage() {
               ))}
             </View>
             <View style={styles.timeGrid}>
-              {timeSlots.map((t) => (
+              {BOOKING_FLOW_TIME_SLOTS.map((t) => (
                 <Pressable
                   key={t}
                   style={[styles.timeCell, themedStyles.timeCell, selectedTime === t && styles.timeCellSel, selectedTime === t && themedStyles.timeCellSel]}
@@ -415,7 +352,7 @@ export default function BookingFlowPage() {
       </ScrollView>
 
       <View style={[styles.footer, themedStyles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        {step < totalSteps ? (
+        {step < BOOKING_FLOW_TOTAL_STEPS ? (
           <Pressable
             style={styles.primary}
             onPress={() => {

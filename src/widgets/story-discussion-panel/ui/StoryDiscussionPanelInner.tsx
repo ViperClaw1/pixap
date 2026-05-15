@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -20,6 +21,7 @@ import {
   type ReplyComposerTarget,
 } from "./StoryDiscussionCommentThread";
 import { discussionPaletteDark, type DiscussionUiPalette } from "@/shared/theme/discussionPalette";
+import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 
 const QUICK_EMOJI = ["❤️", "🙌", "🔥", "👏", "😢", "😍", "😮", "😂"];
 
@@ -187,9 +189,10 @@ export function StoryDiscussionPanelInner({
 
   return (
     <View style={styles.flex}>
-      <FlatList
+      <FlashList
         data={sorted}
         keyExtractor={(item) => item.id}
+        estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.storyComment}
         renderItem={renderItem}
         ListHeaderComponent={listHeader}
         extraData={[replyTarget, inlineReplyText, replyThreadMutation.isPending, sorted, palette]}
@@ -200,6 +203,11 @@ export function StoryDiscussionPanelInner({
         }
         style={styles.list}
         onContentSizeChange={(w, h) => onListContentSizeChange?.(w, h)}
+        removeClippedSubviews
+        initialNumToRender={8}
+        maxToRenderPerBatch={10}
+        windowSize={8}
+        updateCellsBatchingPeriod={40}
       />
 
       <View

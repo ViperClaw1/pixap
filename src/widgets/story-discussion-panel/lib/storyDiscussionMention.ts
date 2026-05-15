@@ -1,15 +1,7 @@
 import type { StoryProfile } from "@/shared/model/types/stories";
+import { profileDisplayName } from "@/shared/lib/profileDisplayName";
 
-/** Display name for story discussion (prefer public username). */
-export function profileDisplayName(profile: StoryProfile | null): string {
-  if (!profile) return "User";
-  const u = profile.username?.trim();
-  if (u) return u.replace(/^@/, "");
-  const first = profile.first_name?.trim() ?? "";
-  const last = profile.last_name?.trim() ?? "";
-  const combined = `${first} ${last}`.trim();
-  return combined || "User";
-}
+export { profileDisplayName };
 
 /** Instagram-style @tag for replies (lowercase handle when no username). */
 export function profileMentionTag(profile: StoryProfile | null): string {

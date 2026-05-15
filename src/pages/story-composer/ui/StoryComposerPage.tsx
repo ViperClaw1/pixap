@@ -22,17 +22,15 @@ import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { useCreateStory } from "@/entities/story";
-import { supabase } from "@/shared/api/supabase/client";
+import { uploadStoryPickerAssets } from "@/entities/story/lib/uploadStoriesBucketMedia";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import { StorySourcePickerModal, type StorySourceOption } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
-import { STORY_STORAGE_MAX_LONG_EDGE, prepareImageForStorageUpload } from "@/shared/lib/prepareImageForStorageUpload";
 import { formatErrorForAlert } from "@/shared/lib/formatErrorForAlert";
 
 type ComposerRoute = RouteProp<BrowseFlowParamList, "StoryComposer">;
 type ComposerNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryComposer">;
-const STORIES_BUCKET = "stories";
 
 export default function StoryComposerScreen() {
   const { colors } = useAppTheme();
@@ -52,23 +50,7 @@ export default function StoryComposerScreen() {
     }
     setUploadingPhoto(true);
     try {
-      const uploadedUrls: string[] = [];
-      for (const asset of assets) {
-        const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
-          maxLongEdgePx: STORY_STORAGE_MAX_LONG_EDGE,
-        });
-        if (!bytes.byteLength) {
-          throw new Error("Selected image is empty. Please try another image.");
-        }
-        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExtension}`;
-        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
-          upsert: true,
-          contentType,
-        });
-        if (uploadError) throw uploadError;
-        const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
-        uploadedUrls.push(data.publicUrl);
-      }
+      const uploadedUrls = await uploadStoryPickerAssets(assets, user.id);
       setMediaUrls(uploadedUrls);
     } catch (error) {
       if (isAuthRequiredError(error)) {

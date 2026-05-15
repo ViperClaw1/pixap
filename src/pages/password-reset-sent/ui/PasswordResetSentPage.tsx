@@ -1,12 +1,13 @@
 import { useMemo } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ProfileStackParamList } from "@/app/navigation/types";
-import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { AUTH_PRIMARY_COLOR, primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { passwordResetSentStaticStyles, passwordResetSentThemeStyles } from "./passwordResetSentStyles";
 
 const CHECK_ICON_COLOR = "#22c55e";
 
@@ -16,59 +17,31 @@ type ScreenRoute = RouteProp<ProfileStackParamList, "PasswordResetSent">;
 export default function PasswordResetSentPage() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<ScreenRoute>();
-  const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const email = route.params?.email?.trim() ?? "";
-
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: {
-          flex: 1,
-          backgroundColor: colors.background,
-          paddingHorizontal: 20,
-          paddingTop: Math.max(insets.top, 24),
-          paddingBottom: Math.max(insets.bottom, 24),
-          justifyContent: "center",
-        },
-        iconWrap: {
-          alignSelf: "center",
-          marginBottom: 20,
-        },
-        description: {
-          color: colors.text,
-          fontSize: 16,
-          lineHeight: 24,
-          textAlign: "center",
-        },
-        email: {
-          fontWeight: "700",
-        },
-        button: {
-          ...primaryPressableStyle,
-          marginTop: 28,
-          borderWidth: 1,
-          borderColor: AUTH_PRIMARY_COLOR,
-        },
-        buttonText: primaryPressableTextStyle,
-      }),
-    [colors, insets.bottom, insets.top],
+  const themed = useThemeStyles(
+    ({ colors: c }) => passwordResetSentThemeStyles(c, insets.top, insets.bottom),
+    [insets.top, insets.bottom],
+  );
+  const styles = useMemo(
+    () => mergeStaticAndThemed(passwordResetSentStaticStyles, themed),
+    [themed],
   );
 
   return (
-    <View style={stylesThemed.root}>
-      <View style={stylesThemed.iconWrap}>
+    <View style={styles.root}>
+      <View style={styles.iconWrap}>
         <Ionicons name="checkmark-circle" size={72} color={CHECK_ICON_COLOR} />
       </View>
       {email ? (
-        <Text style={stylesThemed.description}>
-          Reset link was successfully sent to email <Text style={stylesThemed.email}>{email}</Text>
+        <Text style={styles.description}>
+          Reset link was successfully sent to email <Text style={styles.email}>{email}</Text>
         </Text>
       ) : (
-        <Text style={stylesThemed.description}>Reset link was successfully sent to your email.</Text>
+        <Text style={styles.description}>Reset link was successfully sent to your email.</Text>
       )}
-      <Pressable style={stylesThemed.button} onPress={() => navigation.reset({ index: 0, routes: [{ name: "Auth" }] })}>
-        <Text style={stylesThemed.buttonText}>Back to Log in</Text>
+      <Pressable style={styles.button} onPress={() => navigation.reset({ index: 0, routes: [{ name: "Auth" }] })}>
+        <Text style={styles.buttonText}>Back to Log in</Text>
       </Pressable>
     </View>
   );
