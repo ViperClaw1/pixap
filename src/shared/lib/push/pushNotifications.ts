@@ -26,27 +26,46 @@ function resolveExpoProjectId(): string | undefined {
   return extra?.eas?.projectId ?? Constants.easConfig?.projectId;
 }
 
+async function resolveNotificationPermission(): Promise<Notifications.PermissionStatus> {
+  const current = await Notifications.getPermissionsAsync();
+  if (current.status === "granted" || current.status === "denied") {
+    return current.status;
+  }
+  const requested = await Notifications.requestPermissionsAsync();
+  return requested.status;
+}
+
 /**
  * Persists native FCM/APNs token plus Expo push token (ExponentPushToken[...]) for server-side sends
  * via `consume-push-outbox` Edge Function + Expo Push API.
  */
 export async function registerNativePushToken(userId: string): Promise<void> {
-  const { status } = await Notifications.getPermissionsAsync();
-  if (status !== "granted") return;
+  const status = await resolveNotificationPermission();
+  if (status !== "granted") {
+    devWarn("[push] Notifications permission not granted:", status);
+    return;
+  }
 
   const device = await Notifications.getDevicePushTokenAsync();
   const platform = Platform.OS === "ios" ? "ios" : "android";
 
   let expoPushToken: string | null = null;
   const projectId = resolveExpoProjectId();
-  if (projectId) {
+  if (!projectId) {
+    devWarn("[push] EAS projectId missing — set EXPO_PUBLIC_EAS_PROJECT_ID in .env");
+  } else {
     try {
       const expo = await Notifications.getExpoPushTokenAsync({ projectId });
       expoPushToken = expo.data;
-      devLog("[push] Expo token (send-test-push / outbox delivery):", expoPushToken);
+      devLog("[push] Expo token:", expoPushToken);
     } catch (e) {
       devWarn("[push] getExpoPushTokenAsync failed", e instanceof Error ? e.message : e);
     }
+  }
+
+  if (!expoPushToken) {
+    devWarn("[push] No ExponentPushToken — server push delivery will not reach this device");
+    return;
   }
 
   const { error } = await supabase.from("user_push_tokens").upsert(

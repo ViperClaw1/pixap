@@ -8,11 +8,32 @@ type ExpoPushMessage = {
   data?: Record<string, unknown>;
 };
 
+type ExpoTicket = {
+  status?: string;
+  id?: string;
+  message?: string;
+  details?: unknown;
+};
+
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_CHUNK = 99;
 
-async function sendExpoChunk(messages: ExpoPushMessage[]): Promise<{ ok: boolean; details: unknown }> {
-  if (messages.length === 0) return { ok: true, details: { sent: 0 } };
+function isAuthorized(req: Request, serviceKey: string | undefined): boolean {
+  const cronSecret = Deno.env.get("PUSH_CRON_SECRET");
+  if (cronSecret) {
+    const provided = req.headers.get("x-push-cron-secret") ?? "";
+    if (provided === cronSecret) return true;
+  }
+  if (!serviceKey) return false;
+  const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  return Boolean(bearer && bearer === serviceKey);
+}
+
+async function sendExpoChunk(
+  messages: ExpoPushMessage[],
+): Promise<{ ok: boolean; tickets: ExpoTicket[]; details: unknown }> {
+  if (messages.length === 0) return { ok: true, tickets: [], details: { sent: 0 } };
   const expoAccessToken = Deno.env.get("EXPO_ACCESS_TOKEN");
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -28,10 +49,14 @@ async function sendExpoChunk(messages: ExpoPushMessage[]): Promise<{ ok: boolean
     body: JSON.stringify(messages),
   });
   const json = await res.json().catch(() => ({}));
+  const tickets = Array.isArray((json as { data?: unknown }).data)
+    ? ((json as { data: ExpoTicket[] }).data ?? [])
+    : [];
   if (!res.ok) {
-    return { ok: false, details: { status: res.status, json } };
+    return { ok: false, tickets, details: { status: res.status, json } };
   }
-  return { ok: true, details: json };
+  const hasHardError = tickets.some((t) => t.status === "error");
+  return { ok: !hasHardError, tickets, details: json };
 }
 
 Deno.serve(async (req) => {
@@ -54,9 +79,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
-  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!bearer || bearer !== serviceKey) {
+  if (!isAuthorized(req, serviceKey)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -109,6 +132,7 @@ Deno.serve(async (req) => {
   const now = new Date().toISOString();
   const expoMessages: ExpoPushMessage[] = [];
   const rowIdsToMark: string[] = [];
+  const skippedNoToken: string[] = [];
 
   for (const row of rows) {
     const { data: tokens, error: tokErr } = await admin
@@ -124,7 +148,7 @@ Deno.serve(async (req) => {
       .map((t: { expo_push_token: string | null }) => t.expo_push_token)
       .filter((t): t is string => typeof t === "string" && t.startsWith("ExponentPushToken["));
     if (expoTokens.length === 0) {
-      await admin.from("push_outbox").update({ delivered_at: now }).eq("id", row.id);
+      skippedNoToken.push(row.id);
       continue;
     }
     rowIdsToMark.push(row.id);
@@ -142,6 +166,7 @@ Deno.serve(async (req) => {
     const chunk = expoMessages.slice(i, i + EXPO_CHUNK);
     const sendResult = await sendExpoChunk(chunk);
     if (!sendResult.ok) {
+      console.error("[consume-push-outbox] Expo error", sendResult.details);
       return new Response(JSON.stringify({ error: "Expo push failed", detail: sendResult.details }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -159,6 +184,7 @@ Deno.serve(async (req) => {
       processed_rows: rows.length,
       expo_messages: expoMessages.length,
       marked_delivered_ids: rowIdsToMark,
+      skipped_no_expo_token_ids: skippedNoToken,
     }),
     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );

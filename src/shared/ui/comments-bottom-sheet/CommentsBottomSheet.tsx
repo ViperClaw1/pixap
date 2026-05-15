@@ -116,12 +116,14 @@ export function CommentsBottomSheet({
           <View style={[styles.replyComposerWrap, { borderTopColor: colors.border }]}>
             <CommentComposer
               avatarUrl={currentUserAvatarUrl}
+              showStickers
               value={commentInput}
               onChangeText={onChangeCommentInput}
               placeholder={replyTargetCommentId ? "Write a reply..." : "Add a comment..."}
               canSend={canSendComment}
               sending={submittingComment}
               onSend={onSubmitComment}
+              minHeight={88}
             />
             {replyTargetCommentId ? (
               <Pressable onPress={onCancelReply}>

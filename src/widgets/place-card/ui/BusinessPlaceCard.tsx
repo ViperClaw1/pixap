@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { PixelRatio, View, Text, Pressable } from "react-native";
+import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
@@ -100,10 +101,11 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
             transition={200}
           />
           <Pressable style={styles.hHeartBtn} onPress={onFavoritePress} hitSlop={8}>
-            <Ionicons
-              name={isFavorite ? "heart" : "heart-outline"}
+            <AnimatedLikeHeart
+              liked={isFavorite}
               size={15}
-              color={isFavorite ? colors.danger : colors.text}
+              color={colors.text}
+              likedColor={colors.danger}
             />
           </Pressable>
         </View>
@@ -144,10 +146,11 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
           transition={200}
         />
         <Pressable style={styles.vHeartBtn} onPress={onFavoritePress} hitSlop={8}>
-          <Ionicons
-            name={isFavorite ? "heart" : "heart-outline"}
+          <AnimatedLikeHeart
+            liked={isFavorite}
             size={16}
-            color={isFavorite ? colors.danger : colors.text}
+            color={colors.text}
+            likedColor={colors.danger}
           />
         </Pressable>
         <View style={styles.vRatingPill}>

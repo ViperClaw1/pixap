@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { StoryComment, StoryReply } from "@/entities/story";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import type { DiscussionUiPalette } from "@/shared/theme/discussionPalette";
 import { formatStoryDiscussionTime } from "@/shared/lib/formatStoryDiscussionTime";
@@ -77,10 +78,11 @@ export function StoryDiscussionCommentThread({
         </View>
         <View style={styles.likeCol}>
           <Pressable hitSlop={8} onPress={onToggleLikeComment} style={styles.likeHit}>
-            <Ionicons
-              name={comment.liked_by_me ? "heart" : "heart-outline"}
+            <AnimatedLikeHeart
+              liked={comment.liked_by_me}
               size={13}
-              color={comment.liked_by_me ? palette.likeAccent : palette.text}
+              color={palette.text}
+              likedColor={palette.likeAccent}
             />
           </Pressable>
           {comment.like_count > 0 ? (
@@ -149,10 +151,11 @@ export function StoryDiscussionCommentThread({
               </View>
               <View style={styles.likeCol}>
                 <Pressable hitSlop={8} onPress={() => onToggleLikeReply(reply)} style={styles.likeHit}>
-                  <Ionicons
-                    name={reply.liked_by_me ? "heart" : "heart-outline"}
+                  <AnimatedLikeHeart
+                    liked={reply.liked_by_me}
                     size={13}
-                    color={reply.liked_by_me ? palette.likeAccent : palette.text}
+                    color={palette.text}
+                    likedColor={palette.likeAccent}
                   />
                 </Pressable>
                 {reply.like_count > 0 ? (

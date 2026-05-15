@@ -28,6 +28,7 @@ export const useCreatePost = () => {
       if (!user?.id) throw new Error("Authentication required");
       const text = content.trim();
       if (!text) throw new Error("Post content cannot be empty");
+      if (!mediaUrl?.trim()) throw new Error("At least one photo is required");
 
       const hasPlace = Boolean(placeId?.trim());
       const hasGeo =
