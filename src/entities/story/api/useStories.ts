@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys, STORIES_QUERY_KEY } from "@/shared/api/queryKeys";
-import { useAuth } from "@/contexts/AuthContext";
-import type { StoryGroup, StoryItem, StoryProfile, StoryReactionType } from "@/types/stories";
+import { useAuth } from "@/app/providers/AuthProvider";
+import type { StoryGroup, StoryItem, StoryProfile, StoryReactionType } from "@/shared/model/types/stories";
 import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
 
 type StoryRow = {

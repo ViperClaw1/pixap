@@ -4,6 +4,7 @@ import { useMyFollowing, usePublicProfiles } from "@/entities/user";
 import { useCreateStory } from "@/entities/story";
 import { useOpenOrCreateThread, useSendMessage } from "@/entities/messages";
 import { buildShareStoryMessageBody } from "@/shared/lib/placeShareMessage";
+import { formatErrorForAlert } from "@/shared/lib/formatErrorForAlert";
 
 type Params = {
   placeId: string | null;
@@ -57,7 +58,12 @@ export function useAddStoryFromPost({ placeId, postImages }: Params) {
       await createStoryIfNeeded();
       return true;
     } catch (error) {
-      Alert.alert("Story failed", error instanceof Error ? error.message : "Could not create story.");
+      let msg = formatErrorForAlert(error, "Could not create story.");
+      if (msg.includes("place_id") && msg.includes("not-null")) {
+        msg +=
+          "\n\nНа проекте Supabase нужно применить миграцию: колонка stories.place_id должна допускать NULL (файлы supabase/migrations/20260516_stories_place_id_nullable.sql или 20260517000000_ensure_stories_place_id_nullable.sql).";
+      }
+      Alert.alert("Story failed", msg);
       return false;
     }
   };
@@ -100,7 +106,12 @@ export function useAddStoryFromPost({ placeId, postImages }: Params) {
       }
       return true;
     } catch (error) {
-      Alert.alert("Share failed", error instanceof Error ? error.message : "Please try again.");
+      let msg = formatErrorForAlert(error, "Please try again.");
+      if (msg.includes("place_id") && msg.includes("not-null")) {
+        msg +=
+          "\n\nНа проекте Supabase нужно применить миграцию: колонка stories.place_id должна допускать NULL (файлы supabase/migrations/20260516_stories_place_id_nullable.sql или 20260517000000_ensure_stories_place_id_nullable.sql).";
+      }
+      Alert.alert("Share failed", msg);
       return false;
     }
   };

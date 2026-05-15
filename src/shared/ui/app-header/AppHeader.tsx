@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useUnreadCount } from "@/entities/notification";
 import { LanguagePickerModal } from "@/shared/ui/app-header/LanguagePickerModal";
 import { NotificationsSheetModal } from "@/shared/ui/notifications-sheet";

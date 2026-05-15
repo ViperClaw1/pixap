@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import type { PixAIPlace } from "@/entities/pixai";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
+import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import type { AIBookingStyles } from "./aiBookingStyles";
 
 type Props = {

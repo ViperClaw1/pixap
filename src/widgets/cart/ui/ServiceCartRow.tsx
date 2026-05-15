@@ -2,8 +2,8 @@ import { useState } from "react";
 import { View, Text, Pressable, Alert } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useDeleteCartItem, parseWaStatusLines, type CartItem } from "@/entities/cart";
-import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
-import { isAuthRequiredError } from "@/lib/authRequired";
+import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import type { CartScreenStyles } from "./cartStyles";
 
 type Props = {

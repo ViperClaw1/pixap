@@ -7,10 +7,10 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { queryKeys } from "@/shared/api/queryKeys";
-import type { CartStackParamList, RootTabParamList } from "@/navigation/types";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import type { CartStackParamList, RootTabParamList } from "@/app/navigation/types";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import {
   SHARED_PRESSABLE_HEIGHT,
   SHARED_PRESSABLE_RADIUS,

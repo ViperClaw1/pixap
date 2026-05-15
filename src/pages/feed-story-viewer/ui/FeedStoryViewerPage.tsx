@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BackHandler,
   InteractionManager,
@@ -19,14 +19,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Carousel, { type ICarouselInstance } from "react-native-reanimated-carousel";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import type { BrowseFlowParamList } from "@/navigation/types";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import type { BrowseFlowParamList } from "@/app/navigation/types";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useStoryProgress, useStoryViewer, useReplyToStory, useReactToStory } from "@/entities/story";
-import { StoryProgressBar } from "@/components/stories/StoryProgressBar";
+import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import Toast from "react-native-toast-message";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { parseStoryMediaPrimaryUrl, parseStoryMediaUrls } from "@/shared/lib/storyMediaUrls";
+import type { StoryItem } from "@/shared/model/types/stories";
 
 type FeedStoryViewerRoute = RouteProp<BrowseFlowParamList, "FeedStoryViewer">;
 type FeedStoryViewerNav = NativeStackNavigationProp<BrowseFlowParamList, "FeedStoryViewer">;
@@ -40,21 +42,39 @@ const COMPOSER_KEYBOARD_GAP_AT_REF_ANDROID = -110;
 const COMPOSER_KEYBOARD_GAP_AT_REF_IOS = -5;
 const DOUBLE_TAP_MS = 260;
 
-function parseStoryMediaUrl(raw?: string | null): string | null {
-  const value = raw?.trim();
-  if (!value) return null;
-  if (value.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        const first = parsed.find((item) => typeof item === "string" && item.trim().length > 0);
-        return typeof first === "string" ? first : null;
-      }
-    } catch {
-      return null;
+type FeedMediaSlide = {
+  key: string;
+  story: StoryItem;
+  groupIndex: number;
+  storyIndex: number;
+  mediaIndex: number;
+  rawUri: string | null;
+};
+
+function buildFlatMediaSlides(flatStories: { story: StoryItem; groupIndex: number; storyIndex: number }[]): FeedMediaSlide[] {
+  return flatStories.flatMap((row) => {
+    const urls = parseStoryMediaUrls(row.story.media_url);
+    if (!urls.length) {
+      return [
+        {
+          key: `${row.story.id}-0`,
+          story: row.story,
+          groupIndex: row.groupIndex,
+          storyIndex: row.storyIndex,
+          mediaIndex: 0,
+          rawUri: parseStoryMediaPrimaryUrl(row.story.media_url),
+        },
+      ];
     }
-  }
-  return value;
+    return urls.map((url, mediaIndex) => ({
+      key: `${row.story.id}-${mediaIndex}`,
+      story: row.story,
+      groupIndex: row.groupIndex,
+      storyIndex: row.storyIndex,
+      mediaIndex,
+      rawUri: url,
+    }));
+  });
 }
 
 export default function FeedStoryViewerPage() {
@@ -127,10 +147,57 @@ export default function FeedStoryViewerPage() {
     loop: true,
   });
 
-  const activeStory = viewer.activeStory;
-  const storyId = activeStory?.id ?? "";
-  const activeImageUrl = parseStoryMediaUrl(activeStory?.media_url);
-  const activeOptimizedImageUrl = useMemo(() => getOptimizedImageUrl(activeImageUrl, 1080, 1920, 78), [activeImageUrl]);
+  const { flatStories, setCurrent, setPaused, paused } = viewer;
+
+  const flatMediaSlides = useMemo(() => buildFlatMediaSlides(flatStories), [flatStories]);
+
+  const defaultCarouselIndex = useMemo(() => {
+    if (!flatMediaSlides.length) return 0;
+    const idx = flatMediaSlides.findIndex(
+      (s) => s.groupIndex === params.initialGroupIndex && s.storyIndex === params.initialStoryIndex,
+    );
+    return idx >= 0 ? idx : 0;
+  }, [flatMediaSlides, params.initialGroupIndex, params.initialStoryIndex]);
+
+  const [mediaSlideIndex, setMediaSlideIndex] = useState(defaultCarouselIndex);
+  const didInitMediaIndexRef = useRef(false);
+  const flatSlidesRef = useRef(flatMediaSlides);
+  flatSlidesRef.current = flatMediaSlides;
+
+  const [carouselUserInteracting, setCarouselUserInteracting] = useState(false);
+
+  useLayoutEffect(() => {
+    if (flatMediaSlides.length === 0 || didInitMediaIndexRef.current) return;
+    const start = defaultCarouselIndex;
+    setMediaSlideIndex(start);
+    const row = flatMediaSlides[start];
+    if (row) setCurrent(row.groupIndex, row.storyIndex);
+    didInitMediaIndexRef.current = true;
+  }, [defaultCarouselIndex, flatMediaSlides, setCurrent]);
+
+  useEffect(() => {
+    if (flatMediaSlides.length === 0) return;
+    setMediaSlideIndex((i) => Math.min(i, flatMediaSlides.length - 1));
+  }, [flatMediaSlides.length]);
+
+  const safeSlideIndex = useMemo(
+    () => (flatMediaSlides.length ? Math.min(mediaSlideIndex, flatMediaSlides.length - 1) : 0),
+    [flatMediaSlides.length, mediaSlideIndex],
+  );
+
+  const activeSlide = flatMediaSlides[safeSlideIndex] ?? null;
+  const activeStory = activeSlide?.story ?? null;
+  const activeGroup =
+    activeSlide != null && params.groups[activeSlide.groupIndex] != null
+      ? params.groups[activeSlide.groupIndex]
+      : null;
+
+  const activeImageUrl = activeSlide?.rawUri ?? null;
+
+  const activeOptimizedImageUrl = useMemo(
+    () => (activeImageUrl ? getOptimizedImageUrl(activeImageUrl, 1080, 1920, 78) : null),
+    [activeImageUrl],
+  );
   const authorName = useMemo(() => {
     const first = activeStory?.profile?.first_name?.trim() ?? "";
     const last = activeStory?.profile?.last_name?.trim() ?? "";
@@ -157,15 +224,32 @@ export default function FeedStoryViewerPage() {
   const replyMutation = useReplyToStory();
   const reactMutation = useReactToStory();
 
+  const advanceAfterProgressTick = useCallback(() => {
+    if (!flatSlidesRef.current.length) return;
+    carouselRef.current?.next({ animated: true });
+  }, []);
+
+  const progressItemKey = flatMediaSlides[safeSlideIndex]?.key ?? "none";
+
   const { progress } = useStoryProgress({
     durationMs: AUTO_ADVANCE_MS,
-    paused: viewer.paused || inputFocused || keyboardOpen || previewOpen,
-    itemKey: storyId,
-    onComplete: viewer.goToNextStory,
+    paused: paused || inputFocused || keyboardOpen || previewOpen || carouselUserInteracting,
+    itemKey: progressItemKey,
+    onComplete: advanceAfterProgressTick,
   });
 
-  const { currentFlatIndex, findByFlatIndex, setCurrent, setPaused, flatStories, activeGroup, currentStoryIndex } =
-    viewer;
+  const handleCarouselSnapToItem = useCallback(
+    (index: number) => {
+      const slides = flatSlidesRef.current;
+      if (!slides.length) return;
+      const len = slides.length;
+      const normalized = ((index % len) + len) % len;
+      setMediaSlideIndex(normalized);
+      const row = slides[normalized];
+      if (row) setCurrent(row.groupIndex, row.storyIndex);
+    },
+    [setCurrent],
+  );
 
   useEffect(() => {
     return () => {
@@ -174,27 +258,23 @@ export default function FeedStoryViewerPage() {
   }, []);
 
   useEffect(() => {
-    const row = findByFlatIndex(currentFlatIndex);
-    if (!row) return;
-    carouselRef.current?.scrollTo({ index: currentFlatIndex, animated: true });
-  }, [currentFlatIndex, findByFlatIndex]);
-
-  useEffect(() => {
     const candidateIndexes = [
-      currentFlatIndex - 2,
-      currentFlatIndex - 1,
-      currentFlatIndex,
-      currentFlatIndex + 1,
-      currentFlatIndex + 2,
-    ].filter((idx) => idx >= 0 && idx < flatStories.length);
+      mediaSlideIndex - 2,
+      mediaSlideIndex - 1,
+      mediaSlideIndex,
+      mediaSlideIndex + 1,
+      mediaSlideIndex + 2,
+    ].filter((idx) => idx >= 0 && idx < flatMediaSlides.length);
     const candidateUrls = candidateIndexes
-      .map((idx) => parseStoryMediaUrl(flatStories[idx]?.story.media_url))
+      .map((idx) => flatMediaSlides[idx]?.rawUri)
       .filter((url): url is string => Boolean(url));
     const task = InteractionManager.runAfterInteractions(() => {
-      void preloadSmartImages(candidateUrls.map((url) => getOptimizedImageUrl(url, 1080, 1920, 78) || url));
+      void preloadSmartImages(
+        candidateUrls.map((url) => getOptimizedImageUrl(url, 1080, 1920, 78) || url),
+      );
     });
     return () => task.cancel();
-  }, [currentFlatIndex, flatStories]);
+  }, [flatMediaSlides, mediaSlideIndex]);
 
 
   const onSubmitReply = useCallback(async () => {
@@ -251,7 +331,7 @@ export default function FeedStoryViewerPage() {
     return () => sub.remove();
   }, [previewOpen, closeImagePreview]);
 
-  if (!activeStory || !activeGroup) {
+  if (flatMediaSlides.length === 0 || !activeStory || !activeGroup) {
     return (
       <View style={styles.emptyWrap}>
         <Text style={styles.emptyText}>No stories available.</Text>
@@ -266,38 +346,43 @@ export default function FeedStoryViewerPage() {
           ref={carouselRef}
           width={width}
           height={height}
-          data={flatStories}
-          loop
-          onSnapToItem={(index) => {
-            const row = findByFlatIndex(index);
-            if (!row) return;
-            setCurrent(row.groupIndex, row.storyIndex);
-          }}
-          renderItem={({ item }) => (
-            <Pressable
-              style={styles.absoluteFill}
-              onPress={handleSlideTap}
-              onLongPress={() => setPaused(true)}
-              onPressOut={() => setPaused(false)}
-              delayLongPress={180}
-            >
-              <SmartImage
-                uri={getOptimizedImageUrl(parseStoryMediaUrl(item.story.media_url), 1080, 1920, 78)}
-                fallbackUri={parseStoryMediaUrl(item.story.media_url)}
-                recyclingKey={`feed-story-viewer-${item.story.id}`}
+          data={flatMediaSlides}
+          defaultIndex={defaultCarouselIndex}
+          loop={flatMediaSlides.length > 1}
+          autoFillData={false}
+          scrollAnimationDuration={550}
+          onScrollStart={() => setCarouselUserInteracting(true)}
+          onScrollEnd={() => setCarouselUserInteracting(false)}
+          onSnapToItem={handleCarouselSnapToItem}
+          renderItem={({ item }) => {
+            const rawUri = item.rawUri;
+            const optimized = rawUri ? getOptimizedImageUrl(rawUri, 1080, 1920, 78) : null;
+            return (
+              <Pressable
                 style={styles.absoluteFill}
-                contentFit="cover"
-                priority="high"
-                transition={90}
-              />
-            </Pressable>
-          )}
+                onPress={handleSlideTap}
+                onLongPress={() => setPaused(true)}
+                onPressOut={() => setPaused(false)}
+                delayLongPress={180}
+              >
+                <SmartImage
+                  uri={optimized || rawUri}
+                  fallbackUri={rawUri}
+                  recyclingKey={`feed-story-viewer-${item.key}`}
+                  style={styles.absoluteFill}
+                  contentFit="cover"
+                  priority="high"
+                  transition={90}
+                />
+              </Pressable>
+            );
+          }}
         />
 
         <View style={[styles.topProgressRow, { top: Math.max(4, insets.top + 4) }]}>
           <StoryProgressBar
-            count={Math.max(1, activeGroup.stories.length)}
-            currentIndex={currentStoryIndex}
+            count={Math.max(1, flatMediaSlides.length)}
+            currentIndex={safeSlideIndex}
             progress={progress}
           />
         </View>
@@ -417,7 +502,7 @@ export default function FeedStoryViewerPage() {
             <SmartImage
               uri={activeOptimizedImageUrl || activeImageUrl}
               fallbackUri={activeImageUrl}
-              recyclingKey={`preview-${activeStory.id}`}
+              recyclingKey={activeSlide ? `preview-${activeSlide.key}` : `preview-${activeStory.id}`}
               style={styles.modalCardImage}
               contentFit="cover"
               pointerEvents="none"

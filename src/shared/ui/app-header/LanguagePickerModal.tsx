@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { APP_LANGUAGES, type AppLanguage, i18n } from "@/shared/lib/i18n";
 
 type LanguagePickerModalProps = {

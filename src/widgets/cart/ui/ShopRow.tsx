@@ -2,9 +2,9 @@ import { View, Text, Pressable, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useUpdateShoppingCartQuantity, useRemoveShoppingCartItem, type ShoppingCartItem } from "@/entities/shopping";
-import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
-import { isAuthRequiredError } from "@/lib/authRequired";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { CartScreenStyles } from "./cartStyles";
 
 type Props = {

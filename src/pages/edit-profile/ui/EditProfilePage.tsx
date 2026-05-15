@@ -23,10 +23,10 @@ import * as ImagePicker from "expo-image-picker";
 import { useProfile, useUpdateProfile } from "@/entities/user";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
-import { useAuth } from "@/contexts/AuthContext";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { supabase } from "@/shared/api/supabase/client";
-import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import { AUTH_PRIMARY_COLOR, primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import {

@@ -10,11 +10,11 @@ import {
 } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import type { BrowseFlowParamList } from "@/navigation/types";
-import { useAppTheme } from "@/contexts/ThemeContext";
-import { navigateToAuthScreen } from "@/lib/authRequired";
-import { discussionPaletteDark, discussionPaletteLight } from "../lib/discussionUiPalette";
-import { StoryDiscussionPanelInner } from "./StoryDiscussionPanelInner";
+import type { BrowseFlowParamList } from "@/app/navigation/types";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
+import { discussionPaletteDark, discussionPaletteLight } from "@/shared/theme/discussionPalette";
+import { StoryDiscussionPanelInner } from "@/widgets/story-discussion-panel";
 
 type DiscussionRoute = RouteProp<BrowseFlowParamList, "StoryDiscussion">;
 type DiscussionNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryDiscussion">;

@@ -17,7 +17,7 @@ import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import {
   useBookings,
   useCancelBooking,
@@ -26,11 +26,11 @@ import {
   type BookingDisplayStatus,
 } from "@/entities/booking";
 import { useBusinessCards } from "@/entities/business-card";
-import type { BookingsStackParamList } from "@/navigation/types";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import type { BookingsStackParamList } from "@/app/navigation/types";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
-import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
+import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { useCartItems } from "@/entities/cart";
 import { bookingStatusNotificationText, useCreateNotification } from "@/entities/notification";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";

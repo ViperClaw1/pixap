@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
-import type { PostProfile } from "@/types/posts";
+import type { PostProfile } from "@/shared/model/types/posts";
 
 export interface PostReply {
   id: string;

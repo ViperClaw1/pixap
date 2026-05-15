@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { PixAISlot } from "@/entities/pixai";
-import { buildSlotsFromBookingTimes, localDayBoundsIso } from "@/lib/bookingSlots";
+import { buildSlotsFromBookingTimes, localDayBoundsIso } from "@/entities/booking/lib/bookingSlots";
 import { safeRefreshSession } from "@/shared/lib/supabaseAuth";
 
 function isFunctionsUnauthorized(error: unknown): boolean {

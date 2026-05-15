@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import type { StoryItem, StoryProfile, StoryReactionType } from "@/types/stories";
+import { useAuth } from "@/app/providers/AuthProvider";
+import type { StoryItem, StoryProfile, StoryReactionType } from "@/shared/model/types/stories";
 import { STORIES_QUERY_KEY } from "./useStories";
 import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
 

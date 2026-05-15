@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Constants from "expo-constants";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { env } from "@/shared/lib/env";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
-import type { PurchasePayload, SubscriptionPurchase } from "@/services/subscriptionIapService";
+import type { PurchasePayload, SubscriptionPurchase } from "@/shared/lib/iap/subscriptionIapService";
 
-type IapService = typeof import("@/services/subscriptionIapService");
+type IapService = typeof import("@/shared/lib/iap/subscriptionIapService");
 
 function isExpoGoRuntime(): boolean {
   return Constants.appOwnership === "expo";
@@ -95,7 +95,7 @@ export function useSubscription() {
         return;
       }
       try {
-        const service = await import("@/services/subscriptionIapService");
+        const service = await import("@/shared/lib/iap/subscriptionIapService");
         if (!mounted) return;
         setIapService(service);
         serviceInstance = service;

@@ -31,7 +31,7 @@ import type { BookingChatListRow } from "../lib/flattenChainedOpeningMessages";
 import { bookingChatListRowKey, flattenChainedOpeningMessages } from "../lib/flattenChainedOpeningMessages";
 import { BookingChainedOpeningAssistantPair } from "./BookingChainedOpeningAssistantPair";
 import { BookingChatComposer } from "./BookingChatComposer";
-import { BookingChatMessageRow } from "@/features/ai-booking-chat/ui/BookingChatMessageRow";
+import { BookingChatMessageRow } from "./BookingChatMessageRow";
 import { BookingChatTabsStrip } from "./BookingChatTabsStrip";
 
 type PanelProps = {

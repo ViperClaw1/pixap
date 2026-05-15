@@ -18,8 +18,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import { useQueries } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
-import { useAppTheme } from "@/contexts/ThemeContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import { useSubscriptionPaywallRedirect } from "@/features/subscription-paywall-redirect";
 import { useEntitlement } from "@/entities/subscription";
@@ -28,7 +28,7 @@ import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } f
 import { fetchAvailableSlotsForDay, useCreateBooking } from "@/entities/booking";
 import { useCreateCartItem } from "@/entities/cart";
 import { supabase } from "@/shared/api/supabase/client";
-import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import {
   ALL_CITIES_OPTION,

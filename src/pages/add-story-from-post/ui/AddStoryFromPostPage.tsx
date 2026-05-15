@@ -7,9 +7,9 @@ import Carousel, { type ICarouselInstance } from "react-native-reanimated-carous
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useAppTheme } from "@/contexts/ThemeContext";
-import type { BrowseFlowParamList } from "@/navigation/types";
-import { StoryProgressBar } from "@/components/stories/StoryProgressBar";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
+import type { BrowseFlowParamList } from "@/app/navigation/types";
+import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { useStoryProgress } from "@/entities/story";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";

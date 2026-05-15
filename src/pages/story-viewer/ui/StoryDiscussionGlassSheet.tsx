@@ -6,9 +6,9 @@ import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
-import { navigateToAuthScreen } from "@/lib/authRequired";
-import { discussionPaletteDark } from "@/pages/story-discussion/lib/discussionUiPalette";
-import { StoryDiscussionPanelInner } from "@/pages/story-discussion/ui/StoryDiscussionPanelInner";
+import { navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
+import { discussionPaletteDark } from "@/shared/theme/discussionPalette";
+import { StoryDiscussionPanelInner } from "@/widgets/story-discussion-panel";
 
 const KEYBOARD_GAP = -5;
 /** Grabber + title — must stay in sync with layout below */

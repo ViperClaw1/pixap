@@ -6,9 +6,9 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cancelAnimation, useSharedValue, withTiming, Easing } from "react-native-reanimated";
 import Carousel from "react-native-reanimated-carousel";
-import type { BrowseFlowParamList } from "@/navigation/types";
+import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { StoryProgressBar } from "@/components/stories/StoryProgressBar";
+import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
 
 const AUTO_SLIDE_MS = 5000;

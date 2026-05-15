@@ -7,9 +7,9 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCards } from "@/entities/business-card";
-import type { SearchStackParamList } from "@/navigation/types";
-import { useAppTheme } from "@/contexts/ThemeContext";
-import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
+import type { SearchStackParamList } from "@/app/navigation/types";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 

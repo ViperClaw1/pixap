@@ -8,9 +8,9 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCardsByCategory } from "@/entities/business-card";
 import { useCategories } from "@/entities/category";
-import type { BrowseFlowParamList } from "@/navigation/types";
-import { useAppTheme } from "@/contexts/ThemeContext";
-import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
+import type { BrowseFlowParamList } from "@/app/navigation/types";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import ThemeToggle from "@/shared/ui/theme-toggle/ThemeToggle";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 

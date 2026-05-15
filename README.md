@@ -18,6 +18,7 @@ Backend data and auth live in **Supabase** (PostgreSQL, Auth, Realtime, Storage)
 8. [Configuration and environment](#configuration-and-environment)
 9. [Local development](#local-development)
 10. [Further reading](#further-reading)
+11. [Frontend architecture (FSD)](ARCHITECTURE.md)
 
 ---
 
@@ -26,10 +27,10 @@ Backend data and auth live in **Supabase** (PostgreSQL, Auth, Realtime, Storage)
 ```mermaid
 flowchart TB
   subgraph client["Mobile client (Expo / RN)"]
-    UI[Screens and components]
-    Nav[React Navigation]
+    UI[Pages, widgets, features]
+    Nav[app/navigation]
     RQ[TanStack Query]
-    Ctx[AuthContext / ThemeContext]
+    Prov[AuthProvider / ThemeProvider]
     SBClient[supabase-js client]
   end
 
@@ -53,7 +54,7 @@ flowchart TB
   UI --> Nav
   UI --> RQ
   RQ --> SBClient
-  Ctx --> SBClient
+  Prov --> SBClient
   SBClient --> Auth
   SBClient --> DB
   SBClient --> RT
@@ -80,13 +81,13 @@ flowchart TB
 |------|------|
 | `App.tsx` | Root: gesture handler, safe area, theme, React Query, auth, splash, permissions gate, navigation. |
 | `app.config.ts` | Expo config: app id, scheme `pixap`, iOS/Android, `extra` env passthrough, Google Maps keys, associated domains. |
-| `src/pages/` | Route-level UI (FSD pages): home, place detail, booking, cart, stories, profile, auth, paywall, etc. |
-| `src/navigation/` | Tab + stack navigators, deep linking config, route types. |
-| `src/contexts/` | `AuthContext`, `ThemeContext`. |
-| `src/hooks/` | TanStack Query hooks: business cards, cart, bookings, stories, PixAI, slots, subscription, etc. |
-| `src/integrations/supabase/` | Typed `supabase` client and generated `Database` types. |
-| `src/lib/` | Env resolution, OAuth helpers, maps/directions, permissions storage, etc. |
-| `src/services/` | Cross-cutting services (e.g. push / IAP wiring). |
+| `src/pages/` | Route-level UI (FSD **pages**): home, place detail, booking, cart, stories, profile, auth, paywall, etc. |
+| `src/app/navigation/` | Tab + stack navigators, deep linking config, route types. |
+| `src/app/providers/` | `AuthProvider`, `ThemeProvider`, `AppProviders`. |
+| `src/widgets/` | Composite blocks reused across screens (feed list, place card, story discussion, …). |
+| `src/features/` | Isolated user scenarios (one ESLint slice per subfolder). |
+| `src/entities/` | Domain hooks and models (cart, bookings, stories, PixAI, …) — TanStack Query + Supabase. |
+| `src/shared/` | `shared/ui/`, `shared/lib/` (env, linking helpers, push/IAP), `shared/api/` (typed Supabase client), `shared/model/types/`. |
 | `supabase/migrations/` | SQL schema and RLS evolution. |
 | `supabase/functions/` | Deno Edge Functions (see [API reference](#api-reference)). |
 | `supabase/proxy/api.pixapp.kz.nginx.conf.example` | Example nginx routes for Lemon (and pattern for other paths). |
@@ -96,30 +97,32 @@ flowchart TB
 
 ## Mobile app layers
 
+The client follows **Feature-Sliced Design** under `src/` (layers, ESLint slices, entity graph, refactor audit): **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+
 ### Presentation
 
-- **Screens** compose UI and call hooks; there is no separate MVVM layer**hooks + React Query** own async state.
-- **Components** (`src/components/`) provide reusable UI (maps modals, story UI, booking panels, shimmer skeletons).
+- **Screens** (`src/pages/`) compose UI and call hooks; there is no separate MVVM layer — **hooks + React Query** own async state.
+- **Widgets** (`src/widgets/`) and **shared UI** (`src/shared/ui/`): composite screen sections (story strip, place card, feed list) and reusable UI (directions modal, booking place panel, story progress bar, shimmers).
 
 ### Navigation
 
-- **`AppNavigator.tsx`**: Bottom tabs **Home**, **Feed**, **Bookings**, **Cart**, **Profile**. Each tab is a **native stack** with shared screen names (place detail, booking flow, story viewer/composer, paywall, etc.).
-- **`linking.ts` / `lib/linking.ts`**: Universal / custom scheme links; special handling for `payment-success` and `payment-canceled` to open the cart stack with the right screen.
+- **`src/app/navigation/AppNavigator.tsx`**: Bottom tabs **Home**, **Feed**, **Bookings**, **Cart**, **Profile**. Each tab is a **native stack** with shared screen names (place detail, booking flow, story viewer/composer, paywall, etc.).
+- **`src/app/navigation/linking.ts`** + **`src/shared/lib/linking.ts`**: Universal / custom scheme links, nested screen paths; special handling for `payment-success` and `payment-canceled` to open the cart stack with the right screen.
 
 ### Application state
 
-- **`AuthContext`**: Wraps `supabase.auth` session lifecycle, sign-up/in/out, password reset redirects, and registers push tokens when `user.id` is present.
-- **`ThemeContext`**: Light/dark palette and navigation theme bridge.
+- **`AuthProvider`** (`src/app/providers/`): Wraps `supabase.auth` session lifecycle, sign-up/in/out, password reset redirects, and registers push tokens when `user.id` is present (context is internal; consumers use the exported hook).
+- **`ThemeProvider`**: Light/dark palette and navigation theme bridge.
 
 ### Data access
 
-- **Direct PostgREST** via `supabase.from(...)` in hooks for tables the user is allowed to read/write under RLS (e.g. `business_cards`, `cart_items`, `bookings`, stories).
+- **Direct PostgREST** via `supabase.from(...)` in **entity** (and occasionally feature) hooks for tables the user is allowed to read/write under RLS (e.g. `business_cards`, `cart_items`, `bookings`, stories).
 - **Edge Functions** via `supabase.functions.invoke("<name>", { body, headers })` for privileged or multi-step operations (PixAI orchestration, slot computation, WhatsApp start, confirm booking, IAP).
 
 ### Cross-cutting
 
-- **`expo-constants`** + `app.config.ts` **`extra`** expose `EXPO_PUBLIC_*` at runtime (`src/lib/env.ts`).
-- **Google Maps**: Native maps + REST Directions/Geocoding; listings store **address text** (not lat/lng)the app geocodes for pins and routes.
+- **`expo-constants`** + `app.config.ts` **`extra`** expose `EXPO_PUBLIC_*` at runtime (`src/shared/lib/env.ts`).
+- **Google Maps**: Native maps + REST Directions/Geocoding; listings store **address text** (not lat/lng) — the app geocodes for pins and routes.
 
 ---
 
@@ -313,6 +316,7 @@ Default listen **8787** (avoids Metro on 8081). Point **`WA_BOOKING_SERVICE_URL`
 
 ## Further reading
 
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — FSD layers, ESLint boundaries, feature slices, entity dependency graph, commands (`lint`, `madge`).
 - [backend/wa-booking-service/README.md](backend/wa-booking-service/README.md)  WhatsApp state machine, Meta webhook verification, Railway port notes.
 - [docs/mobile-store-compliance.md](docs/mobile-store-compliance.md)  Store policies (referenced from older docs).
 - [supabase/user_stories_query_examples.md](supabase/user_stories_query_examples.md)  Story feed query examples.

@@ -4,7 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useSubscription } from "@/entities/subscription";
 import { useEntitlement } from "@/entities/subscription";
 import { env } from "@/shared/lib/env";

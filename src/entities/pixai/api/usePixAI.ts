@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import type { BusinessCard } from "@/entities/business-card";
-import { normalizeBusinessCardImages } from "@/lib/businessCardImages";
+import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { invokePixaiOrchestrateWithAuth, logPixaiOrchestrateInvokeFailure } from "./invokePixaiOrchestrate";
 
 export type PixAIPlace = Pick<BusinessCard, "id" | "name" | "address" | "city" | "rating" | "booking_price" | "images">;
