@@ -7,14 +7,16 @@ import en from "./locales/en.json";
 import es from "./locales/es.json";
 import fr from "./locales/fr.json";
 import pt from "./locales/pt.json";
+import ru from "./locales/ru.json";
 
 export const APP_LANGUAGE_STORAGE_KEY = "@pixap_app_language";
 
-export const APP_LANGUAGES = ["en", "es", "pt", "fr", "de"] as const;
+export const APP_LANGUAGES = ["en", "ru", "es", "pt", "fr", "de"] as const;
 export type AppLanguage = (typeof APP_LANGUAGES)[number];
 
 const bundledResources = {
   en: { translation: en },
+  ru: { translation: ru },
   es: { translation: es },
   pt: { translation: pt },
   fr: { translation: fr },

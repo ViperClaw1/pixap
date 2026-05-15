@@ -4,12 +4,12 @@ import {
   View,
   Text,
   Pressable,
-  StyleSheet,
   ScrollView,
   Alert,
   useWindowDimensions,
   ActivityIndicator,
   Linking,
+  PixelRatio,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import Toast from "react-native-toast-message";
@@ -35,6 +35,7 @@ import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes"
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { useCartItems } from "@/entities/cart";
 import { bookingStatusNotificationText, useCreateNotification } from "@/entities/notification";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
@@ -46,6 +47,17 @@ const filters: readonly BookingDisplayStatus[] = ["draft", "confirmed", "cancell
 
 function bookingFilterTranslationKey(status: BookingDisplayStatus): string {
   return status === "payment awaiting" ? "bookings.filter.paymentAwaiting" : `bookings.filter.${status}`;
+}
+
+const BOOKING_THUMB_SIZE = 64;
+
+function bookingThumbUris(images: unknown, edgePx = BOOKING_THUMB_SIZE): { uri: string | null; fallbackUri: string | null } {
+  const fallbackUri = getLatestBusinessCardImage(images);
+  if (!fallbackUri) return { uri: null, fallbackUri: null };
+  const dpr = Math.min(2, PixelRatio.get());
+  const edge = Math.round(edgePx * dpr);
+  const uri = getOptimizedImageUrl(fallbackUri, edge, edge, 72) || fallbackUri;
+  return { uri, fallbackUri };
 }
 
 function formatBookingDateTime(value: string): string {
@@ -195,14 +207,17 @@ export default function BookingsScreen() {
       (item.displayStatus === "confirmed" || item.displayStatus === "payment awaiting") &&
       item.payment_status === "pending" &&
       Boolean(item.waPaymentLink);
+    const thumbEdge = isCompact ? 56 : BOOKING_THUMB_SIZE;
+    const { uri: thumbUri, fallbackUri: thumbFallback } = bookingThumbUris(item.business_card?.images, thumbEdge);
     return (
       <Pressable
         style={styles.card}
         onPress={() => navigation.navigate("PlaceDetail", { id: item.business_card_id })}
       >
         <SmartImage
-          uri={getLatestBusinessCardImage(item.business_card?.images)}
-          recyclingKey={item.id}
+          uri={thumbUri}
+          fallbackUri={thumbFallback}
+          recyclingKey={`${item.id}-thumb`}
           style={[styles.thumb, isCompact ? styles.thumbCompact : null]}
           contentFit="cover"
         />
@@ -304,10 +319,14 @@ export default function BookingsScreen() {
       <BottomSheetPickerModal visible={placePickerOpen} onClose={() => setPlacePickerOpen(false)} title={t("bookings.choosePlace")}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>
           {businessCards.length ? (
-            businessCards.map((item) => (
+            businessCards.map((item) => {
+              const thumbEdge = isCompact ? 56 : BOOKING_THUMB_SIZE;
+              const { uri: thumbUri, fallbackUri: thumbFallback } = bookingThumbUris(item.images, thumbEdge);
+              return (
               <View key={item.id} style={styles.card}>
                 <SmartImage
-                  uri={getLatestBusinessCardImage(item.images)}
+                  uri={thumbUri}
+                  fallbackUri={thumbFallback}
                   recyclingKey={`book-place-${item.id}`}
                   style={[styles.thumb, isCompact ? styles.thumbCompact : null]}
                   contentFit="cover"
@@ -330,7 +349,8 @@ export default function BookingsScreen() {
                   <Text style={styles.payBtnText}>{t("bookings.book")}</Text>
                 </Pressable>
               </View>
-            ))
+            );
+            })
           ) : (
             <Text style={styles.empty}>{t("bookings.noPlacesYet")}</Text>
           )}
@@ -339,8 +359,3 @@ export default function BookingsScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  thumb: { width: 64, height: 64, borderRadius: 8 },
-  thumbCompact: { width: 56, height: 56 },
-});

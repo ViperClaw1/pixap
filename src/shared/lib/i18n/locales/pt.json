@@ -2,6 +2,7 @@
   "language": {
     "choose": "Idioma da interface",
     "en": "Inglês",
+    "ru": "Russo",
     "es": "Espanhol",
     "pt": "Português",
     "fr": "Francês",
@@ -194,6 +195,87 @@
       "toastUpdatedTitle": "Palavra-passe atualizada",
       "toastUpdatedBody": "Sessão iniciada com sucesso. Bem-vindo de volta.",
       "btnUpdate": "Atualizar palavra-passe"
+    }
+  },
+  "profile": {
+    "defaultUserName": "Usuário",
+    "unknownPlace": "Local desconhecido",
+    "subscriptionStatus": {
+      "notSubscribed": "Sem assinatura",
+      "trialActive": "Teste ativo",
+      "active": "Ativa",
+      "gracePeriod": "Período de carência",
+      "billingRetry": "Problema de pagamento",
+      "expired": "Expirada"
+    },
+    "subscriptionTitle": "Assinatura PixAI: {{status}}",
+    "trialInProgress": "Teste em andamento",
+    "expires": "Expira em: {{date}}",
+    "emailVerified": "E-mail verificado",
+    "emailNotVerified": "E-mail não verificado",
+    "verifyEmail": "Verificar",
+    "stats": {
+      "bookings": "Reservas",
+      "favorites": "Favoritos",
+      "reviews": "Avaliações",
+      "posts": "Publicações",
+      "followed": "Seguidos",
+      "following": "Seguindo"
+    },
+    "a11y": {
+      "openBookings": "Abrir reservas",
+      "openFavorites": "Abrir favoritos",
+      "openMyPosts": "Abrir minhas publicações no feed",
+      "openMessages": "Abrir mensagens"
+    },
+    "suggestions": {
+      "title": "Sugestões",
+      "subtitle": "Siga algumas contas",
+      "follow": "Seguir",
+      "empty": "Ainda não há sugestões"
+    },
+    "bio": {
+      "label": "Bio",
+      "placeholder": "Conte sobre você em Editar perfil."
+    },
+    "actions": {
+      "manageSubscription": "Gerenciar assinatura",
+      "getPremium": "Obter PixAI Premium",
+      "archive": "Arquivo",
+      "privacy": "Privacidade e segurança",
+      "settings": "Configurações"
+    },
+    "partnerUpload": "Parceiro: enviar imagem do anúncio",
+    "logOut": "Sair",
+    "create": {
+      "title": "Criar",
+      "postTitle": "Criar publicação",
+      "storyTitle": "Criar story",
+      "post": "Publicação",
+      "postHint": "Criar uma nova publicação",
+      "story": "Story",
+      "storyHint": "Compartilhe um story rápido",
+      "uploadingPhotos": "Enviando fotos...",
+      "publishingPost": "Publicando...",
+      "publishingStory": "Publicando story...",
+      "tapAddPhotos": "Toque para adicionar fotos",
+      "photosSelected": "{{count}}/{{max}} selecionadas",
+      "photosUpTo": "Até {{max}} fotos",
+      "requiredPost": "Obrigatório: local e texto.",
+      "requiredStory": "Obrigatório: pelo menos 1 foto e local.",
+      "selectedPlace": "Local selecionado",
+      "selectPlace": "Selecionar local",
+      "postPlaceholder": "Compartilhe uma atualização...",
+      "backToMenu": "Voltar às opções de criação",
+      "publishStory": "Publicar story"
+    },
+    "alerts": {
+      "permissionTitle": "Permissão necessária",
+      "permissionPhotos": "É necessário acesso ao armazenamento para escolher fotos.",
+      "postFailedTitle": "Falha na publicação",
+      "postFailedBody": "Não foi possível publicar.",
+      "storyFailedTitle": "Falha no story",
+      "storyFailedBody": "Não foi possível publicar o story."
     }
   },
   "errorBoundary": {

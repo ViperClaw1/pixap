@@ -3,6 +3,7 @@ import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 import type { CartItem } from "@/entities/cart";
+import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 
 export interface Booking {
   id: string;
@@ -78,7 +79,7 @@ export const useBookings = () => {
         business_card: row.business_card
           ? {
               ...row.business_card,
-              images: row.business_card.images,
+              images: normalizeBusinessCardImages(row.business_card.images),
             }
           : null,
       }));

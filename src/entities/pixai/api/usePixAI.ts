@@ -275,7 +275,12 @@ export function usePixAI() {
         history: messages.map((m) => ({ role: m.role, content: m.content })),
       });
       if (!error && data != null) {
-        return { ...(data as OrchestratorResponse), catalogFallback: false };
+        const payload = data as OrchestratorResponse;
+        return {
+          ...payload,
+          places: payload.places != null ? mapRowsToPlaces(payload.places) : undefined,
+          catalogFallback: false,
+        };
       }
       await logPixaiOrchestrateInvokeFailure(error);
       const places = await fetchPlacesWhenOrchestratorFails(flow);

@@ -2,6 +2,7 @@
   "language": {
     "choose": "Langue de l'interface",
     "en": "Anglais",
+    "ru": "Russe",
     "es": "Espagnol",
     "pt": "Portugais",
     "fr": "Français",
@@ -194,6 +195,87 @@
       "toastUpdatedTitle": "Mot de passe mis à jour",
       "toastUpdatedBody": "Vous êtes connecté. Bon retour.",
       "btnUpdate": "Mettre à jour le mot de passe"
+    }
+  },
+  "profile": {
+    "defaultUserName": "Utilisateur",
+    "unknownPlace": "Lieu inconnu",
+    "subscriptionStatus": {
+      "notSubscribed": "Non abonné",
+      "trialActive": "Essai actif",
+      "active": "Actif",
+      "gracePeriod": "Période de grâce",
+      "billingRetry": "Problème de paiement",
+      "expired": "Expiré"
+    },
+    "subscriptionTitle": "Abonnement PixAI : {{status}}",
+    "trialInProgress": "Essai en cours",
+    "expires": "Expire le : {{date}}",
+    "emailVerified": "E-mail vérifié",
+    "emailNotVerified": "E-mail non vérifié",
+    "verifyEmail": "Vérifier",
+    "stats": {
+      "bookings": "Réservations",
+      "favorites": "Favoris",
+      "reviews": "Avis",
+      "posts": "Publications",
+      "followed": "Suivis",
+      "following": "Abonnements"
+    },
+    "a11y": {
+      "openBookings": "Ouvrir les réservations",
+      "openFavorites": "Ouvrir les favoris",
+      "openMyPosts": "Ouvrir mes publications dans le fil",
+      "openMessages": "Ouvrir les messages"
+    },
+    "suggestions": {
+      "title": "Suggestions",
+      "subtitle": "Suivez quelques comptes",
+      "follow": "Suivre",
+      "empty": "Pas encore de suggestions"
+    },
+    "bio": {
+      "label": "Bio",
+      "placeholder": "Parlez de vous dans Modifier le profil."
+    },
+    "actions": {
+      "manageSubscription": "Gérer l'abonnement",
+      "getPremium": "Obtenir PixAI Premium",
+      "archive": "Archives",
+      "privacy": "Confidentialité et sécurité",
+      "settings": "Paramètres"
+    },
+    "partnerUpload": "Partenaire : téléverser l'image de l'annonce",
+    "logOut": "Se déconnecter",
+    "create": {
+      "title": "Créer",
+      "postTitle": "Créer une publication",
+      "storyTitle": "Créer une story",
+      "post": "Publication",
+      "postHint": "Créer une nouvelle publication",
+      "story": "Story",
+      "storyHint": "Partagez une story rapide",
+      "uploadingPhotos": "Envoi des photos...",
+      "publishingPost": "Publication en cours...",
+      "publishingStory": "Publication de la story...",
+      "tapAddPhotos": "Appuyez pour ajouter des photos",
+      "photosSelected": "{{count}}/{{max}} sélectionnées",
+      "photosUpTo": "Jusqu'à {{max}} photos",
+      "requiredPost": "Obligatoire : lieu et texte.",
+      "requiredStory": "Obligatoire : au moins 1 photo et un lieu.",
+      "selectedPlace": "Lieu sélectionné",
+      "selectPlace": "Sélectionner un lieu",
+      "postPlaceholder": "Partagez une actualité...",
+      "backToMenu": "Retour aux options de création",
+      "publishStory": "Publier la story"
+    },
+    "alerts": {
+      "permissionTitle": "Autorisation requise",
+      "permissionPhotos": "L'accès au stockage est nécessaire pour choisir des photos.",
+      "postFailedTitle": "Échec de la publication",
+      "postFailedBody": "Impossible de publier.",
+      "storyFailedTitle": "Échec de la story",
+      "storyFailedBody": "Impossible de publier la story."
     }
   },
   "errorBoundary": {

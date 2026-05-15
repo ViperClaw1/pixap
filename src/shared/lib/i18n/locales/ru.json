@@ -1,0 +1,290 @@
+{
+  "language": {
+    "choose": "Язык интерфейса",
+    "en": "Английский",
+    "ru": "Русский",
+    "es": "Испанский",
+    "pt": "Португальский",
+    "fr": "Французский",
+    "de": "Немецкий"
+  },
+  "header": {
+    "bookings": "Бронирования",
+    "editProfile": "Редактировать профиль",
+    "messages": "Сообщения",
+    "favorites": "Избранное",
+    "profile": "Профиль",
+    "feed": "Лента"
+  },
+  "notifications": {
+    "sheetTitle": "Уведомления",
+    "empty": "Пока нет уведомлений.",
+    "unreadA11y": "Непрочитано",
+    "openA11y": "Открыть уведомления"
+  },
+  "favorites": {
+    "empty": "Пока нет избранного"
+  },
+  "common": {
+    "loading": "Загрузка...",
+    "unknownError": "Неизвестная ошибка",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "unknownUser": "Неизвестный пользователь"
+  },
+  "home": {
+    "searchPlaceholder": "Рестораны, салоны, события…",
+    "categories": "Категории",
+    "featured": "Избранное",
+    "seeAll": "Смотреть все",
+    "recommended": "Рекомендуем",
+    "showMore": "Показать ещё",
+    "chooseCity": "Выберите город",
+    "citySearchPlaceholder": "Поиск страны или города…",
+    "selected": "Выбрано",
+    "noCitiesMatch": "Нет городов по вашему запросу.",
+    "allCities": "Все города",
+    "alerts": {
+      "citySaveTitle": "Не удалось сохранить город",
+      "citySaveBody": "Попробуйте ещё раз."
+    },
+    "a11y": {
+      "openPixaiBooking": "Открыть PixAI Smart Booking",
+      "openPixaiVibeMatch": "Открыть PixAI Vibe Match",
+      "openNotifications": "Открыть уведомления"
+    }
+  },
+  "notFound": {
+    "title": "Страница не найдена",
+    "goHome": "На главную"
+  },
+  "search": {
+    "placeholder": "Поиск…"
+  },
+  "category": {
+    "fallbackName": "Категория"
+  },
+  "messages": {
+    "searchPlaceholder": "Поиск чатов и пользователей",
+    "myChats": "Мои чаты",
+    "peopleToFollow": "Кого подписать",
+    "noChatsFound": "Чаты не найдены.",
+    "noUsersFound": "Пользователи не найдены.",
+    "startChatTitle": "Начать чат",
+    "deleteChatTitle": "Удалить чат",
+    "deleteChatMessage": "Удалить чат с «{{name}}»?",
+    "toastChatDeleted": "Чат удалён",
+    "toastChatRemoved": "«{{title}}» удалён из списка",
+    "toastAddedFollowers": "Добавлено в подписки",
+    "toastRemovedFollowers": "Удалено из подписок",
+    "toastFollowFailed": "Не удалось выполнить действие",
+    "toastTryAgain": "Попробуйте ещё раз.",
+    "toastCouldNotOpenChat": "Не удалось открыть чат",
+    "toastCouldNotOpenSupport": "Не удалось открыть чат поддержки",
+    "support": "Поддержка",
+    "supportSubtitle": "Чат с нашей командой",
+    "followed": "Подписан"
+  },
+  "bookings": {
+    "filter": {
+      "draft": "черновик",
+      "confirmed": "подтверждено",
+      "cancelled": "отменено",
+      "completed": "завершено",
+      "paymentAwaiting": "ожидает оплаты"
+    },
+    "toastStatusUpdated": "Статус бронирования обновлён",
+    "loading": "Загрузка...",
+    "paymentLinkMissingTitle": "Ссылка на оплату отсутствует",
+    "paymentLinkMissingBody": "Заведение ещё не предоставило ссылку на оплату.",
+    "cannotOpenPaymentLink": "Не удалось открыть ссылку на оплату",
+    "cancelBookingTitle": "Отменить бронирование",
+    "cancelBookingMessage": "Отменить это бронирование?",
+    "no": "Нет",
+    "yesCancel": "Да, отменить",
+    "cancel": "Отмена",
+    "persons": "Гостей: {{count}}",
+    "comment": "Комментарий: {{text}}",
+    "payment": "Оплата: {{state}}",
+    "paymentPending": "Ожидает",
+    "paymentPaid": "Оплачено",
+    "pay": "Оплатить",
+    "waitingForVenue": "Ожидание ответа заведения",
+    "noBookings": "Нет бронирований",
+    "choosePlace": "Выберите место",
+    "noTags": "Нет тегов",
+    "book": "Забронировать",
+    "noPlacesYet": "Пока нет мест",
+    "defaultVenueName": "Бронирование"
+  },
+  "cart": {
+    "title": "Корзина",
+    "tabServices": "Услуги",
+    "tabShopping": "Покупки",
+    "emptyPaymentAwaiting": "Нет бронирований, ожидающих оплаты",
+    "emptyShopping": "Нет товаров",
+    "total": "Итого",
+    "opening": "Открытие…",
+    "checkAvailability": "Уточнить наличие у продавца",
+    "bookingConfirmedTitle": "Бронирование подтверждено",
+    "bookingConfirmedBody": "Бронирование сохранено в разделе «Бронирования».",
+    "couldNotConfirm": "Не удалось подтвердить",
+    "paymentLinkMissing": "Ссылка на оплату отсутствует",
+    "paymentLinkMissingBody": "Заведение ещё не предоставило ссылку на оплату.",
+    "couldNotOpenPaymentLink": "Не удалось открыть ссылку на оплату"
+  },
+  "auth": {
+    "titleLogin": "С возвращением",
+    "titleSignup": "Создать аккаунт",
+    "titleForgot": "Сброс пароля",
+    "helperForgot": "Введите email для ссылки сброса",
+    "helperDefault": "Войдите, чтобы продолжить",
+    "placeholderFirstName": "Имя",
+    "placeholderLastName": "Фамилия",
+    "placeholderEmail": "Email",
+    "placeholderPassword": "Пароль",
+    "placeholderConfirmPassword": "Подтвердите пароль",
+    "inlineEmailRequired": "Укажите email.",
+    "inlineEmailInvalid": "Введите корректный email.",
+    "inlinePasswordsMismatch": "Пароли не совпадают.",
+    "ruleMinLength": "Не менее 8 символов",
+    "ruleUppercase": "Хотя бы 1 заглавная буква",
+    "ruleDigit": "Хотя бы одна цифра",
+    "ruleSpecial": "Хотя бы один спецсимвол",
+    "btnSignIn": "Войти",
+    "btnSignUp": "Зарегистрироваться",
+    "btnSendReset": "Отправить ссылку",
+    "forgotPassword": "Забыли пароль?",
+    "backToSignIn": "Вернуться ко входу",
+    "or": "или",
+    "continueGoogle": "Продолжить с Google",
+    "continueApple": "Продолжить с Apple",
+    "noAccount": "Нет аккаунта?",
+    "signUpLink": "Регистрация",
+    "haveAccount": "Уже есть аккаунт?",
+    "signInLink": "Войти",
+    "alerts": {
+      "appleUnavailableTitle": "Вход через Apple недоступен",
+      "appleUnavailableBody": "Вход через Apple недоступен на этом устройстве.",
+      "signInFailed": "Не удалось войти",
+      "appleNoToken": "Apple не вернул токен.",
+      "signInCancelled": "Вход отменён или не удался",
+      "oauthError": "Ошибка OAuth",
+      "unknown": "Неизвестно",
+      "validationTitle": "Ошибка проверки",
+      "emailRequired": "Укажите email.",
+      "emailInvalid": "Введите корректный email.",
+      "passwordPolicy": "Пароль не соответствует требованиям безопасности.",
+      "passwordsMismatch": "Пароли не совпадают.",
+      "emailAlreadyRegisteredTitle": "Email уже зарегистрирован",
+      "emailAlreadyRegisteredBody": "Аккаунт с этим email уже существует. Войдите или сбросьте пароль.",
+      "signUpFailed": "Не удалось зарегистрироваться",
+      "signUpAutoSignInFailedTitle": "Регистрация завершена",
+      "signUpAutoSignInFailedBody": "Аккаунт создан, но автоматический вход не удался. Войдите вручную.",
+      "errorTitle": "Ошибка"
+    },
+    "passwordReset": {
+      "title": "Сброс пароля",
+      "hintLinkReceived": "Ссылка получена. Введите новый пароль ниже.",
+      "hintChooseNew": "Выберите новый пароль для аккаунта.",
+      "alertTooShortTitle": "Слишком короткий",
+      "alertTooShortBody": "Используйте не менее 8 символов.",
+      "alertWeakTitle": "Слабый пароль",
+      "alertMismatchTitle": "Не совпадают",
+      "toastUpdateFailedTitle": "Не удалось обновить пароль",
+      "toastUpdatedTitle": "Пароль обновлён",
+      "toastUpdatedBody": "Вы вошли в аккаунт. С возвращением.",
+      "btnUpdate": "Обновить пароль"
+    }
+  },
+  "profile": {
+    "defaultUserName": "Пользователь",
+    "unknownPlace": "Неизвестное место",
+    "subscriptionStatus": {
+      "notSubscribed": "Нет подписки",
+      "trialActive": "Пробный период",
+      "active": "Активна",
+      "gracePeriod": "Льготный период",
+      "billingRetry": "Проблема с оплатой",
+      "expired": "Истекла"
+    },
+    "subscriptionTitle": "Подписка PixAI: {{status}}",
+    "trialInProgress": "Идёт пробный период",
+    "expires": "Истекает: {{date}}",
+    "emailVerified": "Email подтверждён",
+    "emailNotVerified": "Email не подтверждён",
+    "verifyEmail": "Подтвердить",
+    "stats": {
+      "bookings": "Бронирования",
+      "favorites": "Избранное",
+      "reviews": "Отзывы",
+      "posts": "Посты",
+      "followed": "Отслеживаю",
+      "following": "Подписки"
+    },
+    "a11y": {
+      "openBookings": "Открыть бронирования",
+      "openFavorites": "Открыть избранное",
+      "openMyPosts": "Открыть мои посты в ленте",
+      "openMessages": "Открыть сообщения"
+    },
+    "suggestions": {
+      "title": "Рекомендации",
+      "subtitle": "Подпишитесь на аккаунты",
+      "follow": "Подписаться",
+      "empty": "Пока нет рекомендаций"
+    },
+    "bio": {
+      "label": "О себе",
+      "placeholder": "Расскажите о себе в разделе «Редактировать профиль»."
+    },
+    "actions": {
+      "manageSubscription": "Управление подпиской",
+      "getPremium": "Получить PixAI Premium",
+      "archive": "Архив",
+      "privacy": "Конфиденциальность и безопасность",
+      "settings": "Настройки"
+    },
+    "partnerUpload": "Партнёр: загрузить фото объявления",
+    "logOut": "Выйти",
+    "create": {
+      "title": "Создать",
+      "postTitle": "Создать пост",
+      "storyTitle": "Создать сторис",
+      "post": "Пост",
+      "postHint": "Создать новый пост",
+      "story": "Сторис",
+      "storyHint": "Поделиться быстрой сторис",
+      "uploadingPhotos": "Загрузка фото...",
+      "publishingPost": "Публикация поста...",
+      "publishingStory": "Публикация сторис...",
+      "tapAddPhotos": "Нажмите, чтобы добавить фото",
+      "photosSelected": "Выбрано {{count}}/{{max}}",
+      "photosUpTo": "До {{max}} фото",
+      "requiredPost": "Обязательно: место и текст поста.",
+      "requiredStory": "Обязательно: минимум 1 фото и место.",
+      "selectedPlace": "Выбранное место",
+      "selectPlace": "Выберите место",
+      "postPlaceholder": "Поделитесь новостью...",
+      "backToMenu": "Назад к вариантам создания",
+      "publishStory": "Опубликовать сторис"
+    },
+    "alerts": {
+      "permissionTitle": "Нужно разрешение",
+      "permissionPhotos": "Для выбора фото нужен доступ к хранилищу.",
+      "postFailedTitle": "Не удалось опубликовать",
+      "postFailedBody": "Не удалось опубликовать пост.",
+      "storyFailedTitle": "Ошибка сторис",
+      "storyFailedBody": "Не удалось опубликовать сторис."
+    }
+  },
+  "errorBoundary": {
+    "retry": "Повторить",
+    "appTitle": "Что-то пошло не так",
+    "appDescription": "Произошла непредвиденная ошибка. Попробуйте ещё раз.",
+    "feedTitle": "Лента недоступна",
+    "feedDescription": "Не удалось загрузить ленту. Нажмите ниже, чтобы повторить.",
+    "bookingTitle": "Бронирование недоступно",
+    "bookingDescription": "При открытии бронирования произошла ошибка. Нажмите ниже, чтобы повторить."
+  }
+}
