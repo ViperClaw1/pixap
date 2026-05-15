@@ -112,7 +112,7 @@ function ProfileScreenContent() {
 
   const styles = useProfileStyles();
 
-  const userName = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || "User";
+  const userName = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || t("profile.defaultUserName");
   const isEmailVerified = Boolean(profile?.is_verified);
   const warningColor = "#f59e0b";
   const openPrivacy = () => {
@@ -122,26 +122,23 @@ function ProfileScreenContent() {
     void Linking.openURL(Platform.OS === "ios" ? APPLE_SUBSCRIPTION_URL : GOOGLE_SUBSCRIPTION_URL);
   };
 
-  const subscriptionLabel = !subscriptionStatus
-    ? "Not subscribed"
-    : subscriptionStatus === "trialing"
-      ? "Trial active"
-      : subscriptionStatus === "active"
-        ? "Active"
-        : subscriptionStatus === "grace_period"
-          ? "Grace period"
-          : subscriptionStatus === "billing_retry"
-            ? "Billing issue"
-            : "Expired";
+  const subscriptionLabel = useMemo(() => {
+    if (!subscriptionStatus) return t("profile.subscriptionStatus.notSubscribed");
+    if (subscriptionStatus === "trialing") return t("profile.subscriptionStatus.trialActive");
+    if (subscriptionStatus === "active") return t("profile.subscriptionStatus.active");
+    if (subscriptionStatus === "grace_period") return t("profile.subscriptionStatus.gracePeriod");
+    if (subscriptionStatus === "billing_retry") return t("profile.subscriptionStatus.billingRetry");
+    return t("profile.subscriptionStatus.expired");
+  }, [subscriptionStatus, t]);
   const postPlaceOptions = useMemo(
     () =>
       businessCards
         .map((card) => ({
           id: card.id,
-          name: card.name?.trim() || "Unknown place",
+          name: card.name?.trim() || t("profile.unknownPlace"),
         }))
         .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index),
-    [businessCards],
+    [businessCards, t],
   );
   const createPlaceId = selectedPostPlaceId;
   const currentUserAvatar = profile?.avatar_url?.trim() || null;
@@ -181,7 +178,7 @@ function ProfileScreenContent() {
   const pickPostPhotos = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission needed", "Storage access is required to choose photos.");
+      Alert.alert(t("profile.alerts.permissionTitle"), t("profile.alerts.permissionPhotos"));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -202,7 +199,7 @@ function ProfileScreenContent() {
   const pickStoryPhotos = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission needed", "Storage access is required to choose photos.");
+      Alert.alert(t("profile.alerts.permissionTitle"), t("profile.alerts.permissionPhotos"));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -264,7 +261,7 @@ function ProfileScreenContent() {
       resetPostComposer();
       goToFeedWithFocus({ postId: String(created.id) });
     } catch (error) {
-      Alert.alert("Post failed", formatErrorForAlert(error, "Could not publish post."));
+      Alert.alert(t("profile.alerts.postFailedTitle"), formatErrorForAlert(error, t("profile.alerts.postFailedBody")));
     }
   };
 
@@ -289,37 +286,39 @@ function ProfileScreenContent() {
       resetPostComposer();
       goToFeedWithFocus({ storyId: String(created.id) });
     } catch (error) {
-      Alert.alert("Story failed", formatErrorForAlert(error, "Could not publish story."));
+      Alert.alert(t("profile.alerts.storyFailedTitle"), formatErrorForAlert(error, t("profile.alerts.storyFailedBody")));
     }
   };
 
-  const actions: ActionItem[] = [
-    // { key: "purchases", label: "My Purchases", icon: "bag-handle-outline", onPress: () => navigation.navigate("MyPurchases") },
-    {
-      key: "subscription",
-      label: isActive ? "Manage subscription" : "Get PixAI Premium",
-      icon: "sparkles-outline",
-      onPress: () => (isActive ? openManageSubscription() : navigation.navigate("SubscriptionPaywall")),
-    },
-    {
-      key: "notifications",
-      label: t("notifications.sheetTitle"),
-      icon: "notifications-outline",
-      onPress: () => setNotificationsOpen(true),
-      badgeCount: unreadNotifications,
-    },
-    {
-      key: "stories-archive",
-      label: "Archive",
-      icon: "archive-outline",
-      onPress: () => {
-        setStoriesArchiveMounted(true);
-        setStoriesArchiveVisible(true);
+  const actions: ActionItem[] = useMemo(
+    () => [
+      {
+        key: "subscription",
+        label: isActive ? t("profile.actions.manageSubscription") : t("profile.actions.getPremium"),
+        icon: "sparkles-outline",
+        onPress: () => (isActive ? openManageSubscription() : navigation.navigate("SubscriptionPaywall")),
       },
-    },
-    { key: "privacy", label: "Privacy & Security", icon: "shield-outline", onPress: openPrivacy },
-    { key: "settings", label: "Settings", icon: "settings-outline", onPress: () => navigation.navigate("EditProfile") },
-  ];
+      {
+        key: "notifications",
+        label: t("notifications.sheetTitle"),
+        icon: "notifications-outline",
+        onPress: () => setNotificationsOpen(true),
+        badgeCount: unreadNotifications,
+      },
+      {
+        key: "stories-archive",
+        label: t("profile.actions.archive"),
+        icon: "archive-outline",
+        onPress: () => {
+          setStoriesArchiveMounted(true);
+          setStoriesArchiveVisible(true);
+        },
+      },
+      { key: "privacy", label: t("profile.actions.privacy"), icon: "shield-outline", onPress: openPrivacy },
+      { key: "settings", label: t("profile.actions.settings"), icon: "settings-outline", onPress: () => navigation.navigate("EditProfile") },
+    ],
+    [isActive, navigation, openManageSubscription, openPrivacy, t, unreadNotifications],
+  );
 
   if (!loading && !user) {
     return null;
@@ -371,12 +370,12 @@ function ProfileScreenContent() {
               >
                 <Ionicons name={isEmailVerified ? "checkmark-circle-outline" : "alert-circle-outline"} size={14} color={isEmailVerified ? "#22c55e" : warningColor} />
                 <Text style={[styles.emailBadgeText, { color: isEmailVerified ? "#22c55e" : warningColor }]}>
-                  {isEmailVerified ? "Email verified" : "Email not verified"}
+                  {isEmailVerified ? t("profile.emailVerified") : t("profile.emailNotVerified")}
                 </Text>
               </View>
               {!isEmailVerified ? (
                 <Pressable style={styles.verifyBtn} onPress={() => navigation.navigate("VerifyEmailOtp", { flow: "verify" })}>
-                  <Text style={styles.verifyBtnText}>Verify</Text>
+                  <Text style={styles.verifyBtnText}>{t("profile.verifyEmail")}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -386,11 +385,13 @@ function ProfileScreenContent() {
           </Pressable>
         </View>
         <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
-          <Text style={{ color: colors.text, fontWeight: "700" }}>PixAI subscription: {subscriptionLabel}</Text>
-          {isTrial ? <Text style={{ color: colors.textMuted, marginTop: 2 }}>Trial in progress</Text> : null}
+          <Text style={{ color: colors.text, fontWeight: "700" }}>
+            {t("profile.subscriptionTitle", { status: subscriptionLabel })}
+          </Text>
+          {isTrial ? <Text style={{ color: colors.textMuted, marginTop: 2 }}>{t("profile.trialInProgress")}</Text> : null}
           {expiresAt ? (
             <Text style={{ color: colors.textMuted, marginTop: 2 }}>
-              Expires: {new Date(expiresAt).toLocaleDateString()}
+              {t("profile.expires", { date: new Date(expiresAt).toLocaleDateString() })}
             </Text>
           ) : null}
         </View>
@@ -400,24 +401,24 @@ function ProfileScreenContent() {
           style={styles.statCard}
           onPress={() => navigation.navigate("Bookings", { screen: "BookingsMain" })}
           accessibilityRole="button"
-          accessibilityLabel="Open bookings"
+          accessibilityLabel={t("profile.a11y.openBookings")}
         >
           <Text style={styles.statValue}>{bookings.length}</Text>
-          <Text style={styles.statLabel}>Bookings</Text>
+          <Text style={styles.statLabel}>{t("profile.stats.bookings")}</Text>
         </Pressable>
         
         <Pressable
           style={styles.statCard}
           onPress={() => navigation.navigate("Favorites")}
           accessibilityRole="button"
-          accessibilityLabel="Open favorites"
+          accessibilityLabel={t("profile.a11y.openFavorites")}
         >
           <Text style={styles.statValue}>{favorites.length}</Text>
-          <Text style={styles.statLabel}>Favorites</Text>
+          <Text style={styles.statLabel}>{t("profile.stats.favorites")}</Text>
         </Pressable>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>0</Text>
-          <Text style={styles.statLabel}>Reviews</Text>
+          <Text style={styles.statLabel}>{t("profile.stats.reviews")}</Text>
         </View>
       </View>
       <View style={styles.statRow}>
@@ -430,35 +431,35 @@ function ProfileScreenContent() {
             })
           }
           accessibilityRole="button"
-          accessibilityLabel="Open my posts in feed"
+          accessibilityLabel={t("profile.a11y.openMyPosts")}
         >
           <Text style={styles.statValue}>{postsCount}</Text>
-          <Text style={styles.statLabel}>Posts</Text>
+          <Text style={styles.statLabel}>{t("profile.stats.posts")}</Text>
         </Pressable>
         <Pressable
           style={styles.statCard}
           onPress={() => navigation.navigate("Cart", { screen: "CartMain" })}
           accessibilityRole="button"
-          accessibilityLabel="Open messages"
+          accessibilityLabel={t("profile.a11y.openMessages")}
         >
           <Text style={styles.statValue}>{followersCount}</Text>
-          <Text style={styles.statLabel}>Followed</Text>
+          <Text style={styles.statLabel}>{t("profile.stats.followed")}</Text>
         </Pressable>
         <Pressable
           style={styles.statCard}
           onPress={() => navigation.navigate("Cart", { screen: "CartMain" })}
           accessibilityRole="button"
-          accessibilityLabel="Open messages"
+          accessibilityLabel={t("profile.a11y.openMessages")}
         >
           <Text style={styles.statValue}>{followingCount}</Text>
-          <Text style={styles.statLabel}>Following</Text>
+          <Text style={styles.statLabel}>{t("profile.stats.following")}</Text>
         </Pressable>
         
       </View>
       <View style={styles.suggestionsSection}>
         <View style={styles.suggestionsHeader}>
-          <Text style={styles.suggestionsTitle}>Suggestions</Text>
-          <Text style={styles.suggestionsSubtitle}>Follow some accounts</Text>
+          <Text style={styles.suggestionsTitle}>{t("profile.suggestions.title")}</Text>
+          <Text style={styles.suggestionsSubtitle}>{t("profile.suggestions.subtitle")}</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionScrollContent}>
           {suggestions.length ? (
@@ -492,20 +493,20 @@ function ProfileScreenContent() {
                   onPress={() => void toggleFollow.mutateAsync({ followingId: item.id, isFollowing: false })}
                   disabled={toggleFollow.isPending}
                 >
-                  <Text style={styles.suggestionFollowBtnText}>Follow</Text>
+                  <Text style={styles.suggestionFollowBtnText}>{t("profile.suggestions.follow")}</Text>
                 </Pressable>
               </View>
             ))
           ) : (
             <View style={[styles.suggestionCard, { width: 220 }]}>
-              <Text style={styles.suggestionReason}>No suggestions yet</Text>
+              <Text style={styles.suggestionReason}>{t("profile.suggestions.empty")}</Text>
             </View>
           )}
         </ScrollView>
       </View>
       <View style={styles.bioCard}>
-        <Text style={styles.bioLabel}>Bio</Text>
-        <Text style={styles.bioText}>{profile?.bio?.trim() || "Tell people about yourself in Edit Profile."}</Text>
+        <Text style={styles.bioLabel}>{t("profile.bio.label")}</Text>
+        <Text style={styles.bioText}>{profile?.bio?.trim() || t("profile.bio.placeholder")}</Text>
       </View>
 
       <View style={styles.actionsCard}>
@@ -530,17 +531,23 @@ function ProfileScreenContent() {
       </View>
       {(role === "admin" || role === "partner") && (
         <Pressable style={[styles.link, { marginTop: 10 }]} onPress={() => navigation.navigate("AdminImageUpload")}>
-          <Text style={styles.linkText}>Partner: upload listing image</Text>
+          <Text style={styles.linkText}>{t("profile.partnerUpload")}</Text>
         </Pressable>
       )}
       <Pressable style={styles.signOut} onPress={() => void signOut()}>
-        <Text style={styles.signOutText}>Log Out</Text>
+        <Text style={styles.signOutText}>{t("profile.logOut")}</Text>
       </Pressable>
 
       <BottomSheetPickerModal
         visible={createModalOpen}
         onClose={closeCreateModal}
-        title={createStep === "menu" ? "Create" : createStep === "post" ? "Create post" : "Create story"}
+        title={
+          createStep === "menu"
+            ? t("profile.create.title")
+            : createStep === "post"
+              ? t("profile.create.postTitle")
+              : t("profile.create.storyTitle")
+        }
         maxHeightFraction={0.68}
       >
         {createStep === "menu" ? (
@@ -548,8 +555,8 @@ function ProfileScreenContent() {
             <View style={styles.createOptionGrid}>
               <Pressable style={styles.createOptionCard} onPress={() => setCreateStep("post")}>
                 <Ionicons name="grid-outline" size={34} color={colors.text} />
-                <Text style={styles.createOptionLabel}>Post</Text>
-                <Text style={styles.createOptionHint}>Create a new post</Text>
+                <Text style={styles.createOptionLabel}>{t("profile.create.post")}</Text>
+                <Text style={styles.createOptionHint}>{t("profile.create.postHint")}</Text>
               </Pressable>
               <Pressable
                 style={styles.createOptionCard}
@@ -559,11 +566,11 @@ function ProfileScreenContent() {
                 disabled={uploadingStory || createStory.isPending}
               >
                 <Ionicons name="add-circle-outline" size={34} color={colors.text} />
-                <Text style={styles.createOptionLabel}>Story</Text>
+                <Text style={styles.createOptionLabel}>{t("profile.create.story")}</Text>
                 {uploadingStory || createStory.isPending ? (
                   <ActivityIndicator style={styles.createOptionLoading} size="small" color={colors.primary} />
                 ) : (
-                  <Text style={styles.createOptionHint}>Share a quick story</Text>
+                  <Text style={styles.createOptionHint}>{t("profile.create.storyHint")}</Text>
                 )}
               </Pressable>
             </View>
@@ -575,7 +582,7 @@ function ProfileScreenContent() {
                 <View style={styles.createPostLoadingWrap}>
                   <ActivityIndicator size="small" color={colors.primary} />
                   <Text style={styles.createPostLoadingText}>
-                    {uploadingPostPhotos ? "Uploading photos..." : "Publishing post..."}
+                    {uploadingPostPhotos ? t("profile.create.uploadingPhotos") : t("profile.create.publishingPost")}
                   </Text>
                 </View>
               </View>
@@ -584,12 +591,14 @@ function ProfileScreenContent() {
               <>
                 <Pressable style={styles.postUploaderBox} onPress={() => void pickPostPhotos()}>
                   <Ionicons name="images-outline" size={22} color={colors.textMuted} />
-                  <Text style={styles.postUploaderText}>Tap to add photos</Text>
+                  <Text style={styles.postUploaderText}>{t("profile.create.tapAddPhotos")}</Text>
                   <Text style={styles.postPhotoCount}>
-                    {postPhotos.length ? `${postPhotos.length}/${MAX_POST_PHOTOS} selected` : `Up to ${MAX_POST_PHOTOS} photos`}
+                    {postPhotos.length
+                      ? t("profile.create.photosSelected", { count: postPhotos.length, max: MAX_POST_PHOTOS })
+                      : t("profile.create.photosUpTo", { max: MAX_POST_PHOTOS })}
                   </Text>
                 </Pressable>
-                <Text style={styles.postRequiredHint}>Required: place and post text.</Text>
+                <Text style={styles.postRequiredHint}>{t("profile.create.requiredPost")}</Text>
                 {postPhotos.length ? (
                   <View style={styles.postPhotosList}>
                     {postPhotos.map((photo) => (
@@ -616,8 +625,9 @@ function ProfileScreenContent() {
                 >
                   <Text style={selectedPostPlaceId ? styles.postPlaceSelectText : styles.postPlaceSelectPlaceholder}>
                     {selectedPostPlaceId
-                      ? (postPlaceOptions.find((option) => option.id === selectedPostPlaceId)?.name ?? "Selected place")
-                      : "Select place"}
+                      ? (postPlaceOptions.find((option) => option.id === selectedPostPlaceId)?.name ??
+                        t("profile.create.selectedPlace"))
+                      : t("profile.create.selectPlace")}
                   </Text>
                   <Ionicons name={postPlacePickerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
                 </Pressable>
@@ -649,7 +659,7 @@ function ProfileScreenContent() {
                         setPostInputError(false);
                       }
                     }}
-                    placeholder="Share an update..."
+                    placeholder={t("profile.create.postPlaceholder")}
                     canSend={!createPost.isPending && !uploadingPostPhotos}
                     sending={createPost.isPending || uploadingPostPhotos}
                     onSend={() => void submitPost()}
@@ -663,7 +673,7 @@ function ProfileScreenContent() {
             {!(createPost.isPending || uploadingPostPhotos) ? (
               <View style={styles.createPostBackRow}>
                 <Pressable style={styles.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
-                  <Text style={styles.createFlowBackBtnText}>Back to create options</Text>
+                  <Text style={styles.createFlowBackBtnText}>{t("profile.create.backToMenu")}</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -675,7 +685,7 @@ function ProfileScreenContent() {
                 <View style={styles.createPostLoadingWrap}>
                   <ActivityIndicator size="small" color={colors.primary} />
                   <Text style={styles.createPostLoadingText}>
-                    {uploadingStory ? "Uploading photos..." : "Publishing story..."}
+                    {uploadingStory ? t("profile.create.uploadingPhotos") : t("profile.create.publishingStory")}
                   </Text>
                 </View>
               </View>
@@ -687,12 +697,14 @@ function ProfileScreenContent() {
                   onPress={() => void pickStoryPhotos()}
                 >
                   <Ionicons name="images-outline" size={22} color={colors.textMuted} />
-                  <Text style={styles.postUploaderText}>Tap to add photos</Text>
+                  <Text style={styles.postUploaderText}>{t("profile.create.tapAddPhotos")}</Text>
                   <Text style={styles.postPhotoCount}>
-                    {storyPhotos.length ? `${storyPhotos.length}/${MAX_POST_PHOTOS} selected` : `Up to ${MAX_POST_PHOTOS} photos`}
+                    {storyPhotos.length
+                      ? t("profile.create.photosSelected", { count: storyPhotos.length, max: MAX_POST_PHOTOS })
+                      : t("profile.create.photosUpTo", { max: MAX_POST_PHOTOS })}
                   </Text>
                 </Pressable>
-                <Text style={styles.postRequiredHint}>Required: at least 1 photo and place.</Text>
+                <Text style={styles.postRequiredHint}>{t("profile.create.requiredStory")}</Text>
                 {storyPhotos.length ? (
                   <View style={styles.postPhotosList}>
                     {storyPhotos.map((photo) => (
@@ -719,8 +731,9 @@ function ProfileScreenContent() {
                 >
                   <Text style={selectedStoryPlaceId ? styles.postPlaceSelectText : styles.postPlaceSelectPlaceholder}>
                     {selectedStoryPlaceId
-                      ? (postPlaceOptions.find((option) => option.id === selectedStoryPlaceId)?.name ?? "Selected place")
-                      : "Select place"}
+                      ? (postPlaceOptions.find((option) => option.id === selectedStoryPlaceId)?.name ??
+                        t("profile.create.selectedPlace"))
+                      : t("profile.create.selectPlace")}
                   </Text>
                   <Ionicons name={storyPlacePickerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
                 </Pressable>
@@ -747,14 +760,14 @@ function ProfileScreenContent() {
             {!(createStory.isPending || uploadingStory) ? (
               <View style={styles.createStoryActionsRow}>
                 <Pressable style={styles.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
-                  <Text style={styles.createFlowBackBtnText}>Back to create options</Text>
+                  <Text style={styles.createFlowBackBtnText}>{t("profile.create.backToMenu")}</Text>
                 </Pressable>
                 <Pressable
                   style={styles.createStoryPublishBtn}
                   onPress={() => void submitStory()}
                   disabled={createStory.isPending || uploadingStory}
                 >
-                  <Text style={styles.createStoryPublishBtnText}>Publish story</Text>
+                  <Text style={styles.createStoryPublishBtnText}>{t("profile.create.publishStory")}</Text>
                 </Pressable>
               </View>
             ) : null}

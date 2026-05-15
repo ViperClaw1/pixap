@@ -2,6 +2,7 @@
   "language": {
     "choose": "Interface language",
     "en": "English",
+    "ru": "Russian",
     "es": "Spanish",
     "pt": "Portuguese",
     "fr": "French",
@@ -194,6 +195,87 @@
       "toastUpdatedTitle": "Password updated",
       "toastUpdatedBody": "You're signed in. Welcome back.",
       "btnUpdate": "Update password"
+    }
+  },
+  "profile": {
+    "defaultUserName": "User",
+    "unknownPlace": "Unknown place",
+    "subscriptionStatus": {
+      "notSubscribed": "Not subscribed",
+      "trialActive": "Trial active",
+      "active": "Active",
+      "gracePeriod": "Grace period",
+      "billingRetry": "Billing issue",
+      "expired": "Expired"
+    },
+    "subscriptionTitle": "PixAI subscription: {{status}}",
+    "trialInProgress": "Trial in progress",
+    "expires": "Expires: {{date}}",
+    "emailVerified": "Email verified",
+    "emailNotVerified": "Email not verified",
+    "verifyEmail": "Verify",
+    "stats": {
+      "bookings": "Bookings",
+      "favorites": "Favorites",
+      "reviews": "Reviews",
+      "posts": "Posts",
+      "followed": "Followed",
+      "following": "Following"
+    },
+    "a11y": {
+      "openBookings": "Open bookings",
+      "openFavorites": "Open favorites",
+      "openMyPosts": "Open my posts in feed",
+      "openMessages": "Open messages"
+    },
+    "suggestions": {
+      "title": "Suggestions",
+      "subtitle": "Follow some accounts",
+      "follow": "Follow",
+      "empty": "No suggestions yet"
+    },
+    "bio": {
+      "label": "Bio",
+      "placeholder": "Tell people about yourself in Edit Profile."
+    },
+    "actions": {
+      "manageSubscription": "Manage subscription",
+      "getPremium": "Get PixAI Premium",
+      "archive": "Archive",
+      "privacy": "Privacy & Security",
+      "settings": "Settings"
+    },
+    "partnerUpload": "Partner: upload listing image",
+    "logOut": "Log Out",
+    "create": {
+      "title": "Create",
+      "postTitle": "Create post",
+      "storyTitle": "Create story",
+      "post": "Post",
+      "postHint": "Create a new post",
+      "story": "Story",
+      "storyHint": "Share a quick story",
+      "uploadingPhotos": "Uploading photos...",
+      "publishingPost": "Publishing post...",
+      "publishingStory": "Publishing story...",
+      "tapAddPhotos": "Tap to add photos",
+      "photosSelected": "{{count}}/{{max}} selected",
+      "photosUpTo": "Up to {{max}} photos",
+      "requiredPost": "Required: place and post text.",
+      "requiredStory": "Required: at least 1 photo and place.",
+      "selectedPlace": "Selected place",
+      "selectPlace": "Select place",
+      "postPlaceholder": "Share an update...",
+      "backToMenu": "Back to create options",
+      "publishStory": "Publish story"
+    },
+    "alerts": {
+      "permissionTitle": "Permission needed",
+      "permissionPhotos": "Storage access is required to choose photos.",
+      "postFailedTitle": "Post failed",
+      "postFailedBody": "Could not publish post.",
+      "storyFailedTitle": "Story failed",
+      "storyFailedBody": "Could not publish story."
     }
   },
   "errorBoundary": {

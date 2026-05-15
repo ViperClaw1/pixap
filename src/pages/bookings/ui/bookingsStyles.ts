@@ -21,6 +21,16 @@ export const bookingsStaticStyles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
   },
+  thumb: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    flexShrink: 0,
+  },
+  thumbCompact: {
+    width: 56,
+    height: 56,
+  },
   name: { fontWeight: "700", flexShrink: 1, fontSize: 15 },
   meta: { fontSize: 12, marginTop: 4 },
   badge: { marginTop: 8, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
@@ -73,6 +83,9 @@ export function bookingsThemeStyles(colors: ThemeColors) {
     card: {
       backgroundColor: colors.card,
       borderColor: colors.border,
+    },
+    thumb: {
+      backgroundColor: colors.surface,
     },
     name: { color: colors.text },
     meta: { color: colors.textMuted },

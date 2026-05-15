@@ -2,6 +2,7 @@
   "language": {
     "choose": "Oberflächensprache",
     "en": "Englisch",
+    "ru": "Russisch",
     "es": "Spanisch",
     "pt": "Portugiesisch",
     "fr": "Französisch",
@@ -194,6 +195,87 @@
       "toastUpdatedTitle": "Passwort aktualisiert",
       "toastUpdatedBody": "Du bist angemeldet. Willkommen zurück.",
       "btnUpdate": "Passwort aktualisieren"
+    }
+  },
+  "profile": {
+    "defaultUserName": "Benutzer",
+    "unknownPlace": "Unbekannter Ort",
+    "subscriptionStatus": {
+      "notSubscribed": "Kein Abo",
+      "trialActive": "Testphase aktiv",
+      "active": "Aktiv",
+      "gracePeriod": "Schonfrist",
+      "billingRetry": "Zahlungsproblem",
+      "expired": "Abgelaufen"
+    },
+    "subscriptionTitle": "PixAI-Abo: {{status}}",
+    "trialInProgress": "Testphase läuft",
+    "expires": "Läuft ab: {{date}}",
+    "emailVerified": "E-Mail bestätigt",
+    "emailNotVerified": "E-Mail nicht bestätigt",
+    "verifyEmail": "Bestätigen",
+    "stats": {
+      "bookings": "Buchungen",
+      "favorites": "Favoriten",
+      "reviews": "Bewertungen",
+      "posts": "Beiträge",
+      "followed": "Gefolgt",
+      "following": "Folge ich"
+    },
+    "a11y": {
+      "openBookings": "Buchungen öffnen",
+      "openFavorites": "Favoriten öffnen",
+      "openMyPosts": "Meine Beiträge im Feed öffnen",
+      "openMessages": "Nachrichten öffnen"
+    },
+    "suggestions": {
+      "title": "Vorschläge",
+      "subtitle": "Folge einigen Konten",
+      "follow": "Folgen",
+      "empty": "Noch keine Vorschläge"
+    },
+    "bio": {
+      "label": "Bio",
+      "placeholder": "Erzähle etwas über dich unter Profil bearbeiten."
+    },
+    "actions": {
+      "manageSubscription": "Abo verwalten",
+      "getPremium": "PixAI Premium holen",
+      "archive": "Archiv",
+      "privacy": "Datenschutz & Sicherheit",
+      "settings": "Einstellungen"
+    },
+    "partnerUpload": "Partner: Listing-Bild hochladen",
+    "logOut": "Abmelden",
+    "create": {
+      "title": "Erstellen",
+      "postTitle": "Beitrag erstellen",
+      "storyTitle": "Story erstellen",
+      "post": "Beitrag",
+      "postHint": "Neuen Beitrag erstellen",
+      "story": "Story",
+      "storyHint": "Schnelle Story teilen",
+      "uploadingPhotos": "Fotos werden hochgeladen...",
+      "publishingPost": "Beitrag wird veröffentlicht...",
+      "publishingStory": "Story wird veröffentlicht...",
+      "tapAddPhotos": "Tippen, um Fotos hinzuzufügen",
+      "photosSelected": "{{count}}/{{max}} ausgewählt",
+      "photosUpTo": "Bis zu {{max}} Fotos",
+      "requiredPost": "Pflicht: Ort und Text.",
+      "requiredStory": "Pflicht: mindestens 1 Foto und Ort.",
+      "selectedPlace": "Ausgewählter Ort",
+      "selectPlace": "Ort auswählen",
+      "postPlaceholder": "Update teilen...",
+      "backToMenu": "Zurück zu Erstellungsoptionen",
+      "publishStory": "Story veröffentlichen"
+    },
+    "alerts": {
+      "permissionTitle": "Berechtigung erforderlich",
+      "permissionPhotos": "Speicherzugriff ist zum Auswählen von Fotos erforderlich.",
+      "postFailedTitle": "Beitrag fehlgeschlagen",
+      "postFailedBody": "Beitrag konnte nicht veröffentlicht werden.",
+      "storyFailedTitle": "Story fehlgeschlagen",
+      "storyFailedBody": "Story konnte nicht veröffentlicht werden."
     }
   },
   "errorBoundary": {

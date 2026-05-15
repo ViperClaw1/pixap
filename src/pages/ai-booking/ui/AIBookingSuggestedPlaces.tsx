@@ -1,8 +1,20 @@
-import { Pressable, Text, View } from "react-native";
+import { PixelRatio, Pressable, Text, View } from "react-native";
 import type { PixAIPlace } from "@/entities/pixai";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import type { AIBookingStyles } from "./aiBookingStyles";
+
+const THUMB_SIZE = 74;
+
+function placeThumbUris(images: unknown): { uri: string | null; fallbackUri: string | null } {
+  const fallbackUri = getLatestBusinessCardImage(images);
+  if (!fallbackUri) return { uri: null, fallbackUri: null };
+  const dpr = Math.min(2, PixelRatio.get());
+  const edge = Math.round(THUMB_SIZE * dpr);
+  const uri = getOptimizedImageUrl(fallbackUri, edge, edge, 72) || fallbackUri;
+  return { uri, fallbackUri };
+}
 
 type Props = {
   styles: AIBookingStyles;
@@ -15,7 +27,9 @@ export function AIBookingSuggestedPlaces({ styles: s, places, selectedPlace, onS
   return (
     <View style={s.semanticSection}>
       <Text style={s.label}>Step 4. Suggested places</Text>
-      {places.map((place) => (
+      {places.map((place) => {
+        const { uri, fallbackUri } = placeThumbUris(place.images);
+        return (
         <Pressable
           key={place.id}
           onPress={() => onSelectPlace(place)}
@@ -23,8 +37,9 @@ export function AIBookingSuggestedPlaces({ styles: s, places, selectedPlace, onS
         >
           <View style={s.placeRow}>
             <SmartImage
-              uri={getLatestBusinessCardImage(place.images)}
-              recyclingKey={place.id}
+              uri={uri}
+              fallbackUri={fallbackUri}
+              recyclingKey={`${place.id}-thumb`}
               style={s.placeThumb}
               contentFit="cover"
             />
@@ -38,7 +53,8 @@ export function AIBookingSuggestedPlaces({ styles: s, places, selectedPlace, onS
             </View>
           </View>
         </Pressable>
-      ))}
+        );
+      })}
     </View>
   );
 }
