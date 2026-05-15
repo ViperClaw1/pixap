@@ -5,7 +5,6 @@ import {
   Text,
   TextInput,
   Pressable,
-  StyleSheet,
   ActivityIndicator,
   Alert,
   Platform,
@@ -28,13 +27,11 @@ import { env } from "@/shared/lib/env";
 import { getOAuthRedirectUri } from "@/shared/lib/oauthRedirect";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import {
-  AUTH_PRIMARY_COLOR,
-  SHARED_PRESSABLE_HEIGHT,
-  SHARED_PRESSABLE_RADIUS,
-  primaryPressableStyle,
-  primaryPressableTextStyle,
-} from "@/shared/theme/primaryPressable";
+import { AUTH_PRIMARY_COLOR } from "@/shared/theme/primaryPressable";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { authStaticStyles, authThemeStyles } from "./authStyles";
+import { devError, devInfo } from "@/shared/lib/devLog";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -98,67 +95,8 @@ export default function AuthScreen() {
     [keyboardExtraInset],
   );
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20 },
-        content: { flexGrow: 1, justifyContent: "center" },
-        title: { fontSize: 36, fontWeight: "800", marginBottom: 6, color: colors.text, lineHeight: 54 },
-        helper: { fontSize: 14, color: colors.textMuted, marginBottom: 26, lineHeight: 30 },
-        fieldWrap: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 16,
-          marginBottom: 12,
-          backgroundColor: colors.card,
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 14,
-          minHeight: 58,
-        },
-        fieldWrapError: {
-          borderColor: "#ec6544",
-        },
-        fieldIcon: { marginRight: 10 },
-        input: {
-          flex: 1,
-          fontSize: 14,
-          color: colors.text,
-          paddingVertical: 12,
-        },
-        primary: {
-          ...primaryPressableStyle,
-          marginTop: 14,
-        },
-        primaryText: primaryPressableTextStyle,
-        smallLink: { marginTop: 10, alignSelf: "flex-start" },
-        smallLinkText: { color: AUTH_PRIMARY_COLOR, fontSize: 14, fontWeight: "500" },
-        orRow: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 20 },
-        orLine: { flex: 1, height: 1, backgroundColor: colors.border },
-        orText: { color: colors.textMuted, fontSize: 14, paddingHorizontal: 6 },
-        outline: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          minHeight: SHARED_PRESSABLE_HEIGHT,
-          borderRadius: SHARED_PRESSABLE_RADIUS,
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 10,
-          backgroundColor: colors.background,
-          flexDirection: "row",
-          gap: 10,
-        },
-        outlineText: { color: colors.text, fontWeight: "700", fontSize: 14 },
-        bottomSwitch: { marginTop: 12, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 },
-        bottomSwitchText: { color: colors.textMuted, fontSize: 14 },
-        bottomSwitchLink: { color: AUTH_PRIMARY_COLOR, fontSize: 14, fontWeight: "700" },
-        inlineError: { marginTop: -4, marginBottom: 10, color: colors.danger, fontSize: 12 },
-        passwordRules: { marginTop: -2, marginBottom: 8, gap: 4 },
-        passwordRuleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-        passwordRuleText: { fontSize: 14, color: colors.textMuted },
-      }),
-    [colors],
-  );
+  const themed = useThemeStyles(({ colors: c }) => authThemeStyles(c));
+  const styles = useMemo(() => mergeStaticAndThemed(authStaticStyles, themed), [themed]);
 
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   const hasMinPasswordLength = password.length >= 8;
@@ -210,14 +148,10 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       const isExpoGo = Constants.appOwnership === "expo";
-      if (__DEV__) {
-        console.info("[Auth][social] provider:", provider, "platform:", Platform.OS, "expoGo:", isExpoGo);
-      }
+      devInfo("[Auth][social] provider:", provider, "platform:", Platform.OS, "expoGo:", isExpoGo);
       if (provider === "apple" && Platform.OS === "ios" && !isExpoGo) {
         const isAvailable = await AppleAuthentication.isAvailableAsync();
-        if (__DEV__) {
-          console.info("[Apple][native] available:", isAvailable);
-        }
+        devInfo("[Apple][native] available:", isAvailable);
         if (!isAvailable) {
           Alert.alert(t("auth.alerts.appleUnavailableTitle"), t("auth.alerts.appleUnavailableBody"));
           return;
@@ -231,9 +165,7 @@ export default function AuthScreen() {
         });
 
         const token = credential.identityToken;
-        if (__DEV__) {
-          console.info("[Apple][native] token received:", Boolean(token), "user:", credential.user ?? "n/a");
-        }
+        devInfo("[Apple][native] token received:", Boolean(token), "user:", credential.user ?? "n/a");
         if (!token) {
           Alert.alert(t("auth.alerts.signInFailed"), t("auth.alerts.appleNoToken"));
           return;
@@ -244,29 +176,21 @@ export default function AuthScreen() {
           token,
         });
         if (error) {
-          if (__DEV__) {
-            console.error("[Apple][native] signInWithIdToken error:", error.message);
-          }
+          devError("[Apple][native] signInWithIdToken error:", error.message);
           Alert.alert(t("auth.alerts.signInFailed"), error.message);
           return;
         }
-        if (__DEV__) {
-          console.info("[Apple][native] signInWithIdToken success");
-        }
+        devInfo("[Apple][native] signInWithIdToken success");
         return;
       }
 
-      if (__DEV__) {
-        try {
-          console.info("[OAuth] Supabase host:", new URL(env.supabaseUrl).hostname);
-        } catch {
-          /* ignore */
-        }
+      try {
+        devInfo("[OAuth] Supabase host:", new URL(env.supabaseUrl).hostname);
+      } catch {
+        /* ignore */
       }
       const redirectTo = getOAuthRedirectUri();
-      if (__DEV__) {
-        console.info("[OAuth] redirectTo:", redirectTo, "provider:", provider);
-      }
+      devInfo("[OAuth] redirectTo:", redirectTo, "provider:", provider);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -277,22 +201,14 @@ export default function AuthScreen() {
       });
       if (error) throw error;
       if (!data?.url) throw new Error("No OAuth URL");
-      if (__DEV__) {
-        console.info("[OAuth] auth URL generated:", data.url.slice(0, 140));
-      }
+      devInfo("[OAuth] auth URL generated:", data.url.slice(0, 140));
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-      if (__DEV__) {
-        console.info("[OAuth] openAuthSession result:", result.type);
-      }
+      devInfo("[OAuth] openAuthSession result:", result.type);
       if (result.type === "success" && result.url) {
-        if (__DEV__) {
-          console.info("[OAuth] callback URL:", result.url);
-        }
+        devInfo("[OAuth] callback URL:", result.url);
         const finished = await completeOAuthFromCallbackUrl(result.url);
-        if (__DEV__) {
-          if (finished.ok) console.info("[OAuth] callback exchange: success");
-          else console.error("[OAuth] callback exchange: failed:", finished.message);
-        }
+        if (finished.ok) devInfo("[OAuth] callback exchange: success");
+        else devError("[OAuth] callback exchange: failed:", finished.message);
         if (!finished.ok) {
           Alert.alert(t("auth.alerts.signInFailed"), finished.message);
           return;
@@ -378,9 +294,9 @@ export default function AuthScreen() {
   return (
     <ScrollView
       ref={scrollRef}
-      style={stylesThemed.root}
+      style={styles.root}
       contentContainerStyle={[
-        stylesThemed.content,
+        styles.content,
         {
           paddingTop: Math.max(insets.top, 22),
           paddingBottom: baseScrollPaddingBottom + keyboardOverlapPad,
@@ -393,20 +309,20 @@ export default function AuthScreen() {
       }}
       scrollEventThrottle={16}
     >
-      <Text style={stylesThemed.title}>
+      <Text style={styles.title}>
         {mode === "login" ? t("auth.titleLogin") : mode === "signup" ? t("auth.titleSignup") : t("auth.titleForgot")}
       </Text>
-      <Text style={stylesThemed.helper}>
+      <Text style={styles.helper}>
         {mode === "forgot" ? t("auth.helperForgot") : t("auth.helperDefault")}
       </Text>
 
       {mode === "signup" && (
         <>
-          <View style={stylesThemed.fieldWrap}>
-            <Ionicons name="person-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
+          <View style={styles.fieldWrap}>
+            <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
             <TextInput
               ref={firstNameInputRef}
-              style={stylesThemed.input}
+              style={styles.input}
               placeholder={t("auth.placeholderFirstName")}
               placeholderTextColor={ph}
               value={firstName}
@@ -414,11 +330,11 @@ export default function AuthScreen() {
               onFocus={() => onInputFocus(firstNameInputRef)}
             />
           </View>
-          <View style={stylesThemed.fieldWrap}>
-            <Ionicons name="person-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
+          <View style={styles.fieldWrap}>
+            <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
             <TextInput
               ref={lastNameInputRef}
-              style={stylesThemed.input}
+              style={styles.input}
               placeholder={t("auth.placeholderLastName")}
               placeholderTextColor={ph}
               value={lastName}
@@ -429,11 +345,11 @@ export default function AuthScreen() {
         </>
       )}
 
-      <View style={[stylesThemed.fieldWrap, (showEmailRequiredError || showEmailInvalidError) ? stylesThemed.fieldWrapError : null]}>
-        <Ionicons name="mail-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
+      <View style={[styles.fieldWrap, (showEmailRequiredError || showEmailInvalidError) ? styles.fieldWrapError : null]}>
+        <Ionicons name="mail-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
         <TextInput
           ref={emailInputRef}
-          style={stylesThemed.input}
+          style={styles.input}
           placeholder={t("auth.placeholderEmail")}
           placeholderTextColor={ph}
           value={email}
@@ -447,15 +363,15 @@ export default function AuthScreen() {
           keyboardType="email-address"
         />
       </View>
-      {showEmailRequiredError ? <Text style={stylesThemed.inlineError}>{t("auth.inlineEmailRequired")}</Text> : null}
-      {showEmailInvalidError ? <Text style={stylesThemed.inlineError}>{t("auth.inlineEmailInvalid")}</Text> : null}
+      {showEmailRequiredError ? <Text style={styles.inlineError}>{t("auth.inlineEmailRequired")}</Text> : null}
+      {showEmailInvalidError ? <Text style={styles.inlineError}>{t("auth.inlineEmailInvalid")}</Text> : null}
       {mode !== "forgot" && (
         <>
-          <View style={[stylesThemed.fieldWrap, showPasswordPolicyError ? stylesThemed.fieldWrapError : null]}>
-            <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
+          <View style={[styles.fieldWrap, showPasswordPolicyError ? styles.fieldWrapError : null]}>
+            <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
             <TextInput
               ref={passwordInputRef}
-              style={stylesThemed.input}
+              style={styles.input}
               placeholder={t("auth.placeholderPassword")}
               placeholderTextColor={ph}
               value={password}
@@ -472,45 +388,45 @@ export default function AuthScreen() {
             </Pressable>
           </View>
           {mode === "signup" && passwordTouched ? (
-            <View style={stylesThemed.passwordRules}>
-              <View style={stylesThemed.passwordRuleRow}>
+            <View style={styles.passwordRules}>
+              <View style={styles.passwordRuleRow}>
                 <Ionicons
                   name={hasMinPasswordLength ? "checkmark-circle-outline" : "close-circle-outline"}
                   size={16}
                   color={hasMinPasswordLength ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
-                <Text style={[stylesThemed.passwordRuleText, hasMinPasswordLength ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
+                <Text style={[styles.passwordRuleText, hasMinPasswordLength ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
                   {t("auth.ruleMinLength")}
                 </Text>
               </View>
-              <View style={stylesThemed.passwordRuleRow}>
+              <View style={styles.passwordRuleRow}>
                 <Ionicons
                   name={hasPasswordUppercase ? "checkmark-circle-outline" : "close-circle-outline"}
                   size={16}
                   color={hasPasswordUppercase ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
-                <Text style={[stylesThemed.passwordRuleText, hasPasswordUppercase ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
+                <Text style={[styles.passwordRuleText, hasPasswordUppercase ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
                   {t("auth.ruleUppercase")}
                 </Text>
               </View>
-              <View style={stylesThemed.passwordRuleRow}>
+              <View style={styles.passwordRuleRow}>
                 <Ionicons
                   name={hasPasswordDigit ? "checkmark-circle-outline" : "close-circle-outline"}
                   size={16}
                   color={hasPasswordDigit ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
-                <Text style={[stylesThemed.passwordRuleText, hasPasswordDigit ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
+                <Text style={[styles.passwordRuleText, hasPasswordDigit ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
                   {t("auth.ruleDigit")}
                 </Text>
               </View>
               
-              <View style={stylesThemed.passwordRuleRow}>
+              <View style={styles.passwordRuleRow}>
                 <Ionicons
                   name={hasPasswordSpecial ? "checkmark-circle-outline" : "close-circle-outline"}
                   size={16}
                   color={hasPasswordSpecial ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
-                <Text style={[stylesThemed.passwordRuleText, hasPasswordSpecial ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
+                <Text style={[styles.passwordRuleText, hasPasswordSpecial ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
                   {t("auth.ruleSpecial")}
                 </Text>
               </View>
@@ -518,11 +434,11 @@ export default function AuthScreen() {
           ) : null}
           {mode === "signup" ? (
             <>
-              <View style={[stylesThemed.fieldWrap, showPasswordsMismatch ? stylesThemed.fieldWrapError : null]}>
-                <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={stylesThemed.fieldIcon} />
+              <View style={[styles.fieldWrap, showPasswordsMismatch ? styles.fieldWrapError : null]}>
+                <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
                 <TextInput
                   ref={confirmPasswordInputRef}
-                  style={stylesThemed.input}
+                  style={styles.input}
                   placeholder={t("auth.placeholderConfirmPassword")}
                   placeholderTextColor={ph}
                   value={confirmPassword}
@@ -538,7 +454,7 @@ export default function AuthScreen() {
                   <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
                 </Pressable>
               </View>
-              {showPasswordsMismatch ? <Text style={stylesThemed.inlineError}>{t("auth.inlinePasswordsMismatch")}</Text> : null}
+              {showPasswordsMismatch ? <Text style={styles.inlineError}>{t("auth.inlinePasswordsMismatch")}</Text> : null}
             </>
           ) : null}
         </>
@@ -547,54 +463,54 @@ export default function AuthScreen() {
       {loading ? (
         <ActivityIndicator style={{ marginTop: 16 }} color={colors.primary} />
       ) : (
-        <Pressable style={stylesThemed.primary} onPress={() => void submit()}>
-          <Text style={stylesThemed.primaryText}>
+        <Pressable style={styles.primary} onPress={() => void submit()}>
+          <Text style={styles.primaryText}>
             {mode === "login" ? t("auth.btnSignIn") : mode === "signup" ? t("auth.btnSignUp") : t("auth.btnSendReset")}
           </Text>
         </Pressable>
       )}
 
       {mode === "login" ? (
-        <Pressable style={stylesThemed.smallLink} onPress={() => setMode("forgot")}>
-          <Text style={stylesThemed.smallLinkText}>{t("auth.forgotPassword")}</Text>
+        <Pressable style={styles.smallLink} onPress={() => setMode("forgot")}>
+          <Text style={styles.smallLinkText}>{t("auth.forgotPassword")}</Text>
         </Pressable>
       ) : null}
       {mode === "forgot" ? (
-        <Pressable style={stylesThemed.smallLink} onPress={() => setMode("login")}>
-          <Text style={stylesThemed.smallLinkText}>{t("auth.backToSignIn")}</Text>
+        <Pressable style={styles.smallLink} onPress={() => setMode("login")}>
+          <Text style={styles.smallLinkText}>{t("auth.backToSignIn")}</Text>
         </Pressable>
       ) : null}
 
       {mode !== "forgot" && (
         <>
-          <View style={stylesThemed.orRow}>
-            <View style={stylesThemed.orLine} />
-            <Text style={stylesThemed.orText}>{t("auth.or")}</Text>
-            <View style={stylesThemed.orLine} />
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>{t("auth.or")}</Text>
+            <View style={styles.orLine} />
           </View>
-          <Pressable style={stylesThemed.outline} onPress={() => void social("google")} disabled={loading}>
-            <FontAwesome name="google" size={18} color="#ec6544" />
-            <Text style={stylesThemed.outlineText}>{t("auth.continueGoogle")}</Text>
+          <Pressable style={styles.outline} onPress={() => void social("google")} disabled={loading}>
+            <FontAwesome name="google" size={18} color={colors.accent} />
+            <Text style={styles.outlineText}>{t("auth.continueGoogle")}</Text>
           </Pressable>
           {Platform.OS !== "android" ? (
-            <Pressable style={stylesThemed.outline} onPress={() => void social("apple")} disabled={loading}>
-              <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? "#fff" : "#ec6544"} />
-              <Text style={stylesThemed.outlineText}>{t("auth.continueApple")}</Text>
+            <Pressable style={styles.outline} onPress={() => void social("apple")} disabled={loading}>
+              <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? colors.onAccent : colors.accent} />
+              <Text style={styles.outlineText}>{t("auth.continueApple")}</Text>
             </Pressable>
           ) : null}
         </>
       )}
 
       {mode === "login" ? (
-        <Pressable style={stylesThemed.bottomSwitch} onPress={() => setMode("signup")}>
-          <Text style={stylesThemed.bottomSwitchText}>{t("auth.noAccount")}</Text>
-          <Text style={stylesThemed.bottomSwitchLink}>{t("auth.signUpLink")}</Text>
+        <Pressable style={styles.bottomSwitch} onPress={() => setMode("signup")}>
+          <Text style={styles.bottomSwitchText}>{t("auth.noAccount")}</Text>
+          <Text style={styles.bottomSwitchLink}>{t("auth.signUpLink")}</Text>
         </Pressable>
       ) : null}
       {mode === "signup" ? (
-        <Pressable style={stylesThemed.bottomSwitch} onPress={() => setMode("login")}>
-          <Text style={stylesThemed.bottomSwitchText}>{t("auth.haveAccount")}</Text>
-          <Text style={stylesThemed.bottomSwitchLink}>{t("auth.signInLink")}</Text>
+        <Pressable style={styles.bottomSwitch} onPress={() => setMode("login")}>
+          <Text style={styles.bottomSwitchText}>{t("auth.haveAccount")}</Text>
+          <Text style={styles.bottomSwitchLink}>{t("auth.signInLink")}</Text>
         </Pressable>
       ) : null}
     </ScrollView>

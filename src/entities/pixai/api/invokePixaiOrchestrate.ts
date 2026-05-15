@@ -1,5 +1,6 @@
 import { supabase } from "@/shared/api/supabase/client";
 import { safeRefreshSession } from "@/shared/lib/supabaseAuth";
+import { devWarn } from "@/shared/lib/devLog";
 
 function isFunctionsUnauthorized(error: unknown): boolean {
   const ctx =
@@ -28,7 +29,7 @@ async function ensureFreshAccessTokenForFunctions(): Promise<void> {
 
 export async function logPixaiOrchestrateInvokeFailure(error: unknown): Promise<void> {
   if (!__DEV__) return;
-  console.warn("[PixAI] pixai-orchestrate invoke failed:", error);
+  devWarn("[PixAI] pixai-orchestrate invoke failed:", error);
   const ctx =
     error && typeof error === "object" && "context" in error
       ? (error as { context: unknown }).context
@@ -36,7 +37,7 @@ export async function logPixaiOrchestrateInvokeFailure(error: unknown): Promise<
   if (ctx instanceof Response) {
     try {
       const text = await ctx.clone().text();
-      if (text) console.warn("[PixAI] edge response body:", text.slice(0, 800));
+      if (text) devWarn("[PixAI] edge response body:", text.slice(0, 800));
     } catch {
       /* ignore */
     }
@@ -60,14 +61,12 @@ export async function invokePixaiOrchestrateWithAuth(
   if (error && isFunctionsUnauthorized(error)) {
     try {
       const refreshed = await safeRefreshSession();
-      if (__DEV__ && !refreshed) {
-        console.warn("[PixAI] refreshSession after orchestrate 401 skipped (missing/invalid refresh token).");
+      if (!refreshed) {
+        devWarn("[PixAI] refreshSession after orchestrate 401 skipped (missing/invalid refresh token).");
       }
     } catch (refErr) {
-      if (__DEV__) {
-        const msg = refErr instanceof Error ? refErr.message : String(refErr);
-        console.warn("[PixAI] refreshSession after orchestrate 401 failed:", msg);
-      }
+      const msg = refErr instanceof Error ? refErr.message : String(refErr);
+      devWarn("[PixAI] refreshSession after orchestrate 401 failed:", msg);
     }
     ({ data, error } = await invokeOnce());
   }

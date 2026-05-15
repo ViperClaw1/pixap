@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { env } from "@/shared/lib/env";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
+import { devWarn } from "@/shared/lib/devLog";
 import type { PurchasePayload, SubscriptionPurchase } from "@/shared/lib/iap/subscriptionIapService";
 
 type IapService = typeof import("@/shared/lib/iap/subscriptionIapService");
@@ -108,9 +109,7 @@ export function useSubscription() {
             try {
               await verifyAndRefresh(purchase, "purchase", raw);
             } catch (error) {
-              if (__DEV__) {
-                console.warn("[subscription] purchase verification failed", error);
-              }
+              devWarn("[subscription] purchase verification failed", error);
             }
           },
           onError: (error) => {
@@ -121,9 +120,7 @@ export function useSubscription() {
         });
       } catch (error) {
         setIapSupported(false);
-        if (__DEV__) {
-          console.warn("[subscription] IAP init failed", error);
-        }
+        devWarn("[subscription] IAP init failed", error);
       }
     })();
 
@@ -141,9 +138,7 @@ export function useSubscription() {
     void syncStatusWithBackend(session.access_token)
       .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.subscription.entitlement(user.id) }))
       .catch((error) => {
-        if (__DEV__) {
-          console.warn("[subscription] sync-status failed", error);
-        }
+        devWarn("[subscription] sync-status failed", error);
       });
   }, [queryClient, session?.access_token, user?.id]);
 

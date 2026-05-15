@@ -79,6 +79,9 @@
     "toastFollowFailed": "Ação de seguir falhou",
     "toastTryAgain": "Tenta novamente.",
     "toastCouldNotOpenChat": "Não foi possível abrir a conversa",
+    "toastCouldNotOpenSupport": "Não foi possível abrir o chat de suporte",
+    "support": "Suporte",
+    "supportSubtitle": "Fala com a nossa equipa",
     "followed": "A seguir"
   },
   "bookings": {
@@ -192,5 +195,14 @@
       "toastUpdatedBody": "Sessão iniciada com sucesso. Bem-vindo de volta.",
       "btnUpdate": "Atualizar palavra-passe"
     }
+  },
+  "errorBoundary": {
+    "retry": "Tentar novamente",
+    "appTitle": "Algo deu errado",
+    "appDescription": "O app encontrou um erro inesperado. Pode tentar novamente.",
+    "feedTitle": "Feed indisponível",
+    "feedDescription": "Não foi possível carregar o feed. Toque abaixo para tentar novamente.",
+    "bookingTitle": "Reserva indisponível",
+    "bookingDescription": "Algo correu mal ao abrir a reserva. Toque abaixo para tentar novamente."
   }
 }

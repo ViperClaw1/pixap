@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { FlatList, Pressable, Text, View, StyleSheet } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -9,10 +10,14 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { useFavorites } from "@/entities/favorite";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { favoritesStaticStyles, favoritesThemeStyles } from "./favoritesStyles";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Favorites">;
 
@@ -35,21 +40,10 @@ export default function FavoritesScreen() {
     }
   }, [loading, user, navigation]);
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        row: {
-          flexDirection: "row",
-          gap: 12,
-          paddingVertical: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-        },
-        name: { fontWeight: "700", color: colors.text },
-        meta: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
-        empty: { textAlign: "center", color: colors.textMuted, marginTop: 32 },
-      }),
-    [colors],
+  const themed = useThemeStyles(({ colors: c }) => favoritesThemeStyles(c));
+  const styles = useMemo(
+    () => mergeStaticAndThemed(favoritesStaticStyles, themed),
+    [themed],
   );
 
   if (!loading && !user) {
@@ -58,8 +52,9 @@ export default function FavoritesScreen() {
 
   return (
     <View style={{ flex: 1 }} {...androidSwipeBackPanHandlers}>
-    <FlatList
+    <FlashList
       data={favorites}
+      estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.placeRow}
       keyExtractor={(f) => `${f.user_id}-${f.business_card_id}`}
       ListHeaderComponent={
       <AppHeader
@@ -76,12 +71,12 @@ export default function FavoritesScreen() {
         paddingTop: 12,
         paddingBottom: 100 + insets.bottom,
       }}
-      ListEmptyComponent={<Text style={stylesThemed.empty}>{t("favorites.empty")}</Text>}
+      ListEmptyComponent={<Text style={styles.empty}>{t("favorites.empty")}</Text>}
       renderItem={({ item }) => {
         const b = item.business_card as { id: string; name: string; images: string[] | null; address: string } | null;
         if (!b) return null;
         return (
-          <Pressable style={stylesThemed.row} onPress={() => navigation.navigate("PlaceDetail", { id: b.id })}>
+          <Pressable style={styles.row} onPress={() => navigation.navigate("PlaceDetail", { id: b.id })}>
             <SmartImage
               uri={getOptimizedImageUrl(getLatestBusinessCardImage(b.images), 168, 168, 72)}
               fallbackUri={getLatestBusinessCardImage(b.images)}
@@ -91,8 +86,8 @@ export default function FavoritesScreen() {
               skipBundledPlaceholder
             />
             <View style={{ flex: 1 }}>
-              <Text style={stylesThemed.name}>{b.name}</Text>
-              <Text style={stylesThemed.meta} numberOfLines={1}>
+              <Text style={styles.name}>{b.name}</Text>
+              <Text style={styles.meta} numberOfLines={1}>
                 {b.address}
               </Text>
             </View>
@@ -109,6 +104,3 @@ export default function FavoritesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  thumb: { width: 56, height: 56, borderRadius: 8 },
-});

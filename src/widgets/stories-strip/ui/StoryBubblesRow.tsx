@@ -9,6 +9,7 @@ interface StoryBubblesRowProps {
   seenStoryIds: Record<string, true>;
   onPressGroup: (groupIndex: number) => void;
   onPressAddStory?: () => void;
+  uploadingAddStory?: boolean;
   loading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
@@ -19,6 +20,7 @@ function StoryBubblesRowComponent({
   seenStoryIds,
   onPressGroup,
   onPressAddStory,
+  uploadingAddStory = false,
   loading = false,
   isError = false,
   onRetry,
@@ -47,6 +49,7 @@ function StoryBubblesRowComponent({
           }}
           viewed={false}
           variant="add"
+          uploading={uploadingAddStory}
           onPress={() => onPressAddStory?.()}
         />
         {loading ? (

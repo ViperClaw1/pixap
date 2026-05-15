@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -13,10 +14,22 @@ import Toast from "react-native-toast-message";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 import { useMyFollowing, useToggleFollow } from "@/entities/user";
 import { usePublicProfiles } from "@/entities/user";
-import { useMarkThreadRead, useMessagesInbox, useOpenOrCreateThread, usePeopleToFollow } from "@/entities/messages";
+import {
+  findDirectThreadForPeer,
+  findSupportThread,
+  useMarkThreadRead,
+  useMessagesInbox,
+  useOpenOrCreateSupportThread,
+  useOpenOrCreateThread,
+  usePeopleToFollow,
+} from "@/entities/messages";
+import { SupportChatCard } from "./SupportChatCard";
 import type { CartStackParamList } from "@/app/navigation/types";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
+import { MESSAGES_COMPACT_WIDTH, useMessagesStyles } from "./messagesStyles";
+import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
+import { devWarn } from "@/shared/lib/devLog";
 
 function fullName(first?: string | null, last?: string | null, emptyLabel = "Unknown user") {
   return `${first?.trim() ?? ""} ${last?.trim() ?? ""}`.trim() || emptyLabel;
@@ -40,6 +53,9 @@ const SKELETON_IDS = ["1", "2", "3"] as const;
 export default function MessagesPage() {
   const { t } = useTranslation();
   const unknownLabel = t("common.unknownUser");
+  const { width: windowWidth } = useWindowDimensions();
+  const isCompact = windowWidth < MESSAGES_COMPACT_WIDTH;
+  const actionIconSize = isCompact ? 18 : 22;
   const navigation = useNavigation<NativeStackNavigationProp<CartStackParamList>>();
   const insets = useSafeAreaInsets();
   const { colors, mode, setMode } = useAppTheme();
@@ -54,7 +70,9 @@ export default function MessagesPage() {
   const isPageLoading = inboxLoading || peopleLoading;
   const markThreadRead = useMarkThreadRead();
   const openOrCreateThread = useOpenOrCreateThread();
+  const openOrCreateSupportThread = useOpenOrCreateSupportThread();
   const toggleFollow = useToggleFollow();
+  const supportThread = useMemo(() => findSupportThread(threads), [threads]);
 
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
@@ -73,10 +91,56 @@ export default function MessagesPage() {
         });
       })
       .catch((error) => {
-        console.warn("toggle follow failed", error);
+        devWarn("toggle follow failed", error);
         Toast.show({
           type: "error",
           text1: t("messages.toastFollowFailed"),
+          text2: error instanceof Error ? error.message : t("messages.toastTryAgain"),
+        });
+      });
+  };
+
+  const navigateToThread = (
+    threadId: string,
+    person: {
+      id: string;
+      first_name?: string | null;
+      last_name?: string | null;
+      avatar_url?: string | null;
+    },
+  ) => {
+    navigation.navigate("MessageThread", {
+      threadId,
+      peerId: person.id,
+      peerFirstName: person.first_name,
+      peerLastName: person.last_name,
+      peerAvatarUrl: person.avatar_url,
+    });
+  };
+
+  const navigateToSupportThread = (threadId: string) => {
+    navigation.navigate("MessageThread", {
+      threadId,
+      peerId: "",
+      isSupport: true,
+      threadTitle: t("messages.support"),
+    });
+  };
+
+  const onOpenSupport = () => {
+    if (supportThread) {
+      navigateToSupportThread(supportThread.thread_id);
+      return;
+    }
+
+    void openOrCreateSupportThread
+      .mutateAsync()
+      .then((result) => navigateToSupportThread(result.threadId))
+      .catch((error) => {
+        devWarn("open support chat failed", error);
+        Toast.show({
+          type: "error",
+          text1: t("messages.toastCouldNotOpenSupport"),
           text2: error instanceof Error ? error.message : t("messages.toastTryAgain"),
         });
       });
@@ -88,20 +152,21 @@ export default function MessagesPage() {
     last_name?: string | null;
     avatar_url?: string | null;
   }) => {
+    const existingThreadId = findDirectThreadForPeer(threads, person.id);
+    if (existingThreadId) {
+      setStartChatModalOpen(false);
+      navigateToThread(existingThreadId, person);
+      return;
+    }
+
     void openOrCreateThread
       .mutateAsync(person.id)
       .then((result) => {
         setStartChatModalOpen(false);
-        navigation.navigate("MessageThread", {
-          threadId: result.threadId,
-          peerId: person.id,
-          peerFirstName: person.first_name,
-          peerLastName: person.last_name,
-          peerAvatarUrl: person.avatar_url,
-        });
+        navigateToThread(result.threadId, person);
       })
       .catch((error) => {
-        console.warn("open chat failed", error);
+        devWarn("open chat failed", error);
         Toast.show({
           type: "error",
           text1: t("messages.toastCouldNotOpenChat"),
@@ -111,7 +176,7 @@ export default function MessagesPage() {
   };
 
   const visibleThreads = useMemo(
-    () => threads.filter((thread) => !deletedThreadIds.has(thread.thread_id)),
+    () => threads.filter((thread) => !thread.is_support && !deletedThreadIds.has(thread.thread_id)),
     [deletedThreadIds, threads],
   );
 
@@ -137,293 +202,10 @@ export default function MessagesPage() {
     ]);
   };
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: {
-          flex: 1,
-          backgroundColor: colors.background,
-        },
-  
-        content: {
-          paddingTop: 12,
-          paddingHorizontal: 16,
-          paddingBottom: Math.max(insets.bottom, 20),
-        },
-  
-        // SEARCH
-        searchWrap: {
-          marginTop: 14,
-          height: 48,
-          borderRadius: 14,
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 14,
-  
-          // modern shadow instead of border
-          shadowColor: "#000",
-          shadowOpacity: 0.02,
-          shadowRadius: 10,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 2,
-        },
-  
-        searchInput: {
-          flex: 1,
-          color: colors.text,
-          fontSize: 15,
-          marginLeft: 8,
-        },
-  
-        // SECTION
-        sectionHeader: {
-          marginTop: 22,
-          marginBottom: 10,
-        },
-  
-        sectionTitle: {
-          color: colors.text,
-          fontSize: 18,
-          fontWeight: "700",
-          letterSpacing: -0.2,
-        },
-  
-        // CARD
-        card: {
-          borderRadius: 16,
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-          padding: 11,
-          marginBottom: 9,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-  
-          // modern soft elevation
-          shadowColor: "#000",
-          shadowOpacity: 0.02,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: 1,
-        },
-  
-        avatar: {
-          width: 48,
-          height: 48,
-          borderRadius: 24,
-          backgroundColor: colors.surface,
-        },
-  
-        cardMain: {
-          flex: 1,
-          justifyContent: "center",
-        },
-  
-        rowBetween: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-        },
-  
-        title: {
-          color: colors.text,
-          fontSize: 15,
-          fontWeight: "700",
-          letterSpacing: -0.1,
-        },
-  
-        chatTitle: {
-          flex: 1,
-        },
-  
-        subtitle: {
-          marginTop: 4,
-          color: colors.textMuted,
-          fontSize: 13,
-          lineHeight: 16,
-        },
-  
-        time: {
-          color: colors.textMuted,
-          fontSize: 12,
-          fontWeight: "600",
-        },
-  
-        username: {
-          marginTop: 2,
-          color: colors.textMuted,
-          fontSize: 12,
-        },
-        userMetaRow: {
-          marginTop: 2,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-        },
-        followedBadge: {
-          paddingHorizontal: 8,
-          paddingVertical: 3,
-          borderRadius: 999,
-          backgroundColor: "rgba(236,101,68,0.14)",
-          borderWidth: 1,
-          borderColor: "#ec6544",
-        },
-        followedBadgeText: {
-          color: "#ec6544",
-          fontSize: 10,
-          fontWeight: "700",
-          letterSpacing: 0.2,
-          textTransform: "uppercase",
-        },
-  
-        // ACTIONS
-        actionsWrap: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-        },
-        threadActionsWrap: {
-          marginLeft: 8,
-          alignItems: "flex-end",
-          justifyContent: "center",
-          gap: 4,
-        },
-        threadReadIndicator: {
-          minHeight: 16,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-  
-        iconActionBtn: {
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          alignItems: "center",
-          justifyContent: "center",
-  
-          backgroundColor: colors.surface,
-  
-          shadowColor: "#000",
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 2,
-        },
-  
-        followBtn: {
-          backgroundColor: "#ec6544",
-          borderWidth: 1,
-          borderColor: "#ec6544",
-        },
-  
-        chatBtn: {
-          backgroundColor: "#333333",
-          borderWidth: 1,
-          borderColor: "#ec6544",
-        },
-
-        // SWIPE
-        swipeActionWrap: {
-          justifyContent: "center",
-          paddingLeft: 8,
-        },
-        swipeActionBtn: {
-          width: 52,
-          height: 52,
-          borderRadius: 14,
-          alignItems: "center",
-          justifyContent: "center",
-          shadowColor: "#000",
-          shadowOpacity: 0.12,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 3,
-        },
-        swipeFollowBtn: {
-          backgroundColor: "#ec6544",
-        },
-        swipeChatBtn: {
-          backgroundColor: "#333333",
-        },
-        swipeDeleteBtn: {
-          backgroundColor: "#d64545",
-        },
-  
-        // SKELETON
-        skeletonWrap: {
-          gap: 10,
-        },
-        skeletonCard: {
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          borderRadius: 14,
-          overflow: "hidden",
-          backgroundColor: colors.card,
-          padding: 12,
-          paddingBottom: 12,
-          marginBottom: 10,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-        },
-  
-        skeletonAvatar: {
-          width: 48,
-          height: 48,
-          borderRadius: 24,
-          backgroundColor: colors.surface,
-        },
-  
-        skeletonMain: {
-          flex: 1,
-          gap: 8,
-        },
-  
-        skeletonLineLg: {
-          height: 12,
-          width: "65%",
-          borderRadius: 10,
-          backgroundColor: colors.surface,
-        },
-  
-        skeletonLineMd: {
-          height: 10,
-          width: "45%",
-          borderRadius: 10,
-          backgroundColor: colors.surface,
-          opacity: 0.7,
-        },
-        skeletonActions: {
-          flexDirection: "row",
-          gap: 10,
-          marginLeft: "auto",
-        },
-  
-        skeletonCircle: {
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: colors.surface,
-        },
-  
-        // EMPTY
-        empty: {
-          color: colors.textMuted,
-          fontSize: 13,
-          textAlign: "center",
-          marginTop: 14,
-        },
-      }),
-    [colors, insets.bottom],
-  );
+  const styles = useMessagesStyles(insets.bottom);
 
   return (
-    <ScrollView style={stylesThemed.root} contentContainerStyle={stylesThemed.content}>
+    <ScrollView style={styles.root} contentContainerStyle={[styles.content, isCompact ? styles.contentCompact : null]}>
       <AppHeader
         title={t("header.messages")}
         leftIcon="add"
@@ -433,27 +215,36 @@ export default function MessagesPage() {
         notificationsEnabled
       />
 
-      <View style={stylesThemed.searchWrap}>
+      <SupportChatCard
+        styles={styles}
+        colors={colors}
+        isCompact={isCompact}
+        isOpening={openOrCreateSupportThread.isPending}
+        existingThread={supportThread}
+        onPress={onOpenSupport}
+      />
+
+      <View style={styles.searchWrap}>
         <Ionicons name="search-outline" size={18} color={colors.textMuted} />
         <TextInput
           value={search}
           onChangeText={setSearch}
           placeholder={t("messages.searchPlaceholder")}
           placeholderTextColor={colors.textMuted}
-          style={stylesThemed.searchInput}
+          style={styles.searchInput}
         />
       </View>
 
-      <View style={stylesThemed.sectionHeader}>
-        <Text style={stylesThemed.sectionTitle}>{t("messages.myChats")}</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{t("messages.myChats")}</Text>
       </View>
       {isPageLoading ? (
         <ShimmerProvider active>
-          <View style={stylesThemed.skeletonWrap}>
+          <View style={styles.skeletonWrap}>
             {SKELETON_IDS.map((id) => (
-              <View key={`inbox-skeleton-${id}`} style={stylesThemed.skeletonCard}>
+              <View key={`inbox-skeleton-${id}`} style={styles.skeletonCard}>
                 <ShimmerSurface width={48} height={48} borderRadius={24} isDark={mode === "dark"} />
-                <View style={stylesThemed.skeletonMain}>
+                <View style={styles.skeletonMain}>
                   <ShimmerSurface width={160} height={12} borderRadius={10} isDark={mode === "dark"} />
                   <ShimmerSurface width={110} height={10} borderRadius={10} isDark={mode === "dark"} />
                 </View>
@@ -462,9 +253,10 @@ export default function MessagesPage() {
           </View>
         </ShimmerProvider>
       ) : visibleThreads.length ? (
-        <FlatList
+        <FlashList
           data={visibleThreads}
           keyExtractor={(thread) => thread.thread_id}
+          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageRow}
           scrollEnabled={false}
           removeClippedSubviews
           initialNumToRender={8}
@@ -475,18 +267,18 @@ export default function MessagesPage() {
             <Swipeable
               overshootRight={false}
               renderRightActions={() => (
-                <View style={stylesThemed.swipeActionWrap}>
+                <View style={styles.swipeActionWrap}>
                   <Pressable
-                    style={[stylesThemed.swipeActionBtn, stylesThemed.swipeDeleteBtn]}
+                    style={[styles.swipeActionBtn, styles.swipeDeleteBtn]}
                     onPress={() => onDeleteThread(thread.thread_id, thread.last_sender_name || unknownLabel)}
                   >
-                    <Ionicons name="trash-outline" size={22} color="#ffffff" />
+                    <Ionicons name="trash-outline" size={22} color={colors.onAccent} />
                   </Pressable>
                 </View>
               )}
             >
               <Pressable
-                style={stylesThemed.card}
+                style={[styles.card, isCompact ? styles.cardCompact : null]}
                 onPress={() => {
                   if (thread.unread_count && !markThreadRead.isPending) {
                     void markThreadRead.mutateAsync(thread.thread_id);
@@ -501,20 +293,24 @@ export default function MessagesPage() {
                   });
                 }}
               >
-                <SmartImage uri={thread.last_sender_avatar_url} style={stylesThemed.avatar} contentFit="cover" />
-                <View style={stylesThemed.cardMain}>
-                  <View style={stylesThemed.rowBetween}>
-                    <Text style={[stylesThemed.title, stylesThemed.chatTitle]} numberOfLines={1}>
+                <SmartImage
+                  uri={thread.last_sender_avatar_url}
+                  style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
+                  contentFit="cover"
+                />
+                <View style={styles.cardMain}>
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.title, styles.chatTitle]} numberOfLines={1}>
                       {thread.last_sender_name}
                     </Text>
                   </View>
-                  <Text style={stylesThemed.subtitle} numberOfLines={1} ellipsizeMode="tail">
+                  <Text style={styles.subtitle} numberOfLines={1} ellipsizeMode="tail">
                     {thread.last_message_text}
                   </Text>
                 </View>
-                <View style={stylesThemed.threadActionsWrap}>
-                  <Text style={stylesThemed.time}>{formatRelativeTime(thread.last_message_at)}</Text>
-                  <View style={stylesThemed.threadReadIndicator}>
+                <View style={styles.threadActionsWrap}>
+                  <Text style={styles.time}>{formatRelativeTime(thread.last_message_at)}</Text>
+                  <View style={styles.threadReadIndicator}>
                     <Ionicons
                       name={thread.unread_count > 0 ? "checkmark" : "checkmark-done"}
                       size={16}
@@ -527,34 +323,50 @@ export default function MessagesPage() {
           )}
         />
       ) : (
-        <Text style={stylesThemed.empty}>{t("messages.noChatsFound")}</Text>
+        <Text style={styles.empty}>{t("messages.noChatsFound")}</Text>
       )}
 
-      <View style={stylesThemed.sectionHeader}>
-        <Text style={stylesThemed.sectionTitle}>{t("messages.peopleToFollow")}</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{t("messages.peopleToFollow")}</Text>
       </View>
       {isPageLoading ? (
         <ShimmerProvider active>
-          <View style={stylesThemed.skeletonWrap}>
+          <View style={styles.skeletonWrap}>
             {SKELETON_IDS.map((id) => (
-              <View key={`people-skeleton-${id}`} style={stylesThemed.skeletonCard}>
-                <ShimmerSurface width={48} height={48} borderRadius={24} isDark={mode === "dark"} />
-                <View style={stylesThemed.skeletonMain}>
+              <View key={`people-skeleton-${id}`} style={[styles.skeletonCard, isCompact ? styles.skeletonCardCompact : null]}>
+                <ShimmerSurface
+                  width={isCompact ? 40 : 48}
+                  height={isCompact ? 40 : 48}
+                  borderRadius={isCompact ? 20 : 24}
+                  isDark={mode === "dark"}
+                />
+                <View style={styles.skeletonMain}>
                   <ShimmerSurface width={160} height={12} borderRadius={10} isDark={mode === "dark"} />
                   <ShimmerSurface width={110} height={10} borderRadius={10} isDark={mode === "dark"} />
                 </View>
-                <View style={stylesThemed.skeletonActions}>
-                  <ShimmerSurface width={44} height={44} borderRadius={22} isDark={mode === "dark"} />
-                  <ShimmerSurface width={44} height={44} borderRadius={22} isDark={mode === "dark"} />
+                <View style={styles.skeletonActions}>
+                  <ShimmerSurface
+                    width={isCompact ? 36 : 44}
+                    height={isCompact ? 36 : 44}
+                    borderRadius={isCompact ? 18 : 22}
+                    isDark={mode === "dark"}
+                  />
+                  <ShimmerSurface
+                    width={isCompact ? 36 : 44}
+                    height={isCompact ? 36 : 44}
+                    borderRadius={isCompact ? 18 : 22}
+                    isDark={mode === "dark"}
+                  />
                 </View>
               </View>
             ))}
           </View>
         </ShimmerProvider>
       ) : people.length ? (
-        <FlatList
+        <FlashList
           data={people}
           keyExtractor={(person) => person.id}
+          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageRow}
           scrollEnabled={false}
           removeClippedSubviews
           initialNumToRender={8}
@@ -565,43 +377,69 @@ export default function MessagesPage() {
             <Swipeable
               overshootRight={false}
               renderRightActions={() => (
-                <View style={stylesThemed.swipeActionWrap}>
-                  <Pressable style={[stylesThemed.swipeActionBtn, stylesThemed.swipeChatBtn]} onPress={() => onOpenChat(person)}>
-                    <Ionicons name="chatbubble-ellipses" size={22} color="#ffffff" />
+                <View style={styles.swipeActionWrap}>
+                  <Pressable
+                    style={[styles.swipeActionBtn, styles.swipeChatBtn, isCompact ? styles.swipeActionBtnCompact : null]}
+                    onPress={() => onOpenChat(person)}
+                  >
+                    <Ionicons name="chatbubble-ellipses" size={actionIconSize} color={colors.onAccent} />
                   </Pressable>
                 </View>
               )}
               renderLeftActions={() => (
-                <View style={stylesThemed.swipeActionWrap}>
-                  <Pressable style={[stylesThemed.swipeActionBtn, stylesThemed.swipeFollowBtn]} onPress={() => onToggleFollower(person)}>
-                    <Ionicons name={followingSet.has(person.id) ? "person-remove" : "person-add"} size={22} color="#ffffff" />
+                <View style={styles.swipeActionWrap}>
+                  <Pressable
+                    style={[styles.swipeActionBtn, styles.swipeFollowBtn, isCompact ? styles.swipeActionBtnCompact : null]}
+                    onPress={() => onToggleFollower(person)}
+                  >
+                    <Ionicons
+                      name={followingSet.has(person.id) ? "person-remove" : "person-add"}
+                      size={actionIconSize}
+                      color={colors.onAccent}
+                    />
                   </Pressable>
                 </View>
               )}
             >
-              <View style={stylesThemed.card}>
-                <SmartImage uri={person.avatar_url} style={stylesThemed.avatar} contentFit="cover" />
-                <View style={stylesThemed.cardMain}>
-                  <Text style={stylesThemed.title} numberOfLines={1}>
+              <View style={[styles.card, isCompact ? styles.cardCompact : null]}>
+                <SmartImage
+                  uri={person.avatar_url}
+                  style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
+                  contentFit="cover"
+                />
+                <View style={styles.cardMain}>
+                  <Text style={[styles.title, isCompact ? styles.titleCompact : null]} numberOfLines={1}>
                     {fullName(person.first_name, person.last_name, unknownLabel)}
                   </Text>
-                  <View style={stylesThemed.userMetaRow}>
-                    <Text style={stylesThemed.username} numberOfLines={1}>
+                  <View style={[styles.userMetaRow, isCompact ? styles.userMetaRowCompact : null]}>
+                    <Text style={[styles.username, isCompact ? styles.usernameCompact : null]} numberOfLines={1}>
                       @{person.username?.trim() || unknownLabel}
                     </Text>
                     {followingSet.has(person.id) ? (
-                      <View style={stylesThemed.followedBadge}>
-                        <Text style={stylesThemed.followedBadgeText}>{t("messages.followed")}</Text>
+                      <View style={[styles.followedBadge, isCompact ? styles.followedBadgeCompact : null]}>
+                        <Text style={[styles.followedBadgeText, isCompact ? styles.followedBadgeTextCompact : null]}>
+                          {t("messages.followed")}
+                        </Text>
                       </View>
                     ) : null}
                   </View>
                 </View>
-                <View style={stylesThemed.actionsWrap}>
-                  <Pressable style={[stylesThemed.iconActionBtn, stylesThemed.followBtn]} onPress={() => onToggleFollower(person)}>
-                    <Ionicons name={followingSet.has(person.id) ? "person-remove" : "person-add"} size={22} color="#ffffff" />
+                <View style={[styles.actionsWrap, isCompact ? styles.actionsWrapCompact : null]}>
+                  <Pressable
+                    style={[styles.iconActionBtn, styles.followBtn, isCompact ? styles.iconActionBtnCompact : null]}
+                    onPress={() => onToggleFollower(person)}
+                  >
+                    <Ionicons
+                      name={followingSet.has(person.id) ? "person-remove" : "person-add"}
+                      size={actionIconSize}
+                      color={colors.onAccent}
+                    />
                   </Pressable>
-                  <Pressable style={[stylesThemed.iconActionBtn, stylesThemed.chatBtn]} onPress={() => onOpenChat(person)}>
-                    <Ionicons name="chatbubble-ellipses" size={22} color="#ffffff" />
+                  <Pressable
+                    style={[styles.iconActionBtn, styles.chatBtn, isCompact ? styles.iconActionBtnCompact : null]}
+                    onPress={() => onOpenChat(person)}
+                  >
+                    <Ionicons name="chatbubble-ellipses" size={actionIconSize} color={colors.onAccent} />
                   </Pressable>
                 </View>
               </View>
@@ -609,34 +447,41 @@ export default function MessagesPage() {
           )}
         />
       ) : (
-        <Text style={stylesThemed.empty}>{t("messages.noUsersFound")}</Text>
+        <Text style={styles.empty}>{t("messages.noUsersFound")}</Text>
       )}
 
       <BottomSheetPickerModal visible={startChatModalOpen} onClose={() => setStartChatModalOpen(false)} title={t("messages.startChatTitle")}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>
           {publicProfilesLoading ? (
-            <Text style={stylesThemed.empty}>{t("common.loading")}</Text>
+            <Text style={styles.empty}>{t("common.loading")}</Text>
           ) : publicProfiles.filter((profile) => profile.id !== user?.id).length ? (
             publicProfiles
               .filter((profile) => profile.id !== user?.id)
               .map((item) => (
-                <View key={item.id} style={stylesThemed.card}>
-                  <SmartImage uri={item.avatar_url} style={stylesThemed.avatar} contentFit="cover" />
-                  <View style={stylesThemed.cardMain}>
-                    <Text style={stylesThemed.title} numberOfLines={1}>
+                <View key={item.id} style={[styles.card, isCompact ? styles.cardCompact : null]}>
+                  <SmartImage
+                    uri={item.avatar_url}
+                    style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
+                    contentFit="cover"
+                  />
+                  <View style={styles.cardMain}>
+                    <Text style={[styles.title, isCompact ? styles.titleCompact : null]} numberOfLines={1}>
                       {fullName(item.first_name, item.last_name, unknownLabel)}
                     </Text>
-                    <Text style={stylesThemed.username} numberOfLines={1}>
+                    <Text style={[styles.username, isCompact ? styles.usernameCompact : null]} numberOfLines={1}>
                       @{item.username?.trim() || unknownLabel}
                     </Text>
                   </View>
-                  <Pressable style={[stylesThemed.iconActionBtn, stylesThemed.chatBtn]} onPress={() => onOpenChat(item)}>
-                    <Ionicons name="chatbubble-ellipses" size={20} color="#ffffff" />
+                  <Pressable
+                    style={[styles.iconActionBtn, styles.chatBtn, isCompact ? styles.iconActionBtnCompact : null]}
+                    onPress={() => onOpenChat(item)}
+                  >
+                    <Ionicons name="chatbubble-ellipses" size={isCompact ? 18 : 20} color={colors.onAccent} />
                   </Pressable>
                 </View>
               ))
           ) : (
-            <Text style={stylesThemed.empty}>{t("messages.noUsersFound")}</Text>
+            <Text style={styles.empty}>{t("messages.noUsersFound")}</Text>
           )}
         </ScrollView>
       </BottomSheetPickerModal>

@@ -16,8 +16,8 @@ import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSh
 import { useAddStoryFromPost } from "../model/useAddStoryFromPost";
 
 const AUTO_ADVANCE_MS = 5000;
-const KEYBOARD_GAP = 0;
-const ANDROID_KEYBOARD_GAP = -12;
+const KEYBOARD_GAP = 16;
+const ANDROID_KEYBOARD_GAP = -70;
 
 type AddStoryRoute = RouteProp<BrowseFlowParamList, "AddStoryFromPost">;
 type AddStoryNav = NativeStackNavigationProp<BrowseFlowParamList, "AddStoryFromPost">;

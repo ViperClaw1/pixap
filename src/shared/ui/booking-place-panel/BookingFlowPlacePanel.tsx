@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, Text, View, useWindowDimensions } from "react-native";
+import { useBookingFlowPlacePanelStyles } from "./bookingFlowPlacePanelStyles";
 import Carousel from "react-native-reanimated-carousel";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import type { ThemeColors } from "@/shared/theme/palettes";
@@ -40,91 +41,7 @@ export function BookingFlowPlacePanel({
   const [heroSlide, setHeroSlide] = useState(0);
   const heroWidth = Math.max(280, windowWidth);
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        wrap: {
-          marginBottom: 16,
-        },
-        heroWrap: {
-          width: heroWidth,
-          height: HERO_HEIGHT,
-          overflow: "hidden",
-          backgroundColor: colors.border,
-          alignSelf: "center",
-        },
-        hero: {
-          width: "100%",
-          height: "100%",
-        },
-        heroBar: {
-          position: "absolute",
-          left: 12,
-          right: 12,
-          top: heroTopInset,
-          flexDirection: "row",
-          justifyContent: "space-between",
-        },
-        iconBtn: {
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: "rgba(255,255,255,0.92)",
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        iconText: {
-          fontSize: 18,
-          color: "#111",
-          fontWeight: "700",
-        },
-        dotsRow: {
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 10,
-          flexDirection: "row",
-          justifyContent: "center",
-          gap: 6,
-        },
-        dot: {
-          width: 7,
-          height: 7,
-          borderRadius: 3.5,
-          backgroundColor: "rgba(255,255,255,0.45)",
-        },
-        dotActive: {
-          backgroundColor: "rgba(255,255,255,0.95)",
-        },
-        detailsCard: {
-          marginTop: -24,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          borderWidth: useMonotoneDarkBackground ? 0 : 1,
-          borderColor: useMonotoneDarkBackground ? colors.background : colors.border,
-          backgroundColor: useMonotoneDarkBackground ? colors.background : colors.card,
-          padding: 20,
-        },
-        title: {
-          fontSize: 22,
-          fontWeight: "800",
-          color: colors.text,
-        },
-        rating: {
-          marginTop: 6,
-          color: colors.textMuted,
-          fontSize: 14,
-        },
-        address: {
-          marginTop: 10,
-          color: colors.text,
-        },
-        childrenWrap: {
-          marginTop: 14,
-        },
-      }),
-    [colors, heroTopInset, heroWidth, useMonotoneDarkBackground],
-  );
+  const styles = useBookingFlowPlacePanelStyles(heroWidth, heroTopInset, useMonotoneDarkBackground);
 
   const heroImagesRaw = useMemo(
     () => normalizeBusinessCardImages(place.images).filter((url, idx, arr) => arr.indexOf(url) === idx),
@@ -142,17 +59,17 @@ export function BookingFlowPlacePanel({
         uri={item}
         fallbackUri={heroImagesRaw[index] ?? null}
         recyclingKey={`${place.id}-booking-panel-${index}`}
-        style={stylesThemed.hero}
+        style={styles.hero}
         contentFit="cover"
         transition={200}
       />
     ),
-    [heroImagesRaw, place.id, stylesThemed.hero],
+    [heroImagesRaw, place.id, styles.hero],
   );
 
   return (
-    <View style={stylesThemed.wrap}>
-      <View style={stylesThemed.heroWrap}>
+    <View style={styles.wrap}>
+      <View style={styles.heroWrap}>
         {heroImages.length > 1 ? (
           <>
             <Carousel
@@ -163,9 +80,9 @@ export function BookingFlowPlacePanel({
               onSnapToItem={setHeroSlide}
               renderItem={renderHeroCarouselItem}
             />
-            <View style={stylesThemed.dotsRow}>
+            <View style={styles.dotsRow}>
               {heroImages.map((_, idx) => (
-                <View key={`${place.id}-booking-panel-dot-${idx}`} style={[stylesThemed.dot, heroSlide === idx && stylesThemed.dotActive]} />
+                <View key={`${place.id}-booking-panel-dot-${idx}`} style={[styles.dot, heroSlide === idx && styles.dotActive]} />
               ))}
             </View>
           </>
@@ -174,28 +91,28 @@ export function BookingFlowPlacePanel({
             uri={heroImages[0] ?? heroFallback}
             fallbackUri={heroImagesRaw[0] ?? null}
             recyclingKey={`${place.id}-booking-panel`}
-            style={stylesThemed.hero}
+            style={styles.hero}
             contentFit="cover"
             transition={200}
           />
         )}
-        <View style={stylesThemed.heroBar}>
-          <Pressable style={stylesThemed.iconBtn} onPress={onPressBack}>
-            <Text style={stylesThemed.iconText}>←</Text>
+        <View style={styles.heroBar}>
+          <Pressable style={styles.iconBtn} onPress={onPressBack}>
+            <Text style={styles.iconText}>←</Text>
           </Pressable>
-          <Pressable style={stylesThemed.iconBtn} onPress={onPressFavorite}>
-            <Text style={stylesThemed.iconText}>{isFavorite ? "♥" : "♡"}</Text>
+          <Pressable style={styles.iconBtn} onPress={onPressFavorite}>
+            <Text style={styles.iconText}>{isFavorite ? "♥" : "♡"}</Text>
           </Pressable>
         </View>
       </View>
 
-      <View style={stylesThemed.detailsCard}>
-        <Text style={stylesThemed.title}>{place.name}</Text>
-        <Text style={stylesThemed.rating}>
+      <View style={styles.detailsCard}>
+        <Text style={styles.title}>{place.name}</Text>
+        <Text style={styles.rating}>
           {Number(place.rating ?? 0).toFixed(1)} · {Number(place.booking_price).toLocaleString()} $
         </Text>
-        <Text style={stylesThemed.address}>📍 {place.address}</Text>
-        {children ? <View style={stylesThemed.childrenWrap}>{children}</View> : null}
+        <Text style={styles.address}>📍 {place.address}</Text>
+        {children ? <View style={styles.childrenWrap}>{children}</View> : null}
       </View>
     </View>
   );

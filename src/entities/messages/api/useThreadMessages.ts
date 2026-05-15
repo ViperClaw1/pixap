@@ -4,6 +4,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { MessageParticipantProfile } from "@/shared/model/types/messages";
+import { useMessageThreadRealtime } from "@/entities/messages/lib/useMessagesRealtime";
 
 type MessageRow = {
   id: string;
@@ -41,6 +42,7 @@ export type MessageBubble = {
 
 export function useThreadMessages(threadId: string) {
   const { user } = useAuth();
+  const realtimeConnected = useMessageThreadRealtime(threadId, user?.id ?? null);
 
   const query = useQuery({
     queryKey: queryKeys.messages.thread(threadId, user?.id ?? null),
@@ -140,6 +142,7 @@ export function useThreadMessages(threadId: string) {
     },
     enabled: !!threadId && !!user?.id,
     staleTime: 15 * 1000,
+    refetchInterval: realtimeConnected ? false : 15_000,
   });
 
   const peer = useMemo(() => {

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
+import { devInfo, devWarn } from "@/shared/lib/devLog";
 import { useAuth } from "@/app/providers/AuthProvider";
 import type { BusinessCard } from "@/entities/business-card";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
@@ -279,9 +280,7 @@ export function usePixAI() {
       await logPixaiOrchestrateInvokeFailure(error);
       const places = await fetchPlacesWhenOrchestratorFails(flow);
       if (places.length > 0) {
-        if (__DEV__) {
-          console.info("[PixAI] edge invoke failed; showing results from direct DB search (same filters as orchestrator).");
-        }
+        devInfo("[PixAI] edge invoke failed; showing results from direct DB search (same filters as orchestrator).");
         return {
           assistant: buildAssistantFromFlow(flow, places.length),
           places,
@@ -308,9 +307,7 @@ export function usePixAI() {
       ]);
     },
     onError: async (error, flow) => {
-      if (__DEV__) {
-        console.warn("[PixAI] search failed (edge and local DB returned no places):", error);
-      }
+      devWarn("[PixAI] search failed (edge and local DB returned no places):", error);
       setMessages((prev) => [
         ...prev,
         { id: `u-${Date.now()}`, role: "user", content: buildFlowUserSummary(flow) },

@@ -15,6 +15,9 @@ const KEYBOARD_GAP = -5;
 const CHROME_FIXED = 78;
 /** Panel footer (emoji + composer + safe area) — keep in sync with StoryDiscussionPanelInner */
 const FOOTER_FIXED = 198;
+const SHEET_MIN_HEIGHT_RATIO = 0.5;
+const SHEET_MAX_HEIGHT_RATIO = 0.75;
+const DISCUSSION_LIST_MIN_VIEWPORT = 80;
 
 type Props = {
   visible: boolean;
@@ -40,9 +43,9 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
 
-  const sheetMinH = windowHeight * 0.5;
-  const sheetMaxH = windowHeight * 0.75;
-  const maxListViewport = Math.max(80, sheetMaxH - CHROME_FIXED - FOOTER_FIXED);
+  const sheetMinH = windowHeight * SHEET_MIN_HEIGHT_RATIO;
+  const sheetMaxH = windowHeight * SHEET_MAX_HEIGHT_RATIO;
+  const maxListViewport = Math.max(DISCUSSION_LIST_MIN_VIEWPORT, sheetMaxH - CHROME_FIXED - FOOTER_FIXED);
   const [listContentH, setListContentH] = useState(0);
 
   const sheetH = useMemo(() => {

@@ -1,6 +1,7 @@
 import type { TextStyle, ViewStyle } from "react-native";
+import { lightColors } from "@/shared/theme/palettes";
 
-export const AUTH_PRIMARY_COLOR = "#ec6544";
+export const AUTH_PRIMARY_COLOR = lightColors.accent;
 export const SHARED_PRESSABLE_HEIGHT = 56;
 export const SHARED_PRESSABLE_RADIUS = 18;
 

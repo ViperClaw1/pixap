@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import {
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -11,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { usePhoneInputStyles } from "./phoneInputStyles";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import {
   buildCountryOptions,
@@ -41,7 +41,6 @@ export function PhoneInput({
   textStyle,
   pickerTitle = "Select country",
 }: Props) {
-  const { colors } = useAppTheme();
   const [pickerOpen, setPickerOpen] = useState(false);
   const countryOptions = useMemo(() => buildCountryOptions(), []);
   const selectedCountry = useMemo(
@@ -56,68 +55,8 @@ export function PhoneInput({
     [value.callingCode, value.region],
   );
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        container: {
-          width: "100%",
-          height: 58,
-          flexDirection: "row",
-          alignItems: "center",
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 10,
-          backgroundColor: colors.card,
-          overflow: "hidden",
-        },
-        containerError: {
-          borderColor: colors.danger,
-        },
-        countryButton: {
-          width: 92,
-          height: "100%",
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "row",
-          gap: 8,
-          borderRightWidth: 1,
-          borderRightColor: colors.border,
-        },
-        flag: { fontSize: 20, lineHeight: 22 },
-        countryCodeText: { color: colors.text, fontSize: 12, fontWeight: "700" },
-        callingCodeText: {
-          color: colors.text,
-          fontSize: 14,
-          fontWeight: "600",
-          marginLeft: 10,
-        },
-        input: {
-          flex: 1,
-          height: 56,
-          paddingHorizontal: 12,
-          color: colors.text,
-          fontSize: 14,
-          backgroundColor: "transparent",
-        },
-        pickerRow: {
-          paddingHorizontal: 14,
-          paddingVertical: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-        },
-        pickerRowText: {
-          color: colors.text,
-          fontSize: 14,
-          fontWeight: "600",
-          flex: 1,
-        },
-      }),
-    [colors],
-  );
+  const { colors } = useAppTheme();
+  const styles = usePhoneInputStyles();
 
   const handleChangeText = (text: string) => {
     const digits = text.replace(/\D/g, "").slice(0, maxDigits);

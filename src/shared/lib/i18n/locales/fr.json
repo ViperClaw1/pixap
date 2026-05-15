@@ -79,6 +79,9 @@
     "toastFollowFailed": "Échec de l'action Suivre",
     "toastTryAgain": "Veuillez réessayer.",
     "toastCouldNotOpenChat": "Impossible d'ouvrir la discussion",
+    "toastCouldNotOpenSupport": "Impossible d'ouvrir le chat d'assistance",
+    "support": "Assistance",
+    "supportSubtitle": "Discutez avec notre équipe",
     "followed": "Suivi"
   },
   "bookings": {
@@ -192,5 +195,14 @@
       "toastUpdatedBody": "Vous êtes connecté. Bon retour.",
       "btnUpdate": "Mettre à jour le mot de passe"
     }
+  },
+  "errorBoundary": {
+    "retry": "Réessayer",
+    "appTitle": "Une erreur s'est produite",
+    "appDescription": "L'application a rencontré une erreur inattendue. Vous pouvez réessayer.",
+    "feedTitle": "Fil indisponible",
+    "feedDescription": "Impossible de charger le fil. Appuyez ci-dessous pour réessayer.",
+    "bookingTitle": "Réservation indisponible",
+    "bookingDescription": "Une erreur s'est produite lors de l'ouverture de la réservation. Appuyez ci-dessous pour réessayer."
   }
 }

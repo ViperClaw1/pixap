@@ -4,7 +4,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useBottomSheetPickerStyles } from "./bottomSheetPickerStyles";
 
 const SHEET_MAX_FRACTION = 0.5;
 /** Grabber + title row + border — must match layout below */
@@ -32,7 +32,6 @@ export function BottomSheetPickerModal({
 }: Props) {
   const isAndroid = Platform.OS === "android";
   const insets = useSafeAreaInsets();
-  const { colors } = useAppTheme();
   const { height: windowHeight } = useWindowDimensions();
   const [isKeyboardOpen, setKeyboardOpen] = useState(false);
   const sheetMaxHeight = windowHeight * maxHeightFraction;
@@ -102,81 +101,33 @@ export function BottomSheetPickerModal({
     [dragY, keyboardInsetAnim],
   );
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        backdrop: {
-          ...StyleSheet.absoluteFillObject,
-          backgroundColor: "rgba(0,0,0,0.45)",
-        },
-        sheet: {
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          maxHeight: sheetMaxHeight,
-          backgroundColor: colors.card,
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-          borderWidth: 1,
-          borderColor: colors.border,
-          paddingBottom: isAndroid ? Math.max(insets.bottom, 10) : isKeyboardOpen ? 0 : Math.max(insets.bottom, 10),
-        },
-        grabberWrap: {
-          alignItems: "center",
-          paddingTop: 10,
-          paddingBottom: 8,
-        },
-        grabberHit: {
-          paddingVertical: 8,
-          paddingHorizontal: 24,
-        },
-        grabber: {
-          width: 40,
-          height: 5,
-          borderRadius: 3,
-          backgroundColor: colors.textMuted,
-          opacity: 0.55,
-        },
-        title: {
-          color: colors.text,
-          fontSize: 16,
-          fontWeight: "700",
-          paddingHorizontal: 14,
-          paddingBottom: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          textAlign: "center",
-        },
-      }),
-    [colors.border, colors.card, colors.text, colors.textMuted, insets.bottom, isAndroid, isKeyboardOpen, sheetMaxHeight],
-  );
+  const styles = useBottomSheetPickerStyles(sheetMaxHeight, insets.bottom, isAndroid, isKeyboardOpen);
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={{ flex: 1 }}>
         <Pressable
-          style={stylesThemed.backdrop}
+          style={styles.backdrop}
           onPress={() => {
             Keyboard.dismiss();
             onClose();
           }}
           accessibilityLabel="Dismiss"
         />
-        <Animated.View style={[stylesThemed.sheet, sheetAnimatedStyle]}>
+        <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
           <GestureDetector gesture={panGesture}>
             <View>
               <Pressable
-                style={stylesThemed.grabberWrap}
+                style={styles.grabberWrap}
                 onPress={onClose}
                 accessibilityRole="button"
                 accessibilityLabel="Close picker"
               >
-                <View style={stylesThemed.grabberHit}>
-                  <View style={stylesThemed.grabber} />
+                <View style={styles.grabberHit}>
+                  <View style={styles.grabber} />
                 </View>
               </Pressable>
-              <Text style={stylesThemed.title}>{title}</Text>
+              <Text style={styles.title}>{title}</Text>
             </View>
           </GestureDetector>
           <ScrollView

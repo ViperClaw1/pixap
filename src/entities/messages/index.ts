@@ -6,3 +6,6 @@ export * from "./api/useThreadMessages";
 export * from "./api/useSendMessage";
 export * from "./api/useReactToMessage";
 export * from "./api/useDeleteMessage";
+export { findDirectThreadForPeer } from "./lib/findDirectThreadForPeer";
+export { findSupportThread } from "./lib/findSupportThread";
+export * from "./api/useOpenOrCreateSupportThread";

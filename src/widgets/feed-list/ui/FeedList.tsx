@@ -1,6 +1,8 @@
 import { memo, useCallback } from "react";
-import { ActivityIndicator, Dimensions, FlatList, RefreshControl, StyleSheet, Text, View, type ListRenderItem } from "react-native";
+import { ActivityIndicator, Dimensions, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import type { StoryReactionType } from "@/shared/model/types/stories";
 import type { FeedStoryItem } from "@/entities/story";
 import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
@@ -99,9 +101,10 @@ function FeedListComponent({
   }
 
   return (
-    <FlatList
+    <FlashList
       data={stories}
       keyExtractor={(item) => item.id}
+      estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.feedPost}
       contentContainerStyle={styles.content}
       renderItem={renderStoryItem}
       ItemSeparatorComponent={ListSeparator}

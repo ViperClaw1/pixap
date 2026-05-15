@@ -4,6 +4,7 @@ import { queryKeys } from "@/shared/api/queryKeys";
 import type { PixAISlot } from "@/entities/pixai";
 import { buildSlotsFromBookingTimes, localDayBoundsIso } from "@/entities/booking/lib/bookingSlots";
 import { safeRefreshSession } from "@/shared/lib/supabaseAuth";
+import { devWarn } from "@/shared/lib/devLog";
 
 function isFunctionsUnauthorized(error: unknown): boolean {
   const ctx =
@@ -73,9 +74,7 @@ export async function fetchAvailableSlotsForDay(businessId: string, dateYmd: str
     return buildSlotsFromBookingTimes(dateYmd, (rpcData ?? []) as string[]);
   }
 
-  if (__DEV__) {
-    console.warn("[available_slots] RPC failed, trying edge:", rpcError.message);
-  }
+  devWarn("[available_slots] RPC failed, trying edge:", rpcError.message);
 
   const { data: edgeData, error: edgeError } = await invokeGetAvailableSlots(businessId, dateYmd);
   if (!edgeError) {

@@ -5,13 +5,13 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  FlatList,
   ScrollView,
   Alert,
   useWindowDimensions,
   ActivityIndicator,
   Linking,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import Toast from "react-native-toast-message";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
@@ -28,6 +28,10 @@ import {
 import { useBusinessCards } from "@/entities/business-card";
 import type { BookingsStackParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { bookingsStaticStyles, bookingsThemeStyles } from "./bookingsStyles";
+import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
@@ -108,75 +112,10 @@ export default function BookingsScreen() {
     });
   }, [bookings, cartItems, t]);
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: { flex: 1, backgroundColor: colors.background },
-        filters: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
-        fpill: {
-          paddingHorizontal: 12,
-          paddingVertical: 7,
-          borderRadius: 999,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-        },
-        fpillActive: { backgroundColor: colors.text, borderColor: colors.text },
-        fpillText: { fontSize: 11, textTransform: "capitalize", color: colors.text, fontWeight: "600" },
-        fpillTextA: { fontSize: 11, color: colors.background, fontWeight: "700", textTransform: "capitalize" },
-        card: {
-          flexDirection: "row",
-          gap: 12,
-          padding: 12,
-          backgroundColor: colors.card,
-          borderRadius: 14,
-          marginBottom: 12,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        name: { fontWeight: "700", color: colors.text, flexShrink: 1, fontSize: 15 },
-        meta: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
-        badge: { marginTop: 8, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
-        badgeText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
-        waitingBadge: {
-          marginTop: 6,
-          alignSelf: "flex-start",
-          paddingHorizontal: 8,
-          paddingVertical: 3,
-          borderRadius: 999,
-          backgroundColor: colors.border,
-        },
-        waitingBadgeText: {
-          fontSize: 10,
-          fontWeight: "700",
-          color: colors.textMuted,
-        },
-        empty: { textAlign: "center", color: colors.textMuted, marginTop: 32 },
-        rowHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 },
-        rowHeadLeft: { flex: 1, minWidth: 0, paddingRight: 4 },
-        cancelBtn: {
-          borderWidth: 1,
-          borderColor: colors.danger,
-          borderRadius: 999,
-          paddingHorizontal: 10,
-          paddingVertical: 4,
-          alignSelf: "flex-start",
-          flexShrink: 0,
-          minWidth: 64,
-          alignItems: "center",
-        },
-        cancelBtnText: { color: colors.danger, fontSize: 11, fontWeight: "700" },
-        payBtn: {
-          marginTop: 10,
-          alignSelf: "flex-start",
-          backgroundColor: colors.primary,
-          borderRadius: 999,
-          paddingHorizontal: 12,
-          paddingVertical: 7,
-        },
-        payBtnText: { color: colors.onPrimary, fontSize: 12, fontWeight: "700" },
-      }),
-    [colors, insets.bottom],
+  const themed = useThemeStyles(({ colors: c }) => bookingsThemeStyles(c));
+  const styles = useMemo(
+    () => mergeStaticAndThemed(bookingsStaticStyles, themed),
+    [themed],
   );
 
   useEffect(() => {
@@ -202,7 +141,7 @@ export default function BookingsScreen() {
 
   if (loading) {
     return (
-      <View style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}>
+      <View style={[styles.root, { alignItems: "center", justifyContent: "center" }]}>
         <Text style={{ color: colors.textMuted }}>{t("bookings.loading")}</Text>
       </View>
     );
@@ -210,7 +149,7 @@ export default function BookingsScreen() {
 
   if (!user) {
     return (
-      <View style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}>
+      <View style={[styles.root, { alignItems: "center", justifyContent: "center" }]}>
         <ActivityIndicator color={colors.primary} />
       </View>
     );
@@ -258,7 +197,7 @@ export default function BookingsScreen() {
       Boolean(item.waPaymentLink);
     return (
       <Pressable
-        style={stylesThemed.card}
+        style={styles.card}
         onPress={() => navigation.navigate("PlaceDetail", { id: item.business_card_id })}
       >
         <SmartImage
@@ -268,15 +207,15 @@ export default function BookingsScreen() {
           contentFit="cover"
         />
         <View style={{ flex: 1 }}>
-          <View style={stylesThemed.rowHead}>
-            <View style={stylesThemed.rowHeadLeft}>
-              <Text style={stylesThemed.name} numberOfLines={isCompact ? 2 : 1}>
+          <View style={styles.rowHead}>
+            <View style={styles.rowHeadLeft}>
+              <Text style={styles.name} numberOfLines={isCompact ? 2 : 1}>
                 {item.business_card?.name}
               </Text>
             </View>
             {canCancel ? (
               <Pressable
-                style={stylesThemed.cancelBtn}
+                style={styles.cancelBtn}
                 onPress={() => {
                   Alert.alert(t("bookings.cancelBookingTitle"), t("bookings.cancelBookingMessage"), [
                     { text: t("bookings.no"), style: "cancel" },
@@ -290,15 +229,15 @@ export default function BookingsScreen() {
                   ]);
                 }}
               >
-                <Text style={stylesThemed.cancelBtnText}>{t("bookings.cancel")}</Text>
+                <Text style={styles.cancelBtnText}>{t("bookings.cancel")}</Text>
               </Pressable>
             ) : null}
           </View>
-          <Text style={stylesThemed.meta}>{formatBookingDateTime(item.date_time)}</Text>
-          {item.persons ? <Text style={stylesThemed.meta}>{t("bookings.persons", { count: item.persons })}</Text> : null}
-          {item.comment ? <Text style={stylesThemed.meta}>{t("bookings.comment", { text: item.comment })}</Text> : null}
+          <Text style={styles.meta}>{formatBookingDateTime(item.date_time)}</Text>
+          {item.persons ? <Text style={styles.meta}>{t("bookings.persons", { count: item.persons })}</Text> : null}
+          {item.comment ? <Text style={styles.meta}>{t("bookings.comment", { text: item.comment })}</Text> : null}
           {item.displayStatus !== "draft" ? (
-            <Text style={stylesThemed.meta}>
+            <Text style={styles.meta}>
               {t("bookings.payment", {
                 state: item.payment_status === "pending" ? t("bookings.paymentPending") : t("bookings.paymentPaid"),
               })}
@@ -306,22 +245,22 @@ export default function BookingsScreen() {
           ) : null}
           {canPay ? (
             <Pressable
-              style={stylesThemed.payBtn}
+              style={styles.payBtn}
               onPress={(event) => {
                 event.stopPropagation?.();
                 void openPaymentLink(item.waPaymentLink);
               }}
             >
-              <Text style={stylesThemed.payBtnText}>{t("bookings.pay")}</Text>
+              <Text style={styles.payBtnText}>{t("bookings.pay")}</Text>
             </Pressable>
           ) : null}
           {item.displayStatus === "draft" ? (
-            <View style={stylesThemed.waitingBadge}>
-              <Text style={stylesThemed.waitingBadgeText}>{t("bookings.waitingForVenue")}</Text>
+            <View style={styles.waitingBadge}>
+              <Text style={styles.waitingBadgeText}>{t("bookings.waitingForVenue")}</Text>
             </View>
           ) : null}
-          <View style={[stylesThemed.badge, { backgroundColor: palette.bg }]}>
-            <Text style={[stylesThemed.badgeText, { color: palette.fg }]}>{t(bookingFilterTranslationKey(item.displayStatus))}</Text>
+          <View style={[styles.badge, { backgroundColor: palette.bg }]}>
+            <Text style={[styles.badgeText, { color: palette.fg }]}>{t(bookingFilterTranslationKey(item.displayStatus))}</Text>
           </View>
         </View>
       </Pressable>
@@ -329,7 +268,7 @@ export default function BookingsScreen() {
   };
 
   return (
-    <View style={stylesThemed.root}>
+    <View style={styles.root}>
       <AppHeader
         title={t("header.bookings")}
         leftIcon="add"
@@ -338,29 +277,35 @@ export default function BookingsScreen() {
         onRightPress={toggleThemeMode}
         notificationsEnabled
       />
-      <View style={stylesThemed.filters}>
+      <View style={styles.filters}>
         {filters.map((f) => (
           <Pressable
             key={f}
-            style={[stylesThemed.fpill, filter === f && stylesThemed.fpillActive]}
+            style={[styles.fpill, filter === f && styles.fpillActive]}
             onPress={() => setFilter(f)}
           >
-            <Text style={filter === f ? stylesThemed.fpillTextA : stylesThemed.fpillText}>{t(bookingFilterTranslationKey(f))}</Text>
+            <Text style={filter === f ? styles.fpillTextA : styles.fpillText}>{t(bookingFilterTranslationKey(f))}</Text>
           </Pressable>
         ))}
       </View>
-      <FlatList
+      <FlashList
         data={items}
         keyExtractor={(b) => b.id}
+        estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.bookingCard}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 + insets.bottom }}
-        ListEmptyComponent={<Text style={stylesThemed.empty}>{t("bookings.noBookings")}</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>{t("bookings.noBookings")}</Text>}
         renderItem={renderItem}
+        removeClippedSubviews
+        initialNumToRender={8}
+        maxToRenderPerBatch={10}
+        windowSize={8}
+        updateCellsBatchingPeriod={40}
       />
       <BottomSheetPickerModal visible={placePickerOpen} onClose={() => setPlacePickerOpen(false)} title={t("bookings.choosePlace")}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>
           {businessCards.length ? (
             businessCards.map((item) => (
-              <View key={item.id} style={stylesThemed.card}>
+              <View key={item.id} style={styles.card}>
                 <SmartImage
                   uri={getLatestBusinessCardImage(item.images)}
                   recyclingKey={`book-place-${item.id}`}
@@ -368,26 +313,26 @@ export default function BookingsScreen() {
                   contentFit="cover"
                 />
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={stylesThemed.name} numberOfLines={1}>
+                  <Text style={styles.name} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  <Text style={stylesThemed.meta} numberOfLines={2}>
+                  <Text style={styles.meta} numberOfLines={2}>
                     {item.tags?.slice(0, 4).join(", ") || t("bookings.noTags")}
                   </Text>
                 </View>
                 <Pressable
-                  style={stylesThemed.payBtn}
+                  style={styles.payBtn}
                   onPress={() => {
                     setPlacePickerOpen(false);
                     navigation.navigate("BookingFlow", { id: item.id });
                   }}
                 >
-                  <Text style={stylesThemed.payBtnText}>{t("bookings.book")}</Text>
+                  <Text style={styles.payBtnText}>{t("bookings.book")}</Text>
                 </Pressable>
               </View>
             ))
           ) : (
-            <Text style={stylesThemed.empty}>{t("bookings.noPlacesYet")}</Text>
+            <Text style={styles.empty}>{t("bookings.noPlacesYet")}</Text>
           )}
         </ScrollView>
       </BottomSheetPickerModal>

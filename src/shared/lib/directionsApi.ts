@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { decodeGooglePolyline, type LatLng } from "./polylineDecode";
 import { env } from "./env";
+import { devLog } from "@/shared/lib/devLog";
 
 export type TravelMode = "driving" | "walking" | "transit";
 
@@ -59,12 +60,11 @@ function googleMapsWebServiceFetch(url: string, signal?: AbortSignal): Promise<R
 }
 
 function debugMapsApi(event: string, payload?: unknown) {
-  if (!__DEV__) return;
   if (payload === undefined) {
-    console.log(`[MapsApi][debug] ${event}`);
+    devLog(`[MapsApi][debug] ${event}`);
     return;
   }
-  console.log(`[MapsApi][debug] ${event}`, payload);
+  devLog(`[MapsApi][debug] ${event}`, payload);
 }
 
 /**
@@ -383,16 +383,14 @@ export async function fetchDirections(params: {
     try {
       coordinates = decodeGooglePolyline(encoded);
     } catch (e) {
-      if (__DEV__) {
-        console.log("[MapsApi][debug] directions:polyline_decode_error", {
-          error: e instanceof Error ? e.message : String(e),
-          encodedLength: encoded.length,
-        });
-      }
+      debugMapsApi("directions:polyline_decode_error", {
+        error: e instanceof Error ? e.message : String(e),
+        encodedLength: encoded.length,
+      });
       coordinates = [];
     }
-  } else if (__DEV__) {
-    console.log("[MapsApi][debug] directions:no_polyline");
+  } else {
+    debugMapsApi("directions:no_polyline");
   }
   let durationText: string | null = null;
   let distanceText: string | null = null;
@@ -409,17 +407,15 @@ export async function fetchDirections(params: {
       endLocation = { latitude: leg.end_location.lat, longitude: leg.end_location.lng };
     }
   }
-  if (__DEV__) {
-    console.log("[MapsApi][debug] directions:payload_summary", {
-      mode,
-      coordinatesCount: coordinates.length,
-      hasLeg: Boolean(leg),
-      hasStart: Boolean(startLocation),
-      hasEnd: Boolean(endLocation),
-      durationText,
-      distanceText,
-    });
-  }
+  debugMapsApi("directions:payload_summary", {
+    mode,
+    coordinatesCount: coordinates.length,
+    hasLeg: Boolean(leg),
+    hasStart: Boolean(startLocation),
+    hasEnd: Boolean(endLocation),
+    durationText,
+    distanceText,
+  });
 
   return {
     ok: true,

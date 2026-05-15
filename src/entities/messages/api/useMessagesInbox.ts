@@ -4,6 +4,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { MessageThreadItem, MessageParticipantProfile } from "@/shared/model/types/messages";
+import { useMessagesInboxRealtime } from "@/entities/messages/lib/useMessagesRealtime";
 
 type ParticipantRow = {
   thread_id: string;
@@ -31,6 +32,7 @@ function includesSearch(value: string, search: string) {
 
 export function useMessagesInbox(search: string) {
   const { user } = useAuth();
+  const realtimeConnected = useMessagesInboxRealtime(user?.id ?? null);
 
   const query = useQuery({
     queryKey: queryKeys.messages.inbox(user?.id ?? null),
@@ -49,6 +51,18 @@ export function useMessagesInbox(search: string) {
 
       const threadIds = ownParticipants.map((row) => row.thread_id);
       const lastReadByThread = new Map<string, string | null>(ownParticipants.map((row) => [row.thread_id, row.last_read_message_at]));
+
+      const { data: threadsMetaData, error: threadsMetaError } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- columns added via migration
+        .from("message_threads" as any)
+        .select("id, kind")
+        .in("id", threadIds);
+      if (threadsMetaError) throw threadsMetaError;
+      const supportThreadIds = new Set(
+        ((threadsMetaData ?? []) as Array<{ id: string; kind: string }>)
+          .filter((row) => row.kind === "support")
+          .map((row) => row.id),
+      );
 
       const [{ data: messagesData, error: messagesError }, { data: participantsData, error: participantsError }] = await Promise.all([
         supabase
@@ -108,16 +122,18 @@ export function useMessagesInbox(search: string) {
         const latestMessage = latestMessageByThread.get(threadId);
         if (!latestMessage) continue;
         const senderProfile = profilesById.get(latestMessage.sender_id);
+        const isSupport = supportThreadIds.has(threadId);
         items.push({
           thread_id: threadId,
           last_message_id: latestMessage.id,
           last_message_text: latestMessage.content,
           last_message_at: latestMessage.created_at,
           last_sender_id: latestMessage.sender_id,
-          last_sender_name: fullName(senderProfile),
-          last_sender_avatar_url: senderProfile?.avatar_url ?? null,
+          last_sender_name: isSupport ? "Support" : fullName(senderProfile),
+          last_sender_avatar_url: isSupport ? null : (senderProfile?.avatar_url ?? null),
           unread_count: unreadCountByThread.get(threadId) ?? 0,
           participants: participantsByThread.get(threadId) ?? [],
+          is_support: isSupport,
         });
       }
 
@@ -126,6 +142,7 @@ export function useMessagesInbox(search: string) {
     },
     enabled: !!user?.id,
     staleTime: 25 * 1000,
+    refetchInterval: realtimeConnected ? false : 25_000,
   });
 
   const filtered = useMemo(() => {
@@ -138,6 +155,7 @@ export function useMessagesInbox(search: string) {
         return includesSearch(display, normalized);
       });
       return (
+        thread.is_support ||
         participantHit ||
         includesSearch(thread.last_sender_name, normalized) ||
         includesSearch(thread.last_message_text, normalized)

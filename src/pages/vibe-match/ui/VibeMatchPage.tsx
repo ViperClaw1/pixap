@@ -19,6 +19,9 @@ import { CommonActions, useNavigation, type NavigationProp, type ParamListBase }
 import { useQueries } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { vibeMatchStaticStyles, vibeMatchThemeStyles } from "./vibeMatchStyles";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import { useSubscriptionPaywallRedirect } from "@/features/subscription-paywall-redirect";
@@ -27,7 +30,7 @@ import { useProfile } from "@/entities/user";
 import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } from "@/entities/pixai";
 import { fetchAvailableSlotsForDay, useCreateBooking } from "@/entities/booking";
 import { useCreateCartItem } from "@/entities/cart";
-import { supabase } from "@/shared/api/supabase/client";
+import { startN8nWaBooking } from "@/entities/cart";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import {
@@ -53,6 +56,7 @@ import {
 } from "@/shared/theme/primaryPressable";
 import { toYmd } from "@/shared/lib/bookingCalendar";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { devWarn } from "@/shared/lib/devLog";
 
 const MOOD_PRESETS = ["romantic evening", "drunk friday", "family brunch", "solo chill", "celebration night"] as const;
 
@@ -61,38 +65,11 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLOT_MATCH_MS = 45 * 60 * 1000;
 
 function scheduleN8nWaBookingStart(cartItemId: string, accessToken: string) {
-  void supabase.functions
-    .invoke("n8n-wa-booking-start", {
-      body: { cart_item_id: cartItemId },
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    .then((res) => {
-      const { error, data } = res;
-      if (!error) return;
-      let details = error.message;
-      const rawBody = (error as { context?: { body?: string } }).context?.body;
-      if (rawBody) {
-        try {
-          const parsed = JSON.parse(rawBody) as { error?: string; step?: string; hint?: string };
-          details = `${parsed.error ?? error.message}${parsed.step ? ` [${parsed.step}]` : ""}${
-            parsed.hint ? ` — ${parsed.hint}` : ""
-          }`;
-        } catch {
-          details = `${details} ${rawBody.slice(0, 220)}`;
-        }
-      } else if (data && typeof data === "object" && data !== null && "error" in data) {
-        const parsed = data as { error?: string; step?: string; hint?: string };
-        details = `${parsed.error ?? error.message}${parsed.step ? ` [${parsed.step}]` : ""}${
-          parsed.hint ? ` — ${parsed.hint}` : ""
-        }`;
-      }
-      console.warn("[n8n-wa-booking-start] invoke failed", details);
-    })
-    .catch((error) => {
-      if (__DEV__) {
-        console.warn("[n8n-wa-booking-start] invoke failed", error);
-      }
-    });
+  void startN8nWaBooking(cartItemId, accessToken).then((result) => {
+    if (!result.ok) {
+      devWarn("[n8n-wa-booking-start] invoke failed", result.message);
+    }
+  });
 }
 
 /** Closest available slot to proposed time within SLOT_MATCH_MS; otherwise null. */
@@ -227,127 +204,11 @@ export default function VibeMatchPage() {
     [plan, stopAvailability],
   );
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: { flex: 1, backgroundColor: colors.background },
-        scroll: { padding: 16, paddingTop: Math.max(12, insets.top), paddingBottom: 32 + insets.bottom, gap: 14 },
-        topRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-        backBtn: {
-          width: 36,
-          height: 36,
-          borderRadius: 18,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        title: { color: colors.text, fontSize: 22, fontWeight: "800", flex: 1 },
-        subtitle: { color: colors.textMuted, fontSize: 13 },
-        section: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          borderRadius: 12,
-          padding: 12,
-          gap: 10,
-        },
-        label: { color: colors.textMuted, fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
-        input: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          paddingVertical: Platform.OS === "ios" ? 12 : 8,
-          color: colors.text,
-          backgroundColor: colors.background,
-        },
-        chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-        chip: {
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.background,
-        },
-        chipOn: { borderColor: colors.primary, backgroundColor: colors.border },
-        chipText: { color: colors.text, fontSize: 13, fontWeight: "600" },
-        timelineRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-        planRow: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 10,
-          padding: 10,
-          gap: 6,
-          backgroundColor: colors.background,
-        },
-        planRowWarn: { borderColor: "#c45c26" },
-        planTime: { color: colors.primary, fontWeight: "800", fontSize: 14 },
-        planName: { color: colors.text, fontWeight: "700", fontSize: 16 },
-        planDesc: { color: colors.textMuted, fontSize: 13 },
-        statusPill: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-        statusOk: { backgroundColor: "rgba(34,197,94,0.15)" },
-        statusBad: { backgroundColor: "rgba(239,68,68,0.12)" },
-        statusText: { fontSize: 11, fontWeight: "700" },
-        errorBox: { padding: 12, borderRadius: 10, backgroundColor: "rgba(239,68,68,0.08)", borderWidth: 1, borderColor: colors.border },
-        errorText: { color: colors.text, fontSize: 13 },
-        emptyText: { color: colors.textMuted, textAlign: "center", padding: 16 },
-        pickerRow: {
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        },
-        pickerRowText: { color: colors.text, fontSize: 15 },
-        pickerCheck: { color: colors.primary, fontWeight: "700", fontSize: 12 },
-        citySearchBox: {
-          marginHorizontal: 14,
-          marginBottom: 10,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          paddingHorizontal: 12,
-          height: 44,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.background,
-        },
-        citySearchInput: {
-          flex: 1,
-          fontSize: 15,
-          color: colors.text,
-          paddingVertical: 0,
-        },
-        countryHeader: {
-          paddingHorizontal: 14,
-          paddingTop: 10,
-          paddingBottom: 6,
-          backgroundColor: colors.background,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.border,
-        },
-        countryHeaderText: {
-          fontSize: 12,
-          fontWeight: "800",
-          color: colors.textMuted,
-          letterSpacing: 0.3,
-          textTransform: "uppercase",
-        },
-        cityPickerEmpty: {
-          paddingHorizontal: 14,
-          paddingVertical: 20,
-          alignItems: "center",
-        },
-        cityPickerEmptyText: { fontSize: 14, color: colors.textMuted, textAlign: "center" },
-      }),
-    [colors, insets.bottom, insets.top],
+  const themed = useThemeStyles(
+    ({ colors: c }) => vibeMatchThemeStyles(c, insets.top, insets.bottom),
+    [insets.top, insets.bottom],
   );
+  const styles = useMemo(() => mergeStaticAndThemed(vibeMatchStaticStyles, themed), [themed]);
 
   const onGenerate = useCallback(async () => {
     const m = mood.trim();
@@ -526,53 +387,53 @@ export default function VibeMatchPage() {
   const errMsg = vibeError instanceof Error ? vibeError.message : vibeError ? String(vibeError) : "";
 
   return (
-    <Animated.View style={[stylesThemed.root, keyboardRootStyle]} {...androidSwipeBackPanHandlers}>
-      <ScrollView contentContainerStyle={stylesThemed.scroll} keyboardShouldPersistTaps="handled">
-        <View style={stylesThemed.topRow}>
-          <Pressable style={stylesThemed.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back">
+    <Animated.View style={[styles.root, keyboardRootStyle]} {...androidSwipeBackPanHandlers}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.topRow}>
+          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back">
             <Ionicons name="chevron-back" size={22} color={colors.text} />
           </Pressable>
-          <Text style={stylesThemed.title}>PixAI Vibe Match</Text>
+          <Text style={styles.title}>PixAI Vibe Match</Text>
         </View>
-        <Text style={stylesThemed.subtitle}>Mood + evening flow → one-tap multi-stop cart.</Text>
+        <Text style={styles.subtitle}>Mood + evening flow → one-tap multi-stop cart.</Text>
 
-        <View style={stylesThemed.section}>
-          <Text style={stylesThemed.label}>City</Text>
+        <View style={styles.section}>
+          <Text style={styles.label}>City</Text>
           <Pressable
             onPress={() => {
               setCitySearchQuery("");
               setCityPickerVisible(true);
             }}
-            style={[stylesThemed.input, { justifyContent: "center" }]}
+            style={[styles.input, { justifyContent: "center" }]}
           >
             <Text style={{ color: city.trim() ? colors.text : colors.textMuted }}>
               {city.trim() || "Select city"}
             </Text>
           </Pressable>
-          <Text style={stylesThemed.label}>Mood</Text>
+          <Text style={styles.label}>Mood</Text>
           <TextInput
-            style={stylesThemed.input}
+            style={styles.input}
             placeholder="e.g. romantic evening"
             placeholderTextColor={colors.textMuted}
             value={mood}
             onChangeText={setMood}
           />
-          <View style={stylesThemed.chipRow}>
+          <View style={styles.chipRow}>
             {MOOD_PRESETS.map((p) => (
-              <Pressable key={p} style={stylesThemed.chip} onPress={() => setMood(p)}>
-                <Text style={stylesThemed.chipText}>{p}</Text>
+              <Pressable key={p} style={styles.chip} onPress={() => setMood(p)}>
+                <Text style={styles.chipText}>{p}</Text>
               </Pressable>
             ))}
           </View>
-          <Text style={stylesThemed.label}>Timeline</Text>
-          <View style={stylesThemed.timelineRow}>
+          <Text style={styles.label}>Timeline</Text>
+          <View style={styles.timelineRow}>
             {(["evening", "night", "late_night"] as const).map((t) => (
               <Pressable
                 key={t}
                 onPress={() => setTimeline(t)}
-                style={[stylesThemed.chip, timeline === t && stylesThemed.chipOn]}
+                style={[styles.chip, timeline === t && styles.chipOn]}
               >
-                <Text style={stylesThemed.chipText}>{t.replace("_", " ")}</Text>
+                <Text style={styles.chipText}>{t.replace("_", " ")}</Text>
               </Pressable>
             ))}
           </View>
@@ -588,8 +449,8 @@ export default function VibeMatchPage() {
             )}
           </Pressable>
           {vibeError ? (
-            <View style={stylesThemed.errorBox}>
-              <Text style={stylesThemed.errorText}>{errMsg || "Could not generate plan."}</Text>
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{errMsg || "Could not generate plan."}</Text>
               <Pressable onPress={onRetryGenerate} style={{ marginTop: 8 }}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>Retry</Text>
               </Pressable>
@@ -598,31 +459,31 @@ export default function VibeMatchPage() {
         </View>
 
         {vibeResult && !isVibeLoading ? (
-          <View style={stylesThemed.section}>
-            <Text style={stylesThemed.label}>Concierge</Text>
+          <View style={styles.section}>
+            <Text style={styles.label}>Concierge</Text>
             <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{vibeResult.assistant}</Text>
           </View>
         ) : null}
 
         {vibeResult && plan.length === 0 && !isVibeLoading ? (
-          <Text style={stylesThemed.emptyText}>No venues matched. Try another mood or city.</Text>
+          <Text style={styles.emptyText}>No venues matched. Try another mood or city.</Text>
         ) : null}
 
         {plan.length > 0 ? (
-          <View style={stylesThemed.section}>
-            <Text style={stylesThemed.label}>Your route</Text>
+          <View style={styles.section}>
+            <Text style={styles.label}>Your route</Text>
             {plan.map((stop, i) => {
               const meta = stopAvailability[i];
               const warn = meta && !meta.loading && !meta.error && !meta.bookable;
               return (
-                <View key={`${stop.venue_id}-${i}`} style={[stylesThemed.planRow, warn && stylesThemed.planRowWarn]}>
-                  <Text style={stylesThemed.planTime}>
+                <View key={`${stop.venue_id}-${i}`} style={[styles.planRow, warn && styles.planRowWarn]}>
+                  <Text style={styles.planTime}>
                     {new Date(stop.time_slot).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
                   </Text>
-                  <Text style={stylesThemed.planName}>{stop.name}</Text>
-                  {stop.description ? <Text style={stylesThemed.planDesc}>{stop.description}</Text> : null}
-                  <View style={[stylesThemed.statusPill, meta?.bookable ? stylesThemed.statusOk : stylesThemed.statusBad]}>
-                    <Text style={[stylesThemed.statusText, { color: colors.text }]}>
+                  <Text style={styles.planName}>{stop.name}</Text>
+                  {stop.description ? <Text style={styles.planDesc}>{stop.description}</Text> : null}
+                  <View style={[styles.statusPill, meta?.bookable ? styles.statusOk : styles.statusBad]}>
+                    <Text style={[styles.statusText, { color: colors.text }]}>
                       {meta?.loading
                         ? "Checking slots…"
                         : meta?.error
@@ -639,10 +500,10 @@ export default function VibeMatchPage() {
         ) : null}
 
         {plan.length > 0 ? (
-          <View style={stylesThemed.section}>
-            <Text style={stylesThemed.label}>Guest details (cart)</Text>
+          <View style={styles.section}>
+            <Text style={styles.label}>Guest details (cart)</Text>
             <TextInput
-              style={stylesThemed.input}
+              style={styles.input}
               placeholder="Party size"
               placeholderTextColor={colors.textMuted}
               keyboardType="number-pad"
@@ -650,7 +511,7 @@ export default function VibeMatchPage() {
               onChangeText={setPersons}
             />
             <TextInput
-              style={stylesThemed.input}
+              style={styles.input}
               placeholder="Full name"
               placeholderTextColor={colors.textMuted}
               value={customerName}
@@ -662,7 +523,7 @@ export default function VibeMatchPage() {
               containerStyle={{ backgroundColor: colors.background }}
             />
             <TextInput
-              style={stylesThemed.input}
+              style={styles.input}
               placeholder="Email"
               placeholderTextColor={colors.textMuted}
               keyboardType="email-address"
@@ -671,7 +532,7 @@ export default function VibeMatchPage() {
               onChangeText={setCustomerEmail}
             />
             <TextInput
-              style={[stylesThemed.input, { minHeight: 72 }]}
+              style={[styles.input, { minHeight: 72 }]}
               placeholder="Comment (optional)"
               placeholderTextColor={colors.textMuted}
               multiline
@@ -750,14 +611,14 @@ export default function VibeMatchPage() {
         title="City"
         maxHeightFraction={0.72}
       >
-        <View style={stylesThemed.citySearchBox}>
+        <View style={styles.citySearchBox}>
           <Ionicons name="search-outline" size={20} color={colors.textMuted} />
           <TextInput
             value={citySearchQuery}
             onChangeText={setCitySearchQuery}
             placeholder="Search city or country"
             placeholderTextColor={colors.textMuted}
-            style={stylesThemed.citySearchInput}
+            style={styles.citySearchInput}
             autoCorrect={false}
             autoCapitalize="none"
             clearButtonMode="while-editing"
@@ -766,29 +627,29 @@ export default function VibeMatchPage() {
 
         {filteredCityGroups.map(({ country, cities }) => (
           <View key={country}>
-            <View style={stylesThemed.countryHeader}>
-              <Text style={stylesThemed.countryHeaderText}>{country}</Text>
+            <View style={styles.countryHeader}>
+              <Text style={styles.countryHeaderText}>{country}</Text>
             </View>
             {cities.map((c) => (
               <Pressable
                 key={c}
-                style={stylesThemed.pickerRow}
+                style={styles.pickerRow}
                 onPress={() => {
                   setCity(c);
                   setCitySearchQuery("");
                   setCityPickerVisible(false);
                 }}
               >
-                <Text style={stylesThemed.pickerRowText}>{c}</Text>
-                {city.trim() === c ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
+                <Text style={styles.pickerRowText}>{c}</Text>
+                {city.trim() === c ? <Text style={styles.pickerCheck}>Selected</Text> : null}
               </Pressable>
             ))}
           </View>
         ))}
 
         {filteredCityGroups.length === 0 ? (
-          <View style={stylesThemed.cityPickerEmpty}>
-            <Text style={stylesThemed.cityPickerEmptyText}>No cities match your search</Text>
+          <View style={styles.cityPickerEmpty}>
+            <Text style={styles.cityPickerEmptyText}>No cities match your search</Text>
           </View>
         ) : null}
       </BottomSheetPickerModal>

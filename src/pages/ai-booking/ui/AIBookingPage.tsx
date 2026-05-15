@@ -17,7 +17,7 @@ import * as Location from "expo-location";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { useCartItems, useCreateCartItem } from "@/entities/cart";
+import { useCartItems, useCreateCartItem, useStartN8nWaBooking } from "@/entities/cart";
 import { useCreateBooking } from "@/entities/booking";
 import { useAvailableSlots } from "@/entities/booking";
 import { usePixAI, type PixAIFlowPayload, type PixAIPlace, type PixAISlot } from "@/entities/pixai";
@@ -36,7 +36,6 @@ import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { useEntitlement } from "@/entities/subscription";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
-import { supabase } from "@/shared/api/supabase/client";
 import {
   DEFAULT_PHONE_VALUE,
   parseStoredPhone,
@@ -44,7 +43,7 @@ import {
   validatePhoneValue,
   type PhoneValue,
 } from "@/shared/ui/phone-input";
-import { createAIBookingStyles } from "./aiBookingStyles";
+import { useAIBookingStyles } from "./aiBookingStyles";
 import { AIBookingTranscript } from "./AIBookingTranscript";
 import { AIBookingSuggestedPlaces } from "./AIBookingSuggestedPlaces";
 import { AIBookingSlotPicker } from "./AIBookingSlotPicker";
@@ -67,7 +66,13 @@ import {
   type BookingInlineThreadStyles,
   type BookingRecommendationView,
 } from "@/features/ai-booking-chat";
-import { createMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
+import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
+import { devWarn } from "@/shared/lib/devLog";
+import {
+  AI_BOOKING_COMPOSER_KEYBOARD_MARGIN,
+  AI_BOOKING_DEFAULT_COMMENT_INPUT_HEIGHT,
+  AI_BOOKING_DEFAULT_PERSONS,
+} from "../model/constants";
 
 const DEFAULT_BOOKING_REC_VIEW: BookingRecommendationView = {
   rerankedPlaceIds: [],
@@ -114,7 +119,7 @@ export default function AIBookingPage() {
     if (keyboardTop == null) return;
     const input = bookingComposerInputRef.current;
     if (!input) return;
-    const margin = 12;
+    const margin = AI_BOOKING_COMPOSER_KEYBOARD_MARGIN;
     input.measureInWindow((_x, y, _w, h) => {
       const bottom = y + h;
       const overlap = bottom - (keyboardTop - margin);
@@ -203,12 +208,13 @@ export default function AIBookingPage() {
   const { data: categories = [] } = useCategories();
   const createCartItem = useCreateCartItem();
   const createBooking = useCreateBooking();
+  const startN8nWaBooking = useStartN8nWaBooking();
   const { data: cartItems = [] } = useCartItems();
   const [currentStep, setCurrentStep] = useState<FlowStep>("city");
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [selectedCategoryName, setSelectedCategoryName] = useState<string>("");
-  const [commentInputHeight, setCommentInputHeight] = useState(88);
+  const [commentInputHeight, setCommentInputHeight] = useState(AI_BOOKING_DEFAULT_COMMENT_INPUT_HEIGHT);
   const [scope, setScope] = useState<"nearby" | "city">("city");
   const [requestComment, setRequestComment] = useState("");
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -221,7 +227,7 @@ export default function AIBookingPage() {
   const [citySearchQuery, setCitySearchQuery] = useState("");
   const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
   const [form, setForm] = useState<DraftForm>({
-    persons: "2",
+    persons: AI_BOOKING_DEFAULT_PERSONS,
     customer_name: "",
     customer_phone: DEFAULT_PHONE_VALUE,
     customer_email: "",
@@ -255,15 +261,8 @@ export default function AIBookingPage() {
     return false;
   };
 
-  const stylesThemed = useMemo(
-    () => createAIBookingStyles(colors, { top: insets.top, bottom: insets.bottom }),
-    [colors, insets.bottom, insets.top],
-  );
-
-  const messageThreadStyles = useMemo(
-    () => createMessageThreadStyles(colors, mode, insets.top, stableBottomInset),
-    [colors, mode, insets.top, stableBottomInset],
-  );
+  const styles = useAIBookingStyles({ top: insets.top, bottom: insets.bottom });
+  const messageThreadStyles = useMessageThreadStyles(insets.top, stableBottomInset);
 
   const inlineBubbleStyles = useMemo(
     (): BookingInlineThreadStyles => ({
@@ -544,38 +543,11 @@ export default function AIBookingPage() {
       });
       const accessToken = session?.access_token;
       if (accessToken && createdCartItem?.id) {
-        void supabase.functions
-          .invoke("n8n-wa-booking-start", {
-            body: { cart_item_id: createdCartItem.id },
-            headers: { Authorization: `Bearer ${accessToken}` },
-          })
-          .then((res) => {
-            const { error, data } = res;
-            if (!error) return;
-            let details = error.message;
-            const rawBody = (error as { context?: { body?: string } }).context?.body;
-            if (rawBody) {
-              try {
-                const parsed = JSON.parse(rawBody) as { error?: string; step?: string; hint?: string };
-                details = `${parsed.error ?? error.message}${parsed.step ? ` [${parsed.step}]` : ""}${
-                  parsed.hint ? ` — ${parsed.hint}` : ""
-                }`;
-              } catch {
-                details = `${details} ${rawBody.slice(0, 220)}`;
-              }
-            } else if (data && typeof data === "object" && data !== null && "error" in data) {
-              const parsed = data as { error?: string; step?: string; hint?: string };
-              details = `${parsed.error ?? error.message}${parsed.step ? ` [${parsed.step}]` : ""}${
-                parsed.hint ? ` — ${parsed.hint}` : ""
-              }`;
-            }
-            console.warn("[n8n-wa-booking-start] invoke failed", details);
-          })
-          .catch((error) => {
-            if (__DEV__) {
-              console.warn("[n8n-wa-booking-start] invoke failed", error);
-            }
-          });
+        void startN8nWaBooking.mutateAsync({ cartItemId: createdCartItem.id, accessToken }).catch((error) => {
+          if (__DEV__) {
+            devWarn("[n8n-wa-booking-start] invoke failed", error instanceof Error ? error.message : error);
+          }
+        });
       }
       Alert.alert(
         price > 0 ? "Draft created" : "Booking confirmed",
@@ -601,7 +573,7 @@ export default function AIBookingPage() {
   if (!user) {
     return (
       <View
-        style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}
+        style={[styles.root, { alignItems: "center", justifyContent: "center" }]}
         {...androidSwipeBackPanHandlers}
       >
         <ActivityIndicator color={colors.primary} />
@@ -611,7 +583,7 @@ export default function AIBookingPage() {
   if (entitlementLoading) {
     return (
       <View
-        style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}
+        style={[styles.root, { alignItems: "center", justifyContent: "center" }]}
         {...androidSwipeBackPanHandlers}
       >
         <ActivityIndicator color={colors.primary} />
@@ -621,7 +593,7 @@ export default function AIBookingPage() {
   if (shouldEnforcePaywall && !hasSubscriptionAccess) {
     return (
       <View
-        style={[stylesThemed.root, { alignItems: "center", justifyContent: "center" }]}
+        style={[styles.root, { alignItems: "center", justifyContent: "center" }]}
         {...androidSwipeBackPanHandlers}
       >
         <ActivityIndicator color={colors.primary} />
@@ -630,11 +602,11 @@ export default function AIBookingPage() {
   }
 
   return (
-    <View style={stylesThemed.root} {...androidSwipeBackPanHandlers}>
+    <View style={styles.root} {...androidSwipeBackPanHandlers}>
       <ScrollView
         ref={bookingScrollRef}
-        style={stylesThemed.root}
-        contentContainerStyle={stylesThemed.scroll}
+        style={styles.root}
+        contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         scrollEventThrottle={16}
@@ -654,32 +626,32 @@ export default function AIBookingPage() {
           };
         }}
       >
-        <View style={stylesThemed.semanticSection}>
-          <View style={stylesThemed.topRow}>
-            <Pressable style={stylesThemed.backBtn} onPress={() => navigation.goBack()}>
+        <View style={styles.semanticSection}>
+          <View style={styles.topRow}>
+            <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
               <Ionicons name="arrow-back" size={18} color={colors.text} />
             </Pressable>
-            <Text style={stylesThemed.title}>PixAI Smart Booking</Text>
+            <Text style={styles.title}>PixAI Smart Booking</Text>
           </View>
-          <Text style={stylesThemed.subtitle}>
+          <Text style={styles.subtitle}>
             Describe what you need and PixAI will suggest places and slots.
           </Text>
         </View>
 
         {currentStep === "city" ? (
-          <View style={stylesThemed.semanticSection}>
-            <Text style={stylesThemed.stepTitle}>Step 1. Choose city</Text>
+          <View style={styles.semanticSection}>
+            <Text style={styles.stepTitle}>Step 1. Choose city</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Choose city"
-              style={stylesThemed.dropdownTrigger}
+              style={styles.dropdownTrigger}
               onPress={() => {
                 setCitySearchQuery("");
                 setCityPickerVisible(true);
               }}
             >
               <Text
-                style={[stylesThemed.dropdownTriggerText, !selectedCity && stylesThemed.dropdownPlaceholder]}
+                style={[styles.dropdownTriggerText, !selectedCity && styles.dropdownPlaceholder]}
                 numberOfLines={1}
               >
                 {selectedCity || "Select city"}
@@ -690,24 +662,24 @@ export default function AIBookingPage() {
         ) : null}
 
         {currentStep === "category" ? (
-          <View style={stylesThemed.semanticSection}>
-            <Text style={stylesThemed.stepTitle}>Step 2. Choose service or table</Text>
+          <View style={styles.semanticSection}>
+            <Text style={styles.stepTitle}>Step 2. Choose service or table</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Choose service or table"
-              style={stylesThemed.dropdownTrigger}
+              style={styles.dropdownTrigger}
               onPress={() => setCategoryPickerVisible(true)}
             >
-              <View style={stylesThemed.dropdownTriggerLeft}>
+              <View style={styles.dropdownTriggerLeft}>
                 {selectedCategoryIconSpec ? (
-                  <View style={stylesThemed.pickerRowIconWrap}>
+                  <View style={styles.pickerRowIconWrap}>
                     <CategoryIcon spec={selectedCategoryIconSpec} size={14} color={colors.primary} />
                   </View>
                 ) : null}
                 <Text
                   style={[
-                    stylesThemed.dropdownTriggerText,
-                    !selectedCategoryId && stylesThemed.dropdownPlaceholder,
+                    styles.dropdownTriggerText,
+                    !selectedCategoryId && styles.dropdownPlaceholder,
                   ]}
                   numberOfLines={2}
                 >
@@ -717,7 +689,7 @@ export default function AIBookingPage() {
               <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
             </Pressable>
             <TextInput
-              style={[stylesThemed.field, stylesThemed.fieldOnCard, stylesThemed.commentField, { height: commentInputHeight }]}
+              style={[styles.field, styles.fieldOnCard, styles.commentField, { height: commentInputHeight }]}
               multiline
               value={requestComment}
               onContentSizeChange={(event) => setCommentInputHeight(Math.min(180, Math.max(88, event.nativeEvent.contentSize.height + 10)))}
@@ -727,49 +699,49 @@ export default function AIBookingPage() {
             />
             <Pressable
               disabled={!canContinueFromCategory}
-              style={[stylesThemed.primaryBtn, !canContinueFromCategory && stylesThemed.primaryBtnDisabled]}
+              style={[styles.primaryBtn, !canContinueFromCategory && styles.primaryBtnDisabled]}
               onPress={() => setCurrentStep("scope")}
             >
-              <Text style={stylesThemed.primaryBtnText}>Continue</Text>
+              <Text style={styles.primaryBtnText}>Continue</Text>
             </Pressable>
             {!canContinueFromCategory && continueValidationHint ? (
-              <Text style={stylesThemed.inlineValidationText}>{continueValidationHint}</Text>
+              <Text style={styles.inlineValidationText}>{continueValidationHint}</Text>
             ) : null}
           </View>
         ) : null}
 
         {currentStep === "scope" ? (
-          <View style={stylesThemed.semanticSection}>
-            <Text style={stylesThemed.stepTitle}>Step 3. Choose search scope</Text>
+          <View style={styles.semanticSection}>
+            <Text style={styles.stepTitle}>Step 3. Choose search scope</Text>
             <Pressable
-              style={[stylesThemed.optionChip, scope === "nearby" && stylesThemed.optionChipSelected]}
+              style={[styles.optionChip, scope === "nearby" && styles.optionChipSelected]}
               onPress={() => setScope("nearby")}
             >
-              <Text style={stylesThemed.optionChipText}>Near me (5 miles)</Text>
+              <Text style={styles.optionChipText}>Near me (5 miles)</Text>
             </Pressable>
             <Pressable
-              style={[stylesThemed.optionChip, scope === "city" && stylesThemed.optionChipSelected]}
+              style={[styles.optionChip, scope === "city" && styles.optionChipSelected]}
               onPress={() => setScope("city")}
             >
-              <Text style={stylesThemed.optionChipText}>All places in my city</Text>
+              <Text style={styles.optionChipText}>All places in my city</Text>
             </Pressable>
-            <Text style={stylesThemed.helperText}>
+            <Text style={styles.helperText}>
               Nearby search will ask for fine location permission only when you start search.
             </Text>
-            <Pressable style={stylesThemed.primaryBtn} onPress={() => void onSearchPlaces()}>
-              <Text style={stylesThemed.primaryBtnText}>{isLoading ? "Searching..." : "Search places"}</Text>
+            <Pressable style={styles.primaryBtn} onPress={() => void onSearchPlaces()}>
+              <Text style={styles.primaryBtnText}>{isLoading ? "Searching..." : "Search places"}</Text>
             </Pressable>
           </View>
         ) : null}
 
-        <AIBookingTranscript messages={messages} styles={stylesThemed} />
+        <AIBookingTranscript messages={messages} styles={styles} />
 
         {(currentStep === "places" || currentStep === "booking") &&
         hasSearched &&
         placeOptions.length > 0 &&
         bookingChatContext ? (
-          <View style={stylesThemed.semanticSection}>
-            <Text style={stylesThemed.stepTitle}>Step 4. Pix AI assistant</Text>
+          <View style={styles.semanticSection}>
+            <Text style={styles.stepTitle}>Step 4. Pix AI assistant</Text>
             <BookingInlineAssistantChat
               catalogRevision={catalogRevision}
               bookingContext={bookingChatContext}
@@ -785,7 +757,7 @@ export default function AIBookingPage() {
 
         {(currentStep === "places" || currentStep === "booking") && hasSearched && placeOptions.length > 0 ? (
           <AIBookingSuggestedPlaces
-            styles={stylesThemed}
+            styles={styles}
             places={effectivePlaces}
             selectedPlace={selectedPlace}
             onSelectPlace={onSelectPlace}
@@ -794,7 +766,7 @@ export default function AIBookingPage() {
 
         {currentStep === "booking" && selectedPlace ? (
           <AIBookingSlotPicker
-            styles={stylesThemed}
+            styles={styles}
             colors={colors}
             selectedPlace={selectedPlace}
             visibleCalendarMonth={visibleCalendarMonth}
@@ -817,7 +789,7 @@ export default function AIBookingPage() {
 
         {currentStep === "booking" ? (
           <AIBookingCustomerForm
-            styles={stylesThemed}
+            styles={styles}
             colors={colors}
             form={form}
             setForm={setForm}
@@ -828,23 +800,23 @@ export default function AIBookingPage() {
         ) : null}
       </ScrollView>
 
-      <View style={stylesThemed.footer}>
-        <View style={stylesThemed.row}>
+      <View style={styles.footer}>
+        <View style={styles.row}>
           {currentStep !== "city" ? (
             <Pressable
-              style={[stylesThemed.secondaryBtn, { flex: 1 }]}
+              style={[styles.secondaryBtn, { flex: 1 }]}
               onPress={() =>
                 setCurrentStep((step) =>
                   step === "booking" ? "places" : step === "places" ? "scope" : step === "scope" ? "category" : "city",
                 )
               }
             >
-              <Text style={stylesThemed.secondaryBtnText}>Back step</Text>
+              <Text style={styles.secondaryBtnText}>Back step</Text>
             </Pressable>
           ) : null}
           {currentStep === "places" ? (
-            <Pressable style={[stylesThemed.primaryBtn, { flex: 1 }]} onPress={() => setCurrentStep("scope")}>
-              <Text style={stylesThemed.primaryBtnText}>Refine search</Text>
+            <Pressable style={[styles.primaryBtn, { flex: 1 }]} onPress={() => setCurrentStep("scope")}>
+              <Text style={styles.primaryBtnText}>Refine search</Text>
             </Pressable>
           ) : null}
         </View>
@@ -859,14 +831,14 @@ export default function AIBookingPage() {
         title="Choose city"
         maxHeightFraction={0.72}
       >
-        <View style={stylesThemed.citySearchBox}>
+        <View style={styles.citySearchBox}>
           <Ionicons name="search-outline" size={20} color={colors.textMuted} />
           <TextInput
             value={citySearchQuery}
             onChangeText={setCitySearchQuery}
             placeholder="Search city or country"
             placeholderTextColor={colors.textMuted}
-            style={stylesThemed.citySearchInput}
+            style={styles.citySearchInput}
             autoCorrect={false}
             autoCapitalize="none"
             clearButtonMode="while-editing"
@@ -875,13 +847,13 @@ export default function AIBookingPage() {
 
         {filteredCityGroups.map(({ country, cities }) => (
           <View key={country}>
-            <View style={stylesThemed.countryHeader}>
-              <Text style={stylesThemed.countryHeaderText}>{country}</Text>
+            <View style={styles.countryHeader}>
+              <Text style={styles.countryHeaderText}>{country}</Text>
             </View>
             {cities.map((city) => (
               <Pressable
                 key={city}
-                style={stylesThemed.pickerRow}
+                style={styles.pickerRow}
                 onPress={() => {
                   setSelectedCity(city);
                   setCitySearchQuery("");
@@ -889,16 +861,16 @@ export default function AIBookingPage() {
                   setCurrentStep("category");
                 }}
               >
-                <Text style={stylesThemed.pickerRowText}>{city}</Text>
-                {selectedCity === city ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
+                <Text style={styles.pickerRowText}>{city}</Text>
+                {selectedCity === city ? <Text style={styles.pickerCheck}>Selected</Text> : null}
               </Pressable>
             ))}
           </View>
         ))}
 
         {filteredCityGroups.length === 0 ? (
-          <View style={stylesThemed.cityPickerEmpty}>
-            <Text style={stylesThemed.cityPickerEmptyText}>No cities match your search</Text>
+          <View style={styles.cityPickerEmpty}>
+            <Text style={styles.cityPickerEmptyText}>No cities match your search</Text>
           </View>
         ) : null}
       </BottomSheetPickerModal>
@@ -913,46 +885,46 @@ export default function AIBookingPage() {
           return (
             <Pressable
               key={category.id}
-              style={stylesThemed.pickerRow}
+              style={styles.pickerRow}
               onPress={() => {
                 setSelectedCategoryId(category.id);
                 setSelectedCategoryName(category.name);
                 setCategoryPickerVisible(false);
               }}
             >
-              <View style={stylesThemed.pickerRowLeft}>
-                <View style={stylesThemed.pickerRowIconWrap}>
+              <View style={styles.pickerRowLeft}>
+                <View style={styles.pickerRowIconWrap}>
                   <CategoryIcon spec={iconSpec} size={14} color={colors.primary} />
                 </View>
-                <Text style={stylesThemed.pickerRowText} numberOfLines={1}>
+                <Text style={styles.pickerRowText} numberOfLines={1}>
                   {category.name}
                 </Text>
               </View>
-              {selectedCategoryId === category.id ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
+              {selectedCategoryId === category.id ? <Text style={styles.pickerCheck}>Selected</Text> : null}
             </Pressable>
           );
         })}
         <Pressable
-          style={stylesThemed.pickerRow}
+          style={styles.pickerRow}
           onPress={() => {
             setSelectedCategoryId(RESTAURANT_TABLE_KEY);
             setSelectedCategoryName("Restaurant table");
             setCategoryPickerVisible(false);
           }}
         >
-          <View style={stylesThemed.pickerRowLeft}>
-            <View style={stylesThemed.pickerRowIconWrap}>
+          <View style={styles.pickerRowLeft}>
+            <View style={styles.pickerRowIconWrap}>
               <CategoryIcon
                 spec={{ family: "ionicons", name: "restaurant-outline" }}
                 size={14}
                 color={colors.primary}
               />
             </View>
-            <Text style={stylesThemed.pickerRowText} numberOfLines={1}>
+            <Text style={styles.pickerRowText} numberOfLines={1}>
               Restaurant table
             </Text>
           </View>
-          {isRestaurantTable ? <Text style={stylesThemed.pickerCheck}>Selected</Text> : null}
+          {isRestaurantTable ? <Text style={styles.pickerCheck}>Selected</Text> : null}
         </Pressable>
       </BottomSheetPickerModal>
     </View>

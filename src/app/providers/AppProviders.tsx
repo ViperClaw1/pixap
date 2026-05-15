@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/app/providers/AuthProvider";
 import { ThemeProvider } from "@/app/providers/ThemeProvider";
+import { AppErrorBoundary } from "@/shared/ui/error-boundary";
 import { i18n } from "@/shared/lib/i18n";
 
 const queryClient = new QueryClient({
@@ -27,7 +28,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <I18nextProvider i18n={i18n}>
             <QueryClientProvider client={queryClient}>
-              <AuthProvider>{children}</AuthProvider>
+              <AuthProvider>
+                <AppErrorBoundary>{children}</AppErrorBoundary>
+              </AuthProvider>
             </QueryClientProvider>
           </I18nextProvider>
         </ThemeProvider>

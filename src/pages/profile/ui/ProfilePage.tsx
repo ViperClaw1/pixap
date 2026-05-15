@@ -21,6 +21,7 @@ import { useCreateStory } from "@/entities/story";
 import type { ProfileStackParamList, RootTabParamList } from "@/app/navigation/types";
 import { StoriesArchiveView } from "@/widgets/stories-archive";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useProfileStyles } from "./profileStyles";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { useEntitlement } from "@/entities/subscription";
@@ -28,7 +29,7 @@ import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSh
 import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { NotificationsSheetModal } from "@/shared/ui/notifications-sheet";
-import { supabase } from "@/shared/api/supabase/client";
+import { profileStoryPathBuilder, uploadPostPickerAssets, uploadStoryPickerAssets } from "@/entities/story/lib/uploadStoriesBucketMedia";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import {
@@ -36,13 +37,7 @@ import {
   GOOGLE_SUBSCRIPTION_URL,
   MAX_POST_PHOTOS,
   PRIVACY_URL,
-  STORIES_BUCKET,
 } from "../model/constants";
-import {
-  POST_STORAGE_MAX_LONG_EDGE,
-  STORY_STORAGE_MAX_LONG_EDGE,
-  prepareImageForStorageUpload,
-} from "@/shared/lib/prepareImageForStorageUpload";
 import { formatErrorForAlert } from "@/shared/lib/formatErrorForAlert";
 import { profileFullName } from "../model/format";
 
@@ -115,479 +110,7 @@ function ProfileScreenContent() {
     navigation.setParams({ openCreateStep: undefined, openCreateModal: undefined });
   }, [navigation, route.params?.openCreateModal, route.params?.openCreateStep]);
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16 },
-        createMenuBody: {
-          paddingHorizontal: 12,
-          paddingVertical: 12,
-        },
-        createOptionGrid: {
-          flexDirection: "row",
-          gap: 10,
-        },
-        createOptionCard: {
-          flex: 1,
-          minHeight: 124,
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.background,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingHorizontal: 10,
-          paddingVertical: 14,
-          gap: 12,
-        },
-        createOptionRow: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-          paddingVertical: 14,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-        },
-        createOptionLabel: {
-          color: colors.text,
-          fontSize: 17,
-          fontWeight: "700",
-          textAlign: "center",
-        },
-        createOptionHint: {
-          color: colors.textMuted,
-          fontSize: 12,
-          textAlign: "center",
-        },
-        createOptionLoading: {
-          marginTop: 6,
-        },
-        createPostSheetBody: {
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-          minHeight: 420,
-        },
-        postUploaderBox: {
-          marginTop: 8,
-          borderWidth: 1,
-          borderStyle: "dashed",
-          borderColor: colors.border,
-          borderRadius: 14,
-          minHeight: 86,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          gap: 6,
-        },
-        postUploaderBoxError: {
-          borderColor: colors.danger,
-        },
-        postUploaderText: {
-          color: colors.textMuted,
-          fontSize: 14,
-          fontWeight: "600",
-          textAlign: "center",
-        },
-        postPhotosList: {
-          marginTop: 8,
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 8,
-        },
-        postPhotoItem: {
-          position: "relative",
-          width: 56,
-          height: 56,
-        },
-        postPhotoThumb: {
-          width: 56,
-          height: 56,
-          borderRadius: 10,
-        },
-        postPhotoRemoveBtn: {
-          position: "absolute",
-          top: -6,
-          right: -6,
-          width: 18,
-          height: 18,
-          borderRadius: 9,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        postPhotoCount: {
-          color: colors.textMuted,
-          fontSize: 12,
-        },
-        postRequiredHint: {
-          marginTop: 6,
-          color: colors.textMuted,
-          fontSize: 12,
-          fontWeight: "600",
-        },
-        composerWrap: {
-          marginTop: 12,
-        },
-        postPlaceSelectTrigger: {
-          marginTop: 10,
-          minHeight: 46,
-          borderWidth: 1,
-          borderRadius: 12,
-          borderColor: colors.border,
-          backgroundColor: colors.background,
-          paddingHorizontal: 12,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-        },
-        postPlaceSelectTriggerError: {
-          borderColor: colors.danger,
-        },
-        postPlaceSelectText: {
-          flex: 1,
-          color: colors.text,
-          fontSize: 14,
-          fontWeight: "600",
-        },
-        postPlaceSelectPlaceholder: {
-          color: colors.textMuted,
-          fontSize: 14,
-          fontWeight: "500",
-        },
-        postPlaceOptionsWrap: {
-          marginTop: 8,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 12,
-          overflow: "hidden",
-        },
-        postPlaceOption: {
-          minHeight: 42,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.border,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        },
-        postPlaceOptionText: {
-          color: colors.text,
-          fontSize: 14,
-          fontWeight: "600",
-          flex: 1,
-        },
-        createStoryLoadingOnlyWrap: {
-          minHeight: 320,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        createFlowBackBtn: {
-          minHeight: 48,
-          height: 48,
-          borderRadius: 12,
-          paddingHorizontal: 12,
-          alignItems: "center",
-          justifyContent: "center",
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.surface,
-          flex: 1,
-        },
-        createFlowBackBtnText: {
-          color: colors.textMuted,
-          fontSize: 13,
-          fontWeight: "700",
-        },
-        createPostBackRow: {
-          marginTop: 12,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
-        },
-        createStoryActionsRow: {
-          marginTop: 12,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
-        },
-        createStoryPublishBtn: {
-          ...primaryPressableStyle,
-          flex: 1,
-          minHeight: 48,
-          height: 48,
-          borderRadius: 12,
-          marginTop: 0,
-        },
-        createStoryPublishBtnText: {
-          ...primaryPressableTextStyle,
-          fontSize: 16,
-        },
-        createPostLoadingOnlyWrap: {
-          minHeight: 420,
-          flex: 1,
-          width: "100%",
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        createPostLoadingWrap: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          minHeight: 24,
-        },
-        createPostLoadingText: {
-          color: colors.textMuted,
-          fontSize: 13,
-          fontWeight: "600",
-        },
-        card: {
-          backgroundColor: colors.card,
-          borderRadius: 16,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          marginBottom: 16,
-          padding: 16,
-        },
-        profileRow: { flexDirection: "row", alignItems: "center" },
-        avatarWrap: {
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: colors.surface,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        avatarText: { color: colors.primary, fontSize: 24, fontWeight: "700" },
-        name: { fontSize: 18, fontWeight: "700", color: colors.text },
-        email: { color: colors.textMuted, marginTop: 2, fontSize: 13 },
-        emailVerificationRow: {
-          marginTop: 10,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
-          flexWrap: "wrap",
-        },
-        emailBadge: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          borderWidth: 1,
-          borderRadius: 999,
-          paddingHorizontal: 10,
-          paddingVertical: 6,
-        },
-        emailBadgeText: {
-          fontSize: 12,
-          fontWeight: "700",
-        },
-        verifyBtn: {
-          minHeight: 32,
-          borderRadius: 999,
-          borderWidth: 1,
-          borderColor: colors.primary,
-          paddingHorizontal: 12,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.background,
-        },
-        verifyBtnText: {
-          color: colors.primary,
-          fontSize: 12,
-          fontWeight: "700",
-        },
-        settingsBtn: {
-          marginLeft: "auto",
-          width: 34,
-          height: 34,
-          borderRadius: 17,
-          borderWidth: 1,
-          borderColor: colors.border,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        statRow: { flexDirection: "row", gap: 6, marginBottom: 6 },
-        statCard: {
-          flex: 1,
-          backgroundColor: colors.card,
-          borderRadius: 12,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          paddingVertical: 12,
-          alignItems: "center",
-        },
-        statValue: { color: colors.text, fontSize: 22, fontWeight: "700" },
-        statLabel: { color: colors.textMuted, fontSize: 11 },
-        bioCard: {
-          backgroundColor: colors.card,
-          borderRadius: 12,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          paddingHorizontal: 14,
-          paddingVertical: 12,
-          marginBottom: 16,
-        },
-        bioLabel: {
-          color: colors.textMuted,
-          fontSize: 12,
-          fontWeight: "700",
-          textTransform: "uppercase",
-          letterSpacing: 0.25,
-          marginBottom: 6,
-        },
-        bioText: {
-          color: colors.text,
-          fontSize: 14,
-          lineHeight: 20,
-        },
-        suggestionsSection: {
-          marginBottom: 16,
-        },
-        suggestionsHeader: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 10,
-        },
-        suggestionsTitle: {
-          color: colors.text,
-          fontSize: 18,
-          fontWeight: "700",
-        },
-        suggestionsSubtitle: {
-          color: colors.textMuted,
-          fontSize: 12,
-        },
-        suggestionScrollContent: {
-          paddingRight: 2,
-          gap: 10,
-        },
-        suggestionCard: {
-          width: 168,
-          borderRadius: 14,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          backgroundColor: colors.card,
-          padding: 12,
-        },
-        suggestionAvatarWrap: {
-          width: 66,
-          height: 66,
-          borderRadius: 33,
-          overflow: "hidden",
-          alignSelf: "center",
-          backgroundColor: colors.surface,
-        },
-        suggestionAvatarFallback: {
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        suggestionAvatarFallbackText: {
-          color: colors.text,
-          fontSize: 20,
-          fontWeight: "700",
-        },
-        suggestionName: {
-          marginTop: 10,
-          color: colors.text,
-          fontSize: 15,
-          fontWeight: "700",
-          textAlign: "center",
-        },
-        suggestionReason: {
-          marginTop: 4,
-          color: colors.textMuted,
-          fontSize: 12,
-          textAlign: "center",
-          minHeight: 16,
-        },
-        suggestionFollowBtn: {
-          marginTop: 10,
-          ...primaryPressableStyle,
-          minHeight: 38,
-          borderRadius: 10,
-        },
-        suggestionFollowBtnText: {
-          ...primaryPressableTextStyle,
-          fontSize: 14,
-        },
-        actionsCard: {
-          backgroundColor: colors.card,
-          borderRadius: 16,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          overflow: "hidden",
-        },
-        link: {
-          paddingVertical: 14,
-          paddingHorizontal: 14,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-        },
-        linkText: { color: colors.text, fontSize: 14, flex: 1, minWidth: 0 },
-        linkMenuBadge: {
-          minWidth: 22,
-          height: 22,
-          borderRadius: 11,
-          paddingHorizontal: 6,
-          backgroundColor: colors.primary,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        linkMenuBadgeText: { color: colors.onPrimary, fontSize: 11, fontWeight: "800" },
-        signOut: { ...primaryPressableStyle, marginTop: 16, marginBottom: 16, borderRadius: 10, minHeight: 44 },
-        signOutText: {
-          ...primaryPressableTextStyle,
-          fontSize: 16,
-        },
-        modalBackdrop: {
-          flex: 1,
-          backgroundColor: "rgba(0,0,0,0.6)",
-          justifyContent: "flex-end",
-          alignItems: "stretch",
-        },
-        modalContent: {
-          backgroundColor: colors.card,
-          borderTopLeftRadius: 18,
-          borderTopRightRadius: 18,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderBottomWidth: 0,
-          paddingBottom: Math.max(insets.bottom, 10),
-          flexGrow: 0,
-          flexShrink: 1,
-        },
-        modalContentLarge: { maxHeight: "75%" },
-        modalHeader: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: 14,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-        },
-        modalTitle: { color: colors.text, fontSize: 14, fontWeight: "700" },
-        closeBtn: {
-          backgroundColor: colors.surface,
-          borderRadius: 10,
-          paddingHorizontal: 10,
-          paddingVertical: 6,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        closeText: { color: colors.text, fontSize: 12, fontWeight: "600" },
-      }),
-    [colors, insets.bottom],
-  );
+  const styles = useProfileStyles();
 
   const userName = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || "User";
   const isEmailVerified = Boolean(profile?.is_verified);
@@ -702,24 +225,7 @@ function ProfileScreenContent() {
     if (!postPhotos.length) return null;
     setUploadingPostPhotos(true);
     try {
-      const uploadedUrls: string[] = [];
-      for (let idx = 0; idx < postPhotos.length; idx += 1) {
-        const asset = postPhotos[idx];
-        const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
-          maxLongEdgePx: POST_STORAGE_MAX_LONG_EDGE,
-        });
-        if (!bytes.byteLength) {
-          throw new Error("Selected image is empty. Please try another image.");
-        }
-        const path = `${user?.id ?? "anonymous"}/post-${Date.now()}-${idx}.${fileExtension}`;
-        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
-          upsert: true,
-          contentType,
-        });
-        if (uploadError) throw uploadError;
-        const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
-        uploadedUrls.push(data.publicUrl);
-      }
+      const uploadedUrls = await uploadPostPickerAssets(postPhotos, user?.id);
       return JSON.stringify(uploadedUrls);
     } finally {
       setUploadingPostPhotos(false);
@@ -730,24 +236,7 @@ function ProfileScreenContent() {
     if (!storyPhotos.length) return null;
     setUploadingStory(true);
     try {
-      const uploadedUrls: string[] = [];
-      for (let idx = 0; idx < storyPhotos.length; idx += 1) {
-        const asset = storyPhotos[idx];
-        const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
-          maxLongEdgePx: STORY_STORAGE_MAX_LONG_EDGE,
-        });
-        if (!bytes.byteLength) {
-          throw new Error("Selected image is empty. Please try another image.");
-        }
-        const path = `${user?.id ?? "anonymous"}/story-${Date.now()}-${idx}.${fileExtension}`;
-        const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
-          upsert: true,
-          contentType,
-        });
-        if (uploadError) throw uploadError;
-        const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
-        uploadedUrls.push(data.publicUrl);
-      }
+      const uploadedUrls = await uploadStoryPickerAssets(storyPhotos, user?.id, profileStoryPathBuilder);
       return JSON.stringify(uploadedUrls);
     } finally {
       setUploadingStory(false);
@@ -839,7 +328,7 @@ function ProfileScreenContent() {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
-        style={stylesThemed.root}
+        style={styles.root}
         contentContainerStyle={{ paddingTop: 12, paddingBottom: Math.max(insets.bottom, 24) }}
       >
       <AppHeader
@@ -853,9 +342,9 @@ function ProfileScreenContent() {
         onRightPress={toggleThemeMode}
         onNotificationsPress={() => setNotificationsOpen(true)}
       />
-      <View style={stylesThemed.card}>
-        <View style={stylesThemed.profileRow}>
-          <View style={stylesThemed.avatarWrap}>
+      <View style={styles.card}>
+        <View style={styles.profileRow}>
+          <View style={styles.avatarWrap}>
             {profile?.avatar_url ? (
               <SmartImage
                 uri={profile.avatar_url}
@@ -864,16 +353,16 @@ function ProfileScreenContent() {
                 contentFit="cover"
               />
             ) : (
-              <Text style={stylesThemed.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
             )}
           </View>
           <View style={{ marginLeft: 12, flex: 1 }}>
-            <Text style={stylesThemed.name}>{userName}</Text>
-            <Text style={stylesThemed.email}>{profile?.email ?? user?.email}</Text>
-            <View style={stylesThemed.emailVerificationRow}>
+            <Text style={styles.name}>{userName}</Text>
+            <Text style={styles.email}>{profile?.email ?? user?.email}</Text>
+            <View style={styles.emailVerificationRow}>
               <View
                 style={[
-                  stylesThemed.emailBadge,
+                  styles.emailBadge,
                   {
                     borderColor: isEmailVerified ? "#22c55e" : warningColor,
                     backgroundColor: isEmailVerified ? "rgba(34,197,94,0.1)" : "rgba(245,158,11,0.12)",
@@ -881,18 +370,18 @@ function ProfileScreenContent() {
                 ]}
               >
                 <Ionicons name={isEmailVerified ? "checkmark-circle-outline" : "alert-circle-outline"} size={14} color={isEmailVerified ? "#22c55e" : warningColor} />
-                <Text style={[stylesThemed.emailBadgeText, { color: isEmailVerified ? "#22c55e" : warningColor }]}>
+                <Text style={[styles.emailBadgeText, { color: isEmailVerified ? "#22c55e" : warningColor }]}>
                   {isEmailVerified ? "Email verified" : "Email not verified"}
                 </Text>
               </View>
               {!isEmailVerified ? (
-                <Pressable style={stylesThemed.verifyBtn} onPress={() => navigation.navigate("VerifyEmailOtp", { flow: "verify" })}>
-                  <Text style={stylesThemed.verifyBtnText}>Verify</Text>
+                <Pressable style={styles.verifyBtn} onPress={() => navigation.navigate("VerifyEmailOtp", { flow: "verify" })}>
+                  <Text style={styles.verifyBtnText}>Verify</Text>
                 </Pressable>
               ) : null}
             </View>
           </View>
-          <Pressable style={stylesThemed.settingsBtn} onPress={() => navigation.navigate("EditProfile")}>
+          <Pressable style={styles.settingsBtn} onPress={() => navigation.navigate("EditProfile")}>
             <Ionicons name="settings-outline" size={16} color={colors.text} />
           </Pressable>
         </View>
@@ -906,34 +395,34 @@ function ProfileScreenContent() {
           ) : null}
         </View>
       </View>
-      <View style={stylesThemed.statRow}>
+      <View style={styles.statRow}>
         <Pressable
-          style={stylesThemed.statCard}
+          style={styles.statCard}
           onPress={() => navigation.navigate("Bookings", { screen: "BookingsMain" })}
           accessibilityRole="button"
           accessibilityLabel="Open bookings"
         >
-          <Text style={stylesThemed.statValue}>{bookings.length}</Text>
-          <Text style={stylesThemed.statLabel}>Bookings</Text>
+          <Text style={styles.statValue}>{bookings.length}</Text>
+          <Text style={styles.statLabel}>Bookings</Text>
         </Pressable>
         
         <Pressable
-          style={stylesThemed.statCard}
+          style={styles.statCard}
           onPress={() => navigation.navigate("Favorites")}
           accessibilityRole="button"
           accessibilityLabel="Open favorites"
         >
-          <Text style={stylesThemed.statValue}>{favorites.length}</Text>
-          <Text style={stylesThemed.statLabel}>Favorites</Text>
+          <Text style={styles.statValue}>{favorites.length}</Text>
+          <Text style={styles.statLabel}>Favorites</Text>
         </Pressable>
-        <View style={stylesThemed.statCard}>
-          <Text style={stylesThemed.statValue}>0</Text>
-          <Text style={stylesThemed.statLabel}>Reviews</Text>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>0</Text>
+          <Text style={styles.statLabel}>Reviews</Text>
         </View>
       </View>
-      <View style={stylesThemed.statRow}>
+      <View style={styles.statRow}>
         <Pressable
-          style={stylesThemed.statCard}
+          style={styles.statCard}
           onPress={() =>
             navigation.navigate("Feed", {
               screen: "FeedMain",
@@ -943,39 +432,39 @@ function ProfileScreenContent() {
           accessibilityRole="button"
           accessibilityLabel="Open my posts in feed"
         >
-          <Text style={stylesThemed.statValue}>{postsCount}</Text>
-          <Text style={stylesThemed.statLabel}>Posts</Text>
+          <Text style={styles.statValue}>{postsCount}</Text>
+          <Text style={styles.statLabel}>Posts</Text>
         </Pressable>
         <Pressable
-          style={stylesThemed.statCard}
+          style={styles.statCard}
           onPress={() => navigation.navigate("Cart", { screen: "CartMain" })}
           accessibilityRole="button"
           accessibilityLabel="Open messages"
         >
-          <Text style={stylesThemed.statValue}>{followersCount}</Text>
-          <Text style={stylesThemed.statLabel}>Followed</Text>
+          <Text style={styles.statValue}>{followersCount}</Text>
+          <Text style={styles.statLabel}>Followed</Text>
         </Pressable>
         <Pressable
-          style={stylesThemed.statCard}
+          style={styles.statCard}
           onPress={() => navigation.navigate("Cart", { screen: "CartMain" })}
           accessibilityRole="button"
           accessibilityLabel="Open messages"
         >
-          <Text style={stylesThemed.statValue}>{followingCount}</Text>
-          <Text style={stylesThemed.statLabel}>Following</Text>
+          <Text style={styles.statValue}>{followingCount}</Text>
+          <Text style={styles.statLabel}>Following</Text>
         </Pressable>
         
       </View>
-      <View style={stylesThemed.suggestionsSection}>
-        <View style={stylesThemed.suggestionsHeader}>
-          <Text style={stylesThemed.suggestionsTitle}>Suggestions</Text>
-          <Text style={stylesThemed.suggestionsSubtitle}>Follow some accounts</Text>
+      <View style={styles.suggestionsSection}>
+        <View style={styles.suggestionsHeader}>
+          <Text style={styles.suggestionsTitle}>Suggestions</Text>
+          <Text style={styles.suggestionsSubtitle}>Follow some accounts</Text>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={stylesThemed.suggestionScrollContent}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionScrollContent}>
           {suggestions.length ? (
             suggestions.map((item) => (
-              <View key={item.id} style={stylesThemed.suggestionCard}>
-                <View style={stylesThemed.suggestionAvatarWrap}>
+              <View key={item.id} style={styles.suggestionCard}>
+                <View style={styles.suggestionAvatarWrap}>
                   {item.avatar_url ? (
                     <SmartImage
                       uri={getOptimizedImageUrl(item.avatar_url, 132, 132, 72)}
@@ -985,54 +474,54 @@ function ProfileScreenContent() {
                       skipBundledPlaceholder
                     />
                   ) : (
-                    <View style={stylesThemed.suggestionAvatarFallback}>
-                      <Text style={stylesThemed.suggestionAvatarFallbackText}>
+                    <View style={styles.suggestionAvatarFallback}>
+                      <Text style={styles.suggestionAvatarFallbackText}>
                         {profileFullName(item.first_name, item.last_name).charAt(0).toUpperCase()}
                       </Text>
                     </View>
                   )}
                 </View>
-                <Text style={stylesThemed.suggestionName} numberOfLines={1}>
+                <Text style={styles.suggestionName} numberOfLines={1}>
                   {profileFullName(item.first_name, item.last_name)}
                 </Text>
-                <Text style={stylesThemed.suggestionReason} numberOfLines={1}>
+                <Text style={styles.suggestionReason} numberOfLines={1}>
                   {item.reason}
                 </Text>
                 <Pressable
-                  style={stylesThemed.suggestionFollowBtn}
+                  style={styles.suggestionFollowBtn}
                   onPress={() => void toggleFollow.mutateAsync({ followingId: item.id, isFollowing: false })}
                   disabled={toggleFollow.isPending}
                 >
-                  <Text style={stylesThemed.suggestionFollowBtnText}>Follow</Text>
+                  <Text style={styles.suggestionFollowBtnText}>Follow</Text>
                 </Pressable>
               </View>
             ))
           ) : (
-            <View style={[stylesThemed.suggestionCard, { width: 220 }]}>
-              <Text style={stylesThemed.suggestionReason}>No suggestions yet</Text>
+            <View style={[styles.suggestionCard, { width: 220 }]}>
+              <Text style={styles.suggestionReason}>No suggestions yet</Text>
             </View>
           )}
         </ScrollView>
       </View>
-      <View style={stylesThemed.bioCard}>
-        <Text style={stylesThemed.bioLabel}>Bio</Text>
-        <Text style={stylesThemed.bioText}>{profile?.bio?.trim() || "Tell people about yourself in Edit Profile."}</Text>
+      <View style={styles.bioCard}>
+        <Text style={styles.bioLabel}>Bio</Text>
+        <Text style={styles.bioText}>{profile?.bio?.trim() || "Tell people about yourself in Edit Profile."}</Text>
       </View>
 
-      <View style={stylesThemed.actionsCard}>
+      <View style={styles.actionsCard}>
         {actions.map((item, index) => (
           <Pressable
             key={item.key}
-            style={[stylesThemed.link, index === actions.length - 1 ? { borderBottomWidth: 0 } : null]}
+            style={[styles.link, index === actions.length - 1 ? { borderBottomWidth: 0 } : null]}
             onPress={item.onPress}
           >
             <Ionicons name={item.icon} size={20} color={colors.textMuted} />
-            <Text style={stylesThemed.linkText} numberOfLines={1}>
+            <Text style={styles.linkText} numberOfLines={1}>
               {item.label}
             </Text>
             {item.badgeCount != null && item.badgeCount > 0 ? (
-              <View style={stylesThemed.linkMenuBadge}>
-                <Text style={stylesThemed.linkMenuBadgeText}>{item.badgeCount > 9 ? "9+" : String(item.badgeCount)}</Text>
+              <View style={styles.linkMenuBadge}>
+                <Text style={styles.linkMenuBadgeText}>{item.badgeCount > 9 ? "9+" : String(item.badgeCount)}</Text>
               </View>
             ) : null}
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
@@ -1040,12 +529,12 @@ function ProfileScreenContent() {
         ))}
       </View>
       {(role === "admin" || role === "partner") && (
-        <Pressable style={[stylesThemed.link, { marginTop: 10 }]} onPress={() => navigation.navigate("AdminImageUpload")}>
-          <Text style={stylesThemed.linkText}>Partner: upload listing image</Text>
+        <Pressable style={[styles.link, { marginTop: 10 }]} onPress={() => navigation.navigate("AdminImageUpload")}>
+          <Text style={styles.linkText}>Partner: upload listing image</Text>
         </Pressable>
       )}
-      <Pressable style={stylesThemed.signOut} onPress={() => void signOut()}>
-        <Text style={stylesThemed.signOutText}>Log Out</Text>
+      <Pressable style={styles.signOut} onPress={() => void signOut()}>
+        <Text style={styles.signOutText}>Log Out</Text>
       </Pressable>
 
       <BottomSheetPickerModal
@@ -1055,37 +544,37 @@ function ProfileScreenContent() {
         maxHeightFraction={0.68}
       >
         {createStep === "menu" ? (
-          <View style={stylesThemed.createMenuBody}>
-            <View style={stylesThemed.createOptionGrid}>
-              <Pressable style={stylesThemed.createOptionCard} onPress={() => setCreateStep("post")}>
+          <View style={styles.createMenuBody}>
+            <View style={styles.createOptionGrid}>
+              <Pressable style={styles.createOptionCard} onPress={() => setCreateStep("post")}>
                 <Ionicons name="grid-outline" size={34} color={colors.text} />
-                <Text style={stylesThemed.createOptionLabel}>Post</Text>
-                <Text style={stylesThemed.createOptionHint}>Create a new post</Text>
+                <Text style={styles.createOptionLabel}>Post</Text>
+                <Text style={styles.createOptionHint}>Create a new post</Text>
               </Pressable>
               <Pressable
-                style={stylesThemed.createOptionCard}
+                style={styles.createOptionCard}
                 onPress={() => {
                   setCreateStep("story");
                 }}
                 disabled={uploadingStory || createStory.isPending}
               >
                 <Ionicons name="add-circle-outline" size={34} color={colors.text} />
-                <Text style={stylesThemed.createOptionLabel}>Story</Text>
+                <Text style={styles.createOptionLabel}>Story</Text>
                 {uploadingStory || createStory.isPending ? (
-                  <ActivityIndicator style={stylesThemed.createOptionLoading} size="small" color={colors.primary} />
+                  <ActivityIndicator style={styles.createOptionLoading} size="small" color={colors.primary} />
                 ) : (
-                  <Text style={stylesThemed.createOptionHint}>Share a quick story</Text>
+                  <Text style={styles.createOptionHint}>Share a quick story</Text>
                 )}
               </Pressable>
             </View>
           </View>
         ) : createStep === "post" ? (
-          <View style={stylesThemed.createPostSheetBody}>
+          <View style={styles.createPostSheetBody}>
             {createPost.isPending || uploadingPostPhotos ? (
-              <View style={stylesThemed.createPostLoadingOnlyWrap}>
-                <View style={stylesThemed.createPostLoadingWrap}>
+              <View style={styles.createPostLoadingOnlyWrap}>
+                <View style={styles.createPostLoadingWrap}>
                   <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={stylesThemed.createPostLoadingText}>
+                  <Text style={styles.createPostLoadingText}>
                     {uploadingPostPhotos ? "Uploading photos..." : "Publishing post..."}
                   </Text>
                 </View>
@@ -1093,21 +582,21 @@ function ProfileScreenContent() {
             ) : null}
             {!(createPost.isPending || uploadingPostPhotos) ? (
               <>
-                <Pressable style={stylesThemed.postUploaderBox} onPress={() => void pickPostPhotos()}>
+                <Pressable style={styles.postUploaderBox} onPress={() => void pickPostPhotos()}>
                   <Ionicons name="images-outline" size={22} color={colors.textMuted} />
-                  <Text style={stylesThemed.postUploaderText}>Tap to add photos</Text>
-                  <Text style={stylesThemed.postPhotoCount}>
+                  <Text style={styles.postUploaderText}>Tap to add photos</Text>
+                  <Text style={styles.postPhotoCount}>
                     {postPhotos.length ? `${postPhotos.length}/${MAX_POST_PHOTOS} selected` : `Up to ${MAX_POST_PHOTOS} photos`}
                   </Text>
                 </Pressable>
-                <Text style={stylesThemed.postRequiredHint}>Required: place and post text.</Text>
+                <Text style={styles.postRequiredHint}>Required: place and post text.</Text>
                 {postPhotos.length ? (
-                  <View style={stylesThemed.postPhotosList}>
+                  <View style={styles.postPhotosList}>
                     {postPhotos.map((photo) => (
-                      <View key={photo.uri} style={stylesThemed.postPhotoItem}>
-                        <SmartImage uri={photo.uri} style={stylesThemed.postPhotoThumb} contentFit="cover" />
+                      <View key={photo.uri} style={styles.postPhotoItem}>
+                        <SmartImage uri={photo.uri} style={styles.postPhotoThumb} contentFit="cover" />
                         <Pressable
-                          style={stylesThemed.postPhotoRemoveBtn}
+                          style={styles.postPhotoRemoveBtn}
                           onPress={() => {
                             setPostPhotos((prev) => prev.filter((item) => item.uri !== photo.uri));
                           }}
@@ -1120,12 +609,12 @@ function ProfileScreenContent() {
                 ) : null}
                 <Pressable
                   style={[
-                    stylesThemed.postPlaceSelectTrigger,
-                    postPlaceError ? stylesThemed.postPlaceSelectTriggerError : null,
+                    styles.postPlaceSelectTrigger,
+                    postPlaceError ? styles.postPlaceSelectTriggerError : null,
                   ]}
                   onPress={() => setPostPlacePickerOpen((prev) => !prev)}
                 >
-                  <Text style={selectedPostPlaceId ? stylesThemed.postPlaceSelectText : stylesThemed.postPlaceSelectPlaceholder}>
+                  <Text style={selectedPostPlaceId ? styles.postPlaceSelectText : styles.postPlaceSelectPlaceholder}>
                     {selectedPostPlaceId
                       ? (postPlaceOptions.find((option) => option.id === selectedPostPlaceId)?.name ?? "Selected place")
                       : "Select place"}
@@ -1133,24 +622,24 @@ function ProfileScreenContent() {
                   <Ionicons name={postPlacePickerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
                 </Pressable>
                 {postPlacePickerOpen ? (
-                  <View style={stylesThemed.postPlaceOptionsWrap}>
+                  <View style={styles.postPlaceOptionsWrap}>
                     {postPlaceOptions.map((option, index) => (
                       <Pressable
                         key={option.id}
-                        style={[stylesThemed.postPlaceOption, index === postPlaceOptions.length - 1 ? { borderBottomWidth: 0 } : null]}
+                        style={[styles.postPlaceOption, index === postPlaceOptions.length - 1 ? { borderBottomWidth: 0 } : null]}
                         onPress={() => {
                           setSelectedPostPlaceId(option.id);
                           setPostPlaceError(false);
                           setPostPlacePickerOpen(false);
                         }}
                       >
-                        <Text style={stylesThemed.postPlaceOptionText}>{option.name}</Text>
+                        <Text style={styles.postPlaceOptionText}>{option.name}</Text>
                         {selectedPostPlaceId === option.id ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
                       </Pressable>
                     ))}
                   </View>
                 ) : null}
-                <View style={stylesThemed.composerWrap}>
+                <View style={styles.composerWrap}>
                   <CommentComposer
                     avatarUrl={currentUserAvatar}
                     value={postInput}
@@ -1172,20 +661,20 @@ function ProfileScreenContent() {
               </>
             ) : null}
             {!(createPost.isPending || uploadingPostPhotos) ? (
-              <View style={stylesThemed.createPostBackRow}>
-                <Pressable style={stylesThemed.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
-                  <Text style={stylesThemed.createFlowBackBtnText}>Back to create options</Text>
+              <View style={styles.createPostBackRow}>
+                <Pressable style={styles.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
+                  <Text style={styles.createFlowBackBtnText}>Back to create options</Text>
                 </Pressable>
               </View>
             ) : null}
           </View>
         ) : (
-          <View style={stylesThemed.createPostSheetBody}>
+          <View style={styles.createPostSheetBody}>
             {createStory.isPending || uploadingStory ? (
-              <View style={stylesThemed.createStoryLoadingOnlyWrap}>
-                <View style={stylesThemed.createPostLoadingWrap}>
+              <View style={styles.createStoryLoadingOnlyWrap}>
+                <View style={styles.createPostLoadingWrap}>
                   <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={stylesThemed.createPostLoadingText}>
+                  <Text style={styles.createPostLoadingText}>
                     {uploadingStory ? "Uploading photos..." : "Publishing story..."}
                   </Text>
                 </View>
@@ -1194,23 +683,23 @@ function ProfileScreenContent() {
             {!(createStory.isPending || uploadingStory) ? (
               <>
                 <Pressable
-                  style={[stylesThemed.postUploaderBox, storyPhotosError ? stylesThemed.postUploaderBoxError : null]}
+                  style={[styles.postUploaderBox, storyPhotosError ? styles.postUploaderBoxError : null]}
                   onPress={() => void pickStoryPhotos()}
                 >
                   <Ionicons name="images-outline" size={22} color={colors.textMuted} />
-                  <Text style={stylesThemed.postUploaderText}>Tap to add photos</Text>
-                  <Text style={stylesThemed.postPhotoCount}>
+                  <Text style={styles.postUploaderText}>Tap to add photos</Text>
+                  <Text style={styles.postPhotoCount}>
                     {storyPhotos.length ? `${storyPhotos.length}/${MAX_POST_PHOTOS} selected` : `Up to ${MAX_POST_PHOTOS} photos`}
                   </Text>
                 </Pressable>
-                <Text style={stylesThemed.postRequiredHint}>Required: at least 1 photo and place.</Text>
+                <Text style={styles.postRequiredHint}>Required: at least 1 photo and place.</Text>
                 {storyPhotos.length ? (
-                  <View style={stylesThemed.postPhotosList}>
+                  <View style={styles.postPhotosList}>
                     {storyPhotos.map((photo) => (
-                      <View key={photo.uri} style={stylesThemed.postPhotoItem}>
-                        <SmartImage uri={photo.uri} style={stylesThemed.postPhotoThumb} contentFit="cover" />
+                      <View key={photo.uri} style={styles.postPhotoItem}>
+                        <SmartImage uri={photo.uri} style={styles.postPhotoThumb} contentFit="cover" />
                         <Pressable
-                          style={stylesThemed.postPhotoRemoveBtn}
+                          style={styles.postPhotoRemoveBtn}
                           onPress={() => {
                             setStoryPhotos((prev) => prev.filter((item) => item.uri !== photo.uri));
                           }}
@@ -1223,12 +712,12 @@ function ProfileScreenContent() {
                 ) : null}
                 <Pressable
                   style={[
-                    stylesThemed.postPlaceSelectTrigger,
-                    storyPlaceError ? stylesThemed.postPlaceSelectTriggerError : null,
+                    styles.postPlaceSelectTrigger,
+                    storyPlaceError ? styles.postPlaceSelectTriggerError : null,
                   ]}
                   onPress={() => setStoryPlacePickerOpen((prev) => !prev)}
                 >
-                  <Text style={selectedStoryPlaceId ? stylesThemed.postPlaceSelectText : stylesThemed.postPlaceSelectPlaceholder}>
+                  <Text style={selectedStoryPlaceId ? styles.postPlaceSelectText : styles.postPlaceSelectPlaceholder}>
                     {selectedStoryPlaceId
                       ? (postPlaceOptions.find((option) => option.id === selectedStoryPlaceId)?.name ?? "Selected place")
                       : "Select place"}
@@ -1236,18 +725,18 @@ function ProfileScreenContent() {
                   <Ionicons name={storyPlacePickerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
                 </Pressable>
                 {storyPlacePickerOpen ? (
-                  <View style={stylesThemed.postPlaceOptionsWrap}>
+                  <View style={styles.postPlaceOptionsWrap}>
                     {postPlaceOptions.map((option, index) => (
                       <Pressable
                         key={option.id}
-                        style={[stylesThemed.postPlaceOption, index === postPlaceOptions.length - 1 ? { borderBottomWidth: 0 } : null]}
+                        style={[styles.postPlaceOption, index === postPlaceOptions.length - 1 ? { borderBottomWidth: 0 } : null]}
                         onPress={() => {
                           setSelectedStoryPlaceId(option.id);
                           setStoryPlaceError(false);
                           setStoryPlacePickerOpen(false);
                         }}
                       >
-                        <Text style={stylesThemed.postPlaceOptionText}>{option.name}</Text>
+                        <Text style={styles.postPlaceOptionText}>{option.name}</Text>
                         {selectedStoryPlaceId === option.id ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
                       </Pressable>
                     ))}
@@ -1256,16 +745,16 @@ function ProfileScreenContent() {
               </>
             ) : null}
             {!(createStory.isPending || uploadingStory) ? (
-              <View style={stylesThemed.createStoryActionsRow}>
-                <Pressable style={stylesThemed.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
-                  <Text style={stylesThemed.createFlowBackBtnText}>Back to create options</Text>
+              <View style={styles.createStoryActionsRow}>
+                <Pressable style={styles.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
+                  <Text style={styles.createFlowBackBtnText}>Back to create options</Text>
                 </Pressable>
                 <Pressable
-                  style={stylesThemed.createStoryPublishBtn}
+                  style={styles.createStoryPublishBtn}
                   onPress={() => void submitStory()}
                   disabled={createStory.isPending || uploadingStory}
                 >
-                  <Text style={stylesThemed.createStoryPublishBtnText}>Publish story</Text>
+                  <Text style={styles.createStoryPublishBtnText}>Publish story</Text>
                 </Pressable>
               </View>
             ) : null}

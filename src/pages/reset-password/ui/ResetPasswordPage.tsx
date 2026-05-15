@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator, Platform, Keyboard } from "react-native";
+import { Text, TextInput, Pressable, Alert, ActivityIndicator, Platform, Keyboard } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,7 +12,10 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import Toast from "react-native-toast-message";
-import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
+import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { resetPasswordStaticStyles, resetPasswordThemeStyles } from "./resetPasswordStyles";
+import { devInfo } from "@/shared/lib/devLog";
 import { supabase } from "@/shared/api/supabase/client";
 import { RESET_PASSWORD_COPY_KEYS, RESET_PASSWORD_RULE_KEYS } from "../model/constants";
 
@@ -55,87 +58,39 @@ export default function ResetPasswordScreen() {
   const passwordRuleStates = [hasMinPasswordLength, hasPasswordUppercase, hasPasswordDigit, hasPasswordSpecial] as const;
 
   useEffect(() => {
-    if (!__DEV__) return;
-    console.info("[ResetPassword] Screen mounted.");
-    console.info("[ResetPassword] Incoming URL:", url ?? "<empty>");
+    devInfo("[ResetPassword] Screen mounted.");
+    devInfo("[ResetPassword] Incoming URL:", url ?? "<empty>");
     void supabase.auth.getSession().then(({ data: { session } }) => {
-      console.info("[ResetPassword] Session available:", Boolean(session?.access_token));
-      console.info("[ResetPassword] Session user:", session?.user?.id ?? "<none>");
+      devInfo("[ResetPassword] Session available:", Boolean(session?.access_token));
+      devInfo("[ResetPassword] Session user:", session?.user?.id ?? "<none>");
     });
   }, [url]);
 
-  const stylesThemed = useMemo(
-    () =>
-      StyleSheet.create({
-        root: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20 },
-        content: {
-          flexGrow: 1,
-          justifyContent: "center",
-        },
-        title: { fontSize: 24, fontWeight: "800", color: colors.text, marginBottom: 8 },
-        hint: { color: colors.textMuted, marginBottom: 16, fontSize: 14 },
-        fieldWrap: {
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 14,
-          padding: 14,
-          marginBottom: 12,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          backgroundColor: colors.card,
-        },
-        fieldWrapError: {
-          borderColor: colors.danger,
-        },
-        input: {
-          fontSize: 16,
-          color: colors.text,
-          flex: 1,
-          paddingVertical: 0,
-        },
-        passwordRules: {
-          marginTop: -2,
-          marginBottom: 10,
-          gap: 4,
-        },
-        passwordRuleItem: {
-          color: colors.textMuted,
-          fontSize: 13,
-          lineHeight: 18,
-        },
-        inlineError: {
-          marginTop: -4,
-          marginBottom: 10,
-          color: colors.danger,
-          fontSize: 12,
-        },
-        btn: { ...primaryPressableStyle, marginTop: 8, borderRadius: 12 },
-        btnDisabled: { opacity: 0.6 },
-        btnText: primaryPressableTextStyle,
-      }),
-    [colors],
+  const themed = useThemeStyles(({ colors: c }) => resetPasswordThemeStyles(c));
+  const styles = useMemo(
+    () => mergeStaticAndThemed(resetPasswordStaticStyles, themed),
+    [themed],
   );
 
   return (
     <Animated.ScrollView
-      style={stylesThemed.root}
-      contentContainerStyle={[stylesThemed.content, scrollContentStyle]}
+      style={styles.root}
+      contentContainerStyle={[styles.content, scrollContentStyle]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
     >
-      <Text style={stylesThemed.title}>{t(RESET_PASSWORD_COPY_KEYS.title)}</Text>
+      <Text style={styles.title}>{t(RESET_PASSWORD_COPY_KEYS.title)}</Text>
       {url ? (
-        <Text style={stylesThemed.hint}>{t(RESET_PASSWORD_COPY_KEYS.hintLinkReceived)}</Text>
+        <Text style={styles.hint}>{t(RESET_PASSWORD_COPY_KEYS.hintLinkReceived)}</Text>
       ) : (
-        <Text style={stylesThemed.hint}>{t(RESET_PASSWORD_COPY_KEYS.hintChooseNew)}</Text>
+        <Text style={styles.hint}>{t(RESET_PASSWORD_COPY_KEYS.hintChooseNew)}</Text>
       )}
       <Pressable
-        style={[stylesThemed.fieldWrap]}
+        style={[styles.fieldWrap]}
         onPress={() => undefined}
       >
         <TextInput
-          style={stylesThemed.input}
+          style={styles.input}
           placeholder={t("auth.placeholderPassword")}
           placeholderTextColor={colors.textMuted}
           value={password}
@@ -151,11 +106,11 @@ export default function ResetPasswordScreen() {
         </Pressable>
       </Pressable>
       {passwordTouched ? (
-        <Pressable style={stylesThemed.passwordRules} onPress={() => undefined}>
+        <Pressable style={styles.passwordRules} onPress={() => undefined}>
           {RESET_PASSWORD_RULE_KEYS.map((ruleKey, idx) => {
             const isSatisfied = passwordRuleStates[idx] ?? false;
             return (
-              <Text key={ruleKey} style={[stylesThemed.passwordRuleItem, { color: passwordRuleColor(isSatisfied) }]}>
+              <Text key={ruleKey} style={[styles.passwordRuleItem, { color: passwordRuleColor(isSatisfied) }]}>
                 • {t(ruleKey)}
               </Text>
             );
@@ -163,11 +118,11 @@ export default function ResetPasswordScreen() {
         </Pressable>
       ) : null}
       <Pressable
-        style={[stylesThemed.fieldWrap, showPasswordsMismatch ? stylesThemed.fieldWrapError : null]}
+        style={[styles.fieldWrap, showPasswordsMismatch ? styles.fieldWrapError : null]}
         onPress={() => undefined}
       >
         <TextInput
-          style={stylesThemed.input}
+          style={styles.input}
           placeholder={t("auth.placeholderConfirmPassword")}
           placeholderTextColor={colors.textMuted}
           value={confirm}
@@ -179,20 +134,16 @@ export default function ResetPasswordScreen() {
           <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
         </Pressable>
       </Pressable>
-      {showPasswordsMismatch ? <Text style={stylesThemed.inlineError}>{t("auth.inlinePasswordsMismatch")}</Text> : null}
+      {showPasswordsMismatch ? <Text style={styles.inlineError}>{t("auth.inlinePasswordsMismatch")}</Text> : null}
       {busy ? <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} /> : null}
       <Pressable
-        style={[stylesThemed.btn, busy ? stylesThemed.btnDisabled : null]}
+        style={[styles.btn, busy ? styles.btnDisabled : null]}
         disabled={busy}
         onPress={async () => {
-          if (__DEV__) {
-            console.info("[ResetPassword] Submit pressed.");
-          }
+          devInfo("[ResetPassword] Submit pressed.");
           Keyboard.dismiss();
           if (password.length < 8) {
-            if (__DEV__) {
-              console.info("[ResetPassword] Validation failed: password too short.");
-            }
+            devInfo("[ResetPassword] Validation failed: password too short.");
             Alert.alert(t(RESET_PASSWORD_COPY_KEYS.alertTooShortTitle), t(RESET_PASSWORD_COPY_KEYS.alertTooShortBody));
             return;
           }
@@ -201,9 +152,7 @@ export default function ResetPasswordScreen() {
             return;
           }
           if (password !== confirm) {
-            if (__DEV__) {
-              console.info("[ResetPassword] Validation failed: password mismatch.");
-            }
+            devInfo("[ResetPassword] Validation failed: password mismatch.");
             setConfirmPasswordTouched(true);
             Alert.alert(t(RESET_PASSWORD_COPY_KEYS.alertMismatchTitle), t(RESET_PASSWORD_COPY_KEYS.passwordsMismatchBody));
             return;
@@ -212,15 +161,11 @@ export default function ResetPasswordScreen() {
           try {
             const { error } = await updatePassword(password);
             if (error) {
-              if (__DEV__) {
-                console.info("[ResetPassword] Password update failed:", error);
-              }
+              devInfo("[ResetPassword] Password update failed:", error);
               Toast.show({ type: "error", text1: t(RESET_PASSWORD_COPY_KEYS.toastUpdateFailedTitle), text2: error });
               return;
             }
-            if (__DEV__) {
-              console.info("[ResetPassword] Password updated successfully. Navigating to ProfileMain.");
-            }
+            devInfo("[ResetPassword] Password updated successfully. Navigating to ProfileMain.");
             Toast.show({
               type: "success",
               text1: t(RESET_PASSWORD_COPY_KEYS.toastUpdatedTitle),
@@ -232,7 +177,7 @@ export default function ResetPasswordScreen() {
           }
         }}
       >
-        <Text style={stylesThemed.btnText}>{t(RESET_PASSWORD_COPY_KEYS.btnUpdate)}</Text>
+        <Text style={styles.btnText}>{t(RESET_PASSWORD_COPY_KEYS.btnUpdate)}</Text>
       </Pressable>
     </Animated.ScrollView>
   );

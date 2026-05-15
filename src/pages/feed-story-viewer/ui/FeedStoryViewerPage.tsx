@@ -24,6 +24,7 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useStoryProgress, useStoryViewer, useReplyToStory, useReactToStory } from "@/entities/story";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { StoryMediaSlide } from "@/widgets/stories-strip";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import Toast from "react-native-toast-message";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
@@ -365,14 +366,12 @@ export default function FeedStoryViewerPage() {
                 onPressOut={() => setPaused(false)}
                 delayLongPress={180}
               >
-                <SmartImage
-                  uri={optimized || rawUri}
+                <StoryMediaSlide
+                  optimizedUri={optimized || rawUri}
                   fallbackUri={rawUri}
                   recyclingKey={`feed-story-viewer-${item.key}`}
-                  style={styles.absoluteFill}
-                  contentFit="cover"
-                  priority="high"
-                  transition={90}
+                  width={width}
+                  height={height}
                 />
               </Pressable>
             );

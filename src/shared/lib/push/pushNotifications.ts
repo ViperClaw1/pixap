@@ -2,6 +2,7 @@ import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { supabase } from "@/shared/api/supabase/client";
+import { devLog, devWarn } from "@/shared/lib/devLog";
 
 let notificationHandlerInstalled = false;
 
@@ -42,13 +43,9 @@ export async function registerNativePushToken(userId: string): Promise<void> {
     try {
       const expo = await Notifications.getExpoPushTokenAsync({ projectId });
       expoPushToken = expo.data;
-      if (__DEV__) {
-        console.log("[push] Expo token (send-test-push / outbox delivery):", expoPushToken);
-      }
+      devLog("[push] Expo token (send-test-push / outbox delivery):", expoPushToken);
     } catch (e) {
-      if (__DEV__) {
-        console.warn("[push] getExpoPushTokenAsync failed", e instanceof Error ? e.message : e);
-      }
+      devWarn("[push] getExpoPushTokenAsync failed", e instanceof Error ? e.message : e);
     }
   }
 
@@ -64,6 +61,6 @@ export async function registerNativePushToken(userId: string): Promise<void> {
   );
 
   if (error) {
-    console.warn("[push] Failed to save token", error.message);
+    devWarn("[push] Failed to save token", error.message);
   }
 }

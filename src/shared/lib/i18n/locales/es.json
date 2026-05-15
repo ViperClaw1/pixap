@@ -79,6 +79,9 @@
     "toastFollowFailed": "Error al seguir",
     "toastTryAgain": "Inténtalo de nuevo.",
     "toastCouldNotOpenChat": "No se pudo abrir el chat",
+    "toastCouldNotOpenSupport": "No se pudo abrir el chat de soporte",
+    "support": "Soporte",
+    "supportSubtitle": "Chatea con nuestro equipo",
     "followed": "Siguiendo"
   },
   "bookings": {
@@ -192,5 +195,14 @@
       "toastUpdatedBody": "Sesión iniciada correctamente. Bienvenido de nuevo.",
       "btnUpdate": "Actualizar contraseña"
     }
+  },
+  "errorBoundary": {
+    "retry": "Reintentar",
+    "appTitle": "Algo salió mal",
+    "appDescription": "La aplicación encontró un error inesperado. Puedes intentarlo de nuevo.",
+    "feedTitle": "Feed no disponible",
+    "feedDescription": "No pudimos cargar el feed. Toca abajo para reintentar.",
+    "bookingTitle": "Reserva no disponible",
+    "bookingDescription": "Algo salió mal al abrir la reserva. Toca abajo para reintentar."
   }
 }

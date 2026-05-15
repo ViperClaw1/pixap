@@ -1,15 +1,12 @@
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { supabase } from "@/shared/api/supabase/client";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { STORY_STORAGE_MAX_LONG_EDGE, prepareImageForStorageUpload } from "@/shared/lib/prepareImageForStorageUpload";
 import { encodeBlurHashFromPickerAssetUri } from "@/shared/lib/encodeMediaBlurHash";
 import { formatErrorForAlert } from "@/shared/lib/formatErrorForAlert";
 import type { StorySourceOption } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
+import { uploadStoryPickerAssets } from "../lib/uploadStoriesBucketMedia";
 import { useCreateStory } from "./useCreateStory";
-
-const STORIES_BUCKET = "stories";
 
 export function useAddStoryMediaFlow(placeId: string | null) {
   const { user } = useAuth();
@@ -26,23 +23,13 @@ export function useAddStoryMediaFlow(placeId: string | null) {
         for (let i = 0; i < assets.length; i += 1) {
           const asset = assets[i];
           const blurHash = await encodeBlurHashFromPickerAssetUri(asset.uri);
-          const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
-            maxLongEdgePx: STORY_STORAGE_MAX_LONG_EDGE,
-          });
-          if (!bytes.byteLength) {
-            throw new Error("Selected image is empty. Please try another image.");
-          }
-          const path = `${user?.id ?? "anonymous"}/${startedAt}-${i}-${Math.random().toString(36).slice(2, 10)}.${fileExtension}`;
-          const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
-            upsert: true,
-            contentType,
-          });
-          if (uploadError) throw uploadError;
-          const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
+          const [publicUrl] = await uploadStoryPickerAssets([asset], user?.id, ({ userId, fileExtension }) =>
+            `${userId}/${startedAt}-${i}-${Math.random().toString(36).slice(2, 10)}.${fileExtension}`,
+          );
           await createStory.mutateAsync({
             placeId,
             content: "New story",
-            mediaUrl: data.publicUrl,
+            mediaUrl: publicUrl,
             expiryTime,
             mediaBlurhashes: blurHash ? [blurHash] : null,
           });

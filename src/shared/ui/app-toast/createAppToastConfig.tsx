@@ -3,9 +3,7 @@ import { Text, View } from "react-native";
 import type { ToastConfig } from "react-native-toast-message";
 import type { ThemeColors } from "@/shared/theme/palettes";
 
-const ACCENT_BORDER = "#ec6544";
-
-const toastShellStyle = {
+const toastShellBase = {
   width: "auto" as const,
   alignSelf: "stretch" as const,
   marginHorizontal: 14,
@@ -13,7 +11,6 @@ const toastShellStyle = {
   paddingHorizontal: 16,
   paddingVertical: 14,
   borderWidth: 1,
-  borderColor: ACCENT_BORDER,
 };
 
 type ToastLinesProps = {
@@ -25,7 +22,7 @@ type ToastLinesProps = {
 
 const ToastLines = memo(function ToastLines({ colors, text1, text2, text1Color }: ToastLinesProps) {
   return (
-    <View style={[toastShellStyle, { backgroundColor: colors.card }]}>
+    <View style={[toastShellBase, { backgroundColor: colors.card, borderColor: colors.accent }]}>
       {text1 ? <Text style={{ color: text1Color, fontSize: 14, fontWeight: "700" }}>{text1}</Text> : null}
       {text2 ? <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>{text2}</Text> : null}
     </View>

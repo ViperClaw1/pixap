@@ -1,0 +1,2 @@
+-- Superseded by 20260518000002_fix_message_thread_participants_rls_recursion.sql
+-- (inline subquery on this table causes infinite RLS recursion).

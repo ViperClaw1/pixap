@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { env } from "@/shared/lib/env";
+import { devInfo, devWarn } from "@/shared/lib/devLog";
 
 type SupabaseRuntimeConfig = {
   url: string;
@@ -40,14 +41,12 @@ export const supabase = createClient<Database>(runtimeConfig.url, runtimeConfig.
   },
 });
 
-if (__DEV__) {
-  try {
-    const host = new URL(runtimeConfig.url).hostname;
-    console.info("[supabase] native client:", host);
-  } catch {
-    console.warn("[supabase] native client: invalid EXPO_PUBLIC_SUPABASE_URL");
-  }
-  if (runtimeConfig.error) {
-    console.warn("[supabase] config error:", runtimeConfig.error);
-  }
+try {
+  const host = new URL(runtimeConfig.url).hostname;
+  devInfo("[supabase] native client:", host);
+} catch {
+  devWarn("[supabase] native client: invalid EXPO_PUBLIC_SUPABASE_URL");
+}
+if (runtimeConfig.error) {
+  devWarn("[supabase] config error:", runtimeConfig.error);
 }

@@ -22,6 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import type { ThemeColors } from "@/shared/theme/palettes";
+import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import { Ionicons } from "@expo/vector-icons";
 import type { BookingChatContext, BookingChatMessage } from "../model/types";
 import type { PixAIPlace } from "@/entities/pixai";
@@ -265,7 +266,7 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
             <FlashList<BookingChatListRow>
               data={listRows}
               keyExtractor={bookingChatListRowKey}
-              estimatedItemSize={100}
+              estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.aiBookingChat}
               renderItem={renderMessage}
               contentContainerStyle={{ paddingVertical: 8 }}
               keyboardShouldPersistTaps="handled"
