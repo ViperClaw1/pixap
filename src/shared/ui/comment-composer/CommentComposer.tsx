@@ -1,6 +1,6 @@
 import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 

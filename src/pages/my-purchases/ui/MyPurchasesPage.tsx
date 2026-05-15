@@ -4,13 +4,13 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { usePaidCartItems } from "@/entities/cart";
 import type { CartItem } from "@/entities/cart";
 import { usePaidShoppingCartItems } from "@/entities/shopping";
 import type { ShoppingCartItem } from "@/entities/shopping";
-import type { ProfileStackParamList } from "@/navigation/types";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import type { ProfileStackParamList } from "@/app/navigation/types";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "MyPurchases">;
 

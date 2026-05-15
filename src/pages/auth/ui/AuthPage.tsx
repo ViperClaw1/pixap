@@ -22,12 +22,12 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/shared/api/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession";
 import { env } from "@/shared/lib/env";
 import { getOAuthRedirectUri } from "@/shared/lib/oauthRedirect";
-import type { ProfileStackParamList } from "@/navigation/types";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import type { ProfileStackParamList } from "@/app/navigation/types";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import {
   AUTH_PRIMARY_COLOR,
   SHARED_PRESSABLE_HEIGHT,

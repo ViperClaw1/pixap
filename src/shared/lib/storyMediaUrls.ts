@@ -8,13 +8,20 @@ export function parseStoryMediaUrls(raw?: string | null): string[] {
     try {
       const parsed = JSON.parse(value) as unknown;
       if (Array.isArray(parsed)) {
-        return parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+        return parsed
+          .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+          .map((s) => s.trim());
       }
     } catch {
       return [];
     }
   }
   return [value];
+}
+
+/** First slide URL (callers that only support a single image). */
+export function parseStoryMediaPrimaryUrl(raw?: string | null): string | null {
+  return parseStoryMediaUrls(raw)[0] ?? null;
 }
 
 export function resolveStoryStorageUrl(pathOrUrl: string): string {

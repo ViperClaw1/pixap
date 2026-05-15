@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/shared/api/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { STORY_STORAGE_MAX_LONG_EDGE, prepareImageForStorageUpload } from "@/shared/lib/prepareImageForStorageUpload";
 import { encodeBlurHashFromPickerAssetUri } from "@/shared/lib/encodeMediaBlurHash";
 import { formatErrorForAlert } from "@/shared/lib/formatErrorForAlert";

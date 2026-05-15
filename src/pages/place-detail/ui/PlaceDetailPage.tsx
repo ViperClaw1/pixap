@@ -18,15 +18,15 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCard } from "@/entities/business-card";
 import { useReviews } from "@/entities/review";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
-import { DirectionsModal } from "@/components/DirectionsModal";
-import type { BrowseFlowParamList } from "@/navigation/types";
-import { navigateToProfileAuth } from "@/navigation/navigationHelpers";
-import { useAppTheme } from "@/contexts/ThemeContext";
-import { getLatestBusinessCardImage, normalizeBusinessCardImages } from "@/lib/businessCardImages";
+import { DirectionsModal } from "@/shared/ui/directions-modal";
+import type { BrowseFlowParamList } from "@/app/navigation/types";
+import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { getLatestBusinessCardImage, normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import Carousel from "react-native-reanimated-carousel";
-import { StoryBubblesRow } from "@/components/stories/StoryBubblesRow";
+import { StoryBubblesRow } from "@/widgets/stories-strip";
 import { useStories } from "@/entities/story";
 import {
   SHARED_PRESSABLE_HEIGHT,
@@ -35,7 +35,7 @@ import {
   primaryPressableTextStyle,
 } from "@/shared/theme/primaryPressable";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
-import { StoryProgressBar } from "@/components/stories/StoryProgressBar";
+import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { Easing, cancelAnimation, useSharedValue, withTiming } from "react-native-reanimated";
 
 type R = RouteProp<BrowseFlowParamList, "PlaceDetail">;

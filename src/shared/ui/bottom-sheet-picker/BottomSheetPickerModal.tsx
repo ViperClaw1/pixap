@@ -4,7 +4,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 
 const SHEET_MAX_FRACTION = 0.5;
 /** Grabber + title row + border — must match layout below */

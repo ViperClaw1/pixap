@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { normalizeOptionalUuid } from "@/shared/lib/normalizeOptionalUuid";
 
 interface CreateStoryInput {
   /** Null when the story is not tied to a business listing (e.g. from address-only post). */
@@ -20,10 +21,11 @@ export const useCreateStory = () => {
     mutationFn: async ({ placeId, content, mediaUrl, expiryTime, mediaBlurhashes }: CreateStoryInput) => {
       if (!user?.id) throw new Error("Authentication required");
       const text = content.trim();
+      const normalizedPlaceId = normalizeOptionalUuid(placeId);
 
       const insertRow: Record<string, unknown> = {
         user_id: user.id,
-        place_id: placeId ?? null,
+        place_id: normalizedPlaceId,
         // Keep content optional for story-from-post flow while preserving non-empty DB writes.
         content: text || " ",
         media_url: mediaUrl?.trim() ? mediaUrl.trim() : null,
@@ -44,8 +46,9 @@ export const useCreateStory = () => {
       return data;
     },
     onSuccess: (_data, variables) => {
-      if (variables.placeId) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.stories.placePrefix(variables.placeId) });
+      const placeForCache = normalizeOptionalUuid(variables.placeId);
+      if (placeForCache) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.stories.placePrefix(placeForCache) });
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.stories.strip });
       void queryClient.invalidateQueries({ queryKey: queryKeys.stories.feedPrefix });

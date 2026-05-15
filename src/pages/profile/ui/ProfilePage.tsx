@@ -8,7 +8,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useProfile } from "@/entities/user";
 import { useUserRole } from "@/entities/user";
 import { useProfileSocialMetrics, useSuggestedProfiles, useToggleFollow } from "@/entities/user";
@@ -18,9 +18,9 @@ import { useFavorites } from "@/entities/favorite";
 import { useBookings } from "@/entities/booking";
 import { useCreatePost } from "@/entities/post";
 import { useCreateStory } from "@/entities/story";
-import type { ProfileStackParamList, RootTabParamList } from "@/navigation/types";
-import { StoriesArchiveView } from "@/pages/stories-archive";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import type { ProfileStackParamList, RootTabParamList } from "@/app/navigation/types";
+import { StoriesArchiveView } from "@/widgets/stories-archive";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { useEntitlement } from "@/entities/subscription";
@@ -30,7 +30,7 @@ import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { NotificationsSheetModal } from "@/shared/ui/notifications-sheet";
 import { supabase } from "@/shared/api/supabase/client";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
-import type { ThemeMode } from "@/contexts/ThemeContext";
+import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import {
   APPLE_SUBSCRIPTION_URL,
   GOOGLE_SUBSCRIPTION_URL,

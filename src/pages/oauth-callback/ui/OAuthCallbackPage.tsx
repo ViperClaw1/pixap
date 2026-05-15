@@ -3,8 +3,8 @@ import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import * as Linking from "expo-linking";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { HomeStackParamList, RootTabParamList } from "@/navigation/types";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import type { HomeStackParamList, RootTabParamList } from "@/app/navigation/types";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 type RootNav = NativeStackNavigationProp<RootTabParamList>;

@@ -3,25 +3,25 @@ import { useTranslation } from "react-i18next";
 import { View, Text, Pressable, FlatList, ActivityIndicator, Alert, ScrollView, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Linking from "expo-linking";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useCartItems, useConfirmServiceCartBooking, type CartItem } from "@/entities/cart";
 import { useShoppingCart } from "@/entities/shopping";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { CartStackParamList } from "@/navigation/types";
+import type { CartStackParamList } from "@/app/navigation/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { supabase } from "@/shared/api/supabase/client";
-import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import {
   buildAvailabilityMessage,
   openWhatsAppAvailability,
   resolveShoppingWhatsAppPhone,
   shoppingCartContextLines,
-} from "@/lib/whatsappAvailability";
+} from "@/entities/shopping/lib/whatsappAvailability";
 import { createCartStyles, ServiceCartRow, ShopRow } from "@/widgets/cart";
 
 export default function CartPage() {

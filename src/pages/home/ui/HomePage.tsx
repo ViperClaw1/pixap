@@ -30,10 +30,10 @@ import {
 import { useCategories, CategoryIcon, resolveCategoryIconSpec, type Category } from "@/entities/category";
 import { useUnreadCount } from "@/entities/notification";
 import { useProfile, useUpdateProfile } from "@/entities/user";
-import type { HomeStackParamList, RootTabParamList } from "@/navigation/types";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import type { HomeStackParamList, RootTabParamList } from "@/app/navigation/types";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import ThemeToggle from "@/shared/ui/theme-toggle/ThemeToggle";
-import BusinessPlaceCard from "@/components/BusinessPlaceCard";
+import BusinessPlaceCard from "@/widgets/place-card";
 import {
   ShimmerProvider,
   CategorySkeletonRow,

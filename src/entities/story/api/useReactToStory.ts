@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
-import { useAuth } from "@/contexts/AuthContext";
-import type { StoryReactionType } from "@/types/stories";
+import { useAuth } from "@/app/providers/AuthProvider";
+import type { StoryReactionType } from "@/shared/model/types/stories";
 
 interface ReactToStoryInput {
   storyId?: string;

@@ -4,9 +4,9 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { ProfileStackParamList } from "@/navigation/types";
-import { navigateToHomeMain } from "@/navigation/navigationHelpers";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import type { ProfileStackParamList } from "@/app/navigation/types";
+import { navigateToHomeMain } from "@/app/navigation/navigationHelpers";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "NotFound">;

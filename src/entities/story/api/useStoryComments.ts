@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
-import { useAuth } from "@/contexts/AuthContext";
-import type { StoryProfile } from "@/types/stories";
+import { useAuth } from "@/app/providers/AuthProvider";
+import type { StoryProfile } from "@/shared/model/types/stories";
 
 export interface StoryComment {
   id: string;

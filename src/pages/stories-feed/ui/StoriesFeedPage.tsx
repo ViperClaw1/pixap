@@ -24,8 +24,8 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import Carousel, { type CarouselRenderItem } from "react-native-reanimated-carousel";
-import { useAppTheme } from "@/contexts/ThemeContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useCreateStory, useStoriesFeed, useStoriesStrip } from "@/entities/story";
 import {
   useCreatePost,
@@ -64,11 +64,11 @@ import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
 import { ShimmerSurface } from "@/shared/ui/shimmer/ShimmerSurface";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { StorySourcePickerModal, type StorySourceOption } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
-import type { BrowseFlowParamList, FeedStackParamList, RootTabParamList } from "@/navigation/types";
+import type { BrowseFlowParamList, FeedStackParamList, RootTabParamList } from "@/app/navigation/types";
 import * as ImagePicker from "expo-image-picker";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
-import type { StoryGroup } from "@/types/stories";
+import type { StoryGroup } from "@/shared/model/types/stories";
 import Toast from "react-native-toast-message";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 
@@ -1028,7 +1028,8 @@ export default function StoriesFeedScreen() {
       quality: 0.82,
       allowsEditing: false,
       allowsMultipleSelection: true,
-      selectionLimit: 0,
+      // `0` is documented as "unlimited" but some Android builds treat it like "single"; use an explicit cap.
+      selectionLimit: 20,
       base64: false,
     });
     if (!result.canceled && result.assets.length > 0) {

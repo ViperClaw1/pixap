@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { StoryItem } from "@/types/stories";
+import type { StoryItem } from "@/shared/model/types/stories";
 import { rotateStoriesFromIndex } from "./archiveViewer";
 
 function makeStory(id: string): StoryItem {

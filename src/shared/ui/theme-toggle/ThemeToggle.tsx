@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 
 type Props = {
   size?: number;

@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { Ionicons } from "@expo/vector-icons";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { PublicProfileItem } from "@/entities/user";
 
 type Props = {

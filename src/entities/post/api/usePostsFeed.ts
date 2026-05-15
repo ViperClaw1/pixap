@@ -2,10 +2,10 @@ import { useCallback, useMemo } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
-import { useAuth } from "@/contexts/AuthContext";
-import type { PostItem, PostProfile, PostReactionType } from "@/types/posts";
+import { useAuth } from "@/app/providers/AuthProvider";
+import type { PostItem, PostProfile, PostReactionType } from "@/shared/model/types/posts";
 import { useMyFollowing } from "@/entities/user";
-import { normalizeBusinessCardImages } from "@/lib/businessCardImages";
+import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
 
 type PostRow = {

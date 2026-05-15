@@ -1,4 +1,4 @@
-import type { StoryItem } from "@/types/stories";
+import type { StoryItem } from "@/shared/model/types/stories";
 
 export function rotateStoriesFromIndex(stories: StoryItem[], startIndex: number): StoryItem[] {
   if (!stories.length) return [];

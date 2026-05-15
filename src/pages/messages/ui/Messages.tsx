@@ -6,15 +6,15 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppTheme } from "@/contexts/ThemeContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import Toast from "react-native-toast-message";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 import { useMyFollowing, useToggleFollow } from "@/entities/user";
 import { usePublicProfiles } from "@/entities/user";
 import { useMarkThreadRead, useMessagesInbox, useOpenOrCreateThread, usePeopleToFollow } from "@/entities/messages";
-import type { CartStackParamList } from "@/navigation/types";
+import type { CartStackParamList } from "@/app/navigation/types";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 

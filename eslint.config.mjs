@@ -3,6 +3,42 @@ import tseslint from "typescript-eslint";
 import boundaries from "eslint-plugin-boundaries";
 import globals from "globals";
 
+/** FSD: each feature slice is isolated — no imports from sibling features. */
+const FEATURE_SLICES = [
+  "ai-booking-chat",
+  "auth-session-redirect",
+  "email-verification-otp",
+  "message-attachments",
+  "message-link-preview",
+  "subscription-paywall-redirect",
+];
+
+const featureElements = FEATURE_SLICES.map((name) => ({
+  type: `feature-${name}`,
+  pattern: `src/features/${name}/**/*`,
+}));
+
+const toAllFeatures = FEATURE_SLICES.map((name) => ({ to: { type: `feature-${name}` } }));
+
+const featureSelfOnlyRules = FEATURE_SLICES.map((name) => ({
+  from: { type: `feature-${name}` },
+  allow: [
+    { to: { type: "shared" } },
+    { to: { type: "entities" } },
+    { to: { type: "app" } },
+    { to: { type: `feature-${name}` } },
+  ],
+}));
+
+const boundariesElements = [
+  { type: "app", pattern: "src/app/**/*" },
+  { type: "pages", pattern: "src/pages/**/*" },
+  { type: "widgets", pattern: "src/widgets/**/*" },
+  { type: "entities", pattern: "src/entities/**/*" },
+  { type: "shared", pattern: "src/shared/**/*" },
+  ...featureElements,
+];
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -22,31 +58,55 @@ export default tseslint.config(
     },
     settings: {
       "boundaries/dependency-nodes": ["import"],
-      "boundaries/elements": [
-        { type: "app", pattern: "src/app/**/*" },
-        { type: "pages", pattern: "src/pages/**/*" },
-        { type: "widgets", pattern: "src/widgets/**/*" },
-        { type: "features", pattern: "src/features/**/*" },
-        { type: "entities", pattern: "src/entities/**/*" },
-        { type: "shared", pattern: "src/shared/**/*" },
-        { type: "infra", pattern: "src/{navigation,contexts,services,types}/**/*" },
-        { type: "legacy", pattern: "src/{components,lib}/**/*" },
-      ],
+      "boundaries/elements": boundariesElements,
     },
     rules: {
-      "boundaries/element-types": [
+      "boundaries/dependencies": [
         "error",
         {
           default: "allow",
           rules: [
-            { from: "shared", allow: ["shared", "infra"] },
-            { from: "entities", allow: ["shared", "entities", "infra"] },
-            { from: "features", allow: ["shared", "entities", "features", "infra", "legacy"] },
-            { from: "widgets", allow: ["shared", "entities", "features", "widgets", "infra"] },
-            { from: "pages", allow: ["shared", "entities", "features", "widgets", "pages", "infra", "legacy"] },
-            { from: "app", allow: ["shared", "entities", "features", "widgets", "pages", "app", "infra", "legacy"] },
-            { from: "infra", allow: ["shared", "entities", "features", "widgets", "pages", "infra", "legacy", "app"] },
-            { from: "legacy", allow: ["shared", "entities", "features", "widgets", "pages", "infra", "legacy", "app"] },
+            {
+              from: { type: "shared" },
+              allow: [{ to: { type: "shared" } }, { to: { type: "app" } }],
+            },
+            {
+              from: { type: "entities" },
+              allow: [{ to: { type: "shared" } }, { to: { type: "entities" } }, { to: { type: "app" } }],
+            },
+            ...featureSelfOnlyRules,
+            {
+              from: { type: "widgets" },
+              allow: [
+                { to: { type: "shared" } },
+                { to: { type: "entities" } },
+                ...toAllFeatures,
+                { to: { type: "widgets" } },
+                { to: { type: "app" } },
+              ],
+            },
+            {
+              from: { type: "pages" },
+              allow: [
+                { to: { type: "shared" } },
+                { to: { type: "entities" } },
+                ...toAllFeatures,
+                { to: { type: "widgets" } },
+                { to: { type: "pages" } },
+                { to: { type: "app" } },
+              ],
+            },
+            {
+              from: { type: "app" },
+              allow: [
+                { to: { type: "shared" } },
+                { to: { type: "entities" } },
+                ...toAllFeatures,
+                { to: { type: "widgets" } },
+                { to: { type: "pages" } },
+                { to: { type: "app" } },
+              ],
+            },
           ],
         },
       ],

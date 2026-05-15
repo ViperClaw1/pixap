@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import type { StoryGroup, StoryItem } from "@/types/stories";
+import type { StoryGroup, StoryItem } from "@/shared/model/types/stories";
 
 interface Params {
   groups: StoryGroup[];
@@ -131,6 +131,7 @@ export const useStoryViewer = ({ groups, initialGroupIndex, initialStoryIndex, l
 
   return useMemo(
     () => ({
+      /** Index of the user group currently shown (matches `groups[currentGroupIndex]`). */
       currentGroupIndex,
       currentStoryIndex,
       activeGroup,

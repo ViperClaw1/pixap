@@ -5,10 +5,10 @@ import { useNavigation, useRoute, type RouteProp } from "@react-navigation/nativ
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession";
 import { supabase } from "@/shared/api/supabase/client";
-import type { ProfileStackParamList, RootTabParamList } from "@/navigation/types";
+import type { ProfileStackParamList, RootTabParamList } from "@/app/navigation/types";
 import Toast from "react-native-toast-message";
 
 const CALLBACK_TIMEOUT_MS = 20000;

@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
-import type { MessageParticipantProfile } from "@/types/messages";
+import type { MessageParticipantProfile } from "@/shared/model/types/messages";
 
 type MessageRow = {
   id: string;

@@ -8,10 +8,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
 import Toast from "react-native-toast-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppTheme } from "@/contexts/ThemeContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useProfile } from "@/entities/user";
-import type { ProfileStackParamList } from "@/navigation/types";
+import type { ProfileStackParamList } from "@/app/navigation/types";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "VerifyEmailOtp">;

@@ -8,10 +8,10 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { useDeleteMessage, useReactToMessage, useSendMessage, useThreadMessages } from "@/entities/messages";
-import type { CartStackParamList, RootTabParamList } from "@/navigation/types";
+import type { CartStackParamList, RootTabParamList } from "@/app/navigation/types";
 import Toast from "react-native-toast-message";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -20,7 +20,7 @@ import { formatRelativeLastSeen, peerFullName } from "../model/format";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import type { MessageThreadListRow } from "../model/types";
-import { createMessageThreadStyles } from "./messageThreadStyles";
+import { createMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { MessageThreadListItem } from "./MessageThreadListItem";
 import {
   AttachmentViewerModal,
@@ -377,7 +377,11 @@ export default function MessageThreadPage() {
                   .mutateAsync({
                     threadId: params.threadId,
                     content: draft,
-                    attachments: attachments.map((x) => x.uri),
+                    attachments: attachments.map((x) => ({
+                      uri: x.uri,
+                      mimeType: x.mimeType,
+                      name: x.name,
+                    })),
                   })
                   .then(() => {
                     setDraft("");

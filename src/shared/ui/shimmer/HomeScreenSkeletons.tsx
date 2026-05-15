@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { View, ScrollView, StyleSheet } from "react-native";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { ShimmerSurface } from "./ShimmerSurface";
 
 /** Must match `BusinessPlaceCard` layout. */

@@ -4,19 +4,19 @@ import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import Toast from "react-native-toast-message";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { AppProviders } from "@/app";
-import AppNavigator from "@/navigation/AppNavigator";
-import { linking } from "@/navigation/linking";
-import { rootNavigationRef } from "@/navigation/rootNavigationRef";
+import AppNavigator from "@/app/navigation/AppNavigator";
+import { linking } from "@/app/navigation/linking";
+import { rootNavigationRef } from "@/app/navigation/rootNavigationRef";
 import { bootstrapI18n, hydrateI18nFromStorage } from "@/shared/lib/i18n";
-import { subscribeSupabaseAuthDeepLinks } from "@/shared/lib/subscribeSupabaseAuthDeepLinks";
+import { subscribeSupabaseAuthDeepLinks } from "@/app/navigation/subscribeSupabaseAuthDeepLinks";
 import PermissionsOnboardingScreen from "@/pages/permissions-onboarding";
 import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/shared/lib/permissionsStorage";
 import { supabaseConfigError } from "@/shared/api/supabase/client";
 import { logStartupDiagnostics } from "@/shared/lib/startupDiagnostics";
 import { useAppToastConfig } from "@/shared/ui/app-toast/createAppToastConfig";
-import { ensurePushNotificationHandler } from "@/services/pushNotifications";
+import { ensurePushNotificationHandler } from "@/shared/lib/push/pushNotifications";
 import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);

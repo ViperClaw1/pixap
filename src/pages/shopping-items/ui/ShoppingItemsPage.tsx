@@ -21,12 +21,12 @@ import {
   useAddToShoppingCart,
   type ShoppingItem,
 } from "@/entities/shopping";
-import { useAuth } from "@/contexts/AuthContext";
-import type { BrowseFlowParamList } from "@/navigation/types";
-import { navigateToProfileAuth } from "@/navigation/navigationHelpers";
-import { useAppTheme } from "@/contexts/ThemeContext";
-import { getLatestBusinessCardImage } from "@/lib/businessCardImages";
-import { isAuthRequiredError } from "@/lib/authRequired";
+import { useAuth } from "@/app/providers/AuthProvider";
+import type { BrowseFlowParamList } from "@/app/navigation/types";
+import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 
 type R = RouteProp<BrowseFlowParamList, "ShoppingItems">;

@@ -16,12 +16,12 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppTheme } from "@/contexts/ThemeContext";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useCartItems, useCreateCartItem } from "@/entities/cart";
 import { useCreateBooking } from "@/entities/booking";
 import { useAvailableSlots } from "@/entities/booking";
 import { usePixAI, type PixAIFlowPayload, type PixAIPlace, type PixAISlot } from "@/entities/pixai";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import { useSubscriptionPaywallRedirect } from "@/features/subscription-paywall-redirect";
 import {
@@ -35,7 +35,7 @@ import { useProfile } from "@/entities/user";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { useEntitlement } from "@/entities/subscription";
-import { isAuthRequiredError, navigateToAuthScreen } from "@/lib/authRequired";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import { supabase } from "@/shared/api/supabase/client";
 import {
   DEFAULT_PHONE_VALUE,
@@ -67,7 +67,7 @@ import {
   type BookingInlineThreadStyles,
   type BookingRecommendationView,
 } from "@/features/ai-booking-chat";
-import { createMessageThreadStyles } from "@/pages/message-thread/ui/messageThreadStyles";
+import { createMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 
 const DEFAULT_BOOKING_REC_VIEW: BookingRecommendationView = {
   rerankedPlaceIds: [],

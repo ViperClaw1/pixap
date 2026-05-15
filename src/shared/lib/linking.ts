@@ -6,13 +6,13 @@ const schemePrefix = `${env.stripeReturnScheme}://`;
 
 export const linkingPrefixes = [...httpsPrefixes, schemePrefix, Linking.createURL("/")];
 
-/** e.g. pixapp://payment-success — matched in navigation `getStateFromPath` → Cart/PaymentSuccess */
+/** e.g. pixapp://payment-success — matched in app `getStateFromPath` → Cart/PaymentSuccess */
 export const stripeSuccessUrl = () => `${schemePrefix}payment-success`;
 export const stripeCancelUrl = () => `${schemePrefix}payment-canceled`;
 
 /**
  * Nested config for root bottom tabs (`RootTabParamList`).
- * Stripe return URLs use root path `payment-success` / `payment-canceled` (see navigation/linking.ts).
+ * Stripe return URLs use root path `payment-success` / `payment-canceled` (see app/navigation/linking.ts).
  */
 export const linkingConfig = {
   screens: {
