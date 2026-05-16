@@ -23,6 +23,7 @@ import { StoriesArchiveView } from "@/widgets/stories-archive";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useProfileStyles } from "./profileStyles";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { useEntitlement } from "@/entities/subscription";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
@@ -253,13 +254,13 @@ function ProfileScreenContent() {
     if (createPost.isPending || uploadingPostPhotos) return;
     try {
       const mediaUrl = await uploadPostPhotos();
-      const created = (await createPost.mutateAsync({
+      const created = await createPost.mutateAsync({
         placeId: createPlaceId,
         content: trimmedPostInput,
         mediaUrl,
-      })) as unknown as { id: string | number };
+      });
       resetPostComposer();
-      goToFeedWithFocus({ postId: String(created.id) });
+      goToFeedWithFocus({ postId: created.id });
     } catch (error) {
       Alert.alert(t("profile.alerts.postFailedTitle"), formatErrorForAlert(error, t("profile.alerts.postFailedBody")));
     }
@@ -277,14 +278,14 @@ function ProfileScreenContent() {
     if (createStory.isPending || uploadingStory) return;
     try {
       const mediaUrl = await uploadStoryPhotos();
-      const created = (await createStory.mutateAsync({
+      const created = await createStory.mutateAsync({
         placeId: selectedStoryPlaceId,
         content: "New story",
         mediaUrl,
         expiryTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      })) as unknown as { id: string | number };
+      });
       resetPostComposer();
-      goToFeedWithFocus({ storyId: String(created.id) });
+      goToFeedWithFocus({ storyId: created.id });
     } catch (error) {
       Alert.alert(t("profile.alerts.storyFailedTitle"), formatErrorForAlert(error, t("profile.alerts.storyFailedBody")));
     }
@@ -344,16 +345,13 @@ function ProfileScreenContent() {
       <View style={styles.card}>
         <View style={styles.profileRow}>
           <View style={styles.avatarWrap}>
-            {profile?.avatar_url ? (
-              <SmartImage
-                uri={profile.avatar_url}
-                recyclingKey={profile.avatar_url}
-                style={{ width: 56, height: 56, borderRadius: 28 }}
-                contentFit="cover"
-              />
-            ) : (
-              <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
-            )}
+            <UserAvatarImage
+              uri={profile?.avatar_url}
+              recyclingKey={profile?.avatar_url ?? "profile-avatar"}
+              style={{ width: 56, height: 56, borderRadius: 28 }}
+              contentFit="cover"
+              iconSize={28}
+            />
           </View>
           <View style={{ marginLeft: 12, flex: 1 }}>
             <Text style={styles.name}>{userName}</Text>
@@ -427,7 +425,7 @@ function ProfileScreenContent() {
           onPress={() =>
             navigation.navigate("Feed", {
               screen: "FeedMain",
-              params: { filterUserId: user?.id ?? profile?.id, postsScope: "mine" },
+              params: { filterUserId: user?.id ?? profile?.id },
             })
           }
           accessibilityRole="button"
@@ -466,21 +464,13 @@ function ProfileScreenContent() {
             suggestions.map((item) => (
               <View key={item.id} style={styles.suggestionCard}>
                 <View style={styles.suggestionAvatarWrap}>
-                  {item.avatar_url ? (
-                    <SmartImage
-                      uri={getOptimizedImageUrl(item.avatar_url, 132, 132, 72)}
-                      fallbackUri={item.avatar_url}
-                      style={{ width: 66, height: 66 }}
-                      contentFit="cover"
-                      skipBundledPlaceholder
-                    />
-                  ) : (
-                    <View style={styles.suggestionAvatarFallback}>
-                      <Text style={styles.suggestionAvatarFallbackText}>
-                        {profileFullName(item.first_name, item.last_name).charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
+                  <UserAvatarImage
+                    uri={item.avatar_url ? getOptimizedImageUrl(item.avatar_url, 132, 132, 72) : null}
+                    fallbackUri={item.avatar_url}
+                    style={{ width: 66, height: 66, borderRadius: 33 }}
+                    contentFit="cover"
+                    iconSize={30}
+                  />
                 </View>
                 <Text style={styles.suggestionName} numberOfLines={1}>
                   {profileFullName(item.first_name, item.last_name)}

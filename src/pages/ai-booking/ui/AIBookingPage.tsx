@@ -12,6 +12,8 @@ import {
   type KeyboardEvent,
 } from "react-native";
 import { CommonActions, useFocusEffect, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
@@ -63,10 +65,8 @@ import {
   buildBookingContextFromPage,
   buildEffectivePlaces,
   useBookingChatStore,
-  type BookingInlineThreadStyles,
   type BookingRecommendationView,
 } from "@/features/ai-booking-chat";
-import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { devWarn } from "@/shared/lib/devLog";
 import {
   AI_BOOKING_COMPOSER_KEYBOARD_MARGIN,
@@ -87,6 +87,7 @@ const RESTAURANT_TABLE_KEY = "restaurant-table";
 const DEFAULT_RADIUS_MILES = 5;
 
 type FlowStep = "city" | "category" | "scope" | "places" | "booking";
+type Nav = NativeStackNavigationProp<BrowseFlowParamList, "AIBooking">;
 
 const validationSchema = {
   persons: (value: string) => {
@@ -100,11 +101,6 @@ const validationSchema = {
 
 export default function AIBookingPage() {
   const insets = useSafeAreaInsets();
-  const stableBottomInsetRef = useRef(Math.max(insets.bottom, 12));
-  if (insets.bottom > stableBottomInsetRef.current) {
-    stableBottomInsetRef.current = insets.bottom;
-  }
-  const stableBottomInset = stableBottomInsetRef.current;
   const bookingComposerScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bookingComposerFocusedRef = useRef(false);
   const bookingScrollRef = useRef<ScrollView>(null);
@@ -181,20 +177,20 @@ export default function AIBookingPage() {
 
   useFocusEffect(
     useCallback(() => {
-      useBookingChatStore.getState().resetBookingSessionForScreenEntry();
+      useBookingChatStore.getState().resetTransientSendState();
     }, []),
   );
 
-  const { colors, mode } = useAppTheme();
+  const { colors } = useAppTheme();
   const { user, session, loading: authLoading } = useAuth();
   const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
   const shouldEnforcePaywall = !__DEV__ && Constants.appOwnership !== "expo";
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   useAuthSessionRedirect({
     authLoading: authLoading,
     hasUser: Boolean(user),
-    navigation: navigation as unknown as NavigationProp<ParamListBase>,
+    navigation,
   });
   useSubscriptionPaywallRedirect({
     entitlementLoading,
@@ -235,6 +231,38 @@ export default function AIBookingPage() {
   });
   const [catalogRevision, setCatalogRevision] = useState(0);
 
+  const persistedCatalogRevision = useBookingChatStore((s) => s.catalogRevision);
+  const persistedTabsCount = useBookingChatStore((s) => s.tabs.length);
+  const lastSearchSnapshot = useBookingChatStore((s) => s.lastSearchSnapshot);
+
+  useEffect(() => {
+    if (persistedCatalogRevision <= 0) return;
+    setCatalogRevision((prev) => Math.max(prev, persistedCatalogRevision));
+  }, [persistedCatalogRevision]);
+
+  useEffect(() => {
+    if (persistedTabsCount === 0 && !lastSearchSnapshot) return;
+    setHasSearched(true);
+    setCurrentStep((prev) =>
+      prev === "city" || prev === "category" || prev === "scope" ? "places" : prev,
+    );
+  }, [persistedTabsCount, lastSearchSnapshot]);
+
+  useEffect(() => {
+    const snap = lastSearchSnapshot;
+    if (!snap) return;
+    setSelectedCity((prev) => (prev.trim() ? prev : snap.city));
+    if (snap.isRestaurantTable) {
+      setSelectedCategoryId((prev) => (prev.trim() ? prev : RESTAURANT_TABLE_KEY));
+      setSelectedCategoryName((prev) => (prev.trim() ? prev : "Restaurant table"));
+    } else {
+      setSelectedCategoryId((prev) => (prev.trim() ? prev : snap.categoryId));
+      setSelectedCategoryName((prev) => (prev.trim() ? prev : snap.categoryName));
+    }
+    setScope(snap.scope);
+    setRequestComment((prev) => (prev.trim() ? prev : snap.requestComment));
+  }, [lastSearchSnapshot]);
+
   const concreteCities = useMemo(
     () => availableCities.filter((c) => c !== ALL_CITIES_OPTION),
     [availableCities],
@@ -262,20 +290,6 @@ export default function AIBookingPage() {
   };
 
   const styles = useAIBookingStyles({ top: insets.top, bottom: insets.bottom });
-  const messageThreadStyles = useMessageThreadStyles(insets.top, stableBottomInset);
-
-  const inlineBubbleStyles = useMemo(
-    (): BookingInlineThreadStyles => ({
-      bubbleWrapMine: messageThreadStyles.bubbleWrapMine,
-      bubbleWrapPeer: messageThreadStyles.bubbleWrapPeer,
-      bubble: messageThreadStyles.bubble,
-      bubbleMine: messageThreadStyles.bubbleMine,
-      bubblePeer: messageThreadStyles.bubblePeer,
-      bubbleTextMine: messageThreadStyles.bubbleTextMine,
-      bubbleTextPeer: messageThreadStyles.bubbleTextPeer,
-    }),
-    [messageThreadStyles],
-  );
 
   useEffect(() => {
     const city = profile?.city?.trim();
@@ -303,7 +317,7 @@ export default function AIBookingPage() {
     .reverse()
     .find((m) => m.role === "assistant" && m.toolResult)?.toolResult;
 
-  const placeOptions = latestToolResult?.places ?? [];
+  const placeOptions = latestToolResult?.places ?? lastSearchSnapshot?.catalogPlaces ?? [];
 
   const recommendationView = useBookingChatStore(
     useShallow((s) => {
@@ -471,12 +485,21 @@ export default function AIBookingPage() {
         nextRev = prev + 1;
         return nextRev;
       });
+      const catalogPlaces = result.places ?? [];
       setTimeout(() => {
-        useBookingChatStore.getState().bumpCatalogRevisionWithOpening(nextRev, resultsLine);
+        useBookingChatStore.getState().bumpCatalogRevisionWithOpening(nextRev, resultsLine, {
+          city: selectedCity.trim(),
+          categoryId: isRestaurantTable ? RESTAURANT_TABLE_KEY : selectedCategoryId.trim(),
+          categoryName: isRestaurantTable ? "Restaurant table" : selectedCategoryName || "",
+          isRestaurantTable,
+          scope,
+          requestComment: requestComment.trim(),
+          catalogPlaces,
+        });
       }, 0);
     } catch (error) {
       if (isAuthRequiredError(error)) {
-        navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+        navigateToAuthScreen(navigation);
         return;
       }
       Alert.alert("Failed", error instanceof Error ? error.message : "Could not search places.");
@@ -563,7 +586,7 @@ export default function AIBookingPage() {
       );
     } catch (error) {
       if (isAuthRequiredError(error)) {
-        navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+        navigateToAuthScreen(navigation);
         return;
       }
       Alert.alert("Failed", "Could not create booking draft.");
@@ -737,8 +760,8 @@ export default function AIBookingPage() {
         <AIBookingTranscript messages={messages} styles={styles} />
 
         {(currentStep === "places" || currentStep === "booking") &&
-        hasSearched &&
-        placeOptions.length > 0 &&
+        (hasSearched || persistedTabsCount > 0) &&
+        (placeOptions.length > 0 || persistedTabsCount > 0) &&
         bookingChatContext ? (
           <View style={styles.semanticSection}>
             <Text style={styles.stepTitle}>Step 4. Pix AI assistant</Text>
@@ -746,8 +769,6 @@ export default function AIBookingPage() {
               catalogRevision={catalogRevision}
               bookingContext={bookingChatContext}
               places={placeOptions}
-              colors={colors}
-              threadStyles={inlineBubbleStyles}
               composerInputRef={bookingComposerInputRef}
               onComposerInputFocus={onBookingComposerInputFocus}
               onComposerInputBlur={onBookingComposerInputBlur}
@@ -755,7 +776,9 @@ export default function AIBookingPage() {
           </View>
         ) : null}
 
-        {(currentStep === "places" || currentStep === "booking") && hasSearched && placeOptions.length > 0 ? (
+        {(currentStep === "places" || currentStep === "booking") &&
+        (hasSearched || persistedTabsCount > 0) &&
+        placeOptions.length > 0 ? (
           <AIBookingSuggestedPlaces
             styles={styles}
             places={effectivePlaces}
@@ -767,7 +790,6 @@ export default function AIBookingPage() {
         {currentStep === "booking" && selectedPlace ? (
           <AIBookingSlotPicker
             styles={styles}
-            colors={colors}
             selectedPlace={selectedPlace}
             visibleCalendarMonth={visibleCalendarMonth}
             setVisibleCalendarMonth={setVisibleCalendarMonth}
@@ -790,7 +812,6 @@ export default function AIBookingPage() {
         {currentStep === "booking" ? (
           <AIBookingCustomerForm
             styles={styles}
-            colors={colors}
             form={form}
             setForm={setForm}
             summaryMessage={summaryMessage}

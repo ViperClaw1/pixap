@@ -41,3 +41,14 @@ export type BookingChatTab = {
 };
 
 export type PlaceLite = Pick<PixAIPlace, "id" | "name" | "city" | "rating" | "booking_price">;
+
+/** Last successful orchestrator search — restores place list after app restart. */
+export type BookingSearchSnapshot = {
+  city: string;
+  categoryId: string;
+  categoryName: string;
+  isRestaurantTable: boolean;
+  scope: "nearby" | "city";
+  requestComment: string;
+  catalogPlaces: PixAIPlace[];
+};

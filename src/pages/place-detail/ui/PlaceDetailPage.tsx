@@ -23,7 +23,7 @@ import { DirectionsModal } from "@/shared/ui/directions-modal";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { getLatestBusinessCardImage, normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
+import { resolveBusinessCardHeroImagesRaw } from "@/shared/lib/business-card/businessCardImages";
 import Carousel from "react-native-reanimated-carousel";
 import { StoryBubblesRow } from "@/widgets/stories-strip";
 import { useStories } from "@/entities/story";
@@ -136,18 +136,10 @@ export default function PlaceDetailScreen() {
   const heroTop = Math.max(insets.top, 12);
   const bottomScrollPadding = Platform.OS === "ios" ? Math.max(insets.bottom, 24) : 20;
   const imageVm = useMemo(() => {
-    const legacyImage = (place as unknown as { image?: string | null } | null)?.image;
-    const normalizedImageList = normalizeBusinessCardImages(place?.images);
-    const heroImagesRaw =
-      normalizedImageList.length > 0
-        ? normalizedImageList
-        : [...normalizedImageList, ...normalizeBusinessCardImages(legacyImage)].filter(
-            (url, idx, arr) => arr.indexOf(url) === idx,
-          );
+    const { heroImagesRaw, heroFallback } = resolveBusinessCardHeroImagesRaw(place);
     // For place hero we intentionally keep deterministic public object URLs.
     // Supabase render endpoint can revalidate more often and trigger network hits on re-entry.
     const heroImages = heroImagesRaw;
-    const heroFallback = getLatestBusinessCardImage(place?.images) ?? getLatestBusinessCardImage(legacyImage);
     const fallbackGalleryImages = heroFallback ? [heroFallback] : [];
     return {
       heroImagesRaw,

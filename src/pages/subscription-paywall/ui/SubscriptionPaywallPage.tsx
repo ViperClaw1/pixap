@@ -34,13 +34,7 @@ export default function SubscriptionPaywallScreen() {
 
   const styles = useSubscriptionPaywallStyles(insets.top, insets.bottom);
 
-  const monthlyProduct = products.find((product) => {
-    const productRecord = product as unknown as { id?: string; productId?: string };
-    return (
-      productRecord.id === env.pixAiMonthlySubscriptionSku ||
-      productRecord.productId === env.pixAiMonthlySubscriptionSku
-    );
-  });
+  const monthlyProduct = products.find((product) => product.id === env.pixAiMonthlySubscriptionSku);
   const monthlyPrice =
     monthlyProduct?.displayPrice ??
     (monthlyProduct?.price != null ? String(monthlyProduct.price) : undefined);

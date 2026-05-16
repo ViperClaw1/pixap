@@ -41,16 +41,42 @@ export const messageThreadStaticStyles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 8,
   },
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
   list: { flex: 1 },
+  listWrap: { flex: 1 },
+  scrollToBottomBtn: {
+    position: "absolute",
+    right: 12,
+    bottom: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    zIndex: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  scrollToBottomPressable: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+  },
   listLoading: {
     flex: 1,
     justifyContent: "flex-start",
   },
   emptyWrap: {
-    paddingTop: 32,
+    flexGrow: 1,
     alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 20,
-    gap: 10,
   },
   emptyText: { textAlign: "center", fontSize: 15 },
   dividerWrap: { alignItems: "center", marginVertical: 6 },
@@ -397,6 +423,10 @@ export function messageThreadThemeStyles(
       color: colors.text,
     },
     sendBtn: { backgroundColor: colors.primary },
+    scrollToBottomBtn: {
+      backgroundColor: colors.card,
+      borderColor: colors.border,
+    },
   } satisfies Partial<Record<keyof typeof messageThreadStaticStyles, object>>;
 }
 

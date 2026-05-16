@@ -5,7 +5,7 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTi
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
-import type { NavigationProp, ParamListBase } from "@react-navigation/native";
+import type { AppNavigation } from "@/app/navigation/appNavigation";
 import { navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import { discussionPaletteDark } from "@/shared/theme/discussionPalette";
 import { StoryDiscussionPanelInner } from "@/widgets/story-discussion-panel";
@@ -22,7 +22,7 @@ const DISCUSSION_LIST_MIN_VIEWPORT = 80;
 type Props = {
   visible: boolean;
   storyId: string;
-  navigation: NavigationProp<ParamListBase>;
+  navigation: AppNavigation;
   onDismiss: () => void;
 };
 

@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { View, StyleSheet, Animated, type StyleProp, type ViewStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useShimmerProgress } from "./ShimmerProvider";
 import { getSkeletonShimmerColors } from "./shimmerTheme";
 
@@ -9,13 +10,13 @@ type Props = {
   height: number;
   borderRadius?: number;
   style?: StyleProp<ViewStyle>;
-  isDark: boolean;
 };
 
 /**
  * Clipped block with a left→right shimmer (native-driver friendly translateX on wrapper).
  */
-function ShimmerSurfaceInner({ width, height, borderRadius = 0, style, isDark }: Props) {
+function ShimmerSurfaceInner({ width, height, borderRadius = 0, style }: Props) {
+  const { isDark } = useAppTheme();
   const progress = useShimmerProgress();
   const { base, peak } = getSkeletonShimmerColors(isDark);
 

@@ -1,15 +1,15 @@
 import { StyleSheet, Text, View } from "react-native";
-import type { ThemeColors } from "@/shared/theme/palettes";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BookingChatMessage } from "../model/types";
 import { isPixBookingAssistantGreeting } from "../model/constants";
 import { BookingGreetingTypewriterText } from "./BookingGreetingTypewriterText";
 
 type Props = {
   item: BookingChatMessage;
-  colors: ThemeColors;
 };
 
-export function BookingChatMessageRow({ item, colors }: Props) {
+export function BookingChatMessageRow({ item }: Props) {
+  const { colors } = useAppTheme();
   const isUser = item.role === "user";
   const showGreetingTypewriter = item.role === "assistant" && isPixBookingAssistantGreeting(item.content);
 

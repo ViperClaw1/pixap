@@ -1,6 +1,6 @@
 import { useCallback, useMemo, type Ref } from "react";
 import { Text, TextInput, View } from "react-native";
-import type { ThemeColors } from "@/shared/theme/palettes";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BookingChatContext, BookingChatMessage } from "../model/types";
 import type { PixAIPlace } from "@/entities/pixai";
 import { useBookingChatStore } from "../model/bookingChatStore";
@@ -11,16 +11,12 @@ import { BookingChatComposer } from "./BookingChatComposer";
 import { BookingChainedOpeningAssistantPair } from "./BookingChainedOpeningAssistantPair";
 import { BookingGreetingTypewriterText } from "./BookingGreetingTypewriterText";
 import { BookingChatTabsStrip } from "./BookingChatTabsStrip";
-import type { BookingInlineThreadStyles } from "./bookingInlineThreadStyles";
-
-export type { BookingInlineThreadStyles } from "./bookingInlineThreadStyles";
+import { useBookingInlineThreadStyles } from "./useBookingInlineThreadStyles";
 
 type Props = {
   catalogRevision: number;
   bookingContext: BookingChatContext;
   places: PixAIPlace[];
-  colors: ThemeColors;
-  threadStyles: BookingInlineThreadStyles;
   composerInputRef?: Ref<TextInput>;
   onComposerInputFocus?: () => void;
   onComposerInputBlur?: () => void;
@@ -30,12 +26,12 @@ export function BookingInlineAssistantChat({
   catalogRevision,
   bookingContext,
   places,
-  colors,
-  threadStyles: ts,
   composerInputRef,
   onComposerInputFocus,
   onComposerInputBlur,
 }: Props) {
+  const { colors } = useAppTheme();
+  const ts = useBookingInlineThreadStyles();
   const tabs = useBookingChatStore((s) => s.tabs);
   const activeTabId = useBookingChatStore((s) => s.activeTabId);
   const isSending = useBookingChatStore((s) => s.isSending);
@@ -109,7 +105,6 @@ export function BookingInlineAssistantChat({
       <BookingChatTabsStrip
         tabs={tabs}
         activeTabId={activeTabId}
-        colors={colors}
         onSelect={setActiveTab}
         onAdd={() => addTab(catalogRevision)}
         onCloseTab={closeTab}
@@ -124,7 +119,6 @@ export function BookingInlineAssistantChat({
               <BookingChainedOpeningAssistantPair
                 key={bookingChatListRowKey(row)}
                 variant="inline"
-                threadStyles={ts}
                 first={row.first}
                 second={row.second}
               />
@@ -150,7 +144,6 @@ export function BookingInlineAssistantChat({
         })}
       </View>
       <BookingChatComposer
-        colors={colors}
         disabled={places.length === 0}
         sending={isSending}
         onSend={onSend}

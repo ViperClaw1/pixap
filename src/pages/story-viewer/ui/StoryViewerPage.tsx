@@ -146,7 +146,7 @@ export default function StoryViewerScreen() {
     navigation.goBack();
     authRedirectTaskRef.current?.cancel();
     authRedirectTaskRef.current = InteractionManager.runAfterInteractions(() => {
-      navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+      navigateToAuthScreen(navigation);
     });
   }, [navigation]);
 
@@ -404,7 +404,7 @@ export default function StoryViewerScreen() {
       <StoryDiscussionGlassSheet
         visible={discussionOpen}
         storyId={activeStory.id}
-        navigation={navigation as unknown as NavigationProp<ParamListBase>}
+        navigation={navigation}
         onDismiss={() => setDiscussionOpen(false)}
       />
     </SafeAreaView>

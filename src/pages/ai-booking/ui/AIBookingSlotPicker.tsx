@@ -1,14 +1,13 @@
 import type { Dispatch, SetStateAction } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { ThemeColors } from "@/shared/theme/palettes";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { PixAIPlace, PixAISlot } from "@/entities/pixai";
 import { chunkCells, WEEKDAY_LABELS, type CalendarCell } from "@/shared/lib/bookingCalendar";
 import type { AIBookingStyles } from "./aiBookingStyles";
 
 type Props = {
   styles: AIBookingStyles;
-  colors: ThemeColors;
   selectedPlace: PixAIPlace;
   visibleCalendarMonth: Date;
   setVisibleCalendarMonth: Dispatch<SetStateAction<Date>>;
@@ -29,7 +28,6 @@ type Props = {
 
 export function AIBookingSlotPicker({
   styles: s,
-  colors,
   selectedPlace,
   visibleCalendarMonth,
   setVisibleCalendarMonth,
@@ -47,6 +45,8 @@ export function AIBookingSlotPicker({
   cartReservedSlotTimes,
   selectedSlot,
 }: Props) {
+  const { colors } = useAppTheme();
+
   return (
     <View style={s.semanticSection}>
       <Text style={s.label}>Step 5. Available slots</Text>

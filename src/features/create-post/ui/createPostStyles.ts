@@ -62,6 +62,12 @@ export const createPostStyles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     marginTop: 2,
+    marginBottom: 6,
+  },
+  postFieldLabelHint: {
+    fontSize: 12,
+    fontWeight: "400",
+    lineHeight: 16,
   },
   postFieldHint: {
     fontSize: 12,

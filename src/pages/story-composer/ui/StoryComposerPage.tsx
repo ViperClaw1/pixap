@@ -45,7 +45,7 @@ export default function StoryComposerScreen() {
 
   const uploadStoryPhotos = async (assets: ImagePicker.ImagePickerAsset[]) => {
     if (!user?.id) {
-      navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+      navigateToAuthScreen(navigation);
       return;
     }
     setUploadingPhoto(true);
@@ -54,7 +54,7 @@ export default function StoryComposerScreen() {
       setMediaUrls(uploadedUrls);
     } catch (error) {
       if (isAuthRequiredError(error)) {
-        navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+        navigateToAuthScreen(navigation);
         return;
       }
       const message = formatErrorForAlert(error, "Could not upload story photo.");
@@ -128,7 +128,7 @@ export default function StoryComposerScreen() {
       navigation.goBack();
     } catch (error) {
       if (isAuthRequiredError(error)) {
-        navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+        navigateToAuthScreen(navigation);
         return;
       }
       Alert.alert("Failed", error instanceof Error ? error.message : "Could not create story");

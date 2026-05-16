@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { Alert, InteractionManager, Linking, Share } from "react-native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ function normalizePhoneToDigits(value?: string | null) {
 
 export function usePostShareSheet(rootNavigation: NavigationProp<ParamListBase>) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const openOrCreateShareThread = useOpenOrCreateThread();
 
   const [shareVisible, setShareVisible] = useState(false);
@@ -30,7 +32,13 @@ export function usePostShareSheet(rootNavigation: NavigationProp<ParamListBase>)
   const [sharePlaceName, setSharePlaceName] = useState("");
   const [shareSending, setShareSending] = useState(false);
 
-  const { data: shareUsers = [], isLoading: shareUsersLoading } = usePublicProfiles(shareSearch, shareVisible);
+  const { data: shareUsersRaw = [], isLoading: shareUsersLoading } = usePublicProfiles(shareSearch, shareVisible, {
+    accountRole: "user",
+  });
+  const shareUsers = useMemo(
+    () => shareUsersRaw.filter((profile) => profile.id !== user?.id),
+    [shareUsersRaw, user?.id],
+  );
 
   const resetShareState = useCallback(() => {
     setShareVisible(false);

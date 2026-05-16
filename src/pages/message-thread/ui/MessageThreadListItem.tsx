@@ -334,7 +334,7 @@ function MessageThreadListItemComponent({
                   onOpenPlace={onOpenSharedPlace}
                   onOpenStory={onOpenSharedStory}
                 />
-                {previewUrl ? <MessageUrlPreviewBlock url={previewUrl} colors={colors} /> : null}
+                {previewUrl ? <MessageUrlPreviewBlock url={previewUrl} /> : null}
                 <View style={[s.bubbleMetaRow, isMine ? s.bubbleMetaRowMine : s.bubbleMetaRowPeer]}>
                   <Text style={[s.bubbleMeta, isMine ? s.bubbleMetaMine : s.bubbleMetaPeer]}>
                     {new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -398,7 +398,7 @@ function MessageThreadListItemComponent({
                   onOpenPlace={onOpenSharedPlace}
                   onOpenStory={onOpenSharedStory}
                 />
-                {previewUrl ? <MessageUrlPreviewBlock url={previewUrl} colors={colors} /> : null}
+                {previewUrl ? <MessageUrlPreviewBlock url={previewUrl} /> : null}
               </>
             ) : null}
             {!hasMediaPlusText ? (

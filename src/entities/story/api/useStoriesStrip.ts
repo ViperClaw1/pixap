@@ -3,6 +3,8 @@ import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { StoryProfile } from "@/shared/model/types/stories";
 import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
+import { useStoriesFeedRealtime } from "@/entities/story/lib/useStoriesFeedRealtime";
+import { useAuth } from "@/app/providers/AuthProvider";
 
 type StoryStripItem = {
   id: string;
@@ -26,8 +28,12 @@ function isMissingMediaBlurhashesError(message?: string) {
 }
 
 export const useStoriesStrip = () => {
+  const { user } = useAuth();
+  const realtimeConnected = useStoriesFeedRealtime(user?.id ?? null);
+
   return useQuery({
     queryKey: queryKeys.stories.strip,
+    refetchInterval: realtimeConnected ? false : 25_000,
     queryFn: async () => {
       const storiesSelectWithBlur = "id, user_id, created_at, media_url, media_blurhashes";
       const storiesSelectLegacy = "id, user_id, created_at, media_url";

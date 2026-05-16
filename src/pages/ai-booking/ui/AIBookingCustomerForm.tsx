@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import type { ThemeColors } from "@/shared/theme/palettes";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { PixAIPlace } from "@/entities/pixai";
 import { PhoneInput, type PhoneValue } from "@/shared/ui/phone-input";
 import type { AIBookingStyles } from "./aiBookingStyles";
@@ -15,7 +15,6 @@ export type AIBookingDraftForm = {
 
 type Props = {
   styles: AIBookingStyles;
-  colors: ThemeColors;
   form: AIBookingDraftForm;
   setForm: Dispatch<SetStateAction<AIBookingDraftForm>>;
   summaryMessage: string;
@@ -25,13 +24,14 @@ type Props = {
 
 export function AIBookingCustomerForm({
   styles: s,
-  colors,
   form,
   setForm,
   summaryMessage,
   selectedPlace,
   onCreateDraft,
 }: Props) {
+  const { colors } = useAppTheme();
+
   return (
     <>
       <View style={s.semanticSection}>

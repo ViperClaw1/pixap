@@ -268,11 +268,6 @@ export const profileStaticStyles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  avatarText: {
-    fontSize: 24,
-    fontWeight: "700",
-  },
-
   name: {
     fontSize: 18,
     fontWeight: "700",
@@ -412,17 +407,6 @@ export const profileStaticStyles = StyleSheet.create({
     borderRadius: 33,
     overflow: "hidden",
     alignSelf: "center",
-  },
-
-  suggestionAvatarFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  suggestionAvatarFallbackText: {
-    fontSize: 20,
-    fontWeight: "700",
   },
 
   suggestionName: {
@@ -621,9 +605,6 @@ export function profileThemeStyles(colors: ThemeColors, _mode: ThemeMode) {
     avatarWrap: {
       backgroundColor: colors.surface,
     },
-    avatarText: {
-      color: colors.primary,
-    },
     name: {
       color: colors.text,
     },
@@ -672,9 +653,6 @@ export function profileThemeStyles(colors: ThemeColors, _mode: ThemeMode) {
     },
     suggestionAvatarWrap: {
       backgroundColor: colors.surface,
-    },
-    suggestionAvatarFallbackText: {
-      color: colors.text,
     },
     suggestionName: {
       color: colors.text,

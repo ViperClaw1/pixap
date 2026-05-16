@@ -44,6 +44,8 @@
     "selected": "Selecionado",
     "noCitiesMatch": "Nenhuma cidade corresponde à pesquisa.",
     "allCities": "Todas as cidades",
+    "pixAiBooking": "Pix AI booking",
+    "vibeMatching": "Vibe Matching",
     "alerts": {
       "citySaveTitle": "Não foi possível guardar a cidade",
       "citySaveBody": "Tenta novamente."

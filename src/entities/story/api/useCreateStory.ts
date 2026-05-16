@@ -3,6 +3,7 @@ import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { normalizeOptionalUuid } from "@/shared/lib/normalizeOptionalUuid";
+import { parseSupabaseRowWithId, type SupabaseRowWithId } from "@/shared/lib/supabase/parseSupabaseRow";
 
 interface CreateStoryInput {
   /** Null when the story is not tied to a business listing (e.g. from address-only post). */
@@ -43,7 +44,7 @@ export const useCreateStory = () => {
         .single();
 
       if (error) throw error;
-      return data;
+      return parseSupabaseRowWithId(data) satisfies SupabaseRowWithId;
     },
     onSuccess: (_data, variables) => {
       const placeForCache = normalizeOptionalUuid(variables.placeId);

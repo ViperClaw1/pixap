@@ -3,8 +3,16 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { supabase } from "@/shared/api/supabase/client";
 import { devLog, devWarn } from "@/shared/lib/devLog";
+import {
+  formatFunctionsError,
+  invokeSupabaseFunctionWithAuth,
+} from "@/shared/lib/invokeSupabaseFunction";
 
 let notificationHandlerInstalled = false;
+let consumeInFlight: Promise<void> | null = null;
+let lastConsumeAt = 0;
+
+const CONSUME_DEBOUNCE_MS = 4_000;
 
 /** Call once after first frame / interactions — avoids top-level side effect at import time. */
 export function ensurePushNotificationHandler(): void {
@@ -12,7 +20,6 @@ export function ensurePushNotificationHandler(): void {
   notificationHandlerInstalled = true;
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
       shouldShowBanner: true,
       shouldShowList: true,
       shouldPlaySound: false,
@@ -33,6 +40,49 @@ async function resolveNotificationPermission(): Promise<Notifications.Permission
   }
   const requested = await Notifications.requestPermissionsAsync();
   return requested.status;
+}
+
+/**
+ * Delivers pending rows from `push_outbox` for the signed-in user via Edge Function.
+ * Does not require Vault/pg_cron — uses the user's session JWT.
+ */
+export async function consumePendingPushOutbox(): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    devWarn("[push] consume-push-outbox skipped: no session");
+    return;
+  }
+
+  const now = Date.now();
+  if (consumeInFlight && now - lastConsumeAt < CONSUME_DEBOUNCE_MS) {
+    return consumeInFlight;
+  }
+  lastConsumeAt = now;
+
+  consumeInFlight = (async () => {
+    const { data, error } = await invokeSupabaseFunctionWithAuth<{
+      ok?: boolean;
+      processed_rows?: number;
+      expo_messages?: number;
+      error?: string;
+    }>("consume-push-outbox", { limit: 50 });
+
+    if (error) {
+      devWarn("[push] consume-push-outbox failed:", await formatFunctionsError(error));
+      return;
+    }
+    if (data?.expo_messages && data.expo_messages > 0) {
+      devLog("[push] delivered", data.expo_messages, "notification(s)");
+    } else {
+      devLog("[push] consume ok, pending:", data?.processed_rows ?? 0);
+    }
+  })().finally(() => {
+    consumeInFlight = null;
+  });
+
+  return consumeInFlight;
 }
 
 /**
@@ -81,5 +131,8 @@ export async function registerNativePushToken(userId: string): Promise<void> {
 
   if (error) {
     devWarn("[push] Failed to save token", error.message);
+    return;
   }
+
+  await consumePendingPushOutbox();
 }

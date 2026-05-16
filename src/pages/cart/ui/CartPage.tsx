@@ -10,7 +10,6 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { useAutoStartN8nWaBookingForPaidItems, useCartItems, useConfirmServiceCartBooking, type CartItem } from "@/entities/cart";
 import { useShoppingCart } from "@/entities/shopping";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
-import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CartStackParamList } from "@/app/navigation/types";
@@ -33,7 +32,7 @@ export default function CartPage() {
   useAuthSessionRedirect({
     authLoading: loading,
     hasUser: Boolean(user),
-    navigation: navigation as unknown as NavigationProp<ParamListBase>,
+    navigation,
   });
   const confirmServiceBooking = useConfirmServiceCartBooking();
   const [tab, setTab] = useState<"services" | "shopping">("services");

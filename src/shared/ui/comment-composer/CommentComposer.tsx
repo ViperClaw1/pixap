@@ -1,4 +1,4 @@
-import { Keyboard, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { COMMENT_STICKERS } from "@/shared/constants/commentStickers";
@@ -108,11 +108,15 @@ export function CommentComposer({
         {showSendButton ? (
           <Pressable
             onPress={handleSendPress}
-            style={[styles.commentComposerSendBtn, { opacity: canSend ? 1 : 0.5 }]}
+            style={[styles.commentComposerSendBtn, { opacity: canSend || sending ? 1 : 0.5 }]}
             disabled={!canSend}
             hitSlop={10}
           >
-            <Ionicons name={sending ? "sync-outline" : "paper-plane-outline"} size={19} color={colors.primary} />
+            {sending ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Ionicons name="paper-plane-outline" size={19} color={colors.primary} />
+            )}
           </Pressable>
         ) : null}
       </View>

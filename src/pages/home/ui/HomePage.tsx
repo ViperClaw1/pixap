@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -49,6 +50,10 @@ import {
   RECOMMENDED_BATCH_SIZE,
   RECOMMENDED_ITEM_ESTIMATED_SIZE,
 } from "../model/constants";
+import { AnimatedHomeSparklesIcon, AnimatedHomeVibeIcon } from "@/shared/ui/animated-home-header-icons";
+
+const VIBE_TOOLBAR_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
+const VIBE_TOOLBAR_GRADIENT_DARK = ["#6d28d9", "#be185d", "#ea580c"] as const;
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, "HomeMain">,
@@ -56,7 +61,7 @@ type Nav = CompositeNavigationProp<
 >;
 
 export default function HomeScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -89,10 +94,6 @@ export default function HomeScreen() {
   const { data: recommended = [], isLoading: lr } = useBusinessCards(undefined, selectedCity);
   const { data: categories = [], isLoading: lc } = useCategories();
   const unread = useUnreadCount();
-
-  const goPlace = useCallback((id: string) => {
-    navigation.navigate("PlaceDetail", { id });
-  }, [navigation]);
 
   /** Horizontal padding 16 + 16 from `content` — matches full-width recommended cards */
   const recommendedCardWidth = windowWidth - 32;
@@ -155,31 +156,19 @@ export default function HomeScreen() {
   const renderFeaturedRow = useCallback<ListRenderItem<BusinessCard>>(
     ({ item }) => (
       <View style={styles.featuredCardWrap}>
-        <BusinessPlaceCard
-          place={item}
-          variant="vertical"
-          colors={colors}
-          isDark={isDark}
-          onOpen={() => goPlace(item.id)}
-        />
+        <BusinessPlaceCard place={item} variant="vertical" />
       </View>
     ),
-    [colors, goPlace, isDark, styles.featuredCardWrap],
+    [styles.featuredCardWrap],
   );
 
   const renderRecommendedRow = useCallback<ListRenderItem<BusinessCard>>(
     ({ item }) => (
       <View style={styles.recommendedGap}>
-        <BusinessPlaceCard
-          place={item}
-          variant="horizontal"
-          colors={colors}
-          isDark={isDark}
-          onOpen={() => goPlace(item.id)}
-        />
+        <BusinessPlaceCard place={item} variant="horizontal" />
       </View>
     ),
-    [colors, goPlace, isDark, styles.recommendedGap],
+    [styles.recommendedGap],
   );
 
   const listHeader = useMemo(
@@ -193,9 +182,19 @@ export default function HomeScreen() {
               accessibilityLabel={t("home.a11y.openPixaiBooking")}
               onPress={() => navigation.navigate("AIBooking")}
             >
-              <Ionicons name="sparkles" size={18} color={colors.onPrimary} />
+              <AnimatedHomeSparklesIcon size={16} color={colors.onPrimary} />
+              <Text
+                style={styles.headerActionLabel}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {t("home.pixAiBooking", { defaultValue: "Pix AI booking" })}
+              </Text>
             </Pressable>
-            <Pressable
+          </View>
+          <Text style={styles.logo}>Pixap</Text>
+          <View style={styles.headerRight}>
+          <Pressable
               style={[styles.vibeMatchBtn, styles.bellWrap]}
               accessibilityRole="button"
               accessibilityLabel={t("home.a11y.openNotifications")}
@@ -208,18 +207,6 @@ export default function HomeScreen() {
                 </View>
               ) : null}
             </Pressable>
-          </View>
-          <Text style={styles.logo}>Pixap</Text>
-          <View style={styles.headerRight}>
-            
-            <Pressable
-              style={styles.vibeMatchBtn}
-              accessibilityRole="button"
-              accessibilityLabel={t("home.a11y.openPixaiVibeMatch")}
-              onPress={() => navigation.navigate("VibeMatch")}
-            >
-              <Ionicons name="color-filter" size={20} color={colors.primary} />
-            </Pressable>
             <Pressable
               style={styles.vibeMatchBtn}
               accessibilityRole="button"
@@ -228,22 +215,42 @@ export default function HomeScreen() {
             >
               <Ionicons name="language-outline" size={20} color={colors.text} />
             </Pressable>
-            <ThemeToggle />
+            <ThemeToggle size={20} style={styles.vibeMatchBtn} />
           </View>
         </View>
         <LanguagePickerModal visible={languageOpen} onClose={() => setLanguageOpen(false)} />
         <NotificationsSheetModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
-        <Pressable
-          style={styles.citySelector}
-          onPress={() => {
-            setCitySearchQuery("");
-            setCityModalVisible(true);
-          }}
-        >
-          <Text style={styles.citySelectorText}>
-            {selectedCity === ALL_CITIES_OPTION ? t("home.allCities") : selectedCity}
-          </Text>
-        </Pressable>
+        <View style={styles.cityToolbarRow}>
+          <Pressable
+            style={styles.citySelector}
+            onPress={() => {
+              setCitySearchQuery("");
+              setCityModalVisible(true);
+            }}
+          >
+            <Text style={styles.citySelectorText} numberOfLines={1}>
+              {selectedCity === ALL_CITIES_OPTION ? t("home.allCities") : selectedCity}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("home.a11y.openPixaiVibeMatch")}
+            onPress={() => navigation.navigate("VibeMatch")}
+            style={styles.vibeToolbarPressable}
+          >
+            <LinearGradient
+              colors={isDark ? [...VIBE_TOOLBAR_GRADIENT_DARK] : [...VIBE_TOOLBAR_GRADIENT_LIGHT]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.vibeToolbarGradient}
+            >
+              <AnimatedHomeVibeIcon size={16} color="#ffffff" />
+              <Text style={styles.vibeToolbarLabel} numberOfLines={1} ellipsizeMode="tail">
+                {t("home.vibeMatching", { defaultValue: "Vibe Matching" })}
+              </Text>
+            </LinearGradient>
+          </Pressable>
+        </View>
 
         <Pressable style={styles.searchBtn} onPress={() => navigation.navigate("SearchMain")}>
           <Text style={styles.searchBtnText}>{t("home.searchPlaceholder")}</Text>
@@ -292,6 +299,7 @@ export default function HomeScreen() {
       colors,
       featured,
       isDark,
+      i18n.language,
       languageOpen,
       lc,
       lf,
@@ -318,7 +326,7 @@ export default function HomeScreen() {
           <Text style={styles.showMoreBtnText}>{t("home.showMore")}</Text>
         </Pressable>
       ) : null,
-    [canShowMoreRecommended, lr, styles.showMoreBtn, styles.showMoreBtnText, t],
+    [canShowMoreRecommended, i18n.language, lr, styles.showMoreBtn, styles.showMoreBtnText, t],
   );
 
   const listContentStyle = useMemo(
@@ -331,6 +339,7 @@ export default function HomeScreen() {
       <FlashList
         style={styles.root}
         data={lr ? [] : visibleRecommended}
+        extraData={i18n.language}
         keyExtractor={(p) => p.id}
         estimatedItemSize={RECOMMENDED_ITEM_ESTIMATED_SIZE}
         renderItem={renderRecommendedRow}

@@ -190,40 +190,8 @@ export default function BookingFlowPage() {
         </View>
       ) : null}
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
-        {step === 0 && (
-          <View>
-            <BookingFlowPlacePanel
-              place={{
-                id: place.id,
-                name: place.name,
-                address: place.address,
-                rating: place.rating,
-                booking_price: place.booking_price,
-                images: place.images,
-              }}
-              colors={colors}
-              heroTopInset={Math.max(insets.top, 10)}
-              isFavorite={isFavorite}
-              onPressFavorite={onFavoritePress}
-              onPressBack={() => navigation.goBack()}
-              useMonotoneDarkBackground={useMonotoneDarkBackground}
-            >
-              <Text style={[styles.section, themedStyles.sectionText]}>Number of guests</Text>
-              <View style={styles.guestRow}>
-                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.max(BOOKING_FLOW_MIN_GUESTS, guests - 1))}>
-                  <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>−</Text>
-                </Pressable>
-                <Text style={[styles.guestCount, themedStyles.guestCountText]}>{guests}</Text>
-                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.min(BOOKING_FLOW_MAX_GUESTS, guests + 1))}>
-                  <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>+</Text>
-                </Pressable>
-              </View>
-            </BookingFlowPlacePanel>
-          </View>
-        )}
-
-        {step === 1 && (
+      {step === 1 ? (
+        <ScrollView contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
           <View style={styles.stepContent}>
             <Text style={[styles.section, themedStyles.sectionText]}>Select date & time</Text>
             <View style={[styles.calendarPanel, themedStyles.calendarPanel]}>
@@ -321,20 +289,48 @@ export default function BookingFlowPage() {
               ))}
             </View>
           </View>
-        )}
-
-        {step === 2 && (
-          <View>
+        </ScrollView>
+      ) : (
+        <View style={styles.panelFill}>
+          {step === 0 ? (
             <BookingFlowPlacePanel
+              fillContent
               place={{
                 id: place.id,
                 name: place.name,
                 address: place.address,
                 rating: place.rating,
-                booking_price: place.booking_price,
                 images: place.images,
               }}
-              colors={colors}
+              heroTopInset={Math.max(insets.top, 10)}
+              isFavorite={isFavorite}
+              onPressFavorite={onFavoritePress}
+              onPressBack={() => navigation.goBack()}
+              useMonotoneDarkBackground={useMonotoneDarkBackground}
+            >
+              <Text style={[styles.section, themedStyles.sectionText]}>Number of guests</Text>
+              <View style={styles.guestRow}>
+                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.max(BOOKING_FLOW_MIN_GUESTS, guests - 1))}>
+                  <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>−</Text>
+                </Pressable>
+                <Text style={[styles.guestCount, themedStyles.guestCountText]}>{guests}</Text>
+                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.min(BOOKING_FLOW_MAX_GUESTS, guests + 1))}>
+                  <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>+</Text>
+                </Pressable>
+              </View>
+            </BookingFlowPlacePanel>
+          ) : null}
+
+          {step === 2 ? (
+            <BookingFlowPlacePanel
+              fillContent
+              place={{
+                id: place.id,
+                name: place.name,
+                address: place.address,
+                rating: place.rating,
+                images: place.images,
+              }}
               heroTopInset={Math.max(insets.top, 10)}
               isFavorite={isFavorite}
               onPressFavorite={onFavoritePress}
@@ -345,11 +341,10 @@ export default function BookingFlowPage() {
               <Text style={themedStyles.confirmText}>
                 {guests} guests · {selectedDate.toDateString()} {selectedTime}
               </Text>
-              <Text style={[{ marginTop: 8 }, themedStyles.confirmPrice]}>{Number(place.booking_price).toLocaleString()} $</Text>
             </BookingFlowPlacePanel>
-          </View>
-        )}
-      </ScrollView>
+          ) : null}
+        </View>
+      )}
 
       <View style={[styles.footer, themedStyles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         {step < BOOKING_FLOW_TOTAL_STEPS ? (
@@ -387,6 +382,7 @@ export default function BookingFlowPage() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#fff" },
+  panelFill: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
   stepContent: { paddingHorizontal: 16, paddingTop: 16 },
   back: { fontSize: 22 },

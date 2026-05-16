@@ -1,10 +1,9 @@
 import { useCallback, useState, type Ref } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
-import type { ThemeColors } from "@/shared/theme/palettes";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 
 type Props = {
-  colors: ThemeColors;
   disabled: boolean;
   sending: boolean;
   onSend: (text: string) => void;
@@ -15,7 +14,6 @@ type Props = {
 };
 
 export function BookingChatComposer({
-  colors,
   disabled,
   sending,
   onSend,
@@ -23,6 +21,7 @@ export function BookingChatComposer({
   onInputFocus,
   onInputBlur,
 }: Props) {
+  const { colors } = useAppTheme();
   const [text, setText] = useState("");
   const submit = useCallback(() => {
     const t = text.trim();

@@ -31,6 +31,7 @@ import Toast from "react-native-toast-message";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { parseStoryMediaPrimaryUrl, parseStoryMediaUrls } from "@/shared/lib/storyMediaUrls";
 import type { StoryItem } from "@/shared/model/types/stories";
+import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
 
 type FeedStoryViewerRoute = RouteProp<BrowseFlowParamList, "FeedStoryViewer">;
 type FeedStoryViewerNav = NativeStackNavigationProp<BrowseFlowParamList, "FeedStoryViewer">;
@@ -209,17 +210,13 @@ export default function FeedStoryViewerPage() {
     const raw = activeStory?.profile?.avatar_url?.trim();
     return raw && raw.length > 0 ? raw : null;
   }, [activeStory?.profile?.avatar_url]);
-  const publishedAgo = useMemo(() => {
-    if (!activeStory?.created_at) return "";
-    const diffMs = Date.now() - new Date(activeStory.created_at).getTime();
-    if (!Number.isFinite(diffMs) || diffMs < 0) return "";
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return "now";
-    if (diffMin < 60) return `${diffMin}m`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr}h`;
-    return `${Math.floor(diffHr / 24)}d`;
-  }, [activeStory?.created_at]);
+  const publishedAgo = useMemo(
+    () =>
+      activeStory?.created_at
+        ? formatRelativeTime(activeStory.created_at, { style: "short", dateFallbackAfterDays: false })
+        : "",
+    [activeStory?.created_at],
+  );
   const modalCardWidth = useMemo(() => Math.min(width - 24, 390), [width]);
   const modalCardHeight = useMemo(() => Math.min(Math.floor(height * 0.68), 560), [height]);
   const likeActive = activeStory?.my_reaction === "like";

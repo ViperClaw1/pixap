@@ -1,22 +1,33 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Alert, Platform, Pressable, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { useDeleteMessage, useReactToMessage, useSendMessage, useThreadMessages } from "@/entities/messages";
-import type { CartStackParamList, RootTabParamList } from "@/app/navigation/types";
+import { navigateFeedFocusStory, navigateFeedPlaceDetail } from "@/app/navigation/appNavigation";
+import type { CartStackParamList } from "@/app/navigation/types";
 import Toast from "react-native-toast-message";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { STICKER_URLS } from "../model/constants";
 import { formatRelativeLastSeen, peerFullName } from "../model/format";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
@@ -34,6 +45,9 @@ import {
 type MessageThreadRoute = RouteProp<CartStackParamList, "MessageThread">;
 type MessageThreadNav = NativeStackNavigationProp<CartStackParamList, "MessageThread">;
 
+const SCROLL_AT_BOTTOM_THRESHOLD_PX = 48;
+const SCROLL_TO_BOTTOM_SHOW_THRESHOLD_PX = 500;
+
 export default function MessageThreadPage() {
   const { t } = useTranslation();
   const navigation = useNavigation<MessageThreadNav>();
@@ -45,6 +59,11 @@ export default function MessageThreadPage() {
     stableBottomInsetRef.current = insets.bottom;
   }
   const stableBottomInset = stableBottomInsetRef.current;
+  const listRef = useRef<FlashList<MessageThreadListRow>>(null);
+  const isAtBottomRef = useRef(true);
+  const scrollAfterSendRef = useRef(false);
+  const scrollFabVisible = useSharedValue(0);
+  const [showScrollFab, setShowScrollFab] = useState(false);
   const { colors, mode } = useAppTheme();
   const tabBarHeight = useBottomTabBarHeight();
   const [draft, setDraft] = useState(params.initialDraft ?? "");
@@ -70,15 +89,13 @@ export default function MessageThreadPage() {
 
   const openSharedPlace = useCallback(
     (placeId: string) => {
-      const rootNav = navigation as unknown as NavigationProp<RootTabParamList>;
-      rootNav.navigate("Feed", { screen: "PlaceDetail", params: { id: placeId } });
+      navigateFeedPlaceDetail(navigation, placeId);
     },
     [navigation],
   );
   const openSharedStory = useCallback(
     (storyId: string) => {
-      const rootNav = navigation as unknown as NavigationProp<RootTabParamList>;
-      rootNav.navigate("Feed", { screen: "FeedMain", params: { focusStoryId: storyId } });
+      navigateFeedFocusStory(navigation, storyId);
     },
     [navigation],
   );
@@ -88,6 +105,38 @@ export default function MessageThreadPage() {
     : peerFullName(peer?.first_name ?? params.peerFirstName ?? null, peer?.last_name ?? params.peerLastName ?? null);
   const peerAvatar = isSupport ? null : (peer?.avatar_url ?? params.peerAvatarUrl ?? null);
   const rows = useMessageThreadListRows(messages);
+
+  const handleListScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+      isAtBottomRef.current = distanceFromBottom <= SCROLL_AT_BOTTOM_THRESHOLD_PX;
+      const shouldShowFab = distanceFromBottom > SCROLL_TO_BOTTOM_SHOW_THRESHOLD_PX;
+      scrollFabVisible.value = withTiming(shouldShowFab ? 1 : 0, {
+        duration: 200,
+        easing: Easing.out(Easing.cubic),
+      });
+      setShowScrollFab((prev) => (prev === shouldShowFab ? prev : shouldShowFab));
+    },
+    [scrollFabVisible],
+  );
+
+  const scrollToBottom = useCallback(() => {
+    listRef.current?.scrollToEnd({ animated: true });
+  }, []);
+
+  const scrollFabAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: scrollFabVisible.value,
+    transform: [{ scale: 0.88 + scrollFabVisible.value * 0.12 }],
+  }));
+
+  useEffect(() => {
+    if (!scrollAfterSendRef.current || rows.length === 0) return;
+    scrollAfterSendRef.current = false;
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated: true });
+    });
+  }, [rows]);
 
   const openDeleteOptions = (messageId: string, isMine: boolean) => {
     if (!isMine) return;
@@ -287,7 +336,7 @@ export default function MessageThreadPage() {
               <Ionicons name="headset-outline" size={20} color={colors.onAccent} />
             </View>
           ) : (
-            <SmartImage uri={peerAvatar} style={styles.peerAvatar} contentFit="cover" />
+            <UserAvatarImage uri={peerAvatar} style={styles.peerAvatar} contentFit="cover" />
           )}
         </View>
 
@@ -296,27 +345,45 @@ export default function MessageThreadPage() {
             <ActivityIndicator color={colors.primary} />
           </View>
         ) : (
-          <FlashList
-            key={params.threadId}
-            style={styles.list}
-            data={rows}
-            keyExtractor={keyExtractor}
-            estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageBubble}
-            contentContainerStyle={styles.listContent}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            renderItem={renderRow}
-            removeClippedSubviews
-            initialNumToRender={18}
-            maxToRenderPerBatch={14}
-            windowSize={10}
-            updateCellsBatchingPeriod={40}
-            ListEmptyComponent={
-              <View style={styles.emptyWrap}>
-                <Text style={styles.emptyText}>No messages yet.</Text>
-              </View>
-            }
-          />
+          <View style={styles.listWrap}>
+            <FlashList
+              ref={listRef}
+              key={params.threadId}
+              style={styles.list}
+              data={rows}
+              keyExtractor={keyExtractor}
+              estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageBubble}
+              contentContainerStyle={[styles.listContent, rows.length === 0 && styles.listContentEmpty]}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              onScroll={handleListScroll}
+              scrollEventThrottle={16}
+              renderItem={renderRow}
+              removeClippedSubviews
+              initialNumToRender={18}
+              maxToRenderPerBatch={14}
+              windowSize={10}
+              updateCellsBatchingPeriod={40}
+              ListEmptyComponent={
+                <View style={styles.emptyWrap}>
+                  <Text style={styles.emptyText}>No messages yet.</Text>
+                </View>
+              }
+            />
+            <Animated.View
+              style={[styles.scrollToBottomBtn, scrollFabAnimatedStyle]}
+              pointerEvents={showScrollFab ? "auto" : "none"}
+            >
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Scroll to latest messages"
+                style={styles.scrollToBottomPressable}
+                onPress={scrollToBottom}
+              >
+                <Ionicons name="chevron-down" size={22} color={colors.text} />
+              </Pressable>
+            </Animated.View>
+          </View>
         )}
 
         <View style={styles.footer}>
@@ -392,6 +459,9 @@ export default function MessageThreadPage() {
               style={[styles.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}
               disabled={(!draft.trim().length && !attachments.length) || sendMessage.isPending}
               onPress={() => {
+                if (!isAtBottomRef.current) {
+                  scrollAfterSendRef.current = true;
+                }
                 void sendMessage
                   .mutateAsync({
                     threadId: params.threadId,
@@ -406,10 +476,17 @@ export default function MessageThreadPage() {
                     setDraft("");
                     setAttachments([]);
                     setStickerPanelOpen(false);
+                  })
+                  .catch(() => {
+                    scrollAfterSendRef.current = false;
                   });
               }}
             >
-              <Ionicons name={sendMessage.isPending ? "sync-outline" : "paper-plane-outline"} size={17} color={colors.onPrimary} />
+              {sendMessage.isPending ? (
+                <ActivityIndicator size="small" color={colors.onPrimary} />
+              ) : (
+                <Ionicons name="paper-plane-outline" size={17} color={colors.onPrimary} />
+              )}
             </Pressable>
           </View>
         </View>

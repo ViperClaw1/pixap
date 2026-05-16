@@ -1,16 +1,17 @@
+import { memo } from "react";
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import type { ThemeColors } from "@/shared/theme/palettes";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import type { LinkPreviewData } from "../api/fetchLinkPreview";
 
 type Props = {
   url: string;
-  colors: ThemeColors;
   loading: boolean;
   data: LinkPreviewData | null;
 };
 
-export function LinkPreviewCard({ url, colors, loading, data }: Props) {
+export const LinkPreviewCard = memo(function LinkPreviewCard({ url, loading, data }: Props) {
+  const { colors } = useAppTheme();
   const open = () => {
     void Linking.openURL(data?.resolvedUrl ?? url);
   };
@@ -55,7 +56,7 @@ export function LinkPreviewCard({ url, colors, loading, data }: Props) {
       </View>
     </Pressable>
   );
-}
+});
 
 function tryHost(u: string): string {
   try {

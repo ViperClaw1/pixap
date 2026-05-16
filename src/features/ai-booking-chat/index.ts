@@ -2,9 +2,13 @@
  * AI booking concierge chat: multi-tab sessions, Gemini via `pixai-booking-chat` edge function.
  */
 export { BookingInlineAssistantChat } from "./ui/BookingInlineAssistantChat";
-export type { BookingInlineThreadStyles } from "./ui/bookingInlineThreadStyles";
+export { BookingChatDock } from "./ui/BookingChatPanel";
 export { BOOKING_ASSISTANT_GREETING } from "./model/constants";
-export { useBookingChatStore, buildBookingContextFromPage } from "./model/bookingChatStore";
+export {
+  useBookingChatStore,
+  buildBookingContextFromPage,
+  resetBookingChatPersistedSession,
+} from "./model/bookingChatStore";
 export type {
   BookingChatContext,
   BookingChatMessage,

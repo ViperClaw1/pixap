@@ -14,9 +14,10 @@ import {
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
-import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
-import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
+import { asParamListNavigation } from "@/app/navigation/appNavigation";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -79,9 +80,7 @@ function EditProfileScreenContent() {
 
   const update = useUpdateProfile();
   const uploadProfileAvatar = useUploadProfileAvatar();
-  const authNavigation = navigation as unknown as NavigationProp<ParamListBase>;
   const scrollRef = useRef<ScrollView>(null);
-  const stackNavigation = navigation as unknown as NavigationProp<ParamListBase>;
   const [username, setUsername] = useState(
     profile?.username?.trim() || deriveDefaultUsername(profile?.email ?? user?.email),
   );
@@ -169,7 +168,7 @@ function EditProfileScreenContent() {
 
   const uploadAvatar = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!user?.id) {
-      navigateToAuthScreen(authNavigation);
+      navigateToAuthScreen(navigation);
       return;
     }
     setUploadingAvatar(true);
@@ -179,7 +178,7 @@ function EditProfileScreenContent() {
       setAvatarError(null);
     } catch (error: unknown) {
       if (isAuthRequiredError(error)) {
-        navigateToAuthScreen(authNavigation);
+        navigateToAuthScreen(navigation);
         return;
       }
       const message = error instanceof Error ? error.message : "Could not upload avatar. Please try again.";
@@ -219,12 +218,13 @@ function EditProfileScreenContent() {
         avatar_url: trimmedAvatar || null,
       });
       Alert.alert("Saved");
+      const stackNavigation = asParamListNavigation(navigation);
       stackNavigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
-      const rootNavigation = stackNavigation.getParent<NavigationProp<ParamListBase>>();
+      const rootNavigation = stackNavigation.getParent();
       rootNavigation?.navigate("Profile", { screen: "ProfileMain" });
     } catch (error: unknown) {
       if (isAuthRequiredError(error)) {
-        navigateToAuthScreen(authNavigation);
+        navigateToAuthScreen(navigation);
         return;
       }
       const message = error instanceof Error ? error.message : "Failed to save";
@@ -258,20 +258,14 @@ function EditProfileScreenContent() {
 
         <View style={styles.avatarBlock}>
           <View style={styles.avatarFrame}>
-            {avatarUrl?.trim() ? (
-              <SmartImage
-                uri={getOptimizedImageUrl(avatarUrl, 220, 220, 74)}
-                fallbackUri={avatarUrl}
-                recyclingKey={avatarUrl}
-                style={styles.avatar}
-                contentFit="cover"
-                skipBundledPlaceholder
-              />
-            ) : (
-              <View style={[styles.avatar, styles.avatarFallback]}>
-                <Text style={styles.avatarFallbackText}>{(first || "U").charAt(0).toUpperCase()}</Text>
-              </View>
-            )}
+            <UserAvatarImage
+              uri={avatarUrl?.trim() ? getOptimizedImageUrl(avatarUrl, 220, 220, 74) : null}
+              fallbackUri={avatarUrl?.trim() || null}
+              recyclingKey={avatarUrl || "edit-profile-avatar"}
+              style={styles.avatar}
+              contentFit="cover"
+              iconSize={48}
+            />
             <Pressable style={styles.avatarCameraBtn} onPress={pickAvatar} disabled={uploadingAvatar}>
               {uploadingAvatar ? (
                 <ActivityIndicator size="small" color={colors.onPrimary} />

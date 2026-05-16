@@ -4,9 +4,11 @@ import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { StoryMediaSlide } from "@/widgets/stories-strip";
 import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
 import { profileName } from "@/pages/stories-feed/lib/feedPostHelpers";
 import { PostMediaCarousel } from "@/widgets/feed-post-carousel";
+import { CommentPreview } from "@/widgets/feed-list";
 import type { FeedPostVm } from "@/pages/stories-feed/lib/feedPostHelpers";
 
 interface FeedPostCardProps {
@@ -76,20 +78,15 @@ export const FeedPostCard = memo(function FeedPostCard({
             width={width}
             sliderHeight={sliderHeight}
           />
-        ) : vm.postImages[0] ? (
-          <SmartImage
-            uri={vm.postImages[0]}
-            fallbackUri={vm.postImagesRaw[0] ?? null}
-            blurhash={vm.postSlideBlurhashes[0] ?? undefined}
-            recyclingKey={`${item.id}-feed-slider-single`}
-            style={[styles.sliderImage, { height: sliderHeight }]}
-            contentFit="cover"
-            transition={85}
-          />
         ) : (
-          <View style={[styles.sliderFallback, { height: sliderHeight, backgroundColor: colors.card }]}>
-            <Ionicons name="image-outline" size={30} color={colors.textMuted} />
-          </View>
+          <StoryMediaSlide
+            optimizedUri={vm.postImages[0] ?? null}
+            fallbackUri={vm.postImagesRaw[0] ?? null}
+            blurhash={vm.postSlideBlurhashes[0] ?? null}
+            recyclingKey={`${item.id}-feed-slider-single`}
+            width={width}
+            height={sliderHeight}
+          />
         )}
       </Pressable>
 
@@ -107,9 +104,9 @@ export const FeedPostCard = memo(function FeedPostCard({
             <FontAwesome6 name="share" size={20} color={colors.text} />
           </Pressable>
           {item.place_id ? (
-            <Pressable style={[styles.bookBtn, { backgroundColor: BRAND }]} onPress={onBookNow}>
-              <Ionicons name="calendar-outline" size={14} color="#fff" />
-              <Text style={[styles.bookBtnText, { color: "#fff" }]}>Book</Text>
+            <Pressable style={[styles.bookBtn, { backgroundColor: colors.accent }]} onPress={onBookNow}>
+              <Ionicons name="calendar-outline" size={14} color={colors.onAccent} />
+              <Text style={[styles.bookBtnText, { color: colors.onAccent }]}>Book</Text>
             </Pressable>
           ) : null}
         </View>
@@ -148,11 +145,14 @@ export const FeedPostCard = memo(function FeedPostCard({
           </View>
         ) : null}
         <Text style={[styles.publishedAtText, { color: colors.textMuted }]}>{formatRelativeTime(item.created_at)}</Text>
-        {item.comment_preview.slice(0, 2).map((comment) => (
-          <Text key={comment.id} style={[styles.commentText, { color: colors.text }]} numberOfLines={1}>
-            {comment.content}
-          </Text>
-        ))}
+        {item.comment_preview.length > 0 ? (
+          <CommentPreview
+            comments={item.comment_preview.slice(0, 2)}
+            commentCount={item.comment_count}
+            onPressComments={onOpenComments}
+            showFooterLink={false}
+          />
+        ) : null}
       </View>
 
       <View style={[styles.authorSection, { borderTopColor: colors.border }]}>
@@ -203,8 +203,6 @@ export const FeedPostCard = memo(function FeedPostCard({
 
 const styles = StyleSheet.create({
   content: { paddingBottom: 8 },
-  sliderImage: { width: "100%" },
-  sliderFallback: { width: "100%", alignItems: "center", justifyContent: "center" },
   actionsSection: { paddingHorizontal: 14, paddingTop: 10 },
   leftActions: { flexDirection: "row", alignItems: "center", gap: 16 },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -219,7 +217,6 @@ const styles = StyleSheet.create({
   storyText: { fontSize: 16, lineHeight: 22, fontWeight: "500" },
   moreLink: { fontSize: 16, lineHeight: 22, fontWeight: "600" },
   publishedAtText: { fontSize: 12, lineHeight: 16 },
-  commentText: { fontSize: 14, lineHeight: 19 },
   authorSection: { marginTop: 12, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   authorInfo: { flexDirection: "row", alignItems: "center", gap: 10 },
   authorNameRow: { flexDirection: "row", alignItems: "center", gap: 4 },

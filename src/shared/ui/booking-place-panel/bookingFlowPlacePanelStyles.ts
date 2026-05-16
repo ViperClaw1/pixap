@@ -10,6 +10,10 @@ export const bookingFlowPlacePanelStaticStyles = StyleSheet.create({
   wrap: {
     marginBottom: 16,
   },
+  wrapFill: {
+    flex: 1,
+    marginBottom: 0,
+  },
   heroWrap: {
     height: HERO_HEIGHT,
     overflow: "hidden",
@@ -64,13 +68,22 @@ export const bookingFlowPlacePanelStaticStyles = StyleSheet.create({
     borderWidth: 1,
     padding: 20,
   },
+  detailsCardFill: {
+    flex: 1,
+  },
   title: {
     fontSize: 22,
     fontWeight: "800",
   },
-  rating: {
+  ratingRow: {
     marginTop: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  rating: {
     fontSize: 14,
+    fontWeight: "600",
   },
   address: {
     marginTop: 10,
