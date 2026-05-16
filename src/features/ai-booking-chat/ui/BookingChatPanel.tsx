@@ -21,9 +21,9 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import type { ThemeColors } from "@/shared/theme/palettes";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BookingChatContext, BookingChatMessage } from "../model/types";
 import type { PixAIPlace } from "@/entities/pixai";
 import { useBookingChatStore } from "../model/bookingChatStore";
@@ -41,12 +41,12 @@ type PanelProps = {
   catalogRevision: number;
   bookingContext: BookingChatContext;
   places: PixAIPlace[];
-  colors: ThemeColors;
 };
 
 const SPRING_OPEN = { damping: 22, stiffness: 220, mass: 0.75 } as const;
 
-function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, places, colors }: PanelProps) {
+function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, places }: PanelProps) {
+  const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const panelH = Math.min(winH * 0.48, 420);
@@ -126,17 +126,12 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
     ({ item }: { item: BookingChatListRow }) => {
       if (item.kind === "chained_opening") {
         return (
-          <BookingChainedOpeningAssistantPair
-            variant="panel"
-            colors={colors}
-            first={item.first}
-            second={item.second}
-          />
+          <BookingChainedOpeningAssistantPair variant="panel" first={item.first} second={item.second} />
         );
       }
-      return <BookingChatMessageRow item={item.item} colors={colors} />;
+      return <BookingChatMessageRow item={item.item} />;
     },
-    [colors],
+    [],
   );
 
   const onSend = useCallback(
@@ -252,7 +247,6 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
           <BookingChatTabsStrip
             tabs={tabs}
             activeTabId={activeTabId}
-            colors={colors}
             onSelect={setActiveTab}
             onAdd={() => addTab(catalogRevision)}
             onCloseTab={closeTab}
@@ -273,7 +267,7 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
             />
           </View>
 
-          <BookingChatComposer colors={colors} disabled={places.length === 0} sending={isSending} onSend={onSend} />
+          <BookingChatComposer disabled={places.length === 0} sending={isSending} onSend={onSend} />
         </Animated.View>
       </View>
     </View>
@@ -304,12 +298,12 @@ type DockProps = {
   catalogRevision: number;
   bookingContext: BookingChatContext | null;
   places: PixAIPlace[];
-  colors: ThemeColors;
   /** Distance from bottom of screen to FAB center (above footer) */
   fabBottomOffset: number;
 };
 
-export function BookingChatDock({ visible, catalogRevision, bookingContext, places, colors, fabBottomOffset }: DockProps) {
+export function BookingChatDock({ visible, catalogRevision, bookingContext, places, fabBottomOffset }: DockProps) {
+  const { colors } = useAppTheme();
   const panelOpen = useBookingChatStore((s) => s.panelOpen);
   const setPanelOpen = useBookingChatStore((s) => s.setPanelOpen);
 
@@ -367,7 +361,6 @@ export function BookingChatDock({ visible, catalogRevision, bookingContext, plac
         catalogRevision={catalogRevision}
         bookingContext={bookingContext}
         places={places}
-        colors={colors}
       />
     </View>
   );

@@ -68,6 +68,24 @@ export const bookingsStaticStyles = StyleSheet.create({
     paddingVertical: 7,
   },
   payBtnText: { fontSize: 12, fontWeight: "700" },
+  skeletonList: { padding: 16, gap: 0 },
+  skeletonCard: {
+    flexDirection: "row",
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  skeletonBody: { flex: 1, minWidth: 0 },
+  skeletonRowHead: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  skeletonMetaGap: { marginTop: 8 },
+  skeletonBadgeGap: { marginTop: 10 },
 });
 
 export function bookingsThemeStyles(colors: ThemeColors) {
@@ -96,5 +114,9 @@ export function bookingsThemeStyles(colors: ThemeColors) {
     cancelBtnText: { color: colors.danger },
     payBtn: { backgroundColor: colors.primary },
     payBtnText: { color: colors.onPrimary },
+    skeletonCard: {
+      backgroundColor: colors.card,
+      borderColor: colors.border,
+    },
   } satisfies Partial<Record<keyof typeof bookingsStaticStyles, object>>;
 }

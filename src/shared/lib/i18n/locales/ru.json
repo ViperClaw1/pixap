@@ -44,6 +44,8 @@
     "selected": "Выбрано",
     "noCitiesMatch": "Нет городов по вашему запросу.",
     "allCities": "Все города",
+    "pixAiBooking": "Pix AI booking",
+    "vibeMatching": "Vibe Matching",
     "alerts": {
       "citySaveTitle": "Не удалось сохранить город",
       "citySaveBody": "Попробуйте ещё раз."

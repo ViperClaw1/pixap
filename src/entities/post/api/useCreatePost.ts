@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { parseSupabaseRowWithId, type SupabaseRowWithId } from "@/shared/lib/supabase/parseSupabaseRow";
 
 interface CreatePostGeoPayload {
   placeName: string | null;
@@ -83,7 +84,7 @@ export const useCreatePost = () => {
         }
         throw error;
       }
-      return data;
+      return parseSupabaseRowWithId(data) satisfies SupabaseRowWithId;
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.posts.feedPrefix });

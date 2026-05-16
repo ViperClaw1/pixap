@@ -21,6 +21,16 @@ export function usePostCommentComposer() {
     setCommentInput("");
   }, []);
 
+  const startReply = useCallback((commentId: string, mentionTag: string) => {
+    setReplyTargetCommentId(commentId);
+    setCommentInput(`${mentionTag} `);
+  }, []);
+
+  const cancelReply = useCallback(() => {
+    setReplyTargetCommentId(null);
+    setCommentInput("");
+  }, []);
+
   const toggleReplies = useCallback((commentId: string) => {
     setExpandedCommentIds((prev) => {
       if (prev[commentId]) {
@@ -54,7 +64,8 @@ export function usePostCommentComposer() {
     closeComments,
     toggleReplies,
     toggleExpandContent,
-    setReplyTargetCommentId,
+    startReply,
+    cancelReply,
     setCommentInput,
     canSendComment,
   };

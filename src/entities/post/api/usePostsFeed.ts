@@ -7,6 +7,7 @@ import type { PostItem, PostProfile, PostReactionType } from "@/shared/model/typ
 import { useMyFollowing } from "@/entities/user";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
+import { usePostsFeedRealtime } from "@/entities/post/lib/usePostsFeedRealtime";
 
 type PostRow = {
   id: string;
@@ -43,7 +44,7 @@ export type FeedPostItem = PostItem & {
     name: string;
     images: string[];
   } | null;
-  comment_preview: Array<{ id: string; content: string; created_at: string }>;
+  comment_preview: Array<{ id: string; content: string; created_at: string; avatar_url: string | null }>;
   is_followed_author: boolean;
 };
 
@@ -143,49 +144,89 @@ async function fetchPostsFeedPage(params: {
   const placeIds = Array.from(new Set(posts.map((row) => row.place_id).filter((id): id is string => Boolean(id))));
   const userIds = Array.from(new Set(posts.map((row) => row.user_id)));
 
-  const [{ data: placesData }, { data: profilesData }, { data: commentsData }, { data: reactionsData }, myReactionsResult] =
-    await Promise.all([
-      supabase.from("business_cards" as any).select("id, name, images").in("id", placeIds),
-      supabase.from("public_profiles" as any).select("id, first_name, last_name, avatar_url, is_verified").in("id", userIds),
-      supabase
-        .from("post_comments" as any)
-        .select("id, post_id, parent_id, content, created_at")
-        .in("post_id", postIds)
-        .order("created_at", { ascending: false }),
-      supabase.from("post_reactions" as any).select("post_id, type").in("post_id", postIds),
-      userId
-        ? supabase.from("post_reactions" as any).select("post_id, type").eq("user_id", userId).in("post_id", postIds)
-        : Promise.resolve({ data: [] }),
-    ]);
+  const [{ data: placesData }, { data: commentsData }, { data: reactionsData }, myReactionsResult] = await Promise.all([
+    supabase.from("business_cards" as any).select("id, name, images").in("id", placeIds),
+    supabase
+      .from("post_comments" as any)
+      .select("id, post_id, parent_id, content, created_at, user_id")
+      .in("post_id", postIds)
+      .order("created_at", { ascending: false }),
+    supabase.from("post_reactions" as any).select("post_id, type").in("post_id", postIds),
+    userId
+      ? supabase.from("post_reactions" as any).select("post_id, type").eq("user_id", userId).in("post_id", postIds)
+      : Promise.resolve({ data: [] }),
+  ]);
 
   const places = new Map<string, PlaceRow>(((placesData ?? []) as PlaceRow[]).map((row) => [row.id, row]));
-  const profiles = new Map<string, PostProfile>(
-    ((profilesData ?? []) as ProfileRow[]).map((row) => [
-      row.id,
-      {
-        id: row.id,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        avatar_url: row.avatar_url,
-        is_verified: Boolean(row.is_verified),
-      },
-    ]),
-  );
 
-  const commentsByPost = new Map<string, Array<{ id: string; content: string; created_at: string }>>();
+  const commentsByPost = new Map<
+    string,
+    Array<{ id: string; content: string; created_at: string; user_id: string }>
+  >();
   const commentCountByPost = new Map<string, number>();
+  const commentAuthorIds = new Set<string>();
   for (const row of (commentsData ?? []) as Array<{
     id: string;
     post_id: string;
     parent_id: string | null;
     content: string;
     created_at: string;
+    user_id: string;
   }>) {
     if (row.parent_id) continue;
     commentCountByPost.set(row.post_id, (commentCountByPost.get(row.post_id) ?? 0) + 1);
     if (!commentsByPost.has(row.post_id)) commentsByPost.set(row.post_id, []);
     const existing = commentsByPost.get(row.post_id)!;
-    if (existing.length < 2) existing.push({ id: row.id, content: row.content, created_at: row.created_at });
+    if (existing.length < 2) {
+      commentAuthorIds.add(row.user_id);
+      existing.push({
+        id: row.id,
+        content: row.content,
+        created_at: row.created_at,
+        user_id: row.user_id,
+      });
+    }
+  }
+
+  const profileIds = Array.from(new Set([...userIds, ...commentAuthorIds]));
+  let profilesRows: ProfileRow[] = [];
+  if (profileIds.length) {
+    const { data: profilesData, error: profilesError } = await supabase
+      .from("public_profiles" as any)
+      .select("id, first_name, last_name, avatar_url, is_verified")
+      .in("id", profileIds);
+    if (profilesError) throw profilesError;
+    profilesRows = (profilesData ?? []) as ProfileRow[];
+  }
+
+  const profiles = new Map<string, PostProfile>(
+    profilesRows.map((row) => [
+      row.id,
+      {
+        id: row.id,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        avatar_url: row.avatar_url,
+        username: null,
+        is_verified: Boolean(row.is_verified),
+      },
+    ]),
+  );
+
+  const commentPreviewByPost = new Map<
+    string,
+    Array<{ id: string; content: string; created_at: string; avatar_url: string | null }>
+  >();
+  for (const [postId, previews] of commentsByPost) {
+    commentPreviewByPost.set(
+      postId,
+      previews.map((preview) => ({
+        id: preview.id,
+        content: preview.content,
+        created_at: preview.created_at,
+        avatar_url: profiles.get(preview.user_id)?.avatar_url ?? null,
+      })),
+    );
   }
 
   const reactionCountByPost = new Map<string, number>();
@@ -234,7 +275,7 @@ async function fetchPostsFeedPage(params: {
       comment_count: commentCountByPost.get(row.id) ?? 0,
       my_reaction: myReactionByPost.get(row.id) ?? null,
       profile: profiles.get(row.user_id) ?? null,
-      comment_preview: commentsByPost.get(row.id) ?? [],
+      comment_preview: commentPreviewByPost.get(row.id) ?? [],
       is_followed_author: followingSet.has(row.user_id),
       score,
     };
@@ -260,6 +301,7 @@ export function usePostsFeed() {
   const followingSignature = useMemo(() => [...followingIds].sort().join(","), [followingIds]);
 
   const feedQueryKey = queryKeys.posts.feed(user?.id ?? null, followingSignature);
+  const realtimeConnected = usePostsFeedRealtime(user?.id ?? null);
 
   const query = useInfiniteQuery({
     queryKey: feedQueryKey,
@@ -267,6 +309,7 @@ export function usePostsFeed() {
     maxPages: 1,
     staleTime: 45 * 1000,
     gcTime: 5 * 60 * 1000,
+    refetchInterval: realtimeConnected ? false : 25_000,
     queryFn: async ({ pageParam }) =>
       fetchPostsFeedPage({
         page: pageParam,

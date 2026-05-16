@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { View, Text, Pressable, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -14,7 +15,7 @@ type Props = {
   onAuthRequired: () => void;
 };
 
-export function ShopRow({ item, stylesThemed, labelColor, onAuthRequired }: Props) {
+function ShopRowInner({ item, stylesThemed, labelColor, onAuthRequired }: Props) {
   const { colors } = useAppTheme();
   const updateQty = useUpdateShoppingCartQuantity();
   const removeItem = useRemoveShoppingCartItem();
@@ -115,3 +116,5 @@ export function ShopRow({ item, stylesThemed, labelColor, onAuthRequired }: Prop
     </View>
   );
 }
+
+export const ShopRow = memo(ShopRowInner);

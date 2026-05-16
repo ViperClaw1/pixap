@@ -7,6 +7,14 @@ import type { StoryItem, StoryProfile, StoryReactionType } from "@/shared/model/
 import { useMyFollowing } from "@/entities/user";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
+import { useStoriesFeedRealtime } from "@/entities/story/lib/useStoriesFeedRealtime";
+import {
+  clearStoriesFeedInteractedPlaceCache,
+  getStoriesFeedInteractedPlaceCache,
+  setStoriesFeedInteractedPlaceCache,
+} from "@/entities/story/lib/storiesFeedInteractedPlaceCache";
+
+export { clearStoriesFeedInteractedPlaceCache };
 
 type StoryRow = {
   id: string;
@@ -48,6 +56,15 @@ type FeedPage = { stories: FeedStoryItem[]; hasMore: boolean; page: number };
 
 const FEED_PAGE_SIZE = 12;
 const FETCH_WINDOW_MULTIPLIER = 4;
+
+function getInteractedPlaceIdsCached(userId: string): Promise<string[]> {
+  const cached = getStoriesFeedInteractedPlaceCache(userId);
+  if (cached) return Promise.resolve(cached);
+  return getInteractedPlaceIds(userId).then((ids) => {
+    setStoriesFeedInteractedPlaceCache(userId, ids);
+    return ids;
+  });
+}
 
 function isMissingMediaBlurhashesError(message?: string) {
   return (message ?? "").toLowerCase().includes("media_blurhashes");
@@ -112,7 +129,7 @@ async function fetchStoriesFeedPage(params: {
 }): Promise<FeedPage> {
   const { page, userId, followingSet } = params;
   const fetchLimit = page * FEED_PAGE_SIZE * FETCH_WINDOW_MULTIPLIER;
-  const interactedPlaceIds = userId ? await getInteractedPlaceIds(userId) : [];
+  const interactedPlaceIds = userId ? await getInteractedPlaceIdsCached(userId) : [];
 
   const storiesSelectWithBlur =
     "id, user_id, place_id, content, media_url, created_at, expiry_time, media_blurhashes";
@@ -256,9 +273,12 @@ async function fetchStoriesFeedPage(params: {
   });
 
   const itemCount = page * FEED_PAGE_SIZE;
+  const pageStories = scored.slice(0, itemCount).map(({ score: _score, ...story }) => story);
+  const hasMore = scored.length > itemCount || stories.length >= fetchLimit;
+
   return {
-    stories: scored.slice(0, itemCount).map(({ score: _score, ...story }) => story),
-    hasMore: stories.length >= fetchLimit,
+    stories: pageStories,
+    hasMore,
     page,
   };
 }
@@ -270,13 +290,14 @@ export function useStoriesFeed() {
   const followingSignature = useMemo(() => [...followingIds].sort().join(","), [followingIds]);
 
   const feedQueryKey = queryKeys.stories.feed(user?.id ?? null, followingSignature);
+  const realtimeConnected = useStoriesFeedRealtime(user?.id ?? null);
 
   const query = useInfiniteQuery({
     queryKey: feedQueryKey,
     initialPageParam: 1,
-    maxPages: 1,
     staleTime: 45 * 1000,
     gcTime: 5 * 60 * 1000,
+    refetchInterval: realtimeConnected ? false : 25_000,
     queryFn: async ({ pageParam }) =>
       fetchStoriesFeedPage({
         page: pageParam,
@@ -288,15 +309,25 @@ export function useStoriesFeed() {
 
   const lastPage = query.data?.pages[query.data.pages.length - 1];
 
+  const stories = useMemo(() => lastPage?.stories ?? [], [lastPage?.stories]);
+
   const resetFeed = useCallback(() => {
+    if (user?.id) clearStoriesFeedInteractedPlaceCache(user.id);
     void queryClient.resetQueries({ queryKey: feedQueryKey });
-  }, [queryClient, feedQueryKey]);
+  }, [queryClient, feedQueryKey, user?.id]);
+
+  const loadMore = useCallback(() => {
+    if (!query.hasNextPage || query.isFetchingNextPage) return;
+    void query.fetchNextPage();
+  }, [query.fetchNextPage, query.hasNextPage, query.isFetchingNextPage]);
 
   return {
     ...query,
-    stories: lastPage?.stories ?? [],
-    hasMore: lastPage?.hasMore ?? false,
-    loadMore: () => void query.fetchNextPage(),
+    stories,
+    hasMore: query.hasNextPage ?? false,
+    isLoading: query.isLoading,
+    isFetchingNextPage: query.isFetchingNextPage,
+    loadMore,
     resetFeed,
   };
 }

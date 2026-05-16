@@ -11,6 +11,7 @@ export interface StoryMediaSlideProps {
   recyclingKey: string;
   width: number;
   height: number;
+  blurhash?: string | null;
 }
 
 function StoryMediaSlideComponent({
@@ -19,6 +20,7 @@ function StoryMediaSlideComponent({
   recyclingKey,
   width,
   height,
+  blurhash,
 }: StoryMediaSlideProps) {
   const primaryUri = optimizedUri?.trim() || fallbackUri?.trim() || null;
   const hasMedia = Boolean(primaryUri);
@@ -53,6 +55,7 @@ function StoryMediaSlideComponent({
         <SmartImage
           uri={optimizedUri || fallbackUri}
           fallbackUri={fallbackUri}
+          blurhash={blurhash ?? undefined}
           style={[styles.media, !mediaReady && styles.mediaHidden]}
           contentFit="cover"
           allowDownscaling

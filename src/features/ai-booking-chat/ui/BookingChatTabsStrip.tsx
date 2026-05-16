@@ -1,18 +1,18 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
-import type { ThemeColors } from "@/shared/theme/palettes";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BookingChatTab } from "../model/types";
 
 type Props = {
   tabs: BookingChatTab[];
   activeTabId: string | null;
-  colors: ThemeColors;
   onSelect: (id: string) => void;
   onAdd: () => void;
   onCloseTab: (id: string) => void;
 };
 
-export function BookingChatTabsStrip({ tabs, activeTabId, colors, onSelect, onAdd, onCloseTab }: Props) {
+export function BookingChatTabsStrip({ tabs, activeTabId, onSelect, onAdd, onCloseTab }: Props) {
+  const { colors } = useAppTheme();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 8 }}>

@@ -1,28 +1,19 @@
 import { Fragment } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import type { ThemeColors } from "@/shared/theme/palettes";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BookingChatMessage } from "../model/types";
 import { useSequentialTypewriterReveal } from "../lib/useSequentialTypewriterReveal";
-import type { BookingInlineThreadStyles } from "./bookingInlineThreadStyles";
+import { useBookingInlineThreadStyles } from "./useBookingInlineThreadStyles";
 
-type InlineProps = {
-  variant: "inline";
-  threadStyles: BookingInlineThreadStyles;
+type Props = {
+  variant: "inline" | "panel";
   first: BookingChatMessage;
   second: BookingChatMessage;
 };
 
-type PanelProps = {
-  variant: "panel";
-  colors: ThemeColors;
-  first: BookingChatMessage;
-  second: BookingChatMessage;
-};
-
-type Props = InlineProps | PanelProps;
-
-export function BookingChainedOpeningAssistantPair(props: Props) {
-  const { first, second } = props;
+export function BookingChainedOpeningAssistantPair({ variant, first, second }: Props) {
+  const { colors } = useAppTheme();
+  const threadStyles = useBookingInlineThreadStyles();
   const chainKey = `${first.id}:${second.id}`;
   const { firstVisible, secondVisible, showSecondBubble } = useSequentialTypewriterReveal(
     first.content,
@@ -30,8 +21,8 @@ export function BookingChainedOpeningAssistantPair(props: Props) {
     chainKey,
   );
 
-  if (props.variant === "inline") {
-    const ts = props.threadStyles;
+  if (variant === "inline") {
+    const ts = threadStyles;
     return (
       <Fragment>
         <View style={ts.bubbleWrapPeer}>
@@ -50,7 +41,6 @@ export function BookingChainedOpeningAssistantPair(props: Props) {
     );
   }
 
-  const { colors } = props;
   return (
     <Fragment>
       <View style={[panelStyles.wrap, panelStyles.wrapPeer]}>

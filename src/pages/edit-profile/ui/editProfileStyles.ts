@@ -13,8 +13,6 @@ export const editProfileStaticStyles = StyleSheet.create({
     height: 96,
   },
   avatar: { width: 96, height: 96, borderRadius: 48 },
-  avatarFallback: { alignItems: "center", justifyContent: "center" },
-  avatarFallbackText: { fontSize: 28, fontWeight: "700" },
   avatarCameraBtn: {
     position: "absolute",
     top: -2,
@@ -51,7 +49,6 @@ export function editProfileThemeStyles(colors: ThemeColors, _mode: ThemeMode) {
   return {
     root: { backgroundColor: colors.background },
     avatar: { backgroundColor: colors.surface },
-    avatarFallbackText: { color: colors.text },
     avatarCameraBtn: {
       backgroundColor: colors.primary,
       borderColor: colors.border,

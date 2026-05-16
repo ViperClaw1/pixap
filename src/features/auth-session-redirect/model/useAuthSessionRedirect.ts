@@ -1,12 +1,12 @@
 import { useLayoutEffect } from "react";
-import type { NavigationProp, ParamListBase } from "@react-navigation/native";
+import type { AppNavigation } from "@/app/navigation/appNavigation";
 import { navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 
 /** When session is ready and there is no user, send the user to Profile → Auth (no embedded Auth screen). */
 export function useAuthSessionRedirect(params: {
   authLoading: boolean;
   hasUser: boolean;
-  navigation: NavigationProp<ParamListBase>;
+  navigation: AppNavigation;
 }): void {
   const { authLoading, hasUser, navigation } = params;
   useLayoutEffect(() => {

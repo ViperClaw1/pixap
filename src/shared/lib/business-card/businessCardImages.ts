@@ -62,3 +62,25 @@ export function getLatestBusinessCardImage(images: unknown): string | null {
   if (normalized.length === 0) return null;
   return normalized[normalized.length - 1] ?? null;
 }
+
+export type BusinessCardImageSource = {
+  images?: unknown;
+  /** Legacy single-image column on older business_cards rows */
+  image?: string | null;
+};
+
+export function resolveBusinessCardHeroImagesRaw(place: BusinessCardImageSource | null | undefined): {
+  heroImagesRaw: string[];
+  heroFallback: string | null;
+} {
+  const legacyImage = place?.image ?? null;
+  const normalizedImageList = normalizeBusinessCardImages(place?.images);
+  const heroImagesRaw =
+    normalizedImageList.length > 0
+      ? normalizedImageList
+      : [...normalizedImageList, ...normalizeBusinessCardImages(legacyImage)].filter(
+          (url, idx, arr) => arr.indexOf(url) === idx,
+        );
+  const heroFallback = getLatestBusinessCardImage(place?.images) ?? getLatestBusinessCardImage(legacyImage);
+  return { heroImagesRaw, heroFallback };
+}

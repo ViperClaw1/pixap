@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -24,7 +24,8 @@ import { useStoriesFeed, useStoriesStrip } from "@/entities/story";
 import { usePostComments, usePostsFeed, useReactToPost } from "@/entities/post";
 import { useMyFollowing, useProfile, useToggleFollow } from "@/entities/user";
 import { useBusinessCards } from "@/entities/business-card";
-import { SmartImage, preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
+import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
+import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
 import { getOptimizedImageUrlPreset } from "@/shared/lib/imagePresets";
 import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
@@ -45,7 +46,8 @@ import { usePostCommentComposer } from "@/pages/stories-feed/model/usePostCommen
 import { usePostLikes } from "@/pages/stories-feed/model/usePostLikes";
 import { useFollowOverrides } from "@/pages/stories-feed/model/useFollowOverrides";
 import Toast from "react-native-toast-message";
-import { useCreatePostComment } from "@/entities/post";
+import { useCreatePostComment, useDeletePostComment, useUpdatePostComment } from "@/entities/post";
+import { profileMentionTag } from "@/shared/lib/profileMentionTag";
 import {
   DOUBLE_TAP_DELAY_MS,
   FEED_APP_HEADER_BODY,
@@ -70,7 +72,12 @@ export default function StoriesFeedScreen() {
   // ─── Data ────────────────────────────────────────────────────────────────
   const { posts, isLoading } = usePostsFeed();
   const { data: storiesStrip = [] } = useStoriesStrip();
-  const { stories: feedStories = [] } = useStoriesFeed();
+  const {
+    stories: feedStories = [],
+    hasMore: hasMoreFeedStories,
+    loadMore: loadMoreFeedStories,
+    isFetchingNextPage: isFetchingMoreFeedStories,
+  } = useStoriesFeed();
   const { followingSet } = useMyFollowing();
   const toggleFollow = useToggleFollow();
   const { data: myProfile } = useProfile();
@@ -80,15 +87,6 @@ export default function StoriesFeedScreen() {
   const focusPostId = route.params?.focusPostId?.trim() ?? "";
   const focusStoryId = route.params?.focusStoryId?.trim() ?? "";
   const filterUserId = route.params?.filterUserId?.trim() ?? "";
-  const routePostsScope = route.params?.postsScope;
-  const [postsScope, setPostsScope] = useState<"all" | "mine">(routePostsScope ?? (filterUserId ? "mine" : "all"));
-
-  useEffect(() => {
-    if (routePostsScope) { setPostsScope(routePostsScope); return; }
-    if (filterUserId) setPostsScope("mine");
-  }, [filterUserId, routePostsScope]);
-
-  const effectiveFilterUserId = postsScope === "mine" ? (filterUserId || user?.id || "") : "";
 
   // ─── Sorted & focused posts ──────────────────────────────────────────────
   const sortedPosts = useMemo(
@@ -96,8 +94,8 @@ export default function StoriesFeedScreen() {
     [posts],
   );
   const filteredPosts = useMemo(
-    () => (effectiveFilterUserId ? sortedPosts.filter((p) => p.user_id === effectiveFilterUserId) : sortedPosts),
-    [effectiveFilterUserId, sortedPosts],
+    () => (filterUserId ? sortedPosts.filter((p) => p.user_id === filterUserId) : sortedPosts),
+    [filterUserId, sortedPosts],
   );
   const focusedPosts = useMemo(() => {
     if (!focusPostId) return filteredPosts;
@@ -155,6 +153,11 @@ export default function StoriesFeedScreen() {
     return [target, ...storiesStrip.filter((s) => s.id !== focusStoryId)];
   }, [focusStoryId, storiesStrip]);
 
+  const onLoadMoreFeedStories = useCallback(() => {
+    if (!hasMoreFeedStories || isFetchingMoreFeedStories) return;
+    loadMoreFeedStories();
+  }, [hasMoreFeedStories, isFetchingMoreFeedStories, loadMoreFeedStories]);
+
   const storyGroups = useMemo<StoryGroup[]>(() => {
     const grouped = new Map<string, StoryGroup>();
     for (const story of feedStories) {
@@ -187,7 +190,13 @@ export default function StoriesFeedScreen() {
   const { followOverrides, onToggleFollowAuthor } = useFollowOverrides(followingSet, toggleFollow);
   const comments = usePostCommentComposer();
   const createPostComment = useCreatePostComment();
+  const updatePostComment = useUpdatePostComment();
+  const deletePostComment = useDeletePostComment();
   const { data: postComments = [] } = usePostComments(comments.selectedPostId ?? "");
+  const savingCommentId =
+    updatePostComment.isPending && updatePostComment.variables ? updatePostComment.variables.commentId : null;
+  const deletingCommentId =
+    deletePostComment.isPending && deletePostComment.variables ? deletePostComment.variables.commentId : null;
 
   const selectedPost = useMemo(
     () => focusedPosts.find((p) => p.id === comments.selectedPostId) ?? null,
@@ -299,20 +308,20 @@ export default function StoriesFeedScreen() {
             <View style={styles.skeletonStoriesRow}>
               {Array.from({ length: 5 }).map((_, idx) => (
                 <View key={`stories-skeleton-${idx}`} style={styles.skeletonStoryItem}>
-                  <ShimmerSurface width={64} height={64} borderRadius={32} isDark={isDark} />
-                  <ShimmerSurface width={56} height={10} borderRadius={6} isDark={isDark} />
+                  <ShimmerSurface width={64} height={64} borderRadius={32} />
+                  <ShimmerSurface width={56} height={10} borderRadius={6} />
                 </View>
               ))}
             </View>
             {Array.from({ length: 2 }).map((_, idx) => (
               <View key={`post-skeleton-${idx}`} style={[styles.skeletonCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                <ShimmerSurface width={width - 24} height={sliderHeight} isDark={isDark} borderRadius={0} />
+                <ShimmerSurface width={width - 24} height={sliderHeight} borderRadius={0} />
                 <View style={styles.skeletonActions}>
-                  <ShimmerSurface width={58} height={18} borderRadius={9} isDark={isDark} />
-                  <ShimmerSurface width={58} height={18} borderRadius={9} isDark={isDark} />
+                  <ShimmerSurface width={58} height={18} borderRadius={9} />
+                  <ShimmerSurface width={58} height={18} borderRadius={9} />
                 </View>
-                <ShimmerSurface width={180} height={14} borderRadius={7} isDark={isDark} style={styles.skeletonLinePad} />
-                <ShimmerSurface width={220} height={14} borderRadius={7} isDark={isDark} style={styles.skeletonLineGap} />
+                <ShimmerSurface width={180} height={14} borderRadius={7} style={styles.skeletonLinePad} />
+                <ShimmerSurface width={220} height={14} borderRadius={7} style={styles.skeletonLineGap} />
               </View>
             ))}
           </View>
@@ -346,15 +355,19 @@ export default function StoriesFeedScreen() {
         updateCellsBatchingPeriod={45}
         viewabilityConfig={feedViewabilityConfig}
         onViewableItemsChanged={onFeedViewableItemsChanged}
+        onEndReachedThreshold={0.4}
+        onEndReached={onLoadMoreFeedStories}
         renderItem={renderFocusedFeedPost}
         ListHeaderComponent={
           <StoriesStripHeader
             topStories={topStories}
             storyGroups={storyGroups}
             uploadingStory={storyUpload.uploadingStory}
+            loadingMoreStories={isFetchingMoreFeedStories}
             colors={colors}
             navigation={navigation}
             onAddStory={() => runAuthedAction(composer.openMenu)}
+            onLoadMoreStories={onLoadMoreFeedStories}
           />
         }
         ListEmptyComponent={
@@ -374,15 +387,19 @@ export default function StoriesFeedScreen() {
         commentInput={comments.commentInput}
         canSendComment={comments.canSendComment(createPostComment.isPending)}
         submittingComment={createPostComment.isPending}
+        currentUserId={user?.id}
         currentUserAvatarUrl={currentUserAvatarUrl}
         resolveAvatarUri={profileAvatar}
-        formatRelativeTime={(v) => {
-          const { formatRelativeTime: fmt } = require("@/shared/lib/formatRelativeTime");
-          return fmt(v);
-        }}
+        savingCommentId={savingCommentId}
+        deletingCommentId={deletingCommentId}
         onToggleReplies={comments.toggleReplies}
-        onReplyPress={(commentId) => runAuthedAction(() => comments.setReplyTargetCommentId(commentId))}
-        onCancelReply={() => comments.setReplyTargetCommentId(null)}
+        onReplyPress={(commentId) =>
+          runAuthedAction(() => {
+            const parent = postComments.find((c) => c.id === commentId);
+            comments.startReply(commentId, profileMentionTag(parent?.profile));
+          })
+        }
+        onCancelReply={() => comments.cancelReply()}
         onChangeCommentInput={comments.setCommentInput}
         onSubmitComment={() => {
           runAuthedAction(() => {
@@ -392,8 +409,29 @@ export default function StoriesFeedScreen() {
               parentCommentId: comments.replyTargetCommentId,
               content: comments.commentInput,
             });
-            comments.setCommentInput("");
-            comments.setReplyTargetCommentId(null);
+            comments.cancelReply();
+          });
+        }}
+        onSaveCommentEdit={(commentId, content) => {
+          runAuthedAction(() => {
+            if (!selectedPost) return;
+            void updatePostComment.mutateAsync({
+              postId: selectedPost.id,
+              commentId,
+              content,
+            });
+          });
+        }}
+        onDeleteComment={(commentId) => {
+          runAuthedAction(() => {
+            if (!selectedPost) return;
+            if (comments.replyTargetCommentId === commentId) {
+              comments.cancelReply();
+            }
+            void deletePostComment.mutateAsync({
+              postId: selectedPost.id,
+              commentId,
+            });
           });
         }}
       />
@@ -439,21 +477,42 @@ function StoriesStripHeader({
   topStories,
   storyGroups,
   uploadingStory,
+  loadingMoreStories,
   colors,
   navigation,
   onAddStory,
+  onLoadMoreStories,
 }: {
   topStories: ReturnType<typeof useStoriesStrip>["data"];
   storyGroups: StoryGroup[];
   uploadingStory: boolean;
+  loadingMoreStories: boolean;
   colors: ReturnType<typeof useAppTheme>["colors"];
   navigation: NativeStackNavigationProp<BrowseFlowParamList>;
   onAddStory: () => void;
+  onLoadMoreStories: () => void;
 }) {
   const stripDpr = PixelRatio.get();
+  const onStoriesStripScroll = useCallback(
+    (offsetX: number, layoutWidth: number, contentWidth: number) => {
+      if (layoutWidth + offsetX < contentWidth - 48) return;
+      onLoadMoreStories();
+    },
+    [onLoadMoreStories],
+  );
+
   return (
     <View style={styles.storiesHeaderWrap}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesHeaderContent}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.storiesHeaderContent}
+        scrollEventThrottle={200}
+        onScroll={(event) => {
+          const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+          onStoriesStripScroll(contentOffset.x, layoutMeasurement.width, contentSize.width);
+        }}
+      >
         <Pressable style={styles.storyBubble} disabled={uploadingStory} onPress={onAddStory}>
           <View style={[styles.storyBubbleRing, { borderColor: colors.border }]}>
             <View style={[styles.storyBubbleAvatar, { backgroundColor: colors.card }]}>
@@ -503,16 +562,24 @@ function StoriesStripHeader({
               }}
             >
               <View style={[styles.storyBubbleRing, { borderColor: colors.primary }]}>
-                {bubbleUri ? (
-                  <SmartImage uri={bubbleUri} fallbackUri={bubbleFallback} blurhash={bubbleBlur} style={styles.storyBubbleAvatar} contentFit="cover" />
-                ) : (
-                  <View style={[styles.storyBubbleAvatar, { backgroundColor: colors.card }]} />
-                )}
+                <UserAvatarImage
+                  uri={bubbleUri}
+                  fallbackUri={bubbleFallback}
+                  blurhash={bubbleBlur}
+                  style={styles.storyBubbleAvatar}
+                  contentFit="cover"
+                  iconSize={28}
+                />
               </View>
               <Text style={[styles.storyBubbleName, { color: colors.text }]} numberOfLines={1}>{name}</Text>
             </Pressable>
           );
         })}
+        {loadingMoreStories ? (
+          <View style={styles.storyBubble}>
+            <ActivityIndicator color={colors.primary} style={styles.storyStripLoader} />
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -537,4 +604,5 @@ const styles = StyleSheet.create({
   storyBubbleAvatar: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
   storyPlusBadge: { position: "absolute", right: -2, bottom: -2, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   storyBubbleName: { fontSize: 12, textAlign: "center" },
+  storyStripLoader: { marginTop: 20 },
 });

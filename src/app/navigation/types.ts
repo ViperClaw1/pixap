@@ -37,7 +37,6 @@ export type FeedStackParamList = {
         focusPostId?: string;
         focusStoryId?: string;
         filterUserId?: string;
-        postsScope?: "all" | "mine";
       }
     | undefined;
 } & BrowseFlowParamList;

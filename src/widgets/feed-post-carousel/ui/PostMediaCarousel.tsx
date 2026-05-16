@@ -1,12 +1,10 @@
 import { memo, useCallback, useEffect, useState } from "react";
 import { InteractionManager, StyleSheet, View } from "react-native";
 import Carousel, { type CarouselRenderItem } from "react-native-reanimated-carousel";
-import { SmartImage, preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
+import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
+import { StoryMediaSlide } from "@/widgets/stories-strip";
 
 const carouselStyles = StyleSheet.create({
-  sliderImage: {
-    width: "100%",
-  },
   sliderDots: {
     position: "absolute",
     left: 0,
@@ -87,15 +85,16 @@ export const PostMediaCarousel = memo(function PostMediaCarousel({
 
   const renderCarouselItem = useCallback<CarouselRenderItem<string>>(
     ({ item: imageUri, index }) => (
-      <PostCarouselSlide
-        imageUri={imageUri}
+      <StoryMediaSlide
+        optimizedUri={imageUri}
         fallbackUri={postImagesRaw[index] ?? null}
         blurhash={postSlideBlurhashes[index] ?? null}
         recyclingKey={`${postId}-feed-slider-${index}`}
-        sliderHeight={sliderHeight}
+        width={width}
+        height={sliderHeight}
       />
     ),
-    [postId, postImagesRaw, postSlideBlurhashes, sliderHeight],
+    [postId, postImagesRaw, postSlideBlurhashes, sliderHeight, width],
   );
 
   return (

@@ -5,7 +5,7 @@ import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import type { DiscussionUiPalette } from "@/shared/theme/discussionPalette";
-import { formatStoryDiscussionTime } from "@/shared/lib/formatStoryDiscussionTime";
+import { formatStoryDiscussionTime } from "@/shared/lib/formatRelativeTime";
 import { profileDisplayName } from "../lib/storyDiscussionMention";
 
 const AVATAR = 32;

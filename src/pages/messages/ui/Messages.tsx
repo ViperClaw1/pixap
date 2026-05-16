@@ -9,7 +9,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import Toast from "react-native-toast-message";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 import { useMyFollowing, useToggleFollow } from "@/entities/user";
@@ -30,22 +30,10 @@ import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSh
 import { MESSAGES_COMPACT_WIDTH, useMessagesStyles } from "./messagesStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import { devWarn } from "@/shared/lib/devLog";
+import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
 
 function fullName(first?: string | null, last?: string | null, emptyLabel = "Unknown user") {
   return `${first?.trim() ?? ""} ${last?.trim() ?? ""}`.trim() || emptyLabel;
-}
-
-function formatRelativeTime(value: string) {
-  const createdAtMs = new Date(value).getTime();
-  if (Number.isNaN(createdAtMs)) return "";
-  const diffSeconds = Math.max(0, Math.floor((Date.now() - createdAtMs) / 1000));
-  if (diffSeconds < 60) return `${diffSeconds}s ago`;
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
 }
 
 const SKELETON_IDS = ["1", "2", "3"] as const;
@@ -243,10 +231,10 @@ export default function MessagesPage() {
           <View style={styles.skeletonWrap}>
             {SKELETON_IDS.map((id) => (
               <View key={`inbox-skeleton-${id}`} style={styles.skeletonCard}>
-                <ShimmerSurface width={48} height={48} borderRadius={24} isDark={mode === "dark"} />
+                <ShimmerSurface width={48} height={48} borderRadius={24} />
                 <View style={styles.skeletonMain}>
-                  <ShimmerSurface width={160} height={12} borderRadius={10} isDark={mode === "dark"} />
-                  <ShimmerSurface width={110} height={10} borderRadius={10} isDark={mode === "dark"} />
+                  <ShimmerSurface width={160} height={12} borderRadius={10} />
+                  <ShimmerSurface width={110} height={10} borderRadius={10} />
                 </View>
               </View>
             ))}
@@ -293,7 +281,7 @@ export default function MessagesPage() {
                   });
                 }}
               >
-                <SmartImage
+                <UserAvatarImage
                   uri={thread.last_sender_avatar_url}
                   style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
                   contentFit="cover"
@@ -309,7 +297,9 @@ export default function MessagesPage() {
                   </Text>
                 </View>
                 <View style={styles.threadActionsWrap}>
-                  <Text style={styles.time}>{formatRelativeTime(thread.last_message_at)}</Text>
+                  <Text style={styles.time}>
+                    {formatRelativeTime(thread.last_message_at, { style: "compact" })}
+                  </Text>
                   <View style={styles.threadReadIndicator}>
                     <Ionicons
                       name={thread.unread_count > 0 ? "checkmark" : "checkmark-done"}
@@ -338,24 +328,24 @@ export default function MessagesPage() {
                   width={isCompact ? 40 : 48}
                   height={isCompact ? 40 : 48}
                   borderRadius={isCompact ? 20 : 24}
-                  isDark={mode === "dark"}
+                 
                 />
                 <View style={styles.skeletonMain}>
-                  <ShimmerSurface width={160} height={12} borderRadius={10} isDark={mode === "dark"} />
-                  <ShimmerSurface width={110} height={10} borderRadius={10} isDark={mode === "dark"} />
+                  <ShimmerSurface width={160} height={12} borderRadius={10} />
+                  <ShimmerSurface width={110} height={10} borderRadius={10} />
                 </View>
                 <View style={styles.skeletonActions}>
                   <ShimmerSurface
                     width={isCompact ? 36 : 44}
                     height={isCompact ? 36 : 44}
                     borderRadius={isCompact ? 18 : 22}
-                    isDark={mode === "dark"}
+                   
                   />
                   <ShimmerSurface
                     width={isCompact ? 36 : 44}
                     height={isCompact ? 36 : 44}
                     borderRadius={isCompact ? 18 : 22}
-                    isDark={mode === "dark"}
+                   
                   />
                 </View>
               </View>
@@ -402,7 +392,7 @@ export default function MessagesPage() {
               )}
             >
               <View style={[styles.card, isCompact ? styles.cardCompact : null]}>
-                <SmartImage
+                <UserAvatarImage
                   uri={person.avatar_url}
                   style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
                   contentFit="cover"
@@ -459,7 +449,7 @@ export default function MessagesPage() {
               .filter((profile) => profile.id !== user?.id)
               .map((item) => (
                 <View key={item.id} style={[styles.card, isCompact ? styles.cardCompact : null]}>
-                  <SmartImage
+                  <UserAvatarImage
                     uri={item.avatar_url}
                     style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
                     contentFit="cover"

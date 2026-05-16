@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { PixelRatio, View, Text, Pressable } from "react-native";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -9,17 +9,17 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
-import type { ThemeColors } from "@/shared/theme/palettes";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
+import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { businessPlaceCardStaticStyles, businessPlaceCardThemeStyles } from "./businessPlaceCardStyles";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 
 type Props = {
   place: BusinessCard;
   variant: "vertical" | "horizontal";
-  colors: ThemeColors;
-  isDark: boolean;
-  onOpen: () => void;
+  /** Defaults to `PlaceDetail` for `place.id` when omitted (stable props for list memo). */
+  onOpen?: () => void;
 };
 
 const IMAGE_HORIZONTAL = 96;
@@ -47,15 +47,24 @@ function pickTagsThatFitSingleRow(tags: string[], availableWidth: number): strin
   return picked;
 }
 
-export default function BusinessPlaceCard({ place, variant, colors, isDark, onOpen }: Props) {
-  const navigation = useNavigation();
+function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { user } = useAuth();
+  const { colors } = useAppTheme();
+  const handleOpen = useCallback(() => {
+    if (onOpen) {
+      onOpen();
+      return;
+    }
+    navigation.navigate("PlaceDetail", { id: place.id });
+  }, [navigation, onOpen, place.id]);
   const isFavorite = useIsFavorite(place.id);
   const toggleFavorite = useToggleFavorite();
 
+  const themed = useThemeStyles(({ colors: c }) => businessPlaceCardThemeStyles(c));
   const styles = useMemo(
-    () => mergeStaticAndThemed(businessPlaceCardStaticStyles, businessPlaceCardThemeStyles(colors, isDark)),
-    [colors, isDark],
+    () => mergeStaticAndThemed(businessPlaceCardStaticStyles, themed),
+    [themed],
   );
 
   const onFavoritePress = () => {
@@ -90,7 +99,7 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
 
   if (variant === "horizontal") {
     return (
-      <Pressable onPress={onOpen} style={styles.hRoot}>
+      <Pressable onPress={handleOpen} style={styles.hRoot}>
         <View style={styles.hImageWrap}>
           <SmartImage
             uri={lastImageOptimized}
@@ -135,7 +144,7 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
   }
 
   return (
-    <Pressable onPress={onOpen} style={styles.vRoot}>
+    <Pressable onPress={handleOpen} style={styles.vRoot}>
       <View style={styles.vImageBlock}>
         <SmartImage
           uri={lastImageOptimized}
@@ -177,3 +186,6 @@ export default function BusinessPlaceCard({ place, variant, colors, isDark, onOp
     </Pressable>
   );
 }
+
+const BusinessPlaceCard = memo(BusinessPlaceCardInner);
+export default BusinessPlaceCard;

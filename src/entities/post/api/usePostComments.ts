@@ -71,7 +71,7 @@ export const usePostComments = (postId: string) => {
       const profileIds = Array.from(new Set(allComments.map((item) => item.user_id)));
       const { data: profilesData, error: profilesError } = await supabase
         .from("public_profiles" as any)
-        .select("id, first_name, last_name, avatar_url")
+        .select("id, first_name, last_name, avatar_url, username")
         .in("id", profileIds);
       if (profilesError) throw profilesError;
 

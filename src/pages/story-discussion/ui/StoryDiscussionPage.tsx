@@ -28,7 +28,7 @@ export default function StoryDiscussionPage() {
   const palette = useMemo(() => (isDark ? discussionPaletteDark : discussionPaletteLight), [isDark]);
 
   const onRequireAuth = useCallback(() => {
-    navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+    navigateToAuthScreen(navigation);
   }, [navigation]);
 
   return (

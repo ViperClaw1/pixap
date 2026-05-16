@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useBookingFlowPlacePanelStyles } from "./bookingFlowPlacePanelStyles";
 import Carousel from "react-native-reanimated-carousel";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import type { ThemeColors } from "@/shared/theme/palettes";
 import { getLatestBusinessCardImage, normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 
@@ -13,29 +13,29 @@ type Props = {
     name: string;
     address: string;
     rating: number | null;
-    booking_price: number;
     images: unknown;
   };
-  colors: ThemeColors;
   heroTopInset: number;
   isFavorite: boolean;
   onPressBack: () => void;
   onPressFavorite: () => void;
   children?: ReactNode;
   useMonotoneDarkBackground?: boolean;
+  /** Stretch white details card to fill remaining screen height. */
+  fillContent?: boolean;
 };
 
 const HERO_HEIGHT = 260;
 
 export function BookingFlowPlacePanel({
   place,
-  colors,
   heroTopInset,
   isFavorite,
   onPressBack,
   onPressFavorite,
   children,
   useMonotoneDarkBackground = false,
+  fillContent = false,
 }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const [heroSlide, setHeroSlide] = useState(0);
@@ -68,7 +68,7 @@ export function BookingFlowPlacePanel({
   );
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, fillContent && styles.wrapFill]}>
       <View style={styles.heroWrap}>
         {heroImages.length > 1 ? (
           <>
@@ -106,11 +106,12 @@ export function BookingFlowPlacePanel({
         </View>
       </View>
 
-      <View style={styles.detailsCard}>
+      <View style={[styles.detailsCard, fillContent && styles.detailsCardFill]}>
         <Text style={styles.title}>{place.name}</Text>
-        <Text style={styles.rating}>
-          {Number(place.rating ?? 0).toFixed(1)} · {Number(place.booking_price).toLocaleString()} $
-        </Text>
+        <View style={styles.ratingRow}>
+          <Ionicons name="star" size={14} color="#eab308" />
+          <Text style={styles.rating}>{Number(place.rating ?? 0).toFixed(1)}</Text>
+        </View>
         <Text style={styles.address}>📍 {place.address}</Text>
         {children ? <View style={styles.childrenWrap}>{children}</View> : null}
       </View>

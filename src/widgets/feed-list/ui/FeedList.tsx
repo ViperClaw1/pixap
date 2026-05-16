@@ -42,7 +42,7 @@ function FeedListComponent({
   onReact,
   onAuthRequired,
 }: FeedListProps) {
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const skeletonMediaWidth = Dimensions.get("window").width - 48;
 
   const renderStoryItem = useCallback<ListRenderItem<FeedStoryItem>>(
@@ -81,17 +81,17 @@ function FeedListComponent({
               style={[styles.skeletonCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
               <View style={styles.skeletonHeader}>
-                <ShimmerSurface width={44} height={44} borderRadius={22} isDark={isDark} />
+                <ShimmerSurface width={44} height={44} borderRadius={22} />
                 <View style={styles.skeletonHeaderText}>
-                  <ShimmerSurface width={124} height={12} borderRadius={6} isDark={isDark} />
-                  <ShimmerSurface width={88} height={10} borderRadius={5} isDark={isDark} style={styles.skeletonMetaGap} />
+                  <ShimmerSurface width={124} height={12} borderRadius={6} />
+                  <ShimmerSurface width={88} height={10} borderRadius={5} style={styles.skeletonMetaGap} />
                 </View>
               </View>
-              <ShimmerSurface width={skeletonMediaWidth} height={220} borderRadius={12} isDark={isDark} style={styles.skeletonMedia} />
+              <ShimmerSurface width={skeletonMediaWidth} height={220} borderRadius={12} style={styles.skeletonMedia} />
               <View style={styles.skeletonActions}>
-                <ShimmerSurface width={56} height={18} borderRadius={9} isDark={isDark} />
-                <ShimmerSurface width={56} height={18} borderRadius={9} isDark={isDark} />
-                <ShimmerSurface width={56} height={18} borderRadius={9} isDark={isDark} />
+                <ShimmerSurface width={56} height={18} borderRadius={9} />
+                <ShimmerSurface width={56} height={18} borderRadius={9} />
+                <ShimmerSurface width={56} height={18} borderRadius={9} />
               </View>
             </View>
           ))}

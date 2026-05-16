@@ -85,7 +85,7 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                   <Text style={{ color: colors.danger }}> *</Text>
                 </Text>
                 <Text style={[s.postFieldHint, { color: colors.textMuted }]}>
-                  Required — pick an address from the suggestion list.
+                  Required — pick an address from the suggestion list
                 </Text>
 
                 <View
@@ -245,8 +245,8 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
 
                 <Text style={[s.postFieldLabel, { color: colors.text }]}>
                   Photos<Text style={{ color: colors.danger }}> *</Text>
+                  <Text style={[s.postFieldLabelHint, { color: colors.textMuted }]}> (Required — at least one image)</Text>
                 </Text>
-                <Text style={[s.postFieldHint, { color: colors.textMuted }]}>Required — at least one image.</Text>
                 <Pressable
                   style={[s.postUploaderBox, { borderColor: c.postPhotosError ? colors.danger : colors.border }]}
                   onPress={() => void c.pickPostPhotos()}
@@ -277,13 +277,14 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                   </View>
                 ) : null}
 
-                <Text style={[s.postFieldLabel, { color: colors.text, marginTop: 4 }]}>
+                <Text style={[s.postFieldLabel, { color: colors.text }]}>
                   Post text<Text style={{ color: colors.danger }}> *</Text>
+                  <Text style={[s.postFieldLabelHint, { color: colors.textMuted }]}> (Required — share an update)</Text>
                 </Text>
-                <Text style={[s.postFieldHint, { color: colors.textMuted }]}>Required — share an update.</Text>
                 <CommentComposer
                   avatarUrl={null}
                   showAvatar={false}
+                  showStickers
                   showSendButton={false}
                   value={c.postInput}
                   onChangeText={(value) => {

@@ -8,8 +8,9 @@ import { supabase } from "@/shared/api/supabase/client";
 import { env } from "@/shared/lib/env";
 import { isInvalidRefreshTokenError } from "@/shared/lib/supabaseAuth";
 import { clearSessionCaches } from "@/shared/lib/clearSessionCaches";
-import { registerNativePushToken } from "@/shared/lib/push/pushNotifications";
+import { consumePendingPushOutbox, registerNativePushToken } from "@/shared/lib/push/pushNotifications";
 import { devError, devInfo, devWarn } from "@/shared/lib/devLog";
+import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
 
 interface SignInResult {
   error: string | null;
@@ -128,6 +129,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user?.id) return;
     const register = () => {
       void registerNativePushToken(user.id);
+      void consumePendingPushOutbox();
     };
     const task = InteractionManager.runAfterInteractions(register);
     const sub = AppState.addEventListener("change", (state) => {
@@ -147,6 +149,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!loading && hadAuthenticatedUserRef.current) {
       hadAuthenticatedUserRef.current = false;
       void clearSessionCaches(queryClient);
+      void resetBookingChatPersistedSession();
     }
   }, [loading, queryClient, user?.id]);
 

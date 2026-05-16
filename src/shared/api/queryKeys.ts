@@ -55,7 +55,7 @@ export const queryKeys = {
       ["profile", "suggestions", userId, limit, followingSig, bio] as const,
   },
   publicProfiles: {
-    search: (q: string) => ["public_profiles", "search", q] as const,
+    search: (q: string, accountRole: "all" | "user" = "all") => ["public_profiles", "search", q, accountRole] as const,
     root: ["public_profiles"] as const,
   },
   messages: {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { View, Text, Pressable, Alert } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useDeleteCartItem, parseWaStatusLines, type CartItem } from "@/entities/cart";
@@ -14,7 +14,7 @@ type Props = {
   onAuthRequired: () => void;
 };
 
-export function ServiceCartRow({ item, stylesThemed, onConfirmBooking, onPayBooking, onAuthRequired }: Props) {
+function ServiceCartRowInner({ item, stylesThemed, onConfirmBooking, onPayBooking, onAuthRequired }: Props) {
   const deleteCartItem = useDeleteCartItem();
   const [confirming, setConfirming] = useState(false);
   const statusLines = parseWaStatusLines(item.wa_status_lines);
@@ -101,3 +101,5 @@ export function ServiceCartRow({ item, stylesThemed, onConfirmBooking, onPayBook
     </View>
   );
 }
+
+export const ServiceCartRow = memo(ServiceCartRowInner);

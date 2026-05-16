@@ -23,7 +23,6 @@ type FeaturedProps = { cardCount?: number };
 type RecommendedProps = { cardWidth: number; cardCount?: number };
 
 function CategorySkeletonRowInner({ pillCount = DEFAULT_CATEGORY_PILLS }: CategoryProps) {
-  const { isDark } = useAppTheme();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hContent}>
       {Array.from({ length: pillCount }).map((_, i) => (
@@ -32,7 +31,7 @@ function CategorySkeletonRowInner({ pillCount = DEFAULT_CATEGORY_PILLS }: Catego
             width={CATEGORY_PILL_W}
             height={CATEGORY_PILL_H}
             borderRadius={CATEGORY_PILL_R}
-            isDark={isDark}
+           
           />
         </View>
       ))}
@@ -41,16 +40,15 @@ function CategorySkeletonRowInner({ pillCount = DEFAULT_CATEGORY_PILLS }: Catego
 }
 
 function FeaturedSkeletonRowInner({ cardCount = DEFAULT_FEATURED_COUNT }: FeaturedProps) {
-  const { isDark } = useAppTheme();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hContent}>
       {Array.from({ length: cardCount }).map((_, i) => (
         <View key={i} style={styles.featuredWrap}>
-          <ShimmerSurface width={IMAGE_VERTICAL_W} height={IMAGE_VERTICAL_H} borderRadius={12} isDark={isDark} />
+          <ShimmerSurface width={IMAGE_VERTICAL_W} height={IMAGE_VERTICAL_H} borderRadius={12} />
           <View style={styles.featuredMeta}>
-            <ShimmerSurface width={170} height={14} borderRadius={4} isDark={isDark} />
-            <ShimmerSurface width={130} height={12} borderRadius={4} isDark={isDark} style={styles.metaGap} />
-            <ShimmerSurface width={90} height={12} borderRadius={4} isDark={isDark} style={styles.metaGap} />
+            <ShimmerSurface width={170} height={14} borderRadius={4} />
+            <ShimmerSurface width={130} height={12} borderRadius={4} style={styles.metaGap} />
+            <ShimmerSurface width={90} height={12} borderRadius={4} style={styles.metaGap} />
           </View>
         </View>
       ))}
@@ -59,7 +57,7 @@ function FeaturedSkeletonRowInner({ cardCount = DEFAULT_FEATURED_COUNT }: Featur
 }
 
 function RecommendedSkeletonListInner({ cardWidth, cardCount = DEFAULT_RECOMMENDED_COUNT }: RecommendedProps) {
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const innerBodyW = Math.max(80, cardWidth - H_PADDING * 2 - IMAGE_HORIZONTAL - H_GAP);
 
   return (
@@ -77,22 +75,22 @@ function RecommendedSkeletonListInner({ cardWidth, cardCount = DEFAULT_RECOMMEND
             },
           ]}
         >
-          <ShimmerSurface width={IMAGE_HORIZONTAL} height={IMAGE_HORIZONTAL} borderRadius={12} isDark={isDark} />
+          <ShimmerSurface width={IMAGE_HORIZONTAL} height={IMAGE_HORIZONTAL} borderRadius={12} />
           <View style={styles.recBody}>
             <View>
-              <ShimmerSurface width={innerBodyW} height={16} borderRadius={4} isDark={isDark} />
+              <ShimmerSurface width={innerBodyW} height={16} borderRadius={4} />
               <ShimmerSurface
                 width={Math.min(innerBodyW, 220)}
                 height={12}
                 borderRadius={4}
-                isDark={isDark}
+               
                 style={styles.addrGap}
               />
             </View>
             <View style={styles.tagRow}>
-              <ShimmerSurface width={56} height={22} borderRadius={999} isDark={isDark} />
-              <ShimmerSurface width={72} height={22} borderRadius={999} isDark={isDark} />
-              <ShimmerSurface width={64} height={22} borderRadius={999} isDark={isDark} />
+              <ShimmerSurface width={56} height={22} borderRadius={999} />
+              <ShimmerSurface width={72} height={22} borderRadius={999} />
+              <ShimmerSurface width={64} height={22} borderRadius={999} />
             </View>
           </View>
         </View>

@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 type ExpoPushMessage = {
@@ -15,10 +15,14 @@ type ExpoTicket = {
   details?: unknown;
 };
 
+type AuthScope =
+  | { mode: "service" }
+  | { mode: "user"; userId: string };
+
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_CHUNK = 99;
 
-function isAuthorized(req: Request, serviceKey: string | undefined): boolean {
+function isServiceAuthorized(req: Request, serviceKey: string | undefined): boolean {
   const cronSecret = Deno.env.get("PUSH_CRON_SECRET");
   if (cronSecret) {
     const provided = req.headers.get("x-push-cron-secret") ?? "";
@@ -28,6 +32,24 @@ function isAuthorized(req: Request, serviceKey: string | undefined): boolean {
   const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
   const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
   return Boolean(bearer && bearer === serviceKey);
+}
+
+async function resolveAuthScope(req: Request, url: string, serviceKey: string): Promise<AuthScope | null> {
+  if (isServiceAuthorized(req, serviceKey)) {
+    return { mode: "service" };
+  }
+
+  const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return null;
+
+  const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const { data, error } = await admin.auth.getUser(token);
+  if (error || !data.user?.id) {
+    console.warn("[consume-push-outbox] auth.getUser failed:", error?.message ?? "no user");
+    return null;
+  }
+  return { mode: "user", userId: data.user.id };
 }
 
 async function sendExpoChunk(
@@ -59,7 +81,51 @@ async function sendExpoChunk(
   return { ok: !hasHardError, tickets, details: json };
 }
 
+type OutboxRow = { id: string; user_id: string; title: string; body: string; data: Record<string, unknown> };
+
+/** Skip rows that would notify the user who performed the action. */
+function isPushForActor(row: OutboxRow): boolean {
+  const actorId = row.data?.actor_id ?? row.data?.sender_id;
+  return typeof actorId === "string" && actorId.length > 0 && actorId === row.user_id;
+}
+
+async function loadPendingRows(
+  admin: SupabaseClient,
+  scope: AuthScope,
+  body: { outbox_id?: string; limit?: number },
+): Promise<{ rows: OutboxRow[]; error: string | null }> {
+  if (typeof body.outbox_id === "string" && body.outbox_id.length > 0) {
+    let query = admin
+      .from("push_outbox")
+      .select("id, user_id, title, body, data")
+      .eq("id", body.outbox_id)
+      .is("delivered_at", null)
+      .limit(1);
+    if (scope.mode === "user") {
+      query = query.eq("user_id", scope.userId);
+    }
+    const { data, error } = await query;
+    if (error) return { rows: [], error: error.message };
+    return { rows: (data ?? []) as OutboxRow[], error: null };
+  }
+
+  const limit = Math.min(Math.max(Number(body.limit) || 50, 1), scope.mode === "user" ? 50 : 200);
+  let query = admin
+    .from("push_outbox")
+    .select("id, user_id, title, body, data")
+    .is("delivered_at", null)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (scope.mode === "user") {
+    query = query.eq("user_id", scope.userId);
+  }
+  const { data, error } = await query;
+  if (error) return { rows: [], error: error.message };
+  return { rows: (data ?? []) as OutboxRow[], error: null };
+}
+
 Deno.serve(async (req) => {
+  console.log("[consume-push-outbox] request", req.method);
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 204, headers: corsHeaders });
   }
@@ -79,7 +145,8 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (!isAuthorized(req, serviceKey)) {
+  const scope = await resolveAuthScope(req, url, serviceKey);
+  if (!scope) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -94,47 +161,25 @@ Deno.serve(async (req) => {
   }
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-
-  type OutboxRow = { id: string; user_id: string; title: string; body: string; data: Record<string, unknown> };
-
-  let rows: OutboxRow[] = [];
-  if (typeof body.outbox_id === "string" && body.outbox_id.length > 0) {
-    const { data, error } = await admin
-      .from("push_outbox")
-      .select("id, user_id, title, body, data")
-      .eq("id", body.outbox_id)
-      .is("delivered_at", null)
-      .limit(1);
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    rows = (data ?? []) as OutboxRow[];
-  } else {
-    const limit = Math.min(Math.max(Number(body.limit) || 50, 1), 200);
-    const { data, error } = await admin
-      .from("push_outbox")
-      .select("id, user_id, title, body, data")
-      .is("delivered_at", null)
-      .order("created_at", { ascending: true })
-      .limit(limit);
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    rows = (data ?? []) as OutboxRow[];
+  const { rows, error: loadError } = await loadPendingRows(admin, scope, body);
+  if (loadError) {
+    return new Response(JSON.stringify({ error: loadError }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const now = new Date().toISOString();
   const expoMessages: ExpoPushMessage[] = [];
   const rowIdsToMark: string[] = [];
   const skippedNoToken: string[] = [];
+  const skippedActorSelf: string[] = [];
 
   for (const row of rows) {
+    if (isPushForActor(row)) {
+      skippedActorSelf.push(row.id);
+      continue;
+    }
     const { data: tokens, error: tokErr } = await admin
       .from("user_push_tokens")
       .select("expo_push_token")
@@ -174,17 +219,20 @@ Deno.serve(async (req) => {
     }
   }
 
-  if (rowIdsToMark.length > 0) {
-    await admin.from("push_outbox").update({ delivered_at: now }).in("id", rowIdsToMark);
+  const deliveredIds = [...rowIdsToMark, ...skippedActorSelf];
+  if (deliveredIds.length > 0) {
+    await admin.from("push_outbox").update({ delivered_at: now }).in("id", deliveredIds);
   }
 
   return new Response(
     JSON.stringify({
       ok: true,
+      auth_mode: scope.mode,
       processed_rows: rows.length,
       expo_messages: expoMessages.length,
       marked_delivered_ids: rowIdsToMark,
       skipped_no_expo_token_ids: skippedNoToken,
+      skipped_actor_self_ids: skippedActorSelf,
     }),
     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );

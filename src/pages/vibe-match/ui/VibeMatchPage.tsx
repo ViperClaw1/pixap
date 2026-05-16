@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -110,7 +110,7 @@ export default function VibeMatchPage() {
   useAuthSessionRedirect({
     authLoading,
     hasUser: Boolean(user),
-    navigation: navigation as unknown as NavigationProp<ParamListBase>,
+    navigation,
   });
   useSubscriptionPaywallRedirect({
     entitlementLoading,
@@ -137,9 +137,16 @@ export default function VibeMatchPage() {
   const [comment, setComment] = useState("");
   const [lastBookResults, setLastBookResults] = useState<BookRowResult[] | null>(null);
   const [bookingAction, setBookingAction] = useState<VibeBookingAction | null>(null);
+  const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>([]);
+  const selectionSeededForPlanRef = useRef("");
   const bookingBusy = bookingAction !== null;
 
   const plan = vibeResult?.plan ?? [];
+  const isSingleStopRoute = plan.length === 1;
+  const planSelectionKey = useMemo(
+    () => plan.map((s) => `${s.venue_id}:${s.time_slot}`).join("|"),
+    [plan],
+  );
 
   const concreteCities = useMemo(
     () => availableCities.filter((c) => c !== ALL_CITIES_OPTION),
@@ -194,15 +201,45 @@ export default function VibeMatchPage() {
 
   const slotsAvailabilityReady =
     plan.length > 0 && !stopAvailability.some((x) => x.loading || x.error);
-  const anyBookable = stopAvailability.some((x) => x.bookable);
   const allBookable =
     plan.length > 0 && stopAvailability.every((x) => x.bookable) && slotsAvailabilityReady;
-  const partialBookEnabled = slotsAvailabilityReady && anyBookable && !allBookable;
 
-  const bookableStops = useMemo(
-    () => plan.filter((_, i) => stopAvailability[i]?.bookable),
+  const bookableVenueIds = useMemo(
+    () => plan.filter((_, i) => stopAvailability[i]?.bookable).map((s) => s.venue_id),
     [plan, stopAvailability],
   );
+
+  useEffect(() => {
+    if (planSelectionKey === selectionSeededForPlanRef.current) return;
+    selectionSeededForPlanRef.current = "";
+    setSelectedVenueIds([]);
+  }, [planSelectionKey]);
+
+  useEffect(() => {
+    if (!slotsAvailabilityReady || bookableVenueIds.length === 0) return;
+    if (selectionSeededForPlanRef.current === planSelectionKey) return;
+    selectionSeededForPlanRef.current = planSelectionKey;
+    setSelectedVenueIds(bookableVenueIds);
+  }, [bookableVenueIds, planSelectionKey, slotsAvailabilityReady]);
+
+  const selectedVenueIdSet = useMemo(() => new Set(selectedVenueIds), [selectedVenueIds]);
+
+  const selectedBookableStops = useMemo(
+    () => plan.filter((stop, i) => selectedVenueIdSet.has(stop.venue_id) && stopAvailability[i]?.bookable),
+    [plan, selectedVenueIdSet, stopAvailability],
+  );
+
+  const hasVenueSelection = isSingleStopRoute || selectedBookableStops.length > 0;
+  const bookAllEnabled = allBookable && hasVenueSelection;
+  const partialBookEnabled =
+    !isSingleStopRoute && slotsAvailabilityReady && selectedBookableStops.length >= 1;
+
+  const toggleVenueSelection = useCallback((venueId: string, bookable: boolean) => {
+    if (!bookable) return;
+    setSelectedVenueIds((prev) =>
+      prev.includes(venueId) ? prev.filter((id) => id !== venueId) : [...prev, venueId],
+    );
+  }, []);
 
   const themed = useThemeStyles(
     ({ colors: c }) => vibeMatchThemeStyles(c, insets.top, insets.bottom),
@@ -222,6 +259,7 @@ export default function VibeMatchPage() {
       return;
     }
     setLastBookResults(null);
+    setSelectedVenueIds([]);
     try {
       await runVibePlan({ mood: m, timeline, city: cityTrim, limit: 5 });
     } catch {
@@ -306,7 +344,7 @@ export default function VibeMatchPage() {
           } catch (e) {
             if (isAuthRequiredError(e)) {
               setLastBookResults(results);
-              navigateToAuthScreen(navigation as unknown as NavigationProp<ParamListBase>);
+              navigateToAuthScreen(navigation);
               return;
             }
             const message = e instanceof Error ? e.message : String(e);
@@ -362,17 +400,22 @@ export default function VibeMatchPage() {
   );
 
   const onBookAll = useCallback(async () => {
-    if (!allBookable) {
-      Alert.alert("Availability", "Every stop needs a free slot near the suggested time. Wait for slots to load or adjust the plan.");
+    if (!bookAllEnabled) {
+      if (!allBookable) {
+        Alert.alert(
+          "Availability",
+          "Every stop needs a free slot near the suggested time. Wait for slots to load or adjust the plan.",
+        );
+      }
       return;
     }
     await runBookStops(plan, "all");
-  }, [allBookable, plan, runBookStops]);
+  }, [allBookable, bookAllEnabled, plan, runBookStops]);
 
   const onPartialBook = useCallback(async () => {
-    if (!partialBookEnabled || bookableStops.length === 0) return;
-    await runBookStops(bookableStops, "partial");
-  }, [bookableStops, partialBookEnabled, runBookStops]);
+    if (!partialBookEnabled || selectedBookableStops.length === 0) return;
+    await runBookStops(selectedBookableStops, "partial");
+  }, [partialBookEnabled, runBookStops, selectedBookableStops]);
 
   const failedStops = useMemo(
     () => (lastBookResults?.filter((r): r is Extract<BookRowResult, { ok: false }> => !r.ok) ?? []).map((r) => r.stop),
@@ -475,12 +518,36 @@ export default function VibeMatchPage() {
             {plan.map((stop, i) => {
               const meta = stopAvailability[i];
               const warn = meta && !meta.loading && !meta.error && !meta.bookable;
+              const bookable = Boolean(meta?.bookable);
+              const checked = selectedVenueIdSet.has(stop.venue_id);
               return (
                 <View key={`${stop.venue_id}-${i}`} style={[styles.planRow, warn && styles.planRowWarn]}>
-                  <Text style={styles.planTime}>
-                    {new Date(stop.time_slot).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
-                  </Text>
-                  <Text style={styles.planName}>{stop.name}</Text>
+                  <View style={styles.planRowHeader}>
+                    <View style={styles.planRowHeaderMain}>
+                      <Text style={styles.planTime}>
+                        {new Date(stop.time_slot).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
+                      </Text>
+                      <Text style={styles.planName}>{stop.name}</Text>
+                    </View>
+                    {!isSingleStopRoute ? (
+                      <Pressable
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked, disabled: !bookable }}
+                        accessibilityLabel={
+                          checked ? `Deselect ${stop.name} for booking` : `Select ${stop.name} for booking`
+                        }
+                        disabled={!bookable}
+                        onPress={() => toggleVenueSelection(stop.venue_id, bookable)}
+                        style={[
+                          styles.planCheckbox,
+                          checked && styles.planCheckboxChecked,
+                          !bookable && styles.planCheckboxDisabled,
+                        ]}
+                      >
+                        {checked ? <Ionicons name="checkmark" size={16} color={colors.onAccent} /> : null}
+                      </Pressable>
+                    ) : null}
+                  </View>
                   {stop.description ? <Text style={styles.planDesc}>{stop.description}</Text> : null}
                   <View style={[styles.statusPill, meta?.bookable ? styles.statusOk : styles.statusBad]}>
                     <Text style={[styles.statusText, { color: colors.text }]}>
@@ -543,19 +610,21 @@ export default function VibeMatchPage() {
               style={[
                 primaryPressableStyle,
                 { height: SHARED_PRESSABLE_HEIGHT, borderRadius: SHARED_PRESSABLE_RADIUS },
-                (!allBookable || bookingBusy) && { opacity: 0.55 },
+                (!bookAllEnabled || bookingBusy) && { opacity: 0.55 },
               ]}
-              disabled={!allBookable || bookingBusy}
+              disabled={!bookAllEnabled || bookingBusy}
               onPress={() => void onBookAll()}
-              accessibilityLabel="Book all stops with a free slot"
+              accessibilityLabel={
+                isSingleStopRoute ? "Book this stop with a free slot" : "Book all stops with a free slot"
+              }
             >
               {bookingAction === "all" ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={primaryPressableTextStyle}>Book all</Text>
+                <Text style={primaryPressableTextStyle}>{isSingleStopRoute ? "Book" : "Book all"}</Text>
               )}
             </Pressable>
-            {!allBookable && plan.length > 0 && (anyBookable || !slotsAvailabilityReady) ? (
+            {!isSingleStopRoute ? (
               <Pressable
                 style={[
                   primaryPressableStyle,
@@ -564,13 +633,14 @@ export default function VibeMatchPage() {
                 ]}
                 disabled={!partialBookEnabled || bookingBusy}
                 onPress={() => void onPartialBook()}
-                accessibilityLabel="Book only stops that have a free slot"
+                accessibilityLabel="Book selected stops that have a free slot"
               >
                 {bookingAction === "partial" ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={primaryPressableTextStyle}>
-                    Partial book{partialBookEnabled ? ` (${bookableStops.length})` : ""}
+                    Partial book
+                    {partialBookEnabled ? ` (${selectedBookableStops.length})` : ""}
                   </Text>
                 )}
               </Pressable>

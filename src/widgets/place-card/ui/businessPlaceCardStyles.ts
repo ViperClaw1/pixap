@@ -92,7 +92,7 @@ export const businessPlaceCardStaticStyles = StyleSheet.create({
   },
 });
 
-export function businessPlaceCardThemeStyles(colors: ThemeColors, _isDark: boolean) {
+export function businessPlaceCardThemeStyles(colors: ThemeColors) {
   return {
     hRoot: {
       backgroundColor: colors.card,
