@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Pressable,
   Text,
@@ -14,6 +15,7 @@ import { usePhoneInputStyles } from "./phoneInputStyles";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import {
   buildCountryOptions,
+  filterCountryOptions,
   getNationalMaxDigits,
   regionToFlagEmoji,
   type PhoneValue,
@@ -41,8 +43,15 @@ export function PhoneInput({
   textStyle,
   pickerTitle = "Select country",
 }: Props) {
+  const { i18n } = useTranslation();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const countryOptions = useMemo(() => buildCountryOptions(), []);
+  const [countryQuery, setCountryQuery] = useState("");
+  const locale = i18n.resolvedLanguage ?? i18n.language ?? "en";
+  const countryOptions = useMemo(() => buildCountryOptions(locale), [locale]);
+  const filteredCountryOptions = useMemo(
+    () => filterCountryOptions(countryOptions, countryQuery),
+    [countryOptions, countryQuery],
+  );
   const selectedCountry = useMemo(
     () =>
       countryOptions.find(
@@ -64,11 +73,16 @@ export function PhoneInput({
     onChange({ ...value, nationalDigits: digits });
   };
 
+  const closePicker = () => {
+    setPickerOpen(false);
+    setCountryQuery("");
+  };
+
   const handleSelectCountry = (region: string, callingCode: string) => {
     const nextMax = getNationalMaxDigits(region, callingCode);
     const nextDigits = value.nationalDigits.slice(0, nextMax);
     onChange({ region, callingCode, nationalDigits: nextDigits });
-    setPickerOpen(false);
+    closePicker();
   };
 
   return (
@@ -94,26 +108,43 @@ export function PhoneInput({
 
       <BottomSheetPickerModal
         visible={pickerOpen}
-        onClose={() => setPickerOpen(false)}
+        onClose={closePicker}
         title={pickerTitle}
+        maxHeightFraction={0.72}
       >
-        {countryOptions.map((option, index) => (
-          <Pressable
-            key={`${option.region}-${option.callingCode}`}
-            style={[
-              styles.pickerRow,
-              index === countryOptions.length - 1 ? { borderBottomWidth: 0 } : null,
-            ]}
-            onPress={() => handleSelectCountry(option.region, option.callingCode)}
-          >
-            <Text style={styles.pickerRowText}>
-              {option.flag} {option.region} (+{option.callingCode})
-            </Text>
-            {value.region === option.region && value.callingCode === option.callingCode ? (
-              <Ionicons name="checkmark" size={16} color={colors.primary} />
-            ) : null}
-          </Pressable>
-        ))}
+        <View style={styles.pickerSearchWrap}>
+          <TextInput
+            value={countryQuery}
+            onChangeText={setCountryQuery}
+            placeholder="Search country..."
+            placeholderTextColor={colors.textMuted}
+            style={styles.pickerSearchInput}
+            autoCorrect={false}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
+        </View>
+        {filteredCountryOptions.length ? (
+          filteredCountryOptions.map((option, index) => (
+            <Pressable
+              key={`${option.region}-${option.callingCode}`}
+              style={[
+                styles.pickerRow,
+                index === filteredCountryOptions.length - 1 ? { borderBottomWidth: 0 } : null,
+              ]}
+              onPress={() => handleSelectCountry(option.region, option.callingCode)}
+            >
+              <Text style={styles.pickerRowText}>
+                {option.flag} {option.name} (+{option.callingCode})
+              </Text>
+              {value.region === option.region && value.callingCode === option.callingCode ? (
+                <Ionicons name="checkmark" size={16} color={colors.primary} />
+              ) : null}
+            </Pressable>
+          ))
+        ) : (
+          <Text style={styles.pickerEmptyText}>No countries found</Text>
+        )}
       </BottomSheetPickerModal>
     </>
   );

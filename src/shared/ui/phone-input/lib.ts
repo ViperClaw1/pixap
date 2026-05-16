@@ -6,6 +6,7 @@ export type CountryOption = {
   region: string;
   callingCode: string;
   flag: string;
+  name: string;
 };
 
 export type PhoneValue = {
@@ -32,18 +33,44 @@ export function regionToFlagEmoji(region: string): string {
   return String.fromCodePoint(...codePoints);
 }
 
-export function buildCountryOptions(): CountryOption[] {
+export function getCountryDisplayName(region: string, locale = "en"): string {
+  try {
+    return new Intl.DisplayNames([locale], { type: "region" }).of(region) ?? region;
+  } catch {
+    return region;
+  }
+}
+
+export function buildCountryOptions(locale = "en"): CountryOption[] {
   const options: CountryOption[] = [];
-  for (const region of Array.from(phoneUtil.getSupportedRegions()).sort()) {
+  for (const region of phoneUtil.getSupportedRegions()) {
     try {
       const callingCode = phoneUtil.getCountryCodeForRegion(region).toString();
       if (!callingCode) continue;
-      options.push({ region, callingCode, flag: regionToFlagEmoji(region) });
+      options.push({
+        region,
+        callingCode,
+        flag: regionToFlagEmoji(region),
+        name: getCountryDisplayName(region, locale),
+      });
     } catch {
       // ignore unsupported regions
     }
   }
-  return options;
+  return options.sort((a, b) => a.name.localeCompare(b.name, locale));
+}
+
+export function filterCountryOptions(options: CountryOption[], query: string): CountryOption[] {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return options;
+  const digits = trimmed.replace(/\D/g, "");
+  return options.filter((option) => {
+    if (option.name.toLowerCase().includes(trimmed)) return true;
+    if (option.region.toLowerCase().includes(trimmed)) return true;
+    if (digits && option.callingCode.includes(digits)) return true;
+    if (trimmed.startsWith("+") && `+${option.callingCode}`.startsWith(trimmed)) return true;
+    return false;
+  });
 }
 
 /** Maximum national-significant digits allowed for a given region (E.164 caps total length at 15). */

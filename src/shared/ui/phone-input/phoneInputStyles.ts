@@ -47,10 +47,27 @@ export const phoneInputStaticStyles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 10,
   },
+  pickerSearchWrap: {
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+  },
+  pickerSearchInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
   pickerRowText: {
     fontSize: 14,
     fontWeight: "600",
     flex: 1,
+  },
+  pickerEmptyText: {
+    paddingHorizontal: 14,
+    paddingVertical: 20,
+    fontSize: 14,
+    textAlign: "center",
   },
 });
 
@@ -65,8 +82,14 @@ export function phoneInputThemeStyles(colors: ThemeColors) {
     countryCodeText: { color: colors.text },
     callingCodeText: { color: colors.text },
     input: { color: colors.text },
+    pickerSearchInput: {
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      color: colors.text,
+    },
     pickerRow: { borderBottomColor: colors.border },
     pickerRowText: { color: colors.text },
+    pickerEmptyText: { color: colors.textMuted },
   } satisfies Partial<Record<keyof typeof phoneInputStaticStyles, object>>;
 }
 

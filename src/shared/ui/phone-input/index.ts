@@ -2,6 +2,8 @@ export { PhoneInput } from "./PhoneInput";
 export {
   DEFAULT_PHONE_VALUE,
   buildCountryOptions,
+  filterCountryOptions,
+  getCountryDisplayName,
   getNationalMaxDigits,
   getPhoneValidationMessage,
   parseStoredPhone,
