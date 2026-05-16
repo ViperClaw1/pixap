@@ -24,7 +24,32 @@ type NormalizedEntitlement = {
   latest_transaction_id: string | null;
   original_transaction_id: string | null;
   purchase_token: string | null;
+  store_environment: "production" | "sandbox" | null;
 };
+
+function normalizeStoreEnvironment(value: string | undefined): "production" | "sandbox" | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "sandbox") return "sandbox";
+  if (normalized === "production") return "production";
+  return null;
+}
+
+function formatGoogleVerificationError(status: number, body: Record<string, unknown>): string {
+  const nested = body.error as { message?: string; status?: string } | undefined;
+  const detail =
+    (typeof nested?.message === "string" && nested.message) ||
+    (typeof body.error_description === "string" && body.error_description) ||
+    (typeof body.message === "string" && body.message) ||
+    "";
+  const base = `Google verification failed (${status})${detail ? `: ${detail}` : ""}`;
+  if (status !== 401 && status !== 403) return base;
+  return (
+    `${base}. Check Supabase secrets: GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY, ` +
+    `GOOGLE_PLAY_PACKAGE_NAME=com.pixap.pixap. In Google Cloud enable "Google Play Android Developer API". ` +
+    `In Play Console → Settings → API access, link the service account with "Manage orders and subscriptions".`
+  );
+}
 
 function decodeJwtPayload<T>(jwt: string): T {
   const parts = jwt.split(".");
@@ -92,6 +117,35 @@ async function createGoogleAccessToken(): Promise<string> {
   return data.access_token;
 }
 
+const APPLE_STOREKIT_PRODUCTION = "https://api.storekit.itunes.apple.com";
+const APPLE_STOREKIT_SANDBOX = "https://api.storekit-sandbox.itunes.apple.com";
+
+type AppleTransactionApiBody = {
+  signedTransactionInfo?: string;
+  errorCode?: number;
+  errorMessage?: string;
+};
+
+/** Production first, then sandbox — required for Sandbox/TestFlight purchases when env URL is unset. */
+function resolveAppleStoreBaseUrls(): string[] {
+  const configured = Deno.env.get("APPLE_APP_STORE_SERVER_URL")?.replace(/\/$/, "");
+  if (!configured) return [APPLE_STOREKIT_PRODUCTION, APPLE_STOREKIT_SANDBOX];
+  const alternate = configured.includes("sandbox") ? APPLE_STOREKIT_PRODUCTION : APPLE_STOREKIT_SANDBOX;
+  return configured === alternate ? [configured] : [configured, alternate];
+}
+
+async function fetchAppleTransaction(
+  transactionId: string,
+  token: string,
+  baseUrl: string,
+): Promise<{ response: Response; body: AppleTransactionApiBody }> {
+  const response = await fetch(`${baseUrl}/inApps/v1/transactions/${encodeURIComponent(transactionId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = (await response.json().catch(() => ({}))) as AppleTransactionApiBody;
+  return { response, body };
+}
+
 async function verifyIosPurchase(payload: VerifyPurchaseRequest): Promise<{ entitlement: NormalizedEntitlement; raw: unknown }> {
   const transactionId =
     payload.transactionId ??
@@ -99,13 +153,31 @@ async function verifyIosPurchase(payload: VerifyPurchaseRequest): Promise<{ enti
   if (!transactionId) throw new Error("Missing transactionId for iOS verification");
 
   const token = await createAppleToken();
-  const baseUrl = (Deno.env.get("APPLE_APP_STORE_SERVER_URL") ?? "https://api.storekit.itunes.apple.com").replace(/\/$/, "");
-  const response = await fetch(`${baseUrl}/inApps/v1/transactions/${encodeURIComponent(transactionId)}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const body = (await response.json().catch(() => ({}))) as { signedTransactionInfo?: string; errorCode?: number };
-  if (!response.ok || !body.signedTransactionInfo) {
-    throw new Error(`Apple verification failed (${response.status})`);
+  const baseUrls = resolveAppleStoreBaseUrls();
+  let lastStatus = 0;
+  let lastBody: AppleTransactionApiBody = {};
+
+  for (const baseUrl of baseUrls) {
+    const { response, body } = await fetchAppleTransaction(transactionId, token, baseUrl);
+    if (response.ok && body.signedTransactionInfo) {
+      lastBody = body;
+      break;
+    }
+    lastStatus = response.status;
+    lastBody = body;
+    if (response.status !== 401 && response.status !== 404) break;
+  }
+
+  if (!lastBody.signedTransactionInfo) {
+    const detail =
+      typeof lastBody.errorMessage === "string"
+        ? lastBody.errorMessage
+        : lastBody.errorCode != null
+          ? String(lastBody.errorCode)
+          : "";
+    throw new Error(
+      `Apple verification failed (${lastStatus})${detail ? `: ${detail}` : ""} (tried: ${baseUrls.join(", ")})`,
+    );
   }
 
   const transactionInfo = decodeJwtPayload<{
@@ -115,7 +187,8 @@ async function verifyIosPurchase(payload: VerifyPurchaseRequest): Promise<{ enti
     expiresDate?: number;
     revocationDate?: number;
     offerType?: number;
-  }>(body.signedTransactionInfo);
+    environment?: string;
+  }>(lastBody.signedTransactionInfo);
 
   const now = Date.now();
   const expiresAtMs = typeof transactionInfo.expiresDate === "number" ? transactionInfo.expiresDate : null;
@@ -135,8 +208,9 @@ async function verifyIosPurchase(payload: VerifyPurchaseRequest): Promise<{ enti
       latest_transaction_id: transactionInfo.transactionId ?? transactionId,
       original_transaction_id: transactionInfo.originalTransactionId ?? payload.originalTransactionId ?? null,
       purchase_token: null,
+      store_environment: normalizeStoreEnvironment(transactionInfo.environment),
     },
-    raw: body,
+    raw: lastBody,
   };
 }
 
@@ -164,6 +238,7 @@ async function verifyAndroidPurchase(payload: VerifyPurchaseRequest): Promise<{ 
   });
   const body = (await response.json().catch(() => ({}))) as {
     subscriptionState?: string;
+    testPurchase?: Record<string, unknown>;
     lineItems?: Array<{
       productId?: string;
       expiryTime?: string;
@@ -172,9 +247,12 @@ async function verifyAndroidPurchase(payload: VerifyPurchaseRequest): Promise<{ 
     }>;
     latestOrderId?: string;
     linkedPurchaseToken?: string;
+    error?: { message?: string; status?: string };
+    error_description?: string;
+    message?: string;
   };
   if (!response.ok) {
-    throw new Error(`Google verification failed (${response.status})`);
+    throw new Error(formatGoogleVerificationError(response.status, body as Record<string, unknown>));
   }
 
   const line = body.lineItems?.find((it) => it.productId === productId) ?? body.lineItems?.[0];
@@ -203,6 +281,7 @@ async function verifyAndroidPurchase(payload: VerifyPurchaseRequest): Promise<{ 
       latest_transaction_id: body.latestOrderId ?? null,
       original_transaction_id: null,
       purchase_token: purchaseToken,
+      store_environment: body.testPurchase ? "sandbox" : "production",
     },
     raw: body,
   };
@@ -279,6 +358,7 @@ Deno.serve(async (req) => {
           original_transaction_id: verification.entitlement.original_transaction_id,
           purchase_token: verification.entitlement.purchase_token,
           latest_transaction_id: verification.entitlement.latest_transaction_id,
+          store_environment: verification.entitlement.store_environment,
           last_verified_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },

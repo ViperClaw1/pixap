@@ -19,6 +19,7 @@ export type SubscriptionEntitlement = {
   original_transaction_id: string | null;
   purchase_token: string | null;
   last_verified_at: string;
+  store_environment?: "production" | "sandbox" | null;
 };
 
 const ACTIVE_STATUSES: EntitlementStatus[] = ["active", "trialing", "grace_period", "billing_retry"];
@@ -64,6 +65,7 @@ export function useEntitlement() {
       introTrialEndsAt: Number.isFinite(introTrialEndsAtMs) ? new Date(introTrialEndsAtMs).toISOString() : null,
       isTrial: entitlement?.status === "trialing" || Boolean(entitlement?.is_trial),
       expiresAt: entitlement?.expires_at ?? null,
+      storeEnvironment: entitlement?.store_environment ?? null,
       willRenew: entitlement?.will_renew ?? false,
       status: entitlement?.status ?? null,
     };

@@ -213,6 +213,7 @@
     "subscriptionTitle": "PixAI subscription: {{status}}",
     "trialInProgress": "Trial in progress",
     "expires": "Expires: {{date}}",
+    "expiresSandbox": "Test (Sandbox), current period until: {{date}} (production: ~1 month)",
     "emailVerified": "Email verified",
     "emailNotVerified": "Email not verified",
     "verifyEmail": "Verify",
