@@ -70,7 +70,7 @@ function ProfileScreenContent() {
   const { postsCount, followersCount, followingCount } = useProfileSocialMetrics();
   const { suggestions } = useSuggestedProfiles(12);
   const toggleFollow = useToggleFollow();
-  const { status: subscriptionStatus, isTrial, expiresAt, isActive } = useEntitlement();
+  const { status: subscriptionStatus, isTrial, expiresAt, storeEnvironment, isActive } = useEntitlement();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [storiesArchiveMounted, setStoriesArchiveMounted] = useState(false);
   const [storiesArchiveVisible, setStoriesArchiveVisible] = useState(false);
@@ -389,7 +389,14 @@ function ProfileScreenContent() {
           {isTrial ? <Text style={{ color: colors.textMuted, marginTop: 2 }}>{t("profile.trialInProgress")}</Text> : null}
           {expiresAt ? (
             <Text style={{ color: colors.textMuted, marginTop: 2 }}>
-              {t("profile.expires", { date: new Date(expiresAt).toLocaleDateString() })}
+              {storeEnvironment === "sandbox"
+                ? t("profile.expiresSandbox", {
+                    date: new Date(expiresAt).toLocaleString(undefined, {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    }),
+                  })
+                : t("profile.expires", { date: new Date(expiresAt).toLocaleDateString() })}
             </Text>
           ) : null}
         </View>
