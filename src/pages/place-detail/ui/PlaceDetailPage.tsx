@@ -10,6 +10,7 @@ import {
   Alert,
   useWindowDimensions,
 } from "react-native";
+import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
@@ -34,6 +35,7 @@ import {
   primaryPressableTextStyle,
 } from "@/shared/theme/primaryPressable";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { placeDetailStaticStyles, placeDetailThemeStyles } from "./placeDetailStyles";
@@ -50,6 +52,7 @@ const DOUBLE_TAP_DELAY_MS = 260;
 export default function PlaceDetailScreen() {
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
+  const { openAIBooking } = useSubscriptionGatedNavigation(navigation);
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
@@ -233,6 +236,7 @@ export default function PlaceDetailScreen() {
                   <SmartImage
                     uri={item}
                     fallbackUri={imageVm.heroImagesRaw[index] ?? null}
+                    bundledFallback={PLACE_IMAGE_FALLBACK}
                     recyclingKey={`${place.id}-hero-${index}`}
                     style={styles.hero}
                     contentFit="cover"
@@ -260,6 +264,7 @@ export default function PlaceDetailScreen() {
             <SmartImage
               uri={imageVm.heroImages[0] ?? imageVm.heroFallback}
               fallbackUri={imageVm.heroImagesRaw[0] ?? null}
+              bundledFallback={PLACE_IMAGE_FALLBACK}
               recyclingKey={place.id}
               style={styles.hero}
               contentFit="cover"
@@ -313,7 +318,7 @@ export default function PlaceDetailScreen() {
         <Pressable style={styles.primaryBtn} onPress={() => navigation.navigate("BookingFlow", { id: place.id })}>
           <Text style={styles.primaryBtnText}>Book now</Text>
         </Pressable>
-        <Pressable style={styles.outlineBtn} onPress={() => navigation.navigate("AIBooking", { id: place.id })}>
+        <Pressable style={styles.outlineBtn} onPress={() => openAIBooking({ id: place.id })}>
           <Text style={styles.outlineBtnText}>Book with PixAI</Text>
         </Pressable>
         {/* <Pressable style={styles.outlineBtn} onPress={() => navigation.navigate("ShoppingItems", { id: place.id })}>

@@ -1,6 +1,6 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, Text, View, ActivityIndicator } from "react-native";
+import { Pressable, Text, View, ScrollView } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +18,9 @@ import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { categoryStaticStyles, categoryThemeStyles } from "./categoryStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
+import { PLACE_LIST_BATCH_SIZE } from "@/shared/lib/placeListBatchSize";
+import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
+import { ShimmerProvider, PlaceRowSkeletonList } from "@/shared/ui/shimmer";
 
 const PLACE_CARD_MAX_TAGS = 4;
 
@@ -34,6 +37,14 @@ export default function CategoryScreen() {
   const { data = [], isLoading } = useBusinessCardsByCategory(id);
   const { data: categories = [] } = useCategories();
   const categoryName = categories.find((category) => category.id === id)?.name ?? t("category.fallbackName");
+  const [visibleCount, setVisibleCount] = useState(PLACE_LIST_BATCH_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(PLACE_LIST_BATCH_SIZE);
+  }, [data, id]);
+
+  const visiblePlaces = useMemo(() => data.slice(0, visibleCount), [data, visibleCount]);
+  const canShowMore = visibleCount < data.length;
 
   const themed = useThemeStyles(
     ({ colors: c, isDark: dark }) => categoryThemeStyles(c, dark, insets.bottom),
@@ -44,13 +55,25 @@ export default function CategoryScreen() {
     [themed],
   );
 
-  const renderPlaceRow = useCallback<ListRenderItem<(typeof data)[number]>>(
+  const listFooter = useMemo(
+    () =>
+      !isLoading && canShowMore ? (
+        <Pressable style={styles.showMoreBtn} onPress={() => setVisibleCount((prev) => prev + PLACE_LIST_BATCH_SIZE)}>
+          <Text style={styles.showMoreBtnText}>{t("home.showMore")}</Text>
+        </Pressable>
+      ) : null,
+    [canShowMore, isLoading, styles.showMoreBtn, styles.showMoreBtnText, t],
+  );
+
+  const renderPlaceRow = useCallback<ListRenderItem<(typeof visiblePlaces)[number]>>(
     ({ item }) => {
       const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
       return (
         <Pressable style={styles.row} onPress={() => navigation.navigate("PlaceDetail", { id: item.id })}>
           <SmartImage
             uri={getLatestBusinessCardImage(item.images)}
+            fallbackUri={getLatestBusinessCardImage(item.images)}
+            bundledFallback={PLACE_IMAGE_FALLBACK}
             recyclingKey={item.id}
             style={categoryStaticStyles.img}
             contentFit="cover"
@@ -101,16 +124,19 @@ export default function CategoryScreen() {
       </View>
 
       {isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <ShimmerProvider active>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.list, { paddingTop: 0 }]}>
+            <PlaceRowSkeletonList variant="category" />
+          </ScrollView>
+        </ShimmerProvider>
       ) : (
         <FlashList
-          data={data}
+          data={visiblePlaces}
           keyExtractor={(p) => p.id}
           estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.categoryPlace}
           contentContainerStyle={[styles.list, { paddingTop: 0 }]}
           renderItem={renderPlaceRow}
+          ListFooterComponent={listFooter}
           removeClippedSubviews
           initialNumToRender={8}
           maxToRenderPerBatch={10}

@@ -31,8 +31,26 @@ export async function completeOAuthFromCallbackUrl(
   }
 
   if (code) {
+    const {
+      data: { session: existingSession },
+    } = await supabase.auth.getSession();
+    if (existingSession?.access_token) {
+      devInfo("[OAuth][complete] session already active, skip code exchange");
+      return { ok: true };
+    }
+
     const { error } = await supabase.auth.exchangeCodeForSession(href);
     if (error) {
+      const {
+        data: { session: sessionAfterError },
+      } = await supabase.auth.getSession();
+      if (sessionAfterError?.access_token) {
+        devInfo(
+          "[OAuth][complete] exchangeCodeForSession failed but session exists (likely duplicate callback):",
+          error.message,
+        );
+        return { ok: true };
+      }
       devError("[OAuth][complete] exchangeCodeForSession error:", error.message);
       return { ok: false, message: error.message };
     }

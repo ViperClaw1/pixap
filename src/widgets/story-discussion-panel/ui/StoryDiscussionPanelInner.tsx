@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -37,6 +37,8 @@ export type StoryDiscussionPanelInnerProps = {
   showEmojiRow?: boolean;
   /** Allows parent sheets to size themselves from list scroll height */
   onListContentSizeChange?: (width: number, height: number) => void;
+  /** Shows a header with title + close control (e.g. glass sheet). */
+  onClose?: () => void;
 };
 
 export function StoryDiscussionPanelInner({
@@ -48,12 +50,26 @@ export function StoryDiscussionPanelInner({
   listContentStyle,
   showEmojiRow = true,
   onListContentSizeChange,
+  onClose,
 }: StoryDiscussionPanelInnerProps) {
   const palette = discussionPalette ?? discussionPaletteDark;
   const footerBackgroundColor = footerBackgroundOverride ?? palette.footerBg;
   const footerBorderColor = footerBorderOverride ?? palette.footerBorder;
   const insets = useSafeAreaInsets();
-  const footerPaddingBottom = Math.max(16, insets.bottom + 10);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const footerPaddingBottom =
+    Platform.OS === "android" ? (keyboardVisible ? 4 : 8) : Math.max(16, insets.bottom + 10);
 
   const { data: comments = [] } = useStoryComments(storyId);
   const { data: myProfile } = useProfile();
@@ -189,13 +205,27 @@ export function StoryDiscussionPanelInner({
 
   return (
     <View style={styles.flex}>
+      {onClose ? (
+        <View style={styles.panelHeader}>
+          <Text style={[styles.panelHeaderTitle, { color: palette.text }]}>Comments</Text>
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            style={styles.panelCloseBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <Ionicons name="close" size={24} color={palette.text} />
+          </Pressable>
+        </View>
+      ) : null}
       <FlashList
         data={sorted}
         keyExtractor={(item) => item.id}
         estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.storyComment}
         renderItem={renderItem}
         ListHeaderComponent={listHeader}
-        extraData={[replyTarget, inlineReplyText, replyThreadMutation.isPending, sorted, palette]}
+        extraData={[replyTarget, inlineReplyText, replyThreadMutation.isPending, reactMutation.isPending, sorted, palette]}
         contentContainerStyle={[styles.listContent, listContentStyle]}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
@@ -203,7 +233,7 @@ export function StoryDiscussionPanelInner({
         }
         style={styles.list}
         onContentSizeChange={(w, h) => onListContentSizeChange?.(w, h)}
-        removeClippedSubviews
+        removeClippedSubviews={Platform.OS !== "android"}
         initialNumToRender={8}
         maxToRenderPerBatch={10}
         windowSize={8}
@@ -250,9 +280,6 @@ export function StoryDiscussionPanelInner({
               editable={!replyMutation.isPending}
               style={[styles.footerInput, { backgroundColor: palette.inputBg, color: palette.text }]}
             />
-            <Pressable style={styles.footerGifBtn} onPress={() => {}}>
-              <Text style={[styles.footerGifText, { color: palette.textMuted }]}>GIF</Text>
-            </Pressable>
             <Pressable
               style={[
                 styles.footerSendCircle,
@@ -261,8 +288,14 @@ export function StoryDiscussionPanelInner({
               ]}
               disabled={!mainDraft.trim() || replyMutation.isPending}
               onPress={() => void submitMainComment()}
+              accessibilityRole="button"
+              accessibilityLabel="Send comment"
             >
-              <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
+              {replyMutation.isPending ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
+              )}
             </Pressable>
           </View>
         </View>
@@ -275,6 +308,30 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
     minHeight: 0,
+  },
+  panelHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+    minHeight: 40,
+    zIndex: 2,
+  },
+  panelHeaderTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+  panelCloseBtn: {
+    position: "absolute",
+    right: 10,
+    top: 0,
+    bottom: 8,
+    justifyContent: "center",
+    paddingHorizontal: 4,
   },
   list: {
     flex: 1,
@@ -352,18 +409,9 @@ const styles = StyleSheet.create({
     minHeight: 44,
     maxHeight: 120,
     paddingLeft: 14,
-    paddingRight: 108,
+    paddingRight: 52,
     paddingVertical: 10,
     fontSize: 14,
-  },
-  footerGifBtn: {
-    position: "absolute",
-    right: 44,
-    bottom: 10,
-  },
-  footerGifText: {
-    fontSize: 14,
-    fontWeight: "600",
   },
   footerSendCircle: {
     position: "absolute",

@@ -16,6 +16,7 @@ import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/shared/lib/p
 import { supabaseConfigError } from "@/shared/api/supabase/client";
 import { logStartupDiagnostics } from "@/shared/lib/startupDiagnostics";
 import { useAppToastConfig } from "@/shared/ui/app-toast/createAppToastConfig";
+import { AppPopupHost } from "@/shared/ui/app-popup";
 import { ensurePushNotificationHandler } from "@/shared/lib/push/pushNotifications";
 import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 
@@ -55,18 +56,21 @@ function NavigationRoot() {
   };
 
   return (
-    <NavigationContainer
-      ref={rootNavigationRef}
-      linking={linking}
-      theme={navigationTheme}
-      onReady={() => {
-        markStartup("navigation_container_ready");
-      }}
-    >
-      <AppNavigator />
-      <StatusBar style={isDark ? "light" : "dark"} />
-      <Toast config={toastConfig} />
-    </NavigationContainer>
+    <>
+      <NavigationContainer
+        ref={rootNavigationRef}
+        linking={linking}
+        theme={navigationTheme}
+        onReady={() => {
+          markStartup("navigation_container_ready");
+        }}
+      >
+        <AppNavigator />
+        <StatusBar style={isDark ? "light" : "dark"} />
+        <Toast config={toastConfig} />
+      </NavigationContainer>
+      <AppPopupHost />
+    </>
   );
 }
 

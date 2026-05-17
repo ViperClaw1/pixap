@@ -23,7 +23,7 @@ export const discussionPaletteDark: DiscussionUiPalette = {
   avatarFallback: "#333333",
   grabber: "rgba(255,255,255,0.24)",
   likeAccent: "#F4212E",
-  sendAccent: "#0095F6",
+  sendAccent: "#ec6544",
 };
 
 export const discussionPaletteLight: DiscussionUiPalette = {
@@ -36,5 +36,5 @@ export const discussionPaletteLight: DiscussionUiPalette = {
   avatarFallback: "#E8E8ED",
   grabber: "rgba(0,0,0,0.22)",
   likeAccent: "#F4212E",
-  sendAccent: "#0095F6",
+  sendAccent: "#ec6544",
 };

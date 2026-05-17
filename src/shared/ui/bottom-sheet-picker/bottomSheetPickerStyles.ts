@@ -5,6 +5,9 @@ import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 
 export const bottomSheetPickerStaticStyles = StyleSheet.create({
+  modalRoot: {
+    flex: 1,
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -13,6 +16,7 @@ export const bottomSheetPickerStaticStyles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    flexDirection: "column",
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     borderWidth: 1,
@@ -48,6 +52,7 @@ export function bottomSheetPickerThemeStyles(
   bottomInset: number,
   isAndroid: boolean,
   isKeyboardOpen: boolean,
+  sheetHeight?: number,
 ) {
   return {
     backdrop: {
@@ -55,6 +60,7 @@ export function bottomSheetPickerThemeStyles(
     },
     sheet: {
       maxHeight: sheetMaxHeight,
+      ...(sheetHeight != null ? { height: sheetHeight } : null),
       backgroundColor: colors.card,
       borderColor: colors.border,
       paddingBottom: isAndroid ? Math.max(bottomInset, 10) : isKeyboardOpen ? 0 : Math.max(bottomInset, 10),
@@ -72,10 +78,11 @@ export function useBottomSheetPickerStyles(
   bottomInset: number,
   isAndroid: boolean,
   isKeyboardOpen: boolean,
+  sheetHeight?: number,
 ) {
   const themed = useThemeStyles(
-    ({ colors }) => bottomSheetPickerThemeStyles(colors, sheetMaxHeight, bottomInset, isAndroid, isKeyboardOpen),
-    [sheetMaxHeight, bottomInset, isAndroid, isKeyboardOpen],
+    ({ colors }) => bottomSheetPickerThemeStyles(colors, sheetMaxHeight, bottomInset, isAndroid, isKeyboardOpen, sheetHeight),
+    [sheetMaxHeight, bottomInset, isAndroid, isKeyboardOpen, sheetHeight],
   );
   return useMemo(() => mergeStaticAndThemed(bottomSheetPickerStaticStyles, themed), [themed]);
 }

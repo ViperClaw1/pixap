@@ -14,6 +14,7 @@ import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { businessPlaceCardStaticStyles, businessPlaceCardThemeStyles } from "./businessPlaceCardStyles";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
+import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 
 type Props = {
   place: BusinessCard;
@@ -104,6 +105,7 @@ function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
           <SmartImage
             uri={lastImageOptimized}
             fallbackUri={lastImageRaw}
+            bundledFallback={PLACE_IMAGE_FALLBACK}
             recyclingKey={`${place.id}-h`}
             style={styles.hImage}
             contentFit="cover"
@@ -149,6 +151,7 @@ function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
         <SmartImage
           uri={lastImageOptimized}
           fallbackUri={lastImageRaw}
+          bundledFallback={PLACE_IMAGE_FALLBACK}
           recyclingKey={`${place.id}-v`}
           style={styles.vImage}
           contentFit="cover"

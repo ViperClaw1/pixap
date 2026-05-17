@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, type ImageErrorEventData, type ImageProps, type ImageSource, type ImageSourceProps } from "expo-image";
 
-const FALLBACK = require("../../../../assets/android-icon-background.png");
+const FALLBACK = require("../../../../assets/android/adaptive-icon-background.png");
 const PREFETCH_CONCURRENCY = 4;
 const PREFETCH_HARD_CAP = 8;
 
@@ -10,6 +10,8 @@ export type SmartImageProps = Omit<ImageProps, "source"> & {
   uri?: string | null;
   /** Used when primary is empty/invalid, or after primary fails to load. */
   fallbackUri?: string | null;
+  /** Bundled asset when URI chain is exhausted (default: app adaptive icon). */
+  bundledFallback?: ImageSource;
   /** When true, do not show the bundled placeholder while loading (e.g. small circular avatars). */
   skipBundledPlaceholder?: boolean;
   /** Retry attempts for primary/fallback chain. Default: 1 */
@@ -61,6 +63,7 @@ function buildUriChain(uri?: string | null, fallbackUri?: string | null): string
 export function SmartImage({
   uri,
   fallbackUri,
+  bundledFallback,
   onError,
   recyclingKey,
   skipBundledPlaceholder,
@@ -111,11 +114,12 @@ export function SmartImage({
 
   const rk = recyclingKey ?? (chainKey ? `${chainKey}#${attempt}` : "smartimg-fallback");
   const shouldShowBundledPlaceholder = !skipBundledPlaceholder;
-  const finalSource = source ?? (shouldShowBundledPlaceholder ? FALLBACK : undefined);
+  const bundledAsset = bundledFallback ?? FALLBACK;
+  const finalSource = source ?? (shouldShowBundledPlaceholder ? bundledAsset : undefined);
   const placeholderSource = blurhash
     ? ({ blurhash } as ImageSourceProps)
     : shouldShowBundledPlaceholder
-      ? (FALLBACK as ImageProps["placeholder"])
+      ? (bundledAsset as ImageProps["placeholder"])
       : undefined;
 
   return (

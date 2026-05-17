@@ -1,5 +1,17 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, Modal, Platform, Pressable, ScrollView, type StyleProp, StyleSheet, Text, type ViewStyle, View, useWindowDimensions } from "react-native";
+import {
+  Dimensions,
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  type StyleProp,
+  Text,
+  type ViewStyle,
+  View,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
@@ -16,9 +28,17 @@ type Props = {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** Pinned below the scroll area (e.g. comment composer). */
+  footer?: ReactNode;
   maxHeightFraction?: number;
+  /** Minimum sheet height when fitContent (e.g. 0.5 = 50vh). */
+  minHeightFraction?: number;
+  /** Sheet height follows measured body + header + footer, capped at maxHeightFraction. */
+  fitContent?: boolean;
   bodyScrollEnabled?: boolean;
   bodyContentContainerStyle?: StyleProp<ViewStyle>;
+  /** Rendered above sheet + backdrop (e.g. inline alerts while sheet stays open). */
+  overlay?: ReactNode;
 };
 
 export function BottomSheetPickerModal({
@@ -26,32 +46,136 @@ export function BottomSheetPickerModal({
   onClose,
   title,
   children,
+  footer,
   maxHeightFraction = SHEET_MAX_FRACTION,
+  minHeightFraction,
+  fitContent = false,
   bodyScrollEnabled = true,
   bodyContentContainerStyle,
+  overlay,
 }: Props) {
   const isAndroid = Platform.OS === "android";
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
+  const [layoutWindowHeight, setLayoutWindowHeight] = useState(() => Dimensions.get("window").height);
+  const [footerHeight, setFooterHeight] = useState(0);
+  const [bodyContentHeight, setBodyContentHeight] = useState(0);
   const [isKeyboardOpen, setKeyboardOpen] = useState(false);
-  const sheetMaxHeight = windowHeight * maxHeightFraction;
-  const scrollMaxHeight = Math.max(120, sheetMaxHeight - SHEET_HEADER_HEIGHT - Math.max(insets.bottom, 8));
+
+  useEffect(() => {
+    if (visible) {
+      setLayoutWindowHeight(Dimensions.get("window").height);
+    } else {
+      setBodyContentHeight(0);
+      setFooterHeight(0);
+    }
+  }, [visible]);
+
+  const sheetMaxHeight = layoutWindowHeight * maxHeightFraction;
+  const sheetMinHeight =
+    fitContent && minHeightFraction != null ? layoutWindowHeight * minHeightFraction : undefined;
+  const scrollMaxHeight = Math.max(
+    120,
+    sheetMaxHeight - SHEET_HEADER_HEIGHT - footerHeight - Math.max(insets.bottom, 8),
+  );
+  const sheetBottomPad = isAndroid ? Math.max(insets.bottom, 10) : isKeyboardOpen ? 0 : Math.max(insets.bottom, 10);
+  const minBodyHeight =
+    sheetMinHeight != null
+      ? Math.max(0, sheetMinHeight - SHEET_HEADER_HEIGHT - footerHeight - sheetBottomPad)
+      : 0;
+  const hasFixedMinSheetHeight = fitContent && minHeightFraction != null && sheetMinHeight != null;
+  const effectiveBodyHeight =
+    fitContent && minBodyHeight > 0 ? Math.max(bodyContentHeight, minBodyHeight) : bodyContentHeight;
+  const contentFitsWithoutScroll =
+    fitContent && effectiveBodyHeight > 0 && effectiveBodyHeight <= scrollMaxHeight;
+  const fittedSheetHeight =
+    fitContent && (effectiveBodyHeight > 0 || hasFixedMinSheetHeight)
+      ? hasFixedMinSheetHeight
+        ? Math.min(
+            sheetMaxHeight,
+            Math.max(
+              sheetMinHeight!,
+              SHEET_HEADER_HEIGHT + effectiveBodyHeight + footerHeight + sheetBottomPad,
+            ),
+          )
+        : contentFitsWithoutScroll
+          ? Math.min(
+              sheetMaxHeight,
+              SHEET_HEADER_HEIGHT + effectiveBodyHeight + footerHeight + sheetBottomPad,
+            )
+          : sheetMaxHeight
+      : undefined;
+  const scrollEnabled = bodyScrollEnabled && (!fitContent || !contentFitsWithoutScroll);
+  const mergedBodyContentContainerStyle = useMemo(
+    () => [
+      fitContent && minBodyHeight > 0 ? { flexGrow: 1, minHeight: minBodyHeight } : null,
+      bodyContentContainerStyle,
+    ],
+    [bodyContentContainerStyle, fitContent, minBodyHeight],
+  );
+  const bodyScrollStyle = useMemo(() => {
+    if (!fitContent || minBodyHeight <= 0) {
+      return contentFitsWithoutScroll ? undefined : { maxHeight: scrollMaxHeight };
+    }
+    if (hasFixedMinSheetHeight) {
+      return {
+        height: effectiveBodyHeight,
+        maxHeight: scrollMaxHeight,
+      };
+    }
+    return {
+      flexGrow: 1,
+      flexShrink: 1,
+      minHeight: minBodyHeight,
+      maxHeight: contentFitsWithoutScroll ? undefined : scrollMaxHeight,
+    };
+  }, [
+    contentFitsWithoutScroll,
+    effectiveBodyHeight,
+    fitContent,
+    hasFixedMinSheetHeight,
+    minBodyHeight,
+    scrollMaxHeight,
+  ]);
+  const bodyInnerStyle = useMemo(() => {
+    if (!fitContent || minBodyHeight <= 0) return undefined;
+    if (hasFixedMinSheetHeight) {
+      return { minHeight: minBodyHeight };
+    }
+    return { flex: 1, minHeight: minBodyHeight };
+  }, [fitContent, hasFixedMinSheetHeight, minBodyHeight]);
+
+  const handleBodyLayout = useCallback(
+    (height: number) => {
+      const rounded = Math.ceil(height);
+      if (hasFixedMinSheetHeight && minBodyHeight > 0 && rounded <= minBodyHeight + 1) {
+        setBodyContentHeight((prev) => (prev === minBodyHeight ? prev : minBodyHeight));
+        return;
+      }
+      setBodyContentHeight((prev) => (Math.abs(rounded - prev) <= 1 ? prev : rounded));
+    },
+    [hasFixedMinSheetHeight, minBodyHeight],
+  );
+
+  const handleFooterLayout = useCallback((height: number) => {
+    const rounded = Math.ceil(height);
+    setFooterHeight((prev) => (Math.abs(rounded - prev) <= 1 ? prev : rounded));
+  }, []);
 
   const dragY = useSharedValue(0);
   const dragStart = useSharedValue(0);
+  const onKeyboardChange = useCallback((_keyboardTop: number, keyboardHeight: number) => {
+    if (Platform.OS !== "ios") return;
+    setKeyboardOpen(keyboardHeight > 0);
+  }, []);
+
   const keyboardInsetAnim = useKeyboardInset({
     gap: KEYBOARD_GAP,
     useNativeDriver: true,
-    enabled: !isAndroid,
-    onKeyboardChange: (_keyboardTop, keyboardHeight) => {
-      if (!isAndroid) {
-        setKeyboardOpen(keyboardHeight > 0);
-      }
-    },
+    onKeyboardChange,
   });
 
-  const metricsRef = useRef({ windowHeight, sheetMaxHeight });
-  metricsRef.current = { windowHeight, sheetMaxHeight };
+  const metricsRef = useRef({ windowHeight: layoutWindowHeight, sheetMaxHeight });
+  metricsRef.current = { windowHeight: layoutWindowHeight, sheetMaxHeight };
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
@@ -101,11 +225,23 @@ export function BottomSheetPickerModal({
     [dragY, keyboardInsetAnim],
   );
 
-  const styles = useBottomSheetPickerStyles(sheetMaxHeight, insets.bottom, isAndroid, isKeyboardOpen);
+  const styles = useBottomSheetPickerStyles(
+    sheetMaxHeight,
+    insets.bottom,
+    isAndroid,
+    isKeyboardOpen,
+    fittedSheetHeight,
+  );
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <View style={{ flex: 1 }}>
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent
+      statusBarTranslucent={isAndroid}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalRoot}>
         <Pressable
           style={styles.backdrop}
           onPress={() => {
@@ -131,18 +267,47 @@ export function BottomSheetPickerModal({
             </View>
           </GestureDetector>
           <ScrollView
-            style={{ maxHeight: scrollMaxHeight }}
-            contentContainerStyle={bodyContentContainerStyle}
-            scrollEnabled={bodyScrollEnabled}
+            style={bodyScrollStyle}
+            contentContainerStyle={mergedBodyContentContainerStyle}
+            scrollEnabled={scrollEnabled}
             nestedScrollEnabled
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
-            showsVerticalScrollIndicator
+            showsVerticalScrollIndicator={!contentFitsWithoutScroll}
           >
-            {children}
+            <View
+              style={bodyInnerStyle}
+              onLayout={
+                fitContent
+                  ? (e) => {
+                      handleBodyLayout(e.nativeEvent.layout.height);
+                    }
+                  : undefined
+              }
+            >
+              {children}
+            </View>
           </ScrollView>
+          {footer ? (
+            <View
+              onLayout={(e) => {
+                handleFooterLayout(e.nativeEvent.layout.height);
+              }}
+            >
+              {footer}
+            </View>
+          ) : null}
         </Animated.View>
+        {overlay ? <View style={overlayHostStyle.overlayHost}>{overlay}</View> : null}
       </View>
     </Modal>
   );
 }
+
+const overlayHostStyle = StyleSheet.create({
+  overlayHost: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 40,
+    elevation: 40,
+  },
+});

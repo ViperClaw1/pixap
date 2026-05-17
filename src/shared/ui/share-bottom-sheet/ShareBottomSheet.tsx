@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
+import { AppPopupModal } from "@/shared/ui/app-popup";
+import type { AppPopupOptions } from "@/shared/ui/app-popup";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { PublicProfileItem } from "@/entities/user";
@@ -20,6 +22,10 @@ type Props = {
   sharePostHasMedia: boolean;
   sharePlaceName: string;
   shareSending: boolean;
+  /** Inline alert while the sheet stays open (from usePostShareSheet). */
+  sheetAlert?: AppPopupOptions | null;
+  onDismissSheetAlert?: () => void;
+  onShowSheetAlert?: (options: AppPopupOptions) => void;
   onAddToStory: () => Promise<void>;
   onWhatsAppShare: (peerUserId: string) => Promise<void>;
   onSystemShare: () => Promise<void>;
@@ -29,6 +35,18 @@ type Props = {
 function fullName(user: PublicProfileItem) {
   return `${user.first_name?.trim() ?? ""} ${user.last_name?.trim() ?? ""}`.trim() || "Unknown user";
 }
+
+const CHOOSE_USER_ALERT: AppPopupOptions = {
+  title: "Choose a user",
+  message: "Please choose a user to share with.",
+  variant: "alert",
+  buttons: [{ text: "OK" }],
+};
+
+/** Matches default react-native-toast-message visibility (4s). */
+const COPY_LINK_FEEDBACK_MS = 4000;
+const COPIED_COLOR = "#22c55e";
+const SHARE_SHEET_HEIGHT_FRACTION = 0.6;
 
 export function ShareBottomSheet({
   visible,
@@ -42,6 +60,9 @@ export function ShareBottomSheet({
   sharePostHasMedia,
   sharePlaceName,
   shareSending,
+  sheetAlert,
+  onDismissSheetAlert,
+  onShowSheetAlert,
   onAddToStory,
   onWhatsAppShare,
   onSystemShare,
@@ -49,21 +70,85 @@ export function ShareBottomSheet({
 }: Props) {
   const { colors } = useAppTheme();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const copyFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedUser = useMemo(() => users.find((user) => user.id === selectedUserId) ?? null, [selectedUserId, users]);
 
   useEffect(() => {
     if (!visible) {
       setSelectedUserId(null);
+      setLinkCopied(false);
+      if (copyFeedbackTimerRef.current) {
+        clearTimeout(copyFeedbackTimerRef.current);
+        copyFeedbackTimerRef.current = null;
+      }
     }
   }, [visible]);
 
+  useEffect(() => {
+    return () => {
+      if (copyFeedbackTimerRef.current) {
+        clearTimeout(copyFeedbackTimerRef.current);
+      }
+    };
+  }, []);
+
   const hasSelectedUser = !!selectedUser;
-  const canRunUserAction = !!sharePostId && hasSelectedUser && !shareSending;
-  const canRunAddStoryAction = !!sharePostId && sharePostHasMedia && hasSelectedUser && !shareSending;
-  const canRunGlobalAction = !!sharePostId && hasSelectedUser && !shareSending;
+  const actionsEnabled = !!sharePostId && !shareSending;
+  const canRunAddStoryAction = actionsEnabled && sharePostHasMedia;
+
+  const requireSelectedUser = () => {
+    if (hasSelectedUser) return true;
+    onShowSheetAlert?.(CHOOSE_USER_ALERT);
+    return false;
+  };
+
+  const handleWhatsAppPress = () => {
+    if (!requireSelectedUser() || !selectedUser) return;
+    void onWhatsAppShare(selectedUser.id);
+  };
+
+  const handleShareToPress = () => {
+    if (!requireSelectedUser()) return;
+    void onSystemShare();
+  };
+
+  const handleCopyLinkPress = async () => {
+    if (!actionsEnabled || linkCopied) return;
+    await onCopyLink();
+    setLinkCopied(true);
+    if (copyFeedbackTimerRef.current) {
+      clearTimeout(copyFeedbackTimerRef.current);
+    }
+    copyFeedbackTimerRef.current = setTimeout(() => {
+      setLinkCopied(false);
+      copyFeedbackTimerRef.current = null;
+    }, COPY_LINK_FEEDBACK_MS);
+  };
+
+  const sheetAlertOverlay =
+    sheetAlert && onDismissSheetAlert ? (
+      <AppPopupModal
+        visible
+        embedded
+        title={sheetAlert.title}
+        message={sheetAlert.message}
+        buttons={sheetAlert.buttons}
+        variant={sheetAlert.variant}
+        onClose={onDismissSheetAlert}
+      />
+    ) : null;
 
   return (
-    <BottomSheetPickerModal visible={visible} onClose={onClose} title="Share">
+    <BottomSheetPickerModal
+      visible={visible}
+      onClose={onClose}
+      title="Share"
+      overlay={sheetAlertOverlay}
+      maxHeightFraction={SHARE_SHEET_HEIGHT_FRACTION}
+      minHeightFraction={SHARE_SHEET_HEIGHT_FRACTION}
+      fitContent
+    >
       <View style={styles.root}>
         <View style={[styles.searchWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
           <Ionicons name="search-outline" size={18} color={colors.textMuted} />
@@ -131,9 +216,9 @@ export function ShareBottomSheet({
               </View>
               <View style={styles.actionItem}>
                 <Pressable
-                  style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: canRunUserAction ? 1 : 0.5 }]}
-                  onPress={() => selectedUser && void onWhatsAppShare(selectedUser.id)}
-                  disabled={!canRunUserAction}
+                  style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: actionsEnabled ? 1 : 0.5 }]}
+                  onPress={handleWhatsAppPress}
+                  disabled={!actionsEnabled}
                 >
                   <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
                     <Ionicons name="logo-whatsapp" size={32} color={colors.text} />
@@ -145,9 +230,9 @@ export function ShareBottomSheet({
               </View>
               <View style={styles.actionItem}>
                 <Pressable
-                  style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: canRunGlobalAction ? 1 : 0.5 }]}
-                  onPress={() => void onSystemShare()}
-                  disabled={!canRunGlobalAction}
+                  style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: actionsEnabled ? 1 : 0.5 }]}
+                  onPress={handleShareToPress}
+                  disabled={!actionsEnabled}
                 >
                   <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
                     <Ionicons name="share-social-outline" size={32} color={colors.text} />
@@ -159,16 +244,30 @@ export function ShareBottomSheet({
               </View>
               <View style={styles.actionItem}>
                 <Pressable
-                  style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: canRunGlobalAction ? 1 : 0.5 }]}
-                  onPress={() => void onCopyLink()}
-                  disabled={!canRunGlobalAction}
+                  style={[
+                    styles.actionCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: linkCopied ? COPIED_COLOR : colors.border,
+                      opacity: actionsEnabled ? 1 : 0.5,
+                    },
+                  ]}
+                  onPress={() => void handleCopyLinkPress()}
+                  disabled={!actionsEnabled || linkCopied}
                 >
                   <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
-                    <Ionicons name="link-outline" size={32} color={colors.text} />
+                    <Ionicons
+                      name={linkCopied ? "checkmark-circle" : "link-outline"}
+                      size={32}
+                      color={linkCopied ? COPIED_COLOR : colors.text}
+                    />
                   </View>
                 </Pressable>
-                <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
-                  Copy link
+                <Text
+                  style={[styles.actionLabel, { color: linkCopied ? COPIED_COLOR : colors.text }]}
+                  numberOfLines={1}
+                >
+                  {linkCopied ? "Copied" : "Copy link"}
                 </Text>
               </View>
             </ScrollView>

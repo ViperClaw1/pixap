@@ -44,8 +44,14 @@ export default function StoryDiscussionPage() {
             <View style={styles.headerSide} />
             <Text style={[styles.headerTitle, { color: palette.text }]}>Comments</Text>
             <View style={styles.headerSide}>
-              <Pressable hitSlop={8} style={styles.headerIconBtn} accessibilityLabel="Share" onPress={() => {}}>
-                <Ionicons name="paper-plane-outline" size={22} color={palette.text} />
+              <Pressable
+                hitSlop={8}
+                style={styles.headerIconBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                onPress={() => navigation.goBack()}
+              >
+                <Ionicons name="close" size={24} color={palette.text} />
               </Pressable>
             </View>
           </View>

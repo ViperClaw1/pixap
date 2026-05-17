@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import Toast from "react-native-toast-message";
+import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -197,6 +198,7 @@ export default function BookingsScreen() {
                 <SmartImage
                   uri={thumbUri}
                   fallbackUri={thumbFallback}
+                  bundledFallback={PLACE_IMAGE_FALLBACK}
                   recyclingKey={`book-place-${item.id}`}
                   style={[styles.thumb, isCompact ? styles.thumbCompact : null]}
                   contentFit="cover"

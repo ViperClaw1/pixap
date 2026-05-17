@@ -7,7 +7,17 @@ import type { RootTabParamList } from "./types";
 const prefixes = [...linkingPrefixes, Linking.createURL("/")];
 
 function normalizePath(path: string) {
-  return path.replace(/^\//, "").split("?")[0] ?? "";
+  const withoutQuery = path.split("?")[0] ?? path;
+  if (withoutQuery.includes("://")) {
+    try {
+      const parsed = Linking.parse(withoutQuery);
+      const pathname = parsed.path?.replace(/^\//, "") ?? "";
+      if (pathname) return pathname;
+    } catch {
+      // fall through
+    }
+  }
+  return withoutQuery.replace(/^\//, "");
 }
 
 function queryParamsFromPath(fullPath: string): URLSearchParams {
@@ -39,6 +49,32 @@ function stateForSupabaseAuthCallback(fullPath: string) {
       },
     ],
     index: 0,
+  };
+}
+
+const FEED_TAB_INDEX = 0;
+
+function stateForPostDetailPath(fullPath: string) {
+  const normalized = normalizePath(fullPath);
+  let postId: string | null = null;
+  if (normalized.startsWith("post/")) {
+    const raw = normalized.slice("post/".length).split("/")[0] ?? "";
+    postId = decodeURIComponent(raw).trim() || null;
+  } else if (normalized === "feed") {
+    postId = queryParamsFromPath(fullPath).get("focusPostId")?.trim() || null;
+  }
+  if (!postId) return null;
+  return {
+    routes: [
+      {
+        name: "Feed" as const,
+        state: {
+          routes: [{ name: "PostDetail" as const, params: { postId } }],
+          index: 0,
+        },
+      },
+    ],
+    index: FEED_TAB_INDEX,
   };
 }
 
@@ -81,6 +117,10 @@ export const linking: LinkingOptions<RootTabParamList> = {
     const direct = stateForRootPath(path);
     if (direct) {
       return direct as ReturnType<typeof getStateFromPathInternal>;
+    }
+    const postDetail = stateForPostDetailPath(path);
+    if (postDetail) {
+      return postDetail as ReturnType<typeof getStateFromPathInternal>;
     }
     const authCallback = stateForSupabaseAuthCallback(path);
     if (authCallback) {

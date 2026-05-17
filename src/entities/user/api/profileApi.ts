@@ -2,10 +2,15 @@ import type { QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 
+/** Peer phone for share flows; uses RPC because `profiles` RLS is select-own only. */
 export async function fetchProfilePhone(userId: string): Promise<string | null> {
-  const { data, error } = await supabase.from("profiles").select("phone").eq("id", userId).maybeSingle();
+  const { data, error } = await supabase.rpc("get_profile_phone_for_share" as never, {
+    p_user_id: userId,
+  } as never);
   if (error) throw error;
-  return data?.phone ?? null;
+  if (typeof data !== "string") return null;
+  const trimmed = data.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 export async function markProfileVerified(userId: string): Promise<boolean> {

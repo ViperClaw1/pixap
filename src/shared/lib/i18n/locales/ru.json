@@ -66,6 +66,9 @@
   "category": {
     "fallbackName": "Категория"
   },
+  "vibeMatch": {
+    "chooseAtLeastOnePlace": "Пожалуйста, выберите хотя бы одно место"
+  },
   "messages": {
     "searchPlaceholder": "Поиск чатов и пользователей",
     "myChats": "Мои чаты",

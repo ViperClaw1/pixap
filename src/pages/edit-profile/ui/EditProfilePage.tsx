@@ -6,18 +6,20 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  Alert,
   ScrollView,
   ActivityIndicator,
   Platform,
 } from "react-native";
+import { appAlert } from "@/shared/ui/app-popup";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { asParamListNavigation } from "@/app/navigation/appNavigation";
+import type { ProfileStackParamList } from "@/app/navigation/types";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -62,7 +64,7 @@ const validateUsername = (value: string): string | null => {
 
 function EditProfileScreenContent() {
   const { t } = useTranslation();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList, "EditProfile">>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors, mode, setMode } = useAppTheme();
@@ -125,17 +127,22 @@ function EditProfileScreenContent() {
   };
 
   const pickAvatar = () => {
-    Alert.alert("Choose avatar", "Select where to pick your photo from.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Camera", onPress: () => void pickAvatarFromCamera() },
-      { text: "Gallery", onPress: () => void pickAvatarFromGallery() },
-    ]);
+    appAlert(
+      "Choose avatar",
+      "Select where to pick your photo from.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Camera", onPress: () => void pickAvatarFromCamera() },
+        { text: "Gallery", onPress: () => void pickAvatarFromGallery() },
+      ],
+      "info",
+    );
   };
 
   const pickAvatarFromCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission needed", "Camera access is required to take a photo.");
+      appAlert("Permission needed", "Camera access is required to take a photo.", undefined, "alert");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -152,7 +159,7 @@ function EditProfileScreenContent() {
   const pickAvatarFromGallery = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission needed", "Storage access is required to choose a photo.");
+      appAlert("Permission needed", "Storage access is required to choose a photo.", undefined, "alert");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -182,7 +189,7 @@ function EditProfileScreenContent() {
         return;
       }
       const message = error instanceof Error ? error.message : "Could not upload avatar. Please try again.";
-      Alert.alert("Upload failed", message);
+      appAlert("Upload failed", message, undefined, "alert");
     } finally {
       setUploadingAvatar(false);
     }
@@ -217,18 +224,25 @@ function EditProfileScreenContent() {
         bio: trimmedBio || null,
         avatar_url: trimmedAvatar || null,
       });
-      Alert.alert("Saved");
       const stackNavigation = asParamListNavigation(navigation);
-      stackNavigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
-      const rootNavigation = stackNavigation.getParent();
-      rootNavigation?.navigate("Profile", { screen: "ProfileMain" });
+      const goToProfile = () => {
+        stackNavigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
+        const rootNavigation = stackNavigation.getParent();
+        rootNavigation?.navigate("Profile", { screen: "ProfileMain" });
+      };
+      appAlert(
+        "Saved",
+        "Your profile data was updated.",
+        [{ text: "OK", onPress: goToProfile }],
+        "success",
+      );
     } catch (error: unknown) {
       if (isAuthRequiredError(error)) {
         navigateToAuthScreen(navigation);
         return;
       }
       const message = error instanceof Error ? error.message : "Failed to save";
-      Alert.alert("Failed to save", message);
+      appAlert("Failed to save", message, undefined, "alert");
     }
   };
 

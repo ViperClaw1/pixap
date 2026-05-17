@@ -1,8 +1,8 @@
 import { useLayoutEffect } from "react";
 
-type Nav = { navigate: (name: "SubscriptionPaywall") => void };
+type Nav = { replace: (name: "SubscriptionPaywall") => void };
 
-/** After entitlement is known, open the subscription paywall screen instead of embedding it. */
+/** After entitlement is known, replace the gated screen with paywall so back returns to the origin route. */
 export function useSubscriptionPaywallRedirect(params: {
   entitlementLoading: boolean;
   shouldEnforcePaywall: boolean;
@@ -13,6 +13,6 @@ export function useSubscriptionPaywallRedirect(params: {
   useLayoutEffect(() => {
     if (entitlementLoading) return;
     if (!shouldEnforcePaywall || hasSubscriptionAccess) return;
-    navigation.navigate("SubscriptionPaywall");
+    navigation.replace("SubscriptionPaywall");
   }, [entitlementLoading, shouldEnforcePaywall, hasSubscriptionAccess, navigation]);
 }

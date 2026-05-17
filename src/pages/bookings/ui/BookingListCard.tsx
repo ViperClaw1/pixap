@@ -3,6 +3,7 @@ import { Alert, Linking, PixelRatio, Pressable, Text, View } from "react-native"
 import { useTranslation } from "react-i18next";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useCancelBooking, type Booking, type BookingDisplayStatus } from "@/entities/booking";
 import type { BookingsStackParamList } from "@/app/navigation/types";
@@ -104,6 +105,7 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
       <SmartImage
         uri={thumbUri}
         fallbackUri={thumbFallback}
+        bundledFallback={PLACE_IMAGE_FALLBACK}
         recyclingKey={`${item.id}-thumb`}
         style={[styles.thumb, isCompact ? styles.thumbCompact : null]}
         contentFit="cover"

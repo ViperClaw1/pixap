@@ -45,6 +45,8 @@ export default function AuthEmailCallbackPage() {
   const queryClient = useQueryClient();
   const { colors } = useAppTheme();
   const done = useRef(false);
+  const runInFlightRef = useRef(false);
+  const lastProcessedHrefRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hrefFromRouteRef = useRef<string | undefined>(undefined);
   hrefFromRouteRef.current = route.params?.href?.trim();
@@ -81,8 +83,14 @@ export default function AuthEmailCallbackPage() {
       navigation.reset({ index: 0, routes: [{ name: "ResetPassword" }] });
     };
 
-    const openInvalidSessionFallback = () => {
+    const openInvalidSessionFallback = async () => {
       if (done.current) return;
+      const recoveredUserId = await waitForAuthUserId(5, 80);
+      if (recoveredUserId) {
+        debugLog("Invalid callback ignored — authenticated session already present:", recoveredUserId);
+        openProfileMain();
+        return;
+      }
       done.current = true;
       clearCallbackTimeout();
       debugLog("Invalid session. Navigating to Auth.");
@@ -107,47 +115,65 @@ export default function AuthEmailCallbackPage() {
 
     const run = async (href: string | null) => {
       if (done.current) return;
-      debugLog("Callback started. URL:", href ?? "<empty>");
-      const flow = pickFlowFromUrl(href);
-      debugLog("Detected flow:", flow);
-      const completed = await completeOAuthFromCallbackUrl(href);
-      debugLog("Session exchange result:", completed.ok ? "ok" : completed.message);
-      if (!completed.ok) {
-        openInvalidSessionFallback();
+
+      const normalizedHref = href?.trim() ?? "";
+      if (normalizedHref && normalizedHref === lastProcessedHrefRef.current) {
+        debugLog("Skipping duplicate callback URL.");
         return;
       }
-      if (flow === "recovery") {
-        debugLog("Recovery flow: waiting for authenticated user after callback.");
-        const recoveryUserId = await waitForAuthUserId();
-        if (!recoveryUserId) {
-          debugLog("Recovery flow: no authenticated user, fallback to Auth.");
-          openInvalidSessionFallback();
+      if (runInFlightRef.current) {
+        debugLog("Callback already in progress, skipping.");
+        return;
+      }
+
+      runInFlightRef.current = true;
+      if (normalizedHref) lastProcessedHrefRef.current = normalizedHref;
+
+      try {
+        debugLog("Callback started. URL:", href ?? "<empty>");
+        const flow = pickFlowFromUrl(href);
+        debugLog("Detected flow:", flow);
+        const completed = await completeOAuthFromCallbackUrl(href);
+        debugLog("Session exchange result:", completed.ok ? "ok" : completed.message);
+        if (!completed.ok) {
+          await openInvalidSessionFallback();
           return;
         }
-        debugLog("Recovery flow: authenticated user resolved:", recoveryUserId);
-        openResetPassword();
-        return;
-      }
-      const verifiedUserId = await waitForAuthUserId();
-      if (!verifiedUserId) {
-        debugLog("No user id after session exchange.");
-        openInvalidSessionFallback();
-        return;
-      }
-      const verified = await markProfileAsVerified(verifiedUserId);
-      if (!verified) {
-        Toast.show({
-          type: "error",
-          text1: "Verification",
-          text2: "Signed in but could not update verified status. Try again from Profile.",
-        });
+        if (flow === "recovery") {
+          debugLog("Recovery flow: waiting for authenticated user after callback.");
+          const recoveryUserId = await waitForAuthUserId();
+          if (!recoveryUserId) {
+            debugLog("Recovery flow: no authenticated user, fallback to Auth.");
+            await openInvalidSessionFallback();
+            return;
+          }
+          debugLog("Recovery flow: authenticated user resolved:", recoveryUserId);
+          openResetPassword();
+          return;
+        }
+        const verifiedUserId = await waitForAuthUserId();
+        if (!verifiedUserId) {
+          debugLog("No user id after session exchange.");
+          await openInvalidSessionFallback();
+          return;
+        }
+        const verified = await markProfileAsVerified(verifiedUserId);
+        if (!verified) {
+          Toast.show({
+            type: "error",
+            text1: "Verification",
+            text2: "Signed in but could not update verified status. Try again from Profile.",
+          });
+          openProfileMain();
+          return;
+        }
         openProfileMain();
-        return;
+      } finally {
+        runInFlightRef.current = false;
       }
-      openProfileMain();
     };
 
-    timeoutRef.current = setTimeout(() => openInvalidSessionFallback(), CALLBACK_TIMEOUT_MS);
+    timeoutRef.current = setTimeout(() => void openInvalidSessionFallback(), CALLBACK_TIMEOUT_MS);
 
     const resolveInitialHref = async (routeHref: string | undefined) => {
       const trimmed = routeHref?.trim();

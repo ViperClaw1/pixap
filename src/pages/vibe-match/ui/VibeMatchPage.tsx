@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
@@ -9,11 +10,11 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  PixelRatio,
 } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
-import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import { useQueries } from "@tanstack/react-query";
@@ -24,7 +25,10 @@ import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { vibeMatchStaticStyles, vibeMatchThemeStyles } from "./vibeMatchStyles";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
-import { useSubscriptionPaywallRedirect } from "@/features/subscription-paywall-redirect";
+import {
+  shouldEnforceSubscriptionPaywall,
+  useSubscriptionPaywallRedirect,
+} from "@/features/subscription-paywall-redirect";
 import { useEntitlement } from "@/entities/subscription";
 import { useProfile } from "@/entities/user";
 import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } from "@/entities/pixai";
@@ -54,7 +58,11 @@ import {
   primaryPressableStyle,
   primaryPressableTextStyle,
 } from "@/shared/theme/primaryPressable";
+import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
+import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { toYmd } from "@/shared/lib/bookingCalendar";
+import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { devWarn } from "@/shared/lib/devLog";
 
@@ -63,6 +71,15 @@ const MOOD_PRESETS = ["romantic evening", "drunk friday", "family brunch", "solo
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const SLOT_MATCH_MS = 45 * 60 * 1000;
+const PLAN_THUMB_SIZE = 56;
+
+function vibeStopThumbUris(images: string[] | undefined): { uri: string | null; fallbackUri: string | null } {
+  const fallbackUri = getLatestBusinessCardImage(images ?? []);
+  if (!fallbackUri) return { uri: null, fallbackUri: null };
+  const edge = Math.round(PLAN_THUMB_SIZE * Math.min(2, PixelRatio.get()));
+  const uri = getOptimizedImageUrl(fallbackUri, edge, edge, 72) || fallbackUri;
+  return { uri, fallbackUri };
+}
 
 function scheduleN8nWaBookingStart(cartItemId: string, accessToken: string) {
   void startN8nWaBooking(cartItemId, accessToken).then((result) => {
@@ -94,6 +111,7 @@ type VibeBookingAction = "all" | "partial" | "retry";
 type BookRowResult = { stop: VibePlanStop; ok: true } | { stop: VibePlanStop; ok: false; message: string };
 
 export default function VibeMatchPage() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
   const keyboardRootStyle = useAnimatedStyle(
@@ -105,7 +123,7 @@ export default function VibeMatchPage() {
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const { user, session, loading: authLoading } = useAuth();
   const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
-  const shouldEnforcePaywall = !__DEV__ && Constants.appOwnership !== "expo";
+  const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
 
   useAuthSessionRedirect({
     authLoading,
@@ -116,7 +134,7 @@ export default function VibeMatchPage() {
     entitlementLoading,
     shouldEnforcePaywall,
     hasSubscriptionAccess,
-    navigation: navigation as { navigate: (name: "SubscriptionPaywall") => void },
+    navigation: navigation as { replace: (name: "SubscriptionPaywall") => void },
   });
 
   const { data: profile } = useProfile();
@@ -233,6 +251,11 @@ export default function VibeMatchPage() {
   const bookAllEnabled = allBookable && hasVenueSelection;
   const partialBookEnabled =
     !isSingleStopRoute && slotsAvailabilityReady && selectedBookableStops.length >= 1;
+  const showSelectionWarning =
+    !isSingleStopRoute &&
+    slotsAvailabilityReady &&
+    bookableVenueIds.length > 1 &&
+    selectedBookableStops.length === 0;
 
   const toggleVenueSelection = useCallback((venueId: string, bookable: boolean) => {
     if (!bookable) return;
@@ -429,6 +452,17 @@ export default function VibeMatchPage() {
 
   const errMsg = vibeError instanceof Error ? vibeError.message : vibeError ? String(vibeError) : "";
 
+  if (authLoading || entitlementLoading) {
+    return (
+      <View style={[styles.root, { alignItems: "center", justifyContent: "center" }]} {...androidSwipeBackPanHandlers}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+  if (shouldEnforcePaywall && !hasSubscriptionAccess) {
+    return null;
+  }
+
   return (
     <Animated.View style={[styles.root, keyboardRootStyle]} {...androidSwipeBackPanHandlers}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -514,51 +548,69 @@ export default function VibeMatchPage() {
 
         {plan.length > 0 ? (
           <View style={styles.section}>
+            {showSelectionWarning ? (
+              <View style={styles.selectionWarning}>
+                <Text style={styles.selectionWarningText}>{t("vibeMatch.chooseAtLeastOnePlace")}</Text>
+              </View>
+            ) : null}
             <Text style={styles.label}>Your route</Text>
             {plan.map((stop, i) => {
               const meta = stopAvailability[i];
               const warn = meta && !meta.loading && !meta.error && !meta.bookable;
               const bookable = Boolean(meta?.bookable);
               const checked = selectedVenueIdSet.has(stop.venue_id);
+              const { uri: thumbUri, fallbackUri: thumbFallback } = vibeStopThumbUris(stop.images);
               return (
                 <View key={`${stop.venue_id}-${i}`} style={[styles.planRow, warn && styles.planRowWarn]}>
-                  <View style={styles.planRowHeader}>
-                    <View style={styles.planRowHeaderMain}>
-                      <Text style={styles.planTime}>
-                        {new Date(stop.time_slot).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
-                      </Text>
-                      <Text style={styles.planName}>{stop.name}</Text>
+                  <View style={styles.planRowMain}>
+                    <SmartImage
+                      uri={thumbUri}
+                      fallbackUri={thumbFallback}
+                      bundledFallback={PLACE_IMAGE_FALLBACK}
+                      recyclingKey={`${stop.venue_id}-${i}-thumb`}
+                      style={styles.planThumb}
+                      contentFit="cover"
+                    />
+                    <View style={styles.planRowBody}>
+                      <View style={styles.planRowHeader}>
+                        <View style={styles.planRowHeaderMain}>
+                          <Text style={styles.planTime}>
+                            {new Date(stop.time_slot).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
+                          </Text>
+                          <Text style={styles.planName}>{stop.name}</Text>
+                        </View>
+                        {!isSingleStopRoute ? (
+                          <Pressable
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked, disabled: !bookable }}
+                            accessibilityLabel={
+                              checked ? `Deselect ${stop.name} for booking` : `Select ${stop.name} for booking`
+                            }
+                            disabled={!bookable}
+                            onPress={() => toggleVenueSelection(stop.venue_id, bookable)}
+                            style={[
+                              styles.planCheckbox,
+                              checked && styles.planCheckboxChecked,
+                              !bookable && styles.planCheckboxDisabled,
+                            ]}
+                          >
+                            {checked ? <Ionicons name="checkmark" size={16} color={colors.onAccent} /> : null}
+                          </Pressable>
+                        ) : null}
+                      </View>
+                      {stop.description ? <Text style={styles.planDesc}>{stop.description}</Text> : null}
+                      <View style={[styles.statusPill, meta?.bookable ? styles.statusOk : styles.statusBad]}>
+                        <Text style={[styles.statusText, { color: colors.text }]}>
+                          {meta?.loading
+                            ? "Checking slots…"
+                            : meta?.error
+                              ? "Slot check failed"
+                              : meta?.bookable
+                                ? "Slot available"
+                                : "No nearby free slot"}
+                        </Text>
+                      </View>
                     </View>
-                    {!isSingleStopRoute ? (
-                      <Pressable
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked, disabled: !bookable }}
-                        accessibilityLabel={
-                          checked ? `Deselect ${stop.name} for booking` : `Select ${stop.name} for booking`
-                        }
-                        disabled={!bookable}
-                        onPress={() => toggleVenueSelection(stop.venue_id, bookable)}
-                        style={[
-                          styles.planCheckbox,
-                          checked && styles.planCheckboxChecked,
-                          !bookable && styles.planCheckboxDisabled,
-                        ]}
-                      >
-                        {checked ? <Ionicons name="checkmark" size={16} color={colors.onAccent} /> : null}
-                      </Pressable>
-                    ) : null}
-                  </View>
-                  {stop.description ? <Text style={styles.planDesc}>{stop.description}</Text> : null}
-                  <View style={[styles.statusPill, meta?.bookable ? styles.statusOk : styles.statusBad]}>
-                    <Text style={[styles.statusText, { color: colors.text }]}>
-                      {meta?.loading
-                        ? "Checking slots…"
-                        : meta?.error
-                          ? "Slot check failed"
-                          : meta?.bookable
-                            ? "Slot available"
-                            : "No nearby free slot"}
-                    </Text>
                   </View>
                 </View>
               );
