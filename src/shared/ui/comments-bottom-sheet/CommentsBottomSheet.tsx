@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
+import { CommentsSkeletonList } from "./CommentsSkeletonList";
 import type { PostComment, PostReply } from "@/entities/post";
 import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
 
@@ -12,6 +13,7 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   comments: PostComment[];
+  isLoading?: boolean;
   hasSelectedPost: boolean;
   expandedCommentIds: Record<string, true>;
   replyTargetCommentId: string | null;
@@ -67,6 +69,7 @@ export function CommentsBottomSheet({
   visible,
   onClose,
   comments,
+  isLoading = false,
   hasSelectedPost,
   expandedCommentIds,
   replyTargetCommentId,
@@ -206,10 +209,39 @@ export function CommentsBottomSheet({
     );
   };
 
+  const composerFooter = hasSelectedPost ? (
+    <View style={[styles.replyComposerWrap, { borderTopColor: colors.border }]}>
+      <CommentComposer
+        avatarUrl={currentUserAvatarUrl}
+        showStickers
+        value={commentInput}
+        onChangeText={onChangeCommentInput}
+        placeholder={replyTargetCommentId ? "Write a reply..." : "Add a comment..."}
+        canSend={canSendComment}
+        sending={submittingComment}
+        onSend={onSubmitComment}
+        minHeight={88}
+      />
+    </View>
+  ) : null;
+
+  const showEmptyState = !isLoading && !comments.length && hasSelectedPost;
+
   return (
-    <BottomSheetPickerModal visible={visible} onClose={onClose} title="Comments">
-      <View style={styles.commentsModalContent}>
-        {comments.length ? (
+    <BottomSheetPickerModal
+      visible={visible}
+      onClose={onClose}
+      title="Comments"
+      footer={composerFooter}
+      maxHeightFraction={0.8}
+      minHeightFraction={0.8}
+      fitContent
+      bodyContentContainerStyle={showEmptyState ? styles.emptyBodyContent : undefined}
+    >
+      <View style={[styles.commentsModalContent, showEmptyState && styles.emptyCommentsContent]}>
+        {isLoading ? (
+          <CommentsSkeletonList />
+        ) : comments.length ? (
           comments.map((comment) => {
             const repliesExpanded = !!expandedCommentIds[comment.id];
             const isEditingComment = editingCommentId === comment.id;
@@ -217,11 +249,12 @@ export function CommentsBottomSheet({
             return (
               <View key={comment.id} style={[styles.modalCommentCard, { borderBottomColor: colors.border }]}>
                 <View style={styles.commentAuthorRow}>
-                  {resolveAvatarUri(comment.profile?.avatar_url) ? (
-                    <SmartImage uri={resolveAvatarUri(comment.profile?.avatar_url)} style={styles.commentAvatar} contentFit="cover" />
-                  ) : (
-                    <View style={[styles.commentAvatar, { backgroundColor: colors.card }]} />
-                  )}
+                  <UserAvatarImage
+                    uri={resolveAvatarUri(comment.profile?.avatar_url)}
+                    style={styles.commentAvatar}
+                    contentFit="cover"
+                    iconSize={11}
+                  />
                   <Text style={[styles.commentAuthorName, { color: colors.text }]}>
                     {profileName(comment.profile?.first_name, comment.profile?.last_name)}
                   </Text>
@@ -242,11 +275,12 @@ export function CommentsBottomSheet({
                       return (
                         <View key={reply.id} style={styles.replyRow}>
                           <View style={styles.commentAuthorRow}>
-                            {resolveAvatarUri(reply.profile?.avatar_url) ? (
-                              <SmartImage uri={resolveAvatarUri(reply.profile?.avatar_url)} style={styles.replyAvatar} contentFit="cover" />
-                            ) : (
-                              <View style={[styles.replyAvatar, { backgroundColor: colors.card }]} />
-                            )}
+                            <UserAvatarImage
+                              uri={resolveAvatarUri(reply.profile?.avatar_url)}
+                              style={styles.replyAvatar}
+                              contentFit="cover"
+                              iconSize={9}
+                            />
                             <Text style={[styles.replyAuthorName, { color: colors.text }]}>
                               {profileName(reply.profile?.first_name, reply.profile?.last_name)}
                             </Text>
@@ -273,24 +307,8 @@ export function CommentsBottomSheet({
               </View>
             );
           })
-        ) : hasSelectedPost ? (
+        ) : showEmptyState ? (
           <Text style={[styles.noCommentsText, { color: colors.textMuted }]}>No comments yet.</Text>
-        ) : null}
-
-        {hasSelectedPost ? (
-          <View style={[styles.replyComposerWrap, { borderTopColor: colors.border }]}>
-            <CommentComposer
-              avatarUrl={currentUserAvatarUrl}
-              showStickers
-              value={commentInput}
-              onChangeText={onChangeCommentInput}
-              placeholder={replyTargetCommentId ? "Write a reply..." : "Add a comment..."}
-              canSend={canSendComment}
-              sending={submittingComment}
-              onSend={onSubmitComment}
-              minHeight={88}
-            />
-          </View>
         ) : null}
       </View>
     </BottomSheetPickerModal>
@@ -301,6 +319,12 @@ const styles = StyleSheet.create({
   commentsModalContent: {
     paddingHorizontal: 14,
     paddingVertical: 8,
+  },
+  emptyBodyContent: {
+    justifyContent: "center",
+  },
+  emptyCommentsContent: {
+    alignItems: "center",
   },
   modalCommentCard: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -413,11 +437,11 @@ const styles = StyleSheet.create({
   noCommentsText: {
     fontSize: 14,
     textAlign: "center",
-    paddingVertical: 20,
+    lineHeight: 390,
   },
   replyComposerWrap: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    marginTop: 8,
+    paddingHorizontal: 14,
     paddingTop: 8,
     paddingBottom: 8,
   },

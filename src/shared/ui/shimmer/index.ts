@@ -3,3 +3,4 @@ export { ShimmerProvider, useShimmerProgress } from "./ShimmerProvider";
 export { ShimmerSurface } from "./ShimmerSurface";
 export { getSkeletonShimmerColors } from "./shimmerTheme";
 export { CategorySkeletonRow, FeaturedSkeletonRow, RecommendedSkeletonList } from "./HomeScreenSkeletons";
+export { PlaceRowSkeletonList } from "./PlaceRowSkeletonList";

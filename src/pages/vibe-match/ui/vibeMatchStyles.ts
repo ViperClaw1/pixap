@@ -44,6 +44,22 @@ export const vibeMatchStaticStyles = StyleSheet.create({
     padding: 10,
     gap: 6,
   },
+  planRowMain: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+  },
+  planThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    flexShrink: 0,
+  },
+  planRowBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
+  },
   planRowWarn: {},
   planRowHeader: {
     flexDirection: "row",
@@ -72,6 +88,13 @@ export const vibeMatchStaticStyles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: "700" },
   errorBox: { padding: 12, borderRadius: 10, borderWidth: 1 },
   errorText: { fontSize: 13 },
+  selectionWarning: {
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 2,
+  },
+  selectionWarningText: { fontSize: 13, fontWeight: "600", lineHeight: 18 },
   emptyText: { textAlign: "center", padding: 16 },
   pickerRow: {
     paddingHorizontal: 16,
@@ -171,6 +194,11 @@ export function vibeMatchThemeStyles(colors: ThemeColors, topInset: number, bott
       backgroundColor: colors.dangerSurfaceStrong,
     },
     errorText: { color: colors.danger },
+    selectionWarning: {
+      borderColor: colors.warningBorder,
+      backgroundColor: colors.dangerSurface,
+    },
+    selectionWarningText: { color: colors.text },
     emptyText: { color: colors.textMuted },
     pickerRow: { borderBottomColor: colors.border },
     pickerRowText: { color: colors.text },

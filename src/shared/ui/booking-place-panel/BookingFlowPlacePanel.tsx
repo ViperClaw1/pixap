@@ -3,6 +3,7 @@ import { Pressable, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useBookingFlowPlacePanelStyles } from "./bookingFlowPlacePanelStyles";
 import Carousel from "react-native-reanimated-carousel";
+import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getLatestBusinessCardImage, normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
@@ -58,6 +59,7 @@ export function BookingFlowPlacePanel({
       <SmartImage
         uri={item}
         fallbackUri={heroImagesRaw[index] ?? null}
+        bundledFallback={PLACE_IMAGE_FALLBACK}
         recyclingKey={`${place.id}-booking-panel-${index}`}
         style={styles.hero}
         contentFit="cover"
@@ -90,6 +92,7 @@ export function BookingFlowPlacePanel({
           <SmartImage
             uri={heroImages[0] ?? heroFallback}
             fallbackUri={heroImagesRaw[0] ?? null}
+            bundledFallback={PLACE_IMAGE_FALLBACK}
             recyclingKey={`${place.id}-booking-panel`}
             style={styles.hero}
             contentFit="cover"

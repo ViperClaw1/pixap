@@ -26,10 +26,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   scheme: "pixap",
   version: appVersion,
   orientation: "portrait",
-  icon: "./assets/icon.png",
+  /** iOS App Store / home screen; Android launcher uses `android.adaptiveIcon`. */
+  icon: "./assets/ios/icon.png",
   userInterfaceStyle: "automatic",
   splash: {
-    image: "./assets/splash-icon.png",
+    image: "./assets/ios/splash.png",
     resizeMode: "contain",
     backgroundColor: "#ffffff",
   },
@@ -66,7 +67,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     softwareKeyboardLayoutMode: "resize",
     adaptiveIcon: {
       backgroundColor: "#ffffff",
-      foregroundImage: "./assets/icon.png",
+      foregroundImage: "./assets/android/adaptive-icon-foreground.png",
+      backgroundImage: "./assets/android/adaptive-icon-background.png",
     },
     intentFilters: [
       {
@@ -78,6 +80,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ],
         category: ["BROWSABLE", "DEFAULT"],
       },
+      {
+        action: "VIEW",
+        data: [{ scheme: "pixap", pathPrefix: "/post" }],
+        category: ["BROWSABLE", "DEFAULT"],
+      },
     ],
   },
   plugins: [
@@ -85,21 +92,19 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "expo-splash-screen",
       {
         backgroundColor: "#ffffff",
-        image: "./assets/splash-icon.png",
-        /** Default plugin value is 100pt — too small; center logo readable on phones. */
+        image: "./assets/android/splash.png",
         imageWidth: 300,
         resizeMode: "contain",
-        /** Full-screen splash image on iOS (required for portrait artwork vs icon-only launch). */
         enableFullScreenImage_legacy: true,
         android: {
           backgroundColor: "#ffffff",
-          image: "./assets/splash-icon.png",
+          image: "./assets/android/splash.png",
           imageWidth: 300,
           resizeMode: "contain",
         },
         ios: {
           backgroundColor: "#ffffff",
-          image: "./assets/splash-icon.png",
+          image: "./assets/ios/splash.png",
           resizeMode: "contain",
         },
       },
@@ -118,7 +123,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     [
       "expo-notifications",
       {
-        icon: "./assets/icon.png",
+        icon: "./assets/android/notification-icon.png",
         color: "#ffffff",
         sounds: [],
       },

@@ -51,6 +51,7 @@ import {
   RECOMMENDED_ITEM_ESTIMATED_SIZE,
 } from "../model/constants";
 import { AnimatedHomeSparklesIcon, AnimatedHomeVibeIcon } from "@/shared/ui/animated-home-header-icons";
+import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
 
 const VIBE_TOOLBAR_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
 const VIBE_TOOLBAR_GRADIENT_DARK = ["#6d28d9", "#be185d", "#ea580c"] as const;
@@ -94,6 +95,7 @@ export default function HomeScreen() {
   const { data: recommended = [], isLoading: lr } = useBusinessCards(undefined, selectedCity);
   const { data: categories = [], isLoading: lc } = useCategories();
   const unread = useUnreadCount();
+  const { openAIBooking, openVibeMatch } = useSubscriptionGatedNavigation(navigation);
 
   /** Horizontal padding 16 + 16 from `content` — matches full-width recommended cards */
   const recommendedCardWidth = windowWidth - 32;
@@ -180,7 +182,7 @@ export default function HomeScreen() {
               style={styles.aiBookingBtn}
               accessibilityRole="button"
               accessibilityLabel={t("home.a11y.openPixaiBooking")}
-              onPress={() => navigation.navigate("AIBooking")}
+              onPress={() => openAIBooking()}
             >
               <AnimatedHomeSparklesIcon size={16} color={colors.onPrimary} />
               <Text
@@ -235,7 +237,7 @@ export default function HomeScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("home.a11y.openPixaiVibeMatch")}
-            onPress={() => navigation.navigate("VibeMatch")}
+            onPress={() => openVibeMatch()}
             style={styles.vibeToolbarPressable}
           >
             <LinearGradient

@@ -1,29 +1,24 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { Alert, InteractionManager, Linking, Share } from "react-native";
+import { Linking, Share } from "react-native";
+import { appAlert } from "@/shared/ui/app-popup";
+import type { AppPopupOptions, AppPopupVariant } from "@/shared/ui/app-popup";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
-import Toast from "react-native-toast-message";
 import { fetchProfilePhone, usePublicProfiles } from "@/entities/user";
-import { useOpenOrCreateThread } from "@/entities/messages";
 import { queryKeys } from "@/shared/api/queryKeys";
+import { buildPostShareUrl } from "@/shared/lib/postShareLink";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
-
-function buildPostShareUrl(postId: string) {
-  return `https://pixapp.kz/feed?focusPostId=${encodeURIComponent(postId)}`;
-}
 
 function normalizePhoneToDigits(value?: string | null) {
   return (value ?? "").replace(/[^\d]/g, "");
 }
 
-export function usePostShareSheet(rootNavigation: NavigationProp<ParamListBase>) {
+export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase>) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const openOrCreateShareThread = useOpenOrCreateThread();
-
   const [shareVisible, setShareVisible] = useState(false);
   const [shareSearch, setShareSearch] = useState("");
   const [sharePostId, setSharePostId] = useState<string | null>(null);
@@ -31,6 +26,39 @@ export function usePostShareSheet(rootNavigation: NavigationProp<ParamListBase>)
   const [sharePostImages, setSharePostImages] = useState<string[]>([]);
   const [sharePlaceName, setSharePlaceName] = useState("");
   const [shareSending, setShareSending] = useState(false);
+  const [shareAlert, setShareAlert] = useState<AppPopupOptions | null>(null);
+  const shareVisibleRef = useRef(shareVisible);
+  shareVisibleRef.current = shareVisible;
+
+  const dismissShareAlert = useCallback(() => {
+    setShareAlert(null);
+  }, []);
+
+  const showShareAlertOptions = useCallback((options: AppPopupOptions) => {
+    const payload: AppPopupOptions = {
+      title: options.title,
+      message: options.message?.trim() || undefined,
+      buttons: options.buttons?.length ? options.buttons : [{ text: "OK" }],
+      variant: options.variant,
+    };
+    if (shareVisibleRef.current) {
+      setShareAlert(payload);
+      return;
+    }
+    appAlert(payload.title, payload.message, payload.buttons, payload.variant);
+  }, []);
+
+  const showShareAlert = useCallback(
+    (
+      title: string,
+      message?: string,
+      buttons?: AppPopupOptions["buttons"],
+      variant?: AppPopupVariant,
+    ) => {
+      showShareAlertOptions({ title, message, buttons, variant });
+    },
+    [showShareAlertOptions],
+  );
 
   const { data: shareUsersRaw = [], isLoading: shareUsersLoading } = usePublicProfiles(shareSearch, shareVisible, {
     accountRole: "user",
@@ -47,6 +75,7 @@ export function usePostShareSheet(rootNavigation: NavigationProp<ParamListBase>)
     setSharePostPlaceId(null);
     setSharePostImages([]);
     setSharePlaceName("");
+    setShareAlert(null);
   }, []);
 
   const openShareForPost = useCallback(
@@ -60,35 +89,12 @@ export function usePostShareSheet(rootNavigation: NavigationProp<ParamListBase>)
     [],
   );
 
-  const openThreadWithPrefill = useCallback(
-    async (peerUserId: string, prefilledText: string) => {
-      const thread = await openOrCreateShareThread.mutateAsync(peerUserId);
-      const peer = shareUsers.find((u) => u.id === peerUserId);
-      resetShareState();
-      const threadParams = {
-        threadId: thread.threadId,
-        peerId: peerUserId,
-        peerFirstName: peer?.first_name,
-        peerLastName: peer?.last_name,
-        peerAvatarUrl: peer?.avatar_url,
-        initialDraft: prefilledText,
-      };
-      InteractionManager.runAfterInteractions(() => {
-        rootNavigation.navigate("Cart", { screen: "CartMain" });
-        requestAnimationFrame(() => {
-          rootNavigation.navigate("Cart", { screen: "MessageThread", params: threadParams });
-        });
-      });
-    },
-    [openOrCreateShareThread, resetShareState, rootNavigation, shareUsers],
-  );
-
   const handleShareToStory = useCallback(
     (navigation: NativeStackNavigationProp<BrowseFlowParamList>) => {
       const postId = sharePostId;
       const placeId = sharePostPlaceId;
       if (!postId || !sharePostImages.length) {
-        Alert.alert("Could not open story composer", "Post images are required.");
+        showShareAlert("Could not open story composer", "Post images are required.", undefined, "alert");
         return;
       }
       resetShareState();
@@ -98,7 +104,7 @@ export function usePostShareSheet(rootNavigation: NavigationProp<ParamListBase>)
         postImages: sharePostImages,
       });
     },
-    [resetShareState, sharePostId, sharePostPlaceId, sharePostImages],
+    [resetShareState, sharePostId, sharePostPlaceId, sharePostImages, showShareAlert],
   );
 
   const handleShareToWhatsapp = useCallback(
@@ -115,28 +121,25 @@ export function usePostShareSheet(rootNavigation: NavigationProp<ParamListBase>)
         });
         const phoneDigits = normalizePhoneToDigits(phone);
         if (!phoneDigits) {
-          Toast.show({
-            type: "info",
-            text1: "No WhatsApp number",
-            text2: "Opened internal chat instead.",
-          });
-          await openThreadWithPrefill(peerUserId, link);
+          showShareAlert("No phone number", "This user has no phone number in their profile.", undefined, "info");
           return;
         }
         const whatsappUrl = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(link)}`;
-        const canOpen = await Linking.canOpenURL(whatsappUrl);
-        if (!canOpen) {
-          await openThreadWithPrefill(peerUserId, link);
-          return;
-        }
+        setShareVisible(false);
+        setShareAlert(null);
         await Linking.openURL(whatsappUrl);
       } catch (error) {
-        Alert.alert("Could not open WhatsApp", error instanceof Error ? error.message : "Please try again.");
+        showShareAlert(
+          "Could not open WhatsApp",
+          error instanceof Error ? error.message : "Please try again.",
+          undefined,
+          "alert",
+        );
       } finally {
         setShareSending(false);
       }
     },
-    [openThreadWithPrefill, queryClient, sharePostId],
+    [queryClient, sharePostId, showShareAlert],
   );
 
   const handleSystemShare = useCallback(async () => {
@@ -151,11 +154,6 @@ export function usePostShareSheet(rootNavigation: NavigationProp<ParamListBase>)
     if (!postId) return;
     const link = buildPostShareUrl(postId);
     await Clipboard.setStringAsync(link);
-    Toast.show({
-      type: "success",
-      text1: "Link copied",
-      text2: "Post link copied to clipboard.",
-    });
   }, [sharePostId]);
 
   return {
@@ -167,6 +165,10 @@ export function usePostShareSheet(rootNavigation: NavigationProp<ParamListBase>)
     sharePostImages,
     sharePlaceName,
     shareSending,
+    shareAlert,
+    dismissShareAlert,
+    showShareAlert,
+    showShareAlertOptions,
     setShareSearch,
     openShareForPost,
     resetShareState,

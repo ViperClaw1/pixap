@@ -66,6 +66,9 @@
   "category": {
     "fallbackName": "Categoría"
   },
+  "vibeMatch": {
+    "chooseAtLeastOnePlace": "Por favor, elige al menos un lugar"
+  },
   "messages": {
     "searchPlaceholder": "Buscar chats y usuarios",
     "myChats": "Mis chats",

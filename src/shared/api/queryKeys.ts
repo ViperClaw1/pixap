@@ -13,6 +13,8 @@ export const queryKeys = {
       ["posts", "feed", userId, followingSignature] as const,
     /** Prefix: all post feeds for any user / following combo */
     feedPrefix: ["posts", "feed"] as const,
+    byId: (postId: string, viewerUserId: string | null) =>
+      ["posts", "byId", postId, viewerUserId] as const,
     place: (placeId: string) => ["posts", "place", placeId] as const,
     comments: (postId: string) => ["post_comments", "post", postId] as const,
     reactions: (postId: string) => ["post_reactions", "post", postId] as const,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   BackHandler,
   InteractionManager,
   Keyboard,
@@ -7,12 +8,13 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
-import { useKeyboardInset } from "@/shared/lib/keyboard";
+import { useFocusedOverlapKeyboardInset, useKeyboardInset } from "@/shared/lib/keyboard";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -30,8 +32,9 @@ import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import Toast from "react-native-toast-message";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { parseStoryMediaPrimaryUrl, parseStoryMediaUrls } from "@/shared/lib/storyMediaUrls";
-import type { StoryItem } from "@/shared/model/types/stories";
+import type { StoryItem, StoryReactionType } from "@/shared/model/types/stories";
 import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
+import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 
 type FeedStoryViewerRoute = RouteProp<BrowseFlowParamList, "FeedStoryViewer">;
 type FeedStoryViewerNav = NativeStackNavigationProp<BrowseFlowParamList, "FeedStoryViewer">;
@@ -39,10 +42,12 @@ type FeedStoryViewerNav = NativeStackNavigationProp<BrowseFlowParamList, "FeedSt
 const AUTO_ADVANCE_MS = 5000;
 /** Reference width for scaling `gap` passed to `useKeyboardInset`. */
 const COMPOSER_GAP_REF_WIDTH_PX = 390;
-/** Android: tuned overlap (negative = lift composer higher vs raw keyboard height). */
-const COMPOSER_KEYBOARD_GAP_AT_REF_ANDROID = -110;
-/** iOS: `keyboardWillChangeFrame` already tracks overlap tightly; large negative gap lets the keyboard cover the bar. */
-const COMPOSER_KEYBOARD_GAP_AT_REF_IOS = -5;
+/** Matches `styles.bottomComposer.paddingTop` — keep in sync when keyboard is closed on Android. */
+const COMPOSER_FOOTER_PADDING_ANDROID = 12;
+/** iOS: `keyboardWillChangeFrame` already tracks overlap tightly; small negative gap fine-tunes position. */
+const COMPOSER_KEYBOARD_GAP_AT_REF_IOS = -30;
+/** Clears input bottom + footer `paddingBottom` above the keyboard (matches top padding). */
+const COMPOSER_ANDROID_KEYBOARD_GAP = COMPOSER_FOOTER_PADDING_ANDROID + 35;
 const DOUBLE_TAP_MS = 260;
 
 type FeedMediaSlide = {
@@ -85,16 +90,12 @@ export default function FeedStoryViewerPage() {
   const navigation = useNavigation<FeedStoryViewerNav>();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const composerKeyboardGap = useMemo(() => {
-    const ref = COMPOSER_GAP_REF_WIDTH_PX;
-    if (Platform.OS === "android") {
-      return (COMPOSER_KEYBOARD_GAP_AT_REF_ANDROID / ref) * width;
-    }
-    return (COMPOSER_KEYBOARD_GAP_AT_REF_IOS / ref) * width;
-  }, [width]);
+  const composerKeyboardGap = useMemo(
+    () => (COMPOSER_KEYBOARD_GAP_AT_REF_IOS / COMPOSER_GAP_REF_WIDTH_PX) * width,
+    [width],
+  );
   const composerFooterPaddingBottom = useMemo(
-    () =>
-      Platform.OS === "android" ? 4 + Math.max(insets.bottom, 6) : 10 + Math.max(insets.bottom, 8),
+    () => (Platform.OS === "android" ? COMPOSER_FOOTER_PADDING_ANDROID : 10 + Math.max(insets.bottom, 8)),
     [insets.bottom],
   );
   const { isDark } = useAppTheme();
@@ -120,23 +121,42 @@ export default function FeedStoryViewerPage() {
     [isDark],
   );
   const carouselRef = useRef<ICarouselInstance | null>(null);
+  const composerInputRef = useRef<TextInput>(null);
   const [inputValue, setInputValue] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+
   const keyboardInsetAnim = useKeyboardInset({
     gap: composerKeyboardGap,
+    enabled: Platform.OS === "ios",
     useNativeDriver: true,
     onKeyboardChange: (_keyboardTop, keyboardHeight) => {
       setKeyboardOpen(keyboardHeight > 0);
     },
   });
 
-  const composerKeyboardStyle = useAnimatedStyle(
-    () => ({
-      transform: [{ translateY: -keyboardInsetAnim.value }],
-    }),
-    [keyboardInsetAnim],
-  );
+  const { extraInset: androidComposerLift, recalculate: recalculateAndroidComposerLift } =
+    useFocusedOverlapKeyboardInset({
+      gap: COMPOSER_ANDROID_KEYBOARD_GAP,
+      getFocusedInput: () => composerInputRef.current,
+      enabled: Platform.OS === "android",
+      onKeyboardChange: (_keyboardTop, keyboardHeight) => {
+        setKeyboardOpen(keyboardHeight > 0);
+      },
+    });
+
+  const composerBarAnimatedStyle = useAnimatedStyle(() => {
+    const lift = Platform.OS === "android" ? androidComposerLift.value : keyboardInsetAnim.value;
+    if (Platform.OS === "android") {
+      return {
+        transform: [{ translateY: -lift }],
+        paddingBottom: COMPOSER_FOOTER_PADDING_ANDROID,
+      };
+    }
+    return {
+      transform: [{ translateY: -lift }],
+    };
+  }, [androidComposerLift, keyboardInsetAnim]);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -219,9 +239,16 @@ export default function FeedStoryViewerPage() {
   );
   const modalCardWidth = useMemo(() => Math.min(width - 24, 390), [width]);
   const modalCardHeight = useMemo(() => Math.min(Math.floor(height * 0.68), 560), [height]);
-  const likeActive = activeStory?.my_reaction === "like";
   const replyMutation = useReplyToStory();
   const reactMutation = useReactToStory();
+  const [localReaction, setLocalReaction] = useState<StoryReactionType | null>(activeStory?.my_reaction ?? null);
+
+  useEffect(() => {
+    if (!activeStory) return;
+    setLocalReaction(activeStory.my_reaction);
+  }, [activeStory?.id, activeStory?.my_reaction]);
+
+  const likeActive = localReaction === "like";
 
   const advanceAfterProgressTick = useCallback(() => {
     if (!flatSlidesRef.current.length) return;
@@ -287,8 +314,20 @@ export default function FeedStoryViewerPage() {
 
   const onToggleLike = useCallback(async () => {
     if (!activeStory) return;
-    await reactMutation.mutateAsync({ storyId: activeStory.id, type: "like" });
-  }, [activeStory, reactMutation]);
+    const previousReaction = localReaction;
+    const nextReaction = previousReaction === "like" ? null : "like";
+    setLocalReaction(nextReaction);
+    try {
+      await reactMutation.mutateAsync({ storyId: activeStory.id, type: "like" });
+    } catch (error) {
+      setLocalReaction(previousReaction);
+      if (isAuthRequiredError(error)) {
+        navigateToAuthScreen(navigation);
+        return;
+      }
+      Alert.alert("Failed", error instanceof Error ? error.message : "Could not react to story");
+    }
+  }, [activeStory, localReaction, navigation, reactMutation]);
 
   const onCopyStoryImage = useCallback(async () => {
     if (!activeImageUrl) return;
@@ -417,20 +456,33 @@ export default function FeedStoryViewerPage() {
             {
               bottom: 0,
               backgroundColor: composerTheme.barBg,
-              paddingBottom: composerFooterPaddingBottom,
+              ...(Platform.OS !== "android"
+                ? { paddingBottom: composerFooterPaddingBottom }
+                : { paddingBottom: COMPOSER_FOOTER_PADDING_ANDROID }),
             },
-            composerKeyboardStyle,
+            composerBarAnimatedStyle,
           ]}
         >
           <View style={styles.composerRow}>
             <View style={styles.inputWrap}>
               <RichTextarea
+                ref={composerInputRef}
                 value={inputValue}
                 onChangeText={setInputValue}
                 placeholder="Send message…"
                 placeholderTextColor={composerTheme.placeholder}
-                onFocus={() => setInputFocused(true)}
+                onFocus={() => {
+                  setInputFocused(true);
+                  if (Platform.OS === "android") {
+                    requestAnimationFrame(() => recalculateAndroidComposerLift());
+                  }
+                }}
                 onBlur={() => setInputFocused(false)}
+                onContentSizeChange={() => {
+                  if (Platform.OS === "android" && inputFocused) {
+                    recalculateAndroidComposerLift();
+                  }
+                }}
                 textAlignVertical="center"
                 style={[
                   styles.input,
@@ -624,7 +676,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    zIndex: 9,
+    zIndex: 20,
+    ...(Platform.OS === "android" ? { elevation: 20 } : null),
     alignItems: "stretch",
     paddingHorizontal: 14,
     paddingTop: 12,

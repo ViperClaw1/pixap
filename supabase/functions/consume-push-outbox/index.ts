@@ -83,10 +83,43 @@ async function sendExpoChunk(
 
 type OutboxRow = { id: string; user_id: string; title: string; body: string; data: Record<string, unknown> };
 
+const SOCIAL_PUSH_KINDS = new Set([
+  "post_like",
+  "story_like",
+  "post_comment",
+  "story_comment",
+  "story_reply",
+]);
+
+function readUuidField(data: Record<string, unknown>, key: string): string | null {
+  const value = data[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/** Resolve delivery target: `data.recipient_id` is authoritative for social events. */
+function resolveDeliveryUserId(row: OutboxRow): string {
+  const kind = typeof row.data?.kind === "string" ? row.data.kind : "";
+  if (SOCIAL_PUSH_KINDS.has(kind)) {
+    return readUuidField(row.data, "recipient_id") ?? row.user_id;
+  }
+  return row.user_id;
+}
+
 /** Skip rows that would notify the user who performed the action. */
 function isPushForActor(row: OutboxRow): boolean {
-  const actorId = row.data?.actor_id ?? row.data?.sender_id;
-  return typeof actorId === "string" && actorId.length > 0 && actorId === row.user_id;
+  const actorId = readUuidField(row.data, "actor_id") ?? readUuidField(row.data, "sender_id");
+  const deliveryUserId = resolveDeliveryUserId(row);
+  if (actorId && actorId === deliveryUserId) {
+    return true;
+  }
+  if (actorId && actorId === row.user_id) {
+    return true;
+  }
+  const recipientId = readUuidField(row.data, "recipient_id");
+  if (recipientId && recipientId !== deliveryUserId) {
+    return true;
+  }
+  return false;
 }
 
 async function loadPendingRows(
@@ -161,13 +194,18 @@ Deno.serve(async (req) => {
   }
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-  const { rows, error: loadError } = await loadPendingRows(admin, scope, body);
+  const { rows: loadedRows, error: loadError } = await loadPendingRows(admin, scope, body);
   if (loadError) {
     return new Response(JSON.stringify({ error: loadError }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  const rows =
+    scope.mode === "user"
+      ? loadedRows.filter((row) => resolveDeliveryUserId(row) === scope.userId)
+      : loadedRows;
 
   const now = new Date().toISOString();
   const expoMessages: ExpoPushMessage[] = [];
@@ -180,10 +218,11 @@ Deno.serve(async (req) => {
       skippedActorSelf.push(row.id);
       continue;
     }
+    const deliveryUserId = resolveDeliveryUserId(row);
     const { data: tokens, error: tokErr } = await admin
       .from("user_push_tokens")
       .select("expo_push_token")
-      .eq("user_id", row.user_id)
+      .eq("user_id", deliveryUserId)
       .not("expo_push_token", "is", null);
     if (tokErr) {
       console.error("[consume-push-outbox] tokens", tokErr);

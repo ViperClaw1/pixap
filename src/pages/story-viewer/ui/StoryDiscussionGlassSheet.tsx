@@ -1,23 +1,37 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, Modal, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, {
+  cancelAnimation,
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import type { AppNavigation } from "@/app/navigation/appNavigation";
 import { navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import { discussionPaletteDark } from "@/shared/theme/discussionPalette";
-import { StoryDiscussionPanelInner } from "@/widgets/story-discussion-panel";
+import {
+  STORY_DISCUSSION_SHEET_MAX_HEIGHT_RATIO,
+  STORY_DISCUSSION_SHEET_MIN_HEIGHT_RATIO,
+  StoryDiscussionPanelInner,
+} from "@/widgets/story-discussion-panel";
 
 const KEYBOARD_GAP = -5;
-/** Grabber + title — must stay in sync with layout below */
-const CHROME_FIXED = 78;
+/** Grabber + panel header (title + close) — keep in sync with layout below */
+const CHROME_FIXED = 72;
 /** Panel footer (emoji + composer + safe area) — keep in sync with StoryDiscussionPanelInner */
 const FOOTER_FIXED = 198;
-const SHEET_MIN_HEIGHT_RATIO = 0.5;
-const SHEET_MAX_HEIGHT_RATIO = 0.75;
+const SHEET_MIN_HEIGHT_RATIO = STORY_DISCUSSION_SHEET_MIN_HEIGHT_RATIO;
+const SHEET_MAX_HEIGHT_RATIO = STORY_DISCUSSION_SHEET_MAX_HEIGHT_RATIO;
 const DISCUSSION_LIST_MIN_VIEWPORT = 80;
+const SHEET_OPEN_MS = 320;
+const SHEET_CLOSE_MS = 300;
 
 type Props = {
   visible: boolean;
@@ -38,10 +52,22 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
     },
   });
 
+  const [renderModal, setRenderModal] = useState(false);
+  const isClosingRef = useRef(false);
+  const closeFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissWindowHeightRef = useRef(windowHeight);
   const sheetTranslate = useSharedValue(windowHeight);
+  const backdropOpacity = useSharedValue(0);
   const panStart = useSharedValue(0);
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
+
+  const clearCloseFallback = useCallback(() => {
+    if (closeFallbackTimerRef.current) {
+      clearTimeout(closeFallbackTimerRef.current);
+      closeFallbackTimerRef.current = null;
+    }
+  }, []);
 
   const sheetMinH = windowHeight * SHEET_MIN_HEIGHT_RATIO;
   const sheetMaxH = windowHeight * SHEET_MAX_HEIGHT_RATIO;
@@ -57,32 +83,71 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
   const metricsRef = useRef({ windowHeight, sheetH });
   metricsRef.current = { windowHeight, sheetH };
 
-  useEffect(() => {
-    if (visible) {
-      setListContentH(0);
-    }
-  }, [visible, storyId]);
-
-  useEffect(() => {
-    if (visible) {
-      sheetTranslate.value = windowHeight;
-      sheetTranslate.value = withSpring(0, { damping: 26, stiffness: 280 });
-    } else {
-      sheetTranslate.value = windowHeight;
-    }
-  }, [sheetTranslate, visible, windowHeight]);
-
   const runDismiss = useCallback(() => {
     onDismissRef.current();
   }, []);
 
-  const animateCloseThenDismiss = useCallback(() => {
-    Keyboard.dismiss();
-    const wh = metricsRef.current.windowHeight;
-    sheetTranslate.value = withTiming(wh, { duration: 260 }, (finished) => {
-      if (finished) runOnJS(runDismiss)();
+  const finishClose = useCallback(() => {
+    if (!isClosingRef.current) return;
+    clearCloseFallback();
+    isClosingRef.current = false;
+    setRenderModal(false);
+    runDismiss();
+  }, [clearCloseFallback, runDismiss]);
+
+  const openSheet = useCallback(() => {
+    clearCloseFallback();
+    isClosingRef.current = false;
+    dismissWindowHeightRef.current = windowHeight;
+    setRenderModal(true);
+    setListContentH(0);
+    backdropOpacity.value = 0;
+    sheetTranslate.value = windowHeight;
+    backdropOpacity.value = withTiming(1, {
+      duration: SHEET_OPEN_MS,
+      easing: Easing.out(Easing.cubic),
     });
-  }, [runDismiss, sheetTranslate]);
+    sheetTranslate.value = withSpring(0, { damping: 26, stiffness: 280 });
+  }, [backdropOpacity, clearCloseFallback, sheetTranslate, windowHeight]);
+
+  const animateCloseThenDismiss = useCallback(() => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    Keyboard.dismiss();
+    cancelAnimation(sheetTranslate);
+    cancelAnimation(backdropOpacity);
+    keyboardInsetAnim.value = 0;
+    const { sheetH: sh, windowHeight: wh } = metricsRef.current;
+    const dismissY = Math.max(dismissWindowHeightRef.current, wh, sh + 64);
+    backdropOpacity.value = withTiming(0, {
+      duration: SHEET_CLOSE_MS,
+      easing: Easing.in(Easing.cubic),
+    });
+    sheetTranslate.value = withTiming(
+      dismissY,
+      { duration: SHEET_CLOSE_MS, easing: Easing.in(Easing.cubic) },
+      (finished) => {
+        if (finished) runOnJS(finishClose)();
+      },
+    );
+    clearCloseFallback();
+    closeFallbackTimerRef.current = setTimeout(() => {
+      closeFallbackTimerRef.current = null;
+      finishClose();
+    }, SHEET_CLOSE_MS + 80);
+  }, [backdropOpacity, clearCloseFallback, finishClose, keyboardInsetAnim, sheetTranslate]);
+
+  useEffect(() => () => clearCloseFallback(), [clearCloseFallback]);
+
+  useEffect(() => {
+    if (visible) {
+      openSheet();
+      return;
+    }
+    if (renderModal && !isClosingRef.current) {
+      animateCloseThenDismiss();
+    }
+  }, [animateCloseThenDismiss, openSheet, renderModal, visible]);
 
   const handlePanEnd = useCallback(
     (dy: number, vy: number) => {
@@ -127,12 +192,42 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
     [keyboardInsetAnim, sheetTranslate],
   );
 
+  const backdropAnimatedStyle = useAnimatedStyle(
+    () => ({
+      opacity: backdropOpacity.value,
+    }),
+    [backdropOpacity],
+  );
+
   const glassFooterBg = Platform.OS === "web" ? "rgba(28,28,30,0.92)" : "rgba(28,28,30,0.72)";
 
-  return (
-    <Modal visible={visible} animationType="none" transparent statusBarTranslucent onRequestClose={animateCloseThenDismiss}>
-      <View style={styles.root}>
-        <Pressable style={styles.backdropHit} onPress={animateCloseThenDismiss}>
+  const sheetGrabber = (
+    <Pressable onPress={() => Keyboard.dismiss()} style={styles.grabberOuter}>
+      <View style={styles.grabberInner} />
+    </Pressable>
+  );
+
+  const sheetChrome = (
+    <View style={styles.keyboardArea}>
+      {Platform.OS === "ios" ? <GestureDetector gesture={panGesture}>{sheetGrabber}</GestureDetector> : sheetGrabber}
+      <View style={styles.innerClip}>
+        <StoryDiscussionPanelInner
+          storyId={storyId}
+          onRequireAuth={onRequireAuth}
+          onClose={animateCloseThenDismiss}
+          discussionPalette={discussionPaletteDark}
+          footerBackgroundColor={glassFooterBg}
+          footerBorderColor="rgba(255,255,255,0.12)"
+          onListContentSizeChange={(_w, h) => setListContentH(h)}
+        />
+      </View>
+    </View>
+  );
+
+  const modalBody = (
+    <View style={styles.root}>
+      <Animated.View style={[styles.backdropHit, backdropAnimatedStyle]} pointerEvents="box-none">
+        <Pressable style={StyleSheet.absoluteFill} onPress={animateCloseThenDismiss}>
           {Platform.OS === "web" ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.62)" }]} />
           ) : (
@@ -149,48 +244,51 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
             </>
           )}
         </Pressable>
+      </Animated.View>
 
-        <Animated.View
-          style={[
-            styles.sheet,
-            {
-              height: sheetH,
-              maxHeight: sheetMaxH,
-              paddingBottom: isKeyboardOpen ? 0 : Math.max(insets.bottom, 10),
-            },
-            sheetAnimatedStyle,
-          ]}
-        >
-          <View style={styles.glassUnderlay}>
-            <View style={[StyleSheet.absoluteFillObject, styles.glassTint]} />
-          </View>
-          <View style={styles.keyboardArea}>
-            <GestureDetector gesture={panGesture}>
-              <View>
-                <Pressable onPress={() => Keyboard.dismiss()} style={styles.grabberOuter}>
-                  <View style={styles.grabberInner} />
-                </Pressable>
-                <Text style={styles.sheetTitle}>Comments</Text>
-              </View>
-            </GestureDetector>
-            <View style={styles.innerClip}>
-              <StoryDiscussionPanelInner
-                storyId={storyId}
-                onRequireAuth={onRequireAuth}
-                discussionPalette={discussionPaletteDark}
-                footerBackgroundColor={glassFooterBg}
-                footerBorderColor="rgba(255,255,255,0.12)"
-                onListContentSizeChange={(_w, h) => setListContentH(h)}
-              />
-            </View>
-          </View>
-        </Animated.View>
-      </View>
+      <Animated.View
+        style={[
+          styles.sheet,
+          {
+            height: sheetH,
+            maxHeight: sheetMaxH,
+            paddingBottom: Platform.OS === "android" ? 0 : isKeyboardOpen ? 0 : Math.max(insets.bottom, 10),
+          },
+          sheetAnimatedStyle,
+        ]}
+      >
+        <View style={styles.glassUnderlay}>
+          <View style={[StyleSheet.absoluteFillObject, styles.glassTint]} />
+        </View>
+        {sheetChrome}
+      </Animated.View>
+    </View>
+  );
+
+  const modalContent =
+    Platform.OS === "android" ? (
+      <GestureHandlerRootView style={styles.modalRoot}>{modalBody}</GestureHandlerRootView>
+    ) : (
+      modalBody
+    );
+
+  return (
+    <Modal
+      visible={renderModal}
+      animationType="none"
+      transparent
+      statusBarTranslucent
+      onRequestClose={animateCloseThenDismiss}
+    >
+      {modalContent}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  modalRoot: {
+    flex: 1,
+  },
   root: {
     flex: 1,
     justifyContent: "flex-end",
@@ -241,13 +339,5 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: "rgba(255,255,255,0.35)",
-  },
-  sheetTitle: {
-    textAlign: "center",
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 6,
-    letterSpacing: 0.2,
   },
 });

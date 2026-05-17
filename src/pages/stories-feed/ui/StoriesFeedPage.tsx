@@ -192,7 +192,8 @@ export default function StoriesFeedScreen() {
   const createPostComment = useCreatePostComment();
   const updatePostComment = useUpdatePostComment();
   const deletePostComment = useDeletePostComment();
-  const { data: postComments = [] } = usePostComments(comments.selectedPostId ?? "");
+  const { data: postComments = [], isLoading: isPostCommentsLoading } = usePostComments(comments.selectedPostId ?? "");
+  const isCommentsSheetLoading = Boolean(comments.selectedPostId) && isPostCommentsLoading;
   const savingCommentId =
     updatePostComment.isPending && updatePostComment.variables ? updatePostComment.variables.commentId : null;
   const deletingCommentId =
@@ -381,6 +382,7 @@ export default function StoriesFeedScreen() {
         visible={comments.isCommentsModalVisible}
         onClose={comments.closeComments}
         comments={postComments}
+        isLoading={isCommentsSheetLoading}
         hasSelectedPost={!!selectedPost}
         expandedCommentIds={comments.expandedCommentIds}
         replyTargetCommentId={comments.replyTargetCommentId}
@@ -448,6 +450,9 @@ export default function StoriesFeedScreen() {
         sharePostHasMedia={shareSheet.sharePostImages.length > 0}
         sharePlaceName={shareSheet.sharePlaceName}
         shareSending={shareSheet.shareSending}
+        sheetAlert={shareSheet.shareAlert}
+        onDismissSheetAlert={shareSheet.dismissShareAlert}
+        onShowSheetAlert={shareSheet.showShareAlertOptions}
         onAddToStory={async () => shareSheet.handleShareToStory(navigation)}
         onWhatsAppShare={shareSheet.handleShareToWhatsapp}
         onSystemShare={shareSheet.handleSystemShare}

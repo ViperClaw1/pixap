@@ -36,6 +36,11 @@ export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
   return (
     <>
       <Screen
+        name="PostDetail"
+        getComponent={() => require("@/pages/post-detail").default}
+        options={fullWidthSwipeBackOptions}
+      />
+      <Screen
         name="PlaceDetail"
         getComponent={() => require("@/pages/place-detail").default}
         options={fullWidthSwipeBackOptions}

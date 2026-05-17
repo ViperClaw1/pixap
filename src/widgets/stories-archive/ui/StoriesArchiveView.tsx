@@ -13,6 +13,7 @@ import {
   ScrollView,
   type ViewStyle,
   type TextStyle,
+  type ImageStyle,
 } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import MapView, { Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
@@ -43,15 +44,20 @@ export type StoriesArchiveViewProps = {
 
 type ArchiveTab = "grid" | "calendar" | "map";
 
-type GridCell = {
-  key: string;
-  storyId: string;
-  mediaIndex: number;
+type ArchiveThumb = {
   /** Primary URL (Supabase render / resized when supported). */
   thumbUri: string;
   /** Full object URL if `thumbUri` is a transform that may fail (expo-image then loads this). */
   thumbFallbackUri?: string;
 };
+
+type GridCell = ArchiveThumb & {
+  key: string;
+  storyId: string;
+  mediaIndex: number;
+};
+
+type CalendarThumb = ArchiveThumb;
 
 type StoryArchiveGridCellProps = {
   item: GridCell;
@@ -85,9 +91,27 @@ const StoryArchiveGridCell = memo(function StoryArchiveGridCell({
 const WEEKDAYS_MON = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const GRID_COLUMNS = 3;
 const GRID_BATCH_ROWS = 7;
+/** Matches `calCircle` size in storiesArchiveStyles. */
+const CAL_CIRCLE_SIZE = 40;
+const PREFETCH_BATCH_SIZE = 8;
 const ARCHIVE_TAB_ORDER: ArchiveTab[] = ["grid", "calendar", "map"];
 const MAP_REGION_EDGE_PADDING = 0.02;
 const MAP_REGION_MIN_DELTA = 0.08;
+
+function buildArchiveThumb(raw: string, decodePx: number): ArchiveThumb {
+  const optimized = getOptimizedImageUrl(raw, decodePx, decodePx, 72) || raw;
+  return {
+    thumbUri: optimized,
+    thumbFallbackUri: optimized !== raw ? raw : undefined,
+  };
+}
+
+async function preloadSmartImagesBatched(uris: string[]): Promise<void> {
+  const unique = Array.from(new Set(uris.filter((uri) => uri.length > 0)));
+  for (let i = 0; i < unique.length; i += PREFETCH_BATCH_SIZE) {
+    await preloadSmartImages(unique.slice(i, i + PREFETCH_BATCH_SIZE));
+  }
+}
 
 function buildMonthCellsMondayFirst(year: number, month: number): CalendarCell[] {
   const firstDow = new Date(year, month, 1).getDay();
@@ -174,7 +198,7 @@ type ArchiveStoryMarkerProps = {
   latitude: number;
   longitude: number;
   thumbUri: string | null;
-  thumbStyle: ViewStyle;
+  thumbStyle: ImageStyle;
   fallbackStyle: ViewStyle;
   onPress: () => void;
 };
@@ -362,43 +386,67 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
     return () => task.cancel();
   }, [overlayActive, stories.length, gridItems, tabBodyMinHeight, gridTileHeight, tab]);
 
-  const calendarData = useMemo(() => {
-    if (tab !== "calendar") {
-      return {
-        storiesByYmd: new Map<string, StoryItem[]>(),
-        newestStoryByYmd: new Map<string, StoryItem>(),
-        previewThumbByYmd: new Map<string, string>(),
-      };
-    }
-    const storiesByYmd = new Map<string, StoryItem[]>();
+  const calThumbDecodePx = useMemo(() => {
+    const dpr = Math.min(2, PixelRatio.get());
+    return quantizeDecodePx(Math.round(CAL_CIRCLE_SIZE * dpr));
+  }, []);
+
+  const previewThumbByYmd = useMemo(() => {
+    if (!overlayActive || !stories.length) return new Map<string, CalendarThumb>();
     const newestStoryByYmd = new Map<string, StoryItem>();
-    const previewThumbByYmd = new Map<string, string>();
     for (const story of stories) {
       const ymd = toYmd(new Date(story.created_at));
-      const list = storiesByYmd.get(ymd) ?? [];
-      list.push(story);
-      storiesByYmd.set(ymd, list);
       const prevNewest = newestStoryByYmd.get(ymd);
       if (!prevNewest || new Date(story.created_at).getTime() > new Date(prevNewest.created_at).getTime()) {
         newestStoryByYmd.set(ymd, story);
       }
     }
+    const thumbs = new Map<string, CalendarThumb>();
     for (const [ymd, story] of newestStoryByYmd.entries()) {
-      const thumb = (storyMediaById.get(story.id) ?? [])[0];
-      if (thumb) previewThumbByYmd.set(ymd, thumb);
+      const raw = (storyMediaById.get(story.id) ?? [])[0];
+      if (raw) thumbs.set(ymd, buildArchiveThumb(raw, calThumbDecodePx));
     }
-    for (const [ymd, list] of storiesByYmd.entries()) {
+    return thumbs;
+  }, [overlayActive, stories, storyMediaById, calThumbDecodePx]);
+
+  const storiesByYmd = useMemo(() => {
+    if (tab !== "calendar") return new Map<string, StoryItem[]>();
+    const byYmd = new Map<string, StoryItem[]>();
+    for (const story of stories) {
+      const ymd = toYmd(new Date(story.created_at));
+      const list = byYmd.get(ymd) ?? [];
+      list.push(story);
+      byYmd.set(ymd, list);
+    }
+    for (const [ymd, list] of byYmd.entries()) {
       list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      storiesByYmd.set(ymd, list);
+      byYmd.set(ymd, list);
     }
-    return { storiesByYmd, newestStoryByYmd, previewThumbByYmd };
-  }, [tab, stories, storyMediaById]);
+    return byYmd;
+  }, [tab, stories]);
 
   const monthCells = useMemo(() => {
     const y = visibleMonth.getFullYear();
     const mo = visibleMonth.getMonth();
     return buildMonthCellsMondayFirst(y, mo);
   }, [visibleMonth]);
+
+  useEffect(() => {
+    if (!overlayActive || !stories.length || tab !== "calendar") return;
+    const uris: string[] = [];
+    for (const cell of monthCells) {
+      if (cell.kind !== "day") continue;
+      const thumb = previewThumbByYmd.get(cell.ymd);
+      if (!thumb) continue;
+      uris.push(thumb.thumbUri);
+      if (thumb.thumbFallbackUri) uris.push(thumb.thumbFallbackUri);
+    }
+    if (!uris.length) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      void preloadSmartImagesBatched(uris);
+    });
+    return () => task.cancel();
+  }, [overlayActive, stories.length, tab, monthCells, previewThumbByYmd]);
 
   const mapCoordsList = useMemo(() => {
     if (tab !== "map") return [] as Array<{ story: StoryItem; latitude: number; longitude: number }>;
@@ -493,14 +541,14 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
           .map((leaf: Supercluster.PointFeature<ClusterPointProps>) => storyById.get(leaf.properties.storyId))
           .filter((s): s is StoryItem => Boolean(s))
           .sort((a: StoryItem, b: StoryItem) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        if (sorted.length) openViewer(sorted, 0, sorted[0].place_id);
+        if (sorted.length) openViewer(sorted, 0, sorted[0].place_id ?? "");
         return;
       }
       const sid = (props as ClusterPointProps).storyId;
       if (!sid) return;
       const story = storyById.get(sid);
       if (!story) return;
-      openViewer([story], 0, story.place_id);
+      openViewer([story], 0, story.place_id ?? "");
     },
     [clusterIndex, handleClusterPress, initialMapRegion, mapRegion, openViewer, storyById],
   );
@@ -589,8 +637,8 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
               if (cell.kind === "pad") {
                 return <View key={`pad-${ri}-${ci}`} style={styles.calDaySlot} />;
               }
-              const dayStories = calendarData.storiesByYmd.get(cell.ymd) ?? [];
-              const thumb = calendarData.previewThumbByYmd.get(cell.ymd) ?? null;
+              const dayStories = storiesByYmd.get(cell.ymd) ?? [];
+              const thumb = previewThumbByYmd.get(cell.ymd) ?? null;
               return (
                 <Pressable
                   key={cell.ymd}
@@ -604,7 +652,11 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
                 >
                   {thumb ? (
                     <View style={styles.calCircle}>
-                      <SmartImage uri={thumb} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+                      <StoryArchiveGridThumb
+                        uri={thumb.thumbUri}
+                        fallbackUri={thumb.thumbFallbackUri}
+                        recyclingKey={`cal-${cell.ymd}`}
+                      />
                       <View
                         style={{
                           ...StyleSheet.absoluteFillObject,

@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { PixelRatio, Pressable, Text, View } from "react-native";
 import type { PixAIPlace } from "@/entities/pixai";
+import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
@@ -36,6 +37,7 @@ function AIBookingSuggestedPlaceCardInner({ styles: s, place, selected, onSelect
         <SmartImage
           uri={uri}
           fallbackUri={fallbackUri}
+          bundledFallback={PLACE_IMAGE_FALLBACK}
           recyclingKey={`${place.id}-thumb`}
           style={s.placeThumb}
           contentFit="cover"

@@ -31,6 +31,17 @@ export const searchStaticStyles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "500",
   },
+  showMoreBtn: {
+    marginTop: 8,
+    marginBottom: 8,
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  showMoreBtnText: { fontSize: 14, fontWeight: "700" },
 });
 
 export function searchThemeStyles(colors: ThemeColors, _isDark: boolean) {
@@ -46,5 +57,7 @@ export function searchThemeStyles(colors: ThemeColors, _isDark: boolean) {
     meta: { color: colors.textMuted },
     tagPill: { backgroundColor: colors.tagMuted },
     tagText: { color: colors.tagMutedText },
+    showMoreBtn: { backgroundColor: colors.accent },
+    showMoreBtnText: { color: colors.onAccent },
   } satisfies Partial<Record<keyof typeof searchStaticStyles, object>>;
 }

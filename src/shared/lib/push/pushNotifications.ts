@@ -118,19 +118,14 @@ export async function registerNativePushToken(userId: string): Promise<void> {
     return;
   }
 
-  const { error } = await supabase.from("user_push_tokens").upsert(
-    {
-      user_id: userId,
-      token: device.data,
-      platform,
-      expo_push_token: expoPushToken,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,token" },
-  );
+  const { error } = await supabase.rpc("claim_expo_push_token", {
+    p_device_token: device.data,
+    p_platform: platform,
+    p_expo_push_token: expoPushToken,
+  });
 
   if (error) {
-    devWarn("[push] Failed to save token", error.message);
+    devWarn("[push] Failed to claim push token", error.message);
     return;
   }
 

@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, TextInput, Pressable } from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
@@ -15,6 +15,9 @@ import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullS
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { PLACE_LIST_BATCH_SIZE } from "@/shared/lib/placeListBatchSize";
+import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
+import { ShimmerProvider, PlaceRowSkeletonList } from "@/shared/ui/shimmer";
 import { searchStaticStyles, searchThemeStyles } from "./searchStyles";
 
 type Nav = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
@@ -27,8 +30,9 @@ export default function SearchScreen() {
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
-  const { data: places = [] } = useBusinessCards();
+  const { data: places = [], isLoading } = useBusinessCards();
   const [q, setQ] = useState("");
+  const [visibleCount, setVisibleCount] = useState(PLACE_LIST_BATCH_SIZE);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -41,6 +45,16 @@ export default function SearchScreen() {
     );
   }, [places, q]);
 
+  useEffect(() => {
+    setVisibleCount(PLACE_LIST_BATCH_SIZE);
+  }, [places, q]);
+
+  const visibleFiltered = useMemo(
+    () => filtered.slice(0, visibleCount),
+    [filtered, visibleCount],
+  );
+  const canShowMore = visibleCount < filtered.length;
+
   const themed = useThemeStyles(({ colors: c, isDark: dark }) => searchThemeStyles(c, dark));
   const styles = useMemo(() => mergeStaticAndThemed(searchStaticStyles, themed), [themed]);
 
@@ -49,7 +63,20 @@ export default function SearchScreen() {
     [insets.bottom],
   );
 
-  const renderSearchItem = useCallback<ListRenderItem<(typeof filtered)[number]>>(
+  const listFooter = useMemo(
+    () =>
+      !isLoading && canShowMore ? (
+        <Pressable
+          style={styles.showMoreBtn}
+          onPress={() => setVisibleCount((prev) => prev + PLACE_LIST_BATCH_SIZE)}
+        >
+          <Text style={styles.showMoreBtnText}>{t("home.showMore")}</Text>
+        </Pressable>
+      ) : null,
+    [canShowMore, isLoading, styles.showMoreBtn, styles.showMoreBtnText, t],
+  );
+
+  const renderSearchItem = useCallback<ListRenderItem<(typeof visibleFiltered)[number]>>(
     (info) => {
       const item = info.item;
       const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
@@ -58,6 +85,7 @@ export default function SearchScreen() {
           <SmartImage
             uri={getOptimizedImageUrl(getLatestBusinessCardImage(item.images), 168, 168, 72)}
             fallbackUri={getLatestBusinessCardImage(item.images)}
+            bundledFallback={PLACE_IMAGE_FALLBACK}
             recyclingKey={item.id}
             style={styles.thumb}
             contentFit="cover"
@@ -98,18 +126,27 @@ export default function SearchScreen() {
         onChangeText={setQ}
         placeholderTextColor={colors.textMuted}
       />
-      <FlashList
-        data={filtered}
-        keyExtractor={(p) => p.id}
-        estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.placeRow}
-        contentContainerStyle={listContentPadding}
-        renderItem={renderSearchItem}
-        removeClippedSubviews
-        initialNumToRender={8}
-        maxToRenderPerBatch={10}
-        windowSize={8}
-        updateCellsBatchingPeriod={40}
-      />
+      {isLoading ? (
+        <ShimmerProvider active>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={listContentPadding}>
+            <PlaceRowSkeletonList variant="search" />
+          </ScrollView>
+        </ShimmerProvider>
+      ) : (
+        <FlashList
+          data={visibleFiltered}
+          keyExtractor={(p) => p.id}
+          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.placeRow}
+          contentContainerStyle={listContentPadding}
+          renderItem={renderSearchItem}
+          ListFooterComponent={listFooter}
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={8}
+          updateCellsBatchingPeriod={40}
+        />
+      )}
     </View>
   );
 }

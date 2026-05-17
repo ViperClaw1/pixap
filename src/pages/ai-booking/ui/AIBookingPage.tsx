@@ -16,7 +16,6 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useCartItems, useCreateCartItem, useStartN8nWaBooking } from "@/entities/cart";
@@ -25,7 +24,10 @@ import { useAvailableSlots } from "@/entities/booking";
 import { usePixAI, type PixAIFlowPayload, type PixAIPlace, type PixAISlot } from "@/entities/pixai";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
-import { useSubscriptionPaywallRedirect } from "@/features/subscription-paywall-redirect";
+import {
+  shouldEnforceSubscriptionPaywall,
+  useSubscriptionPaywallRedirect,
+} from "@/features/subscription-paywall-redirect";
 import {
   ALL_CITIES_OPTION,
   useAvailableCities,
@@ -184,7 +186,7 @@ export default function AIBookingPage() {
   const { colors } = useAppTheme();
   const { user, session, loading: authLoading } = useAuth();
   const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
-  const shouldEnforcePaywall = !__DEV__ && Constants.appOwnership !== "expo";
+  const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
   const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   useAuthSessionRedirect({
@@ -196,7 +198,7 @@ export default function AIBookingPage() {
     entitlementLoading,
     shouldEnforcePaywall,
     hasSubscriptionAccess,
-    navigation: navigation as { navigate: (name: "SubscriptionPaywall") => void },
+    navigation: navigation as { replace: (name: "SubscriptionPaywall") => void },
   });
   const { messages, runFlow, isLoading } = usePixAI();
   const { data: profile } = useProfile();
@@ -614,14 +616,7 @@ export default function AIBookingPage() {
     );
   }
   if (shouldEnforcePaywall && !hasSubscriptionAccess) {
-    return (
-      <View
-        style={[styles.root, { alignItems: "center", justifyContent: "center" }]}
-        {...androidSwipeBackPanHandlers}
-      >
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
+    return null;
   }
 
   return (

@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/app/providers/AuthProvider";
 import { ThemeProvider } from "@/app/providers/ThemeProvider";
 import { AppErrorBoundary } from "@/shared/ui/error-boundary";
+import { AppPopupProvider } from "@/shared/ui/app-popup";
 import { i18n } from "@/shared/lib/i18n";
 
 const queryClient = new QueryClient({
@@ -29,7 +30,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
           <I18nextProvider i18n={i18n}>
             <QueryClientProvider client={queryClient}>
               <AuthProvider>
-                <AppErrorBoundary>{children}</AppErrorBoundary>
+                <AppPopupProvider>
+                  <AppErrorBoundary>{children}</AppErrorBoundary>
+                </AppPopupProvider>
               </AuthProvider>
             </QueryClientProvider>
           </I18nextProvider>
