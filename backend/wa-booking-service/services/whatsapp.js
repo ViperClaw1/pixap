@@ -2,6 +2,11 @@ const WA_GRAPH_BASE = (process.env.WHATSAPP_GRAPH_BASE_URL || "https://graph.fac
 const WA_GRAPH_VERSION = (process.env.WHATSAPP_GRAPH_VERSION || "v22.0").trim();
 const WA_TEMPLATE_LANGUAGE = (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim();
 
+function waTemplateLanguageCode(interfaceLocale) {
+  if (interfaceLocale === "ru") return "ru";
+  return (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim() || "en_US";
+}
+
 function requireEnv(name) {
   const value = (process.env[name] || "").trim();
   if (!value) throw new Error(`Missing required env var: ${name}`);
@@ -47,6 +52,8 @@ function templateHeaderImageUrl(templateId) {
   if (specific && String(specific).trim()) return String(specific).trim();
   const legacyByNameMap = {
     check_availability: process.env.WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL,
+    check_is_available_en: process.env.WHATSAPP_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL,
+    check_is_available_ru: process.env.WHATSAPP_CHECK_IS_AVAILABLE_RU_HEADER_IMAGE_URL,
     check_is_free: process.env.WHATSAPP_CHECK_IS_FREE_HEADER_IMAGE_URL,
     get_payment_link: process.env.WHATSAPP_GET_PAYMENT_LINK_HEADER_IMAGE_URL,
   };
@@ -66,8 +73,9 @@ function templateRequiresImageHeader(templateId) {
   if (explicitList.length > 0) {
     return explicitList.includes(String(templateId));
   }
-  // Backward compatible default: only availability template requires IMAGE header.
-  return String(templateId) === "check_availability";
+  const id = String(templateId);
+  if (id === "check_availability" || id.startsWith("check_is_available_")) return true;
+  return false;
 }
 
 async function postWhatsAppMessage(payload, logMeta) {
@@ -125,7 +133,7 @@ async function postWhatsAppMessage(payload, logMeta) {
   };
 }
 
-async function sendWhatsAppTemplate(phone, templateId, variables = []) {
+async function sendWhatsAppTemplate(phone, templateId, variables = [], languageCode) {
   const to = normalizeRecipient(phone);
   const bodyComponent = buildTemplateComponents(variables)?.[0];
   const headerImageUrl = templateHeaderImageUrl(templateId);
@@ -136,13 +144,17 @@ async function sendWhatsAppTemplate(phone, templateId, variables = []) {
   }
   const headerComponent = buildHeaderImageComponent(headerImageUrl);
   const components = [headerComponent, bodyComponent].filter(Boolean);
+  const lang =
+    typeof languageCode === "string" && languageCode.trim()
+      ? languageCode.trim()
+      : WA_TEMPLATE_LANGUAGE;
   const payload = {
     messaging_product: "whatsapp",
     to,
     type: "template",
     template: {
       name: String(templateId),
-      language: { code: WA_TEMPLATE_LANGUAGE },
+      language: { code: lang },
       ...(components.length > 0 ? { components } : {}),
     },
   };
@@ -173,4 +185,5 @@ module.exports = {
   sendWhatsAppTemplate,
   sendWhatsAppMessage,
   templateHeaderImageUrl,
+  waTemplateLanguageCode,
 };

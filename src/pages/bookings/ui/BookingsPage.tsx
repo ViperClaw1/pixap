@@ -79,6 +79,7 @@ export default function BookingsScreen() {
         return {
           ...booking,
           waPaymentLink: linkedCartItem?.wa_payment_link?.trim() || null,
+          waQrPayload: linkedCartItem?.wa_qr_payload ?? null,
           displayStatus: deriveBookingDisplayStatus(booking, linkedCartItem),
         };
       })

@@ -61,7 +61,8 @@
     "goHome": "Go home"
   },
   "search": {
-    "placeholder": "Search…"
+    "placeholder": "Search…",
+    "noMatchingPlaces": "No matching places"
   },
   "category": {
     "fallbackName": "Category"
@@ -115,6 +116,8 @@
     "paymentPaid": "Paid",
     "pay": "Pay",
     "waitingForVenue": "Waiting for venue response",
+    "qrTitle": "Booking QR",
+    "qrFree": "Free booking",
     "noBookings": "No bookings",
     "choosePlace": "Choose place",
     "noTags": "No tags",

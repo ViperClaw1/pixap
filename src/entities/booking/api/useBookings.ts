@@ -45,7 +45,9 @@ export function deriveBookingDisplayStatus(booking: Booking, linkedCartItem?: Ca
   if (
     venueStatusText.includes("not available") ||
     venueStatusText.includes("unavailable") ||
-    venueStatusText.includes("slot is not available")
+    venueStatusText.includes("slot is not available") ||
+    venueStatusText.includes("недоступен") ||
+    venueStatusText.includes("отклон")
   ) {
     return "cancelled";
   }

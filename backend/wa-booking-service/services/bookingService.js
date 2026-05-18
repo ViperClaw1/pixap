@@ -1,9 +1,17 @@
-const { parsePaymentLink, parseYesNo } = require("./parser");
-const { sendWhatsAppMessage, sendWhatsAppTemplate } = require("./whatsapp");
+const {
+  parseAvailabilityReply,
+  parseFreeOrPriceReply,
+  parsePriceAndCurrency,
+} = require("./parser");
+const { sendWhatsAppMessage, sendWhatsAppTemplate, waTemplateLanguageCode } = require("./whatsapp");
 
 const APP_CALLBACK_URL = process.env.APP_CALLBACK_URL || "https://example.com/api/update-booking";
 const APP_NOTIFY_RETRIES = Number.parseInt(process.env.APP_NOTIFY_RETRIES || "3", 10);
 const APP_NOTIFY_TIMEOUT_MS = Number.parseInt(process.env.APP_NOTIFY_TIMEOUT_MS || "5000", 10);
+
+const TEMPLATE_CHECK_IS_AVAILABLE = "check_is_available";
+const TEMPLATE_FREE_OR_SET_PRICE = "chech_free_or_set_price";
+const TEMPLATE_GOT_IT = "got_it";
 
 const bookingsById = new Map();
 const activeBookingIdsByPhone = new Map();
@@ -57,6 +65,69 @@ function optionalTrimString(payload, key) {
   return trimmed || null;
 }
 
+function normalizeInterfaceLocale(raw) {
+  if (typeof raw !== "string") return "en";
+  const base = raw.trim().split("-")[0]?.toLowerCase() ?? "";
+  return base === "ru" ? "ru" : "en";
+}
+
+function resolveWaTemplate(baseName, locale) {
+  const loc = locale === "ru" ? "ru" : "en";
+  return `${baseName}_${loc}`;
+}
+
+function formatWaBookingDate(isoDate, locale) {
+  const raw = String(isoDate || "").trim();
+  if (!raw || raw === "—") return raw;
+  const dt = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T12:00:00`) : new Date(raw);
+  if (Number.isNaN(dt.getTime())) return raw;
+  if (locale === "ru") {
+    return dt.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+  }
+  return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function statusLinesFor(locale, key) {
+  const ru = {
+    waiting_delivery: ["Шаблон принят WhatsApp API.", "Ожидаем ответ владельца…"],
+    slot_declined: ["Владелец отклонил этот слот."],
+    slot_available_pricing: ["Слот доступен.", "Уточняем стоимость…"],
+    slot_free_confirm: ["Слот доступен и бесплатный.", "Можно подтвердить бронь в приложении."],
+    slot_priced_confirm: ["Слот доступен.", "Цена получена — можно подтвердить в приложении."],
+    awaiting_price: ["Слот доступен.", "Ожидаем цену от владельца…"],
+    invalid_price: ["Слот доступен.", "Не удалось распознать цену — отправьте только сумму и валюту."],
+  };
+  const en = {
+    waiting_delivery: ["Template accepted by WhatsApp API.", "Waiting for venue reply…"],
+    slot_declined: ["Venue declined this slot."],
+    slot_available_pricing: ["Slot available.", "Checking if booking is free…"],
+    slot_free_confirm: ["Slot available and free.", "You can confirm the booking in the app."],
+    slot_priced_confirm: ["Slot available.", "Price received — you can confirm in the app."],
+    awaiting_price: ["Slot available.", "Awaiting price from venue…"],
+    invalid_price: ["Slot available.", "Could not read price — send amount and currency only."],
+  };
+  const table = locale === "ru" ? ru : en;
+  return table[key] ?? en[key] ?? [];
+}
+
+function repromptAvailability(locale) {
+  return locale === "ru"
+    ? "Пожалуйста, ответьте кнопкой: «Да, доступен» или «Нет, не доступен»."
+    : "Please use the buttons: “Yes, available” or “No, not available”.";
+}
+
+function repromptPricing(locale) {
+  return locale === "ru"
+    ? "Пожалуйста, ответьте кнопкой: «Бесплатно» или «Назвать стоимость»."
+    : "Please use the buttons: “It's free” or “Send the price”.";
+}
+
+function repromptPriceInput(locale) {
+  return locale === "ru"
+    ? "Укажите стоимость и валюту (например: 1500 ₽ или 25 USD)."
+    : "Send the price and currency (e.g. 25 USD or 1500 RUB).";
+}
+
 function addActiveBooking(phone, bookingId) {
   const normalizedPhone = phoneLookupKey(phone);
   const existing = activeBookingIdsByPhone.get(normalizedPhone) || [];
@@ -94,13 +165,29 @@ function trackOutboundMessage(booking, messageId) {
   outboundMessageToBookingId.set(id, booking.id);
 }
 
-function deliveryStatusLine(status, details) {
+function deliveryStatusLine(status, details, locale) {
   const s = String(status || "").toLowerCase();
-  if (s === "sent") return "WhatsApp message sent to venue.";
-  if (s === "delivered") return "WhatsApp message delivered to venue.";
-  if (s === "read") return "Venue read the WhatsApp message.";
-  if (s === "failed") return details ? `WhatsApp delivery failed: ${details}` : "WhatsApp delivery failed.";
-  return `WhatsApp status: ${status}`;
+  const ru = locale === "ru";
+  if (s === "sent") return ru ? "Сообщение WhatsApp отправлено владельцу." : "WhatsApp message sent to venue.";
+  if (s === "delivered") return ru ? "Сообщение WhatsApp доставлено владельцу." : "WhatsApp message delivered to venue.";
+  if (s === "read") return ru ? "Владелец прочитал сообщение WhatsApp." : "Venue read the WhatsApp message.";
+  if (s === "failed") {
+    const prefix = ru ? "Ошибка доставки WhatsApp" : "WhatsApp delivery failed";
+    return details ? `${prefix}: ${details}` : prefix;
+  }
+  return ru ? `Статус WhatsApp: ${status}` : `WhatsApp status: ${status}`;
+}
+
+function buildQrPayload(booking, { isFree, priceDisplay }) {
+  return {
+    client_name: booking.customer_name ?? "Client",
+    client_phone: booking.customer_phone ?? "—",
+    place_name: booking.venue_name,
+    booking_date: booking.date,
+    booking_slot: booking.time,
+    is_free: Boolean(isFree),
+    price: isFree ? null : priceDisplay ?? null,
+  };
 }
 
 function makeBookingSnapshot(booking) {
@@ -111,36 +198,11 @@ function makeBookingSnapshot(booking) {
     owner_phone: booking.owner_phone,
     status: booking.status,
     step: booking.step,
+    interface_locale: booking.interface_locale,
     is_free: booking.is_free,
     price: booking.price,
     payment_link: booking.payment_link,
   };
-}
-
-function normalizeDecisionInput(text) {
-  if (typeof text !== "string") return "";
-  return text.trim().replace(/[_-]+/g, " ");
-}
-
-function parseOwnerYesNo(text) {
-  const normalized = normalizeDecisionInput(text);
-  if (!normalized) return null;
-  return parseYesNo(normalized);
-}
-
-function parsePricingDecision(text) {
-  const normalized = normalizeDecisionInput(text);
-  if (!normalized) return null;
-
-  const yesNo = parseYesNo(normalized);
-  const hasFreeSignal = /\bfree\b/.test(normalized);
-  const hasPaidSignal = /\bpaid\b|\bnot free\b/.test(normalized);
-
-  // Pricing step expects decision about "free vs paid", not "available vs unavailable".
-  if (yesNo === "yes" && hasFreeSignal) return "yes";
-  if (yesNo === "no" && (hasFreeSignal || hasPaidSignal)) return "no";
-  if (yesNo === "no" && hasPaidSignal) return "no";
-  return null;
 }
 
 function requireStringField(payload, fieldName) {
@@ -150,10 +212,6 @@ function requireStringField(payload, fieldName) {
   }
   return value.trim();
 }
-
-const TEMPLATE_BOOK_AVAILABILITY = "check_availability";
-const TEMPLATE_BOOK_IS_FREE = "check_is_free";
-const TEMPLATE_BOOK_GET_PAYMENT_LINK = "get_payment_link";
 
 function hasSupabaseCartIntegration(booking) {
   return Boolean(
@@ -169,11 +227,6 @@ async function postSupabaseCartCallback(booking, patch) {
   const secret = (process.env.WA_BOOKING_SUPABASE_CALLBACK_SECRET || "").trim();
 
   const isHostedSupabaseFn = /supabase\.co\/functions\/v1\//i.test(url);
-  /**
-   * Hosted Supabase Edge requires `apikey` + `Authorization: Bearer <anon JWT>`.
-   * Prefer `SUPABASE_ANON_KEY`; fall back to `EXPO_PUBLIC_SUPABASE_ANON_KEY` so Railway can reuse
-   * the same variable name many Expo projects already have (no service role on the Node service).
-   */
   const gatewayJwt = (
     process.env.SUPABASE_ANON_KEY ||
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
@@ -205,6 +258,9 @@ async function postSupabaseCartCallback(booking, patch) {
   }
   if (patch.payment_link !== undefined) {
     body.payment_link = patch.payment_link == null ? null : String(patch.payment_link);
+  }
+  if (patch.qr_payload !== undefined) {
+    body.qr_payload = patch.qr_payload;
   }
 
   let lastError = null;
@@ -251,7 +307,6 @@ async function postSupabaseCartCallback(booking, patch) {
   return { ok: false, error: lastError ? String(lastError) : "Unknown Supabase callback error" };
 }
 
-/** Optional secondary webhook (non-Supabase shape). */
 async function notifyLegacyApp(payload) {
   let lastError = null;
 
@@ -305,12 +360,53 @@ async function syncCartOrLegacy(booking, supabasePatch, legacyPayload) {
   return notifyLegacyApp(legacyPayload);
 }
 
+async function sendLocaleTemplate(booking, baseName, variables = []) {
+  const templateId = resolveWaTemplate(baseName, booking.interface_locale);
+  const languageCode = waTemplateLanguageCode(booking.interface_locale);
+  return sendWhatsAppTemplate(booking.owner_phone, templateId, variables, languageCode);
+}
+
+async function completeBookingWithTerms(booking, { isFree, priceDisplay }) {
+  booking.is_free = Boolean(isFree);
+  booking.price = isFree ? 0 : priceDisplay ?? null;
+  booking.payment_link = null;
+  booking.status = isFree ? "confirmed_free" : "confirmed_priced";
+  booking.step = "completed";
+  booking.updated_at = new Date().toISOString();
+  removeActiveBooking(booking.owner_phone, booking.id);
+
+  const qrPayload = buildQrPayload(booking, { isFree, priceDisplay });
+  const locale = booking.interface_locale;
+
+  const sendResult = await sendLocaleTemplate(booking, TEMPLATE_GOT_IT, []);
+  trackOutboundMessage(booking, sendResult?.message_id);
+
+  await syncCartOrLegacy(
+    booking,
+    {
+      status_lines: isFree ? statusLinesFor(locale, "slot_free_confirm") : statusLinesFor(locale, "slot_priced_confirm"),
+      confirmable: true,
+      confirmed_price: isFree ? "0" : priceDisplay,
+      payment_link: null,
+      qr_payload: qrPayload,
+    },
+    {
+      booking_id: booking.id,
+      status: booking.status,
+      step: booking.step,
+      price: booking.price,
+      qr_payload: qrPayload,
+    },
+  );
+}
+
 async function createBooking(payload) {
   const bookingId = requireStringField(payload, "booking_id");
   const venueName = requireStringField(payload, "venue_name");
   const date = requireStringField(payload, "date");
   const time = requireStringField(payload, "time");
   const ownerPhone = sanitizePhone(requireStringField(payload, "owner_phone"));
+  const interfaceLocale = normalizeInterfaceLocale(payload.interface_locale);
 
   if (bookingsById.has(bookingId)) {
     const existing = bookingsById.get(bookingId);
@@ -331,6 +427,7 @@ async function createBooking(payload) {
     customer_phone: optionalTrimString(payload, "customer_phone"),
     date,
     time,
+    interface_locale: interfaceLocale,
     status: "pending",
     step: "availability",
     is_free: null,
@@ -345,12 +442,20 @@ async function createBooking(payload) {
   bookingsById.set(bookingId, booking);
   addActiveBooking(ownerPhone, bookingId);
 
-  log("booking_created", { booking_id: bookingId, owner_phone: ownerPhone, step: booking.step });
-  const sendResult = await sendWhatsAppTemplate(ownerPhone, TEMPLATE_BOOK_AVAILABILITY, [
+  const displayDate = formatWaBookingDate(date, interfaceLocale);
+
+  log("booking_created", {
+    booking_id: bookingId,
+    owner_phone: ownerPhone,
+    step: booking.step,
+    interface_locale: interfaceLocale,
+  });
+
+  const sendResult = await sendLocaleTemplate(booking, TEMPLATE_CHECK_IS_AVAILABLE, [
     booking.customer_name ?? "Client",
     booking.customer_phone ?? "—",
     venueName,
-    date,
+    displayDate,
     time,
   ]);
   trackOutboundMessage(booking, sendResult?.message_id);
@@ -358,7 +463,7 @@ async function createBooking(payload) {
   await syncCartOrLegacy(
     booking,
     {
-      status_lines: ["Template accepted by WhatsApp API.", "Waiting for delivery status from Meta webhook…"],
+      status_lines: statusLinesFor(interfaceLocale, "waiting_delivery"),
       confirmable: false,
       payment_link: null,
     },
@@ -369,25 +474,29 @@ async function createBooking(payload) {
 }
 
 async function handleAvailabilityStep(booking, messageText) {
-  const yesNo = parseOwnerYesNo(messageText);
-  if (yesNo === "no") {
+  const locale = booking.interface_locale;
+  const decision = parseAvailabilityReply(messageText);
+
+  if (decision === "no") {
     booking.status = "rejected";
     booking.step = "completed";
     booking.updated_at = new Date().toISOString();
     removeActiveBooking(booking.owner_phone, booking.id);
 
-    const sendResult = await sendWhatsAppMessage(booking.owner_phone, "Booking marked unavailable. Flow closed.");
+    const declineMsg =
+      locale === "ru" ? "Слот недоступен. Диалог завершён." : "Slot not available. Flow closed.";
+    const sendResult = await sendWhatsAppMessage(booking.owner_phone, declineMsg);
     trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
-      { status_lines: ["Venue declined this slot."], confirmable: false, payment_link: null },
+      { status_lines: statusLinesFor(locale, "slot_declined"), confirmable: false, payment_link: null },
       { booking_id: booking.id, status: "rejected", step: booking.step },
     );
     return;
   }
 
-  if (yesNo === "yes") {
-    const sendResult = await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_IS_FREE);
+  if (decision === "yes") {
+    const sendResult = await sendLocaleTemplate(booking, TEMPLATE_FREE_OR_SET_PRICE, []);
     trackOutboundMessage(booking, sendResult?.message_id);
     booking.status = "available";
     booking.step = "pricing";
@@ -395,7 +504,7 @@ async function handleAvailabilityStep(booking, messageText) {
     await syncCartOrLegacy(
       booking,
       {
-        status_lines: ["Slot available.", "Checking if booking is free…"],
+        status_lines: statusLinesFor(locale, "slot_available_pricing"),
         confirmable: false,
         payment_link: null,
       },
@@ -404,46 +513,30 @@ async function handleAvailabilityStep(booking, messageText) {
     return;
   }
 
-  const sendResult = await sendWhatsAppMessage(booking.owner_phone, "Please reply YES or NO.");
+  const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptAvailability(locale));
   trackOutboundMessage(booking, sendResult?.message_id);
 }
 
 async function handlePricingStep(booking, messageText) {
-  const yesNo = parsePricingDecision(messageText);
-  if (yesNo === "yes") {
-    booking.is_free = true;
-    booking.price = 0;
-    booking.status = "confirmed_free";
-    booking.step = "completed";
-    booking.updated_at = new Date().toISOString();
-    removeActiveBooking(booking.owner_phone, booking.id);
+  const locale = booking.interface_locale;
+  const decision = parseFreeOrPriceReply(messageText);
 
-    const sendResult = await sendWhatsAppMessage(booking.owner_phone, "Marked as free. Customer can now confirm.");
-    trackOutboundMessage(booking, sendResult?.message_id);
-    await syncCartOrLegacy(
-      booking,
-      {
-        status_lines: ["Slot available and free.", "Customer can now tap Confirm."],
-        confirmable: true,
-        confirmed_price: "0",
-        payment_link: null,
-      },
-      { booking_id: booking.id, status: "confirmed", price: 0, step: booking.step },
-    );
+  if (decision === "free") {
+    await completeBookingWithTerms(booking, { isFree: true, priceDisplay: null });
     return;
   }
 
-  if (yesNo === "no") {
-    const sendResult = await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
-    trackOutboundMessage(booking, sendResult?.message_id);
+  if (decision === "send_price") {
     booking.is_free = false;
-    booking.status = "payment_link_requested";
-    booking.step = "pricing_payment_link_input";
+    booking.status = "price_requested";
+    booking.step = "pricing_price_input";
     booking.updated_at = new Date().toISOString();
+    const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptPriceInput(locale));
+    trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
       {
-        status_lines: ["Slot available.", "Awaiting payment link from venue…"],
+        status_lines: statusLinesFor(locale, "awaiting_price"),
         confirmable: false,
         payment_link: null,
       },
@@ -452,24 +545,21 @@ async function handlePricingStep(booking, messageText) {
     return;
   }
 
-  const sendResult = await sendWhatsAppMessage(
-    booking.owner_phone,
-    "Please reply with FREE or PAID decision (for example: 'Yes, free' or 'No, paid').",
-  );
+  const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptPricing(locale));
   trackOutboundMessage(booking, sendResult?.message_id);
 }
 
-async function handlePricingPaymentLinkInputStep(booking, messageText) {
-  const paymentLink = parsePaymentLink(messageText);
-  if (paymentLink == null) {
-    const sendResultTemplate = await sendWhatsAppTemplate(booking.owner_phone, TEMPLATE_BOOK_GET_PAYMENT_LINK);
-    trackOutboundMessage(booking, sendResultTemplate?.message_id);
-    const sendResultMessage = await sendWhatsAppMessage(booking.owner_phone, "Please send a valid http/https payment link.");
-    trackOutboundMessage(booking, sendResultMessage?.message_id);
+async function handlePricingPriceInputStep(booking, messageText) {
+  const locale = booking.interface_locale;
+  const parsed = parsePriceAndCurrency(messageText);
+
+  if (parsed == null) {
+    const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptPriceInput(locale));
+    trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
       {
-        status_lines: ["Slot available.", "Awaiting valid payment link from venue…"],
+        status_lines: statusLinesFor(locale, "invalid_price"),
         confirmable: false,
         payment_link: null,
       },
@@ -478,23 +568,7 @@ async function handlePricingPaymentLinkInputStep(booking, messageText) {
     return;
   }
 
-  booking.payment_link = paymentLink;
-  booking.status = "awaiting_payment";
-  booking.step = "completed";
-  booking.updated_at = new Date().toISOString();
-  removeActiveBooking(booking.owner_phone, booking.id);
-
-  const sendResult = await sendWhatsAppMessage(booking.owner_phone, "Got it. Payment link recorded.");
-  trackOutboundMessage(booking, sendResult?.message_id);
-  await syncCartOrLegacy(
-    booking,
-    {
-      status_lines: ["Payment link ready.", "Customer can now tap Confirm or Pay in the app."],
-      confirmable: true,
-      payment_link: paymentLink,
-    },
-    { booking_id: booking.id, status: "confirmed", payment_link: paymentLink, step: booking.step },
-  );
+  await completeBookingWithTerms(booking, { isFree: false, priceDisplay: parsed.display });
 }
 
 async function processIncomingWhatsApp(payload) {
@@ -541,8 +615,8 @@ async function processIncomingWhatsApp(payload) {
     await handleAvailabilityStep(booking, message);
   } else if (booking.step === "pricing") {
     await handlePricingStep(booking, message);
-  } else if (booking.step === "pricing_payment_link_input") {
-    await handlePricingPaymentLinkInputStep(booking, message);
+  } else if (booking.step === "pricing_price_input") {
+    await handlePricingPriceInputStep(booking, message);
   } else {
     log("message_for_completed_booking", { booking_id: booking.id, from });
     return { ok: true, ignored: true, reason: "Booking already completed" };
@@ -578,17 +652,20 @@ async function processDeliveryStatus(payload) {
         .join("; ")
     : "";
 
-  const line = deliveryStatusLine(status, errorDetails);
+  const line = deliveryStatusLine(status, errorDetails, booking.interface_locale);
   booking.updated_at = new Date().toISOString();
   log("delivery_status_ingested", { booking_id: booking.id, message_id: messageId, status, error_details: errorDetails || null });
+
+  const isConfirmable =
+    booking.status === "confirmed_free" || booking.status === "confirmed_priced";
 
   await syncCartOrLegacy(
     booking,
     {
       status_lines: [line],
-      confirmable: booking.status === "confirmed_free" || booking.status === "awaiting_payment",
-      confirmed_price: booking.status === "confirmed_free" ? "0" : undefined,
-      payment_link: booking.payment_link ?? null,
+      confirmable: isConfirmable,
+      confirmed_price: booking.status === "confirmed_free" ? "0" : booking.price ?? undefined,
+      payment_link: null,
     },
     { booking_id: booking.id, status: booking.status, step: booking.step, delivery_status: status },
   );
@@ -668,9 +745,9 @@ function getDebugState() {
 
 function getRuntimeTemplateConfig() {
   return {
-    availability_template: TEMPLATE_BOOK_AVAILABILITY,
-    is_free_template: TEMPLATE_BOOK_IS_FREE,
-    payment_link_template: TEMPLATE_BOOK_GET_PAYMENT_LINK,
+    check_is_available: TEMPLATE_CHECK_IS_AVAILABLE,
+    free_or_set_price: TEMPLATE_FREE_OR_SET_PRICE,
+    got_it: TEMPLATE_GOT_IT,
   };
 }
 
@@ -680,6 +757,7 @@ module.exports = {
   processWhatsAppWebhook,
   getDebugState,
   getRuntimeTemplateConfig,
-  /** @deprecated use syncCartOrLegacy via createBooking; kept for ad-hoc tests */
+  resolveWaTemplate,
+  normalizeInterfaceLocale,
   notifyApp: notifyLegacyApp,
 };

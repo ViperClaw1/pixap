@@ -153,6 +153,7 @@ export type Database = {
           wa_confirmable: boolean
           wa_confirmed_price: string | null
           wa_confirmed_slot: string | null
+          wa_qr_payload: Json | null
           wa_payment_link: string | null
           wa_n8n_callback_token: string | null
           wa_n8n_started_at: string | null
@@ -176,6 +177,7 @@ export type Database = {
           wa_confirmable?: boolean
           wa_confirmed_price?: string | null
           wa_confirmed_slot?: string | null
+          wa_qr_payload?: Json | null
           wa_payment_link?: string | null
           wa_n8n_callback_token?: string | null
           wa_n8n_started_at?: string | null
@@ -199,6 +201,7 @@ export type Database = {
           wa_confirmable?: boolean
           wa_confirmed_price?: string | null
           wa_confirmed_slot?: string | null
+          wa_qr_payload?: Json | null
           wa_payment_link?: string | null
           wa_n8n_callback_token?: string | null
           wa_n8n_started_at?: string | null

@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { CartItem } from "./useCartItems";
-import { startN8nWaBooking } from "../lib/n8nWaBookingStart";
+import { i18n } from "@/shared/lib/i18n";
+import { normalizeWaInterfaceLocale, startN8nWaBooking } from "../lib/n8nWaBookingStart";
 import { devWarn } from "@/shared/lib/devLog";
 
 export function useAutoStartN8nWaBookingForPaidItems(
@@ -28,7 +29,7 @@ export function useAutoStartN8nWaBookingForPaidItems(
       }
 
       n8nStartingRef.current.add(item.id);
-      void startN8nWaBooking(item.id, accessToken)
+      void startN8nWaBooking(item.id, accessToken, normalizeWaInterfaceLocale(i18n.language))
         .then((result) => {
           if (!result.ok) {
             devWarn("[n8n-wa-booking-start]", result.message);

@@ -52,6 +52,7 @@ export const FeedPostCard = memo(function FeedPostCard({
   const item = vm.post;
   const [showMoreLink, setShowMoreLink] = useState(false);
   const postContent = item.content?.trim() ?? "";
+  const geoFormattedAddress = item.geo_formatted_address?.trim() ?? "";
 
   useEffect(() => {
     setShowMoreLink(false);
@@ -68,6 +69,57 @@ export const FeedPostCard = memo(function FeedPostCard({
 
   return (
     <View style={[styles.content, { backgroundColor: colors.background }]}>
+      <View style={[styles.authorSection, { borderBottomColor: colors.border }]}>
+        <View style={styles.authorMain}>
+          {vm.authorAvatar ? (
+            <SmartImage
+              uri={vm.authorAvatar}
+              fallbackUri={vm.authorAvatarRaw}
+              style={styles.avatarImage}
+              contentFit="cover"
+              skipBundledPlaceholder
+            />
+          ) : (
+            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.card }]}>
+              <Ionicons name="person-outline" size={18} color={colors.text} />
+            </View>
+          )}
+          <View style={styles.authorMeta}>
+            <View style={styles.authorNameRow}>
+              <Text style={[styles.authorName, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
+                {profileName(item.profile?.first_name, item.profile?.last_name)}
+              </Text>
+              {item.profile?.is_verified ? (
+                <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
+              ) : null}
+            </View>
+            {geoFormattedAddress ? (
+              <View style={styles.authorGeoRow}>
+                <Ionicons name="location-outline" size={14} color={colors.textMuted} style={styles.authorGeoIcon} />
+                <Text style={[styles.authorGeo, { color: colors.textMuted }]}>{geoFormattedAddress}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+        {item.user_id !== currentUserId ? (
+          <Pressable
+            style={[
+              styles.followBtn,
+              {
+                borderColor: isFollowing ? colors.accent : colors.border,
+                backgroundColor: isFollowing ? colors.accentSurface : colors.background,
+              },
+            ]}
+            onPress={onToggleFollow}
+            disabled={followPending}
+          >
+            <Text style={[styles.followText, { color: isFollowing ? colors.accent : colors.text }]}>
+              {isFollowing ? "Following" : "Follow"}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+
       <Pressable onPress={onPress}>
         {vm.postImages.length > 1 ? (
           <PostMediaCarousel
@@ -154,49 +206,6 @@ export const FeedPostCard = memo(function FeedPostCard({
           />
         ) : null}
       </View>
-
-      <View style={[styles.authorSection, { borderTopColor: colors.border }]}>
-        <View style={styles.authorInfo}>
-          {vm.authorAvatar ? (
-            <SmartImage
-              uri={vm.authorAvatar}
-              fallbackUri={vm.authorAvatarRaw}
-              style={styles.avatarImage}
-              contentFit="cover"
-              skipBundledPlaceholder
-            />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.card }]}>
-              <Ionicons name="person-outline" size={18} color={colors.text} />
-            </View>
-          )}
-          <View style={styles.authorNameRow}>
-            <Text style={[styles.authorName, { color: colors.text }]}>
-              {profileName(item.profile?.first_name, item.profile?.last_name)}
-            </Text>
-            {item.profile?.is_verified ? (
-              <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
-            ) : null}
-          </View>
-        </View>
-        {item.user_id !== currentUserId ? (
-          <Pressable
-            style={[
-              styles.followBtn,
-              {
-                borderColor: isFollowing ? colors.accent : colors.border,
-                backgroundColor: isFollowing ? colors.accentSurface : colors.background,
-              },
-            ]}
-            onPress={onToggleFollow}
-            disabled={followPending}
-          >
-            <Text style={[styles.followText, { color: isFollowing ? colors.accent : colors.text }]}>
-              {isFollowing ? "Following" : "Follow"}
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
     </View>
   );
 });
@@ -217,12 +226,44 @@ const styles = StyleSheet.create({
   storyText: { fontSize: 16, lineHeight: 22, fontWeight: "500" },
   moreLink: { fontSize: 16, lineHeight: 22, fontWeight: "600" },
   publishedAtText: { fontSize: 12, lineHeight: 16 },
-  authorSection: { marginTop: 12, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  authorInfo: { flexDirection: "row", alignItems: "center", gap: 10 },
-  authorNameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  authorSection: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  authorMain: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    minWidth: 0,
+  },
+  authorMeta: { flex: 1, minWidth: 0, gap: 4 },
+  authorNameRow: { flexDirection: "row", alignItems: "center", gap: 4, minWidth: 0 },
+  authorGeoRow: { flexDirection: "row", alignItems: "flex-start", gap: 4, marginTop: 2 },
+  authorGeoIcon: { marginTop: 1 },
+  authorGeo: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "500",
+  },
   avatarPlaceholder: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   avatarImage: { width: 36, height: 36, borderRadius: 18 },
-  authorName: { fontSize: 15, fontWeight: "700" },
-  followBtn: { minWidth: 86, borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, alignItems: "center" },
+  authorName: { flexShrink: 1, fontSize: 15, fontWeight: "700" },
+  followBtn: {
+    flexShrink: 0,
+    minWidth: 86,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
   followText: { fontSize: 14, fontWeight: "700" },
 });

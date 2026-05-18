@@ -1,7 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-type ReqBody = { cart_item_id?: string };
+type ReqBody = { cart_item_id?: string; interface_locale?: string };
+
+function normalizeInterfaceLocale(raw: unknown): "ru" | "en" {
+  if (typeof raw !== "string") return "en";
+  const base = raw.trim().split("-")[0]?.toLowerCase() ?? "";
+  return base === "ru" ? "ru" : "en";
+}
 
 function jsonHeaders() {
   return { ...corsHeaders, "Content-Type": "application/json" };
@@ -230,6 +236,8 @@ Deno.serve(async (req) => {
   const callbackPath = `${url.replace(/\/$/, "")}/functions/v1/n8n-wa-booking-callback`;
   const { date, time } = isoToDateAndTime(row.date_time as string | null | undefined);
 
+  const interfaceLocale = normalizeInterfaceLocale(body.interface_locale);
+
   const outbound = {
     booking_id: String(row.id),
     venue_name: bc?.name ?? "—",
@@ -242,6 +250,7 @@ Deno.serve(async (req) => {
     venue_id: row.business_card_id != null ? String(row.business_card_id) : null,
     supabase_callback_url: callbackPath,
     supabase_callback_token: callbackToken,
+    interface_locale: interfaceLocale,
   };
 
   let waRes: Response;

@@ -61,7 +61,8 @@
     "goHome": "На главную"
   },
   "search": {
-    "placeholder": "Поиск…"
+    "placeholder": "Поиск…",
+    "noMatchingPlaces": "Нет подходящих мест"
   },
   "category": {
     "fallbackName": "Категория"
@@ -115,6 +116,8 @@
     "paymentPaid": "Оплачено",
     "pay": "Оплатить",
     "waitingForVenue": "Ожидание ответа заведения",
+    "qrTitle": "QR для визита",
+    "qrFree": "Бесплатное бронирование",
     "noBookings": "Нет бронирований",
     "choosePlace": "Выберите место",
     "noTags": "Нет тегов",

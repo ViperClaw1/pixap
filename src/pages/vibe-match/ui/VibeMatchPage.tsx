@@ -17,6 +17,8 @@ import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { useQueries } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -30,11 +32,13 @@ import {
   useSubscriptionPaywallRedirect,
 } from "@/features/subscription-paywall-redirect";
 import { useEntitlement } from "@/entities/subscription";
+import { appAlert } from "@/shared/ui/app-popup";
 import { useProfile } from "@/entities/user";
 import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } from "@/entities/pixai";
 import { fetchAvailableSlotsForDay, useCreateBooking } from "@/entities/booking";
 import { useCreateCartItem } from "@/entities/cart";
-import { startN8nWaBooking } from "@/entities/cart";
+import { normalizeWaInterfaceLocale, startN8nWaBooking } from "@/entities/cart";
+import { i18n } from "@/shared/lib/i18n";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import {
@@ -82,7 +86,7 @@ function vibeStopThumbUris(images: string[] | undefined): { uri: string | null; 
 }
 
 function scheduleN8nWaBookingStart(cartItemId: string, accessToken: string) {
-  void startN8nWaBooking(cartItemId, accessToken).then((result) => {
+  void startN8nWaBooking(cartItemId, accessToken, normalizeWaInterfaceLocale(i18n.language)).then((result) => {
     if (!result.ok) {
       devWarn("[n8n-wa-booking-start] invoke failed", result.message);
     }
@@ -110,6 +114,8 @@ type VibeBookingAction = "all" | "partial" | "retry";
 
 type BookRowResult = { stop: VibePlanStop; ok: true } | { stop: VibePlanStop; ok: false; message: string };
 
+type Nav = NativeStackNavigationProp<BrowseFlowParamList, "VibeMatch">;
+
 export default function VibeMatchPage() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -119,7 +125,7 @@ export default function VibeMatchPage() {
     [keyboardInset],
   );
   const { colors } = useAppTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const { user, session, loading: authLoading } = useAuth();
   const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
@@ -379,12 +385,16 @@ export default function VibeMatchPage() {
         const okc = results.filter((r) => r.ok).length;
         if (failed.length === 0) {
           const anyPaid = stops.some((s) => Number(s.booking_price ?? 0) > 0);
-          Alert.alert(
-            anyPaid ? "Draft created" : "Booking confirmed",
-            anyPaid
-              ? `${okc} draft booking(s) in Bookings. Venue check runs in the background.`
-              : `${okc} booking(s) are now in Bookings.`,
-          );
+          if (anyPaid) {
+            appAlert(
+              "Draft created",
+              "Draft booking was added to Bookings. Venue check is started in background.",
+              undefined,
+              "success",
+            );
+          } else {
+            appAlert("Booking confirmed", `${okc} booking(s) are now in Bookings.`, undefined, "success");
+          }
         } else if (okc > 0) {
           Alert.alert(
             "Partial booking",

@@ -22,6 +22,7 @@ import { BookingFlowPlacePanel } from "@/shared/ui/booking-place-panel";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { devWarn } from "@/shared/lib/devLog";
+import { appAlert } from "@/shared/ui/app-popup";
 import {
   BOOKING_FLOW_DEFAULT_GUESTS,
   BOOKING_FLOW_MAX_GUESTS,
@@ -153,12 +154,16 @@ export default function BookingFlowPage() {
           }
         });
       }
-      Alert.alert(
-        price > 0 ? "Draft created" : "Booking confirmed",
-        price > 0
-          ? "Draft booking was added to Bookings. Venue check is started in background."
-          : "Your booking is now in Bookings.",
-      );
+      if (price > 0) {
+        appAlert(
+          "Draft created",
+          "Draft booking was added to Bookings. Venue check is started in background.",
+          undefined,
+          "success",
+        );
+      } else {
+        appAlert("Booking confirmed", "Your booking is now in Bookings.", undefined, "success");
+      }
       navigation.getParent()?.dispatch(
         CommonActions.navigate({
           name: "Bookings",
