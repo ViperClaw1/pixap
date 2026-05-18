@@ -10,7 +10,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
@@ -59,7 +59,7 @@ export default function MessageThreadPage() {
     stableBottomInsetRef.current = insets.bottom;
   }
   const stableBottomInset = stableBottomInsetRef.current;
-  const listRef = useRef<FlashList<MessageThreadListRow>>(null);
+  const listRef = useRef<FlashListRef<MessageThreadListRow>>(null);
   const isAtBottomRef = useRef(true);
   const scrollAfterSendRef = useRef(false);
   const scrollFabVisible = useSharedValue(0);

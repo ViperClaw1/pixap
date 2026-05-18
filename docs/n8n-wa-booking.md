@@ -31,7 +31,7 @@ Legacy `N8N_WA_WEBHOOK_URL` is **no longer** used by `n8n-wa-booking-start`.
 
 ## Outbound payload (`n8n-wa-booking-start` → Node `POST /webhook/booking`)
 
-The app invokes `n8n-wa-booking-start` with `{ cart_item_id }` after a cart row is shown on the Services tab (when the venue has `contact_whatsapp`). The function POSTs JSON like:
+The app invokes `n8n-wa-booking-start` with `{ cart_item_id, interface_locale }` after a cart row is created (when the venue has `contact_whatsapp`). `interface_locale` is the app UI language (`ru` → Russian WhatsApp templates, anything else → English). The function POSTs JSON like:
 
 ```json
 {
@@ -43,7 +43,8 @@ The app invokes `n8n-wa-booking-start` with `{ cart_item_id }` after a cart row 
   "user_id": "<auth uuid>",
   "venue_id": "<business_cards.id>",
   "supabase_callback_url": "https://<project-ref>.supabase.co/functions/v1/n8n-wa-booking-callback",
-  "supabase_callback_token": "<uuid>"
+  "supabase_callback_token": "<uuid>",
+  "interface_locale": "en"
 }
 ```
 
@@ -65,15 +66,27 @@ Idempotent: if `wa_n8n_started_at` is already set for the cart row, the function
     "Message sent to venue.",
     "Waiting for availability…"
   ],
-  "confirmable": false,
+  "confirmable": true,
   "confirmed_slot": null,
-  "confirmed_price": "$25"
+  "confirmed_price": "25 USD",
+  "payment_link": null,
+  "qr_payload": {
+    "client_name": "…",
+    "client_phone": "…",
+    "place_name": "…",
+    "booking_date": "2026-04-18",
+    "booking_slot": "14:30",
+    "is_free": false,
+    "price": "25 USD"
+  }
 }
 ```
 
 - `status_lines` must be a **JSON array of strings** (replaces the previous list in the UI).
-- Set **`confirmable`: `true`** only when the user is allowed to tap **Confirm** in the app (after price is finalized: free `0` or paid number).
-- `confirmed_slot` / `confirmed_price` are optional; if `confirmed_price` is parseable as a number, **Confirm** uses it as the booking `cost`.
+- Set **`confirmable`: `true`** only when the venue flow finished (free or price received).
+- `confirmed_price` is optional; if parseable as a number, **Confirm** in Cart uses it as `cost`.
+- **`qr_payload`** is stored on `cart_items.wa_qr_payload` and shown as a JSON QR on the **Bookings** screen when linked to the booking row.
+- `payment_link` is legacy; the current flow does not request payment URLs from the venue.
 
 JWT verification is **disabled** for this function in [`supabase/config.toml`](../supabase/config.toml); when `N8N_INBOUND_SECRET` is set, the function checks **`x-wa-booking-secret`** (preferred) or legacy **`Authorization: Bearer <secret>`** (only works if your gateway does not require a JWT).
 
@@ -94,7 +107,7 @@ Optionally enable Postgres **Realtime** on `public.cart_items` so the app update
 
 ## Database
 
-Migration `20260416_cart_items_wa_n8n.sql` adds `wa_*` columns on `cart_items`. Apply migrations before deploying functions.
+Migrations `20260416_cart_items_wa_n8n.sql` and `20260518120000_cart_items_wa_qr_payload.sql` add `wa_*` columns on `cart_items` (including `wa_qr_payload`). Apply migrations before deploying functions.
 
 ## Deploy / refresh the Edge function
 

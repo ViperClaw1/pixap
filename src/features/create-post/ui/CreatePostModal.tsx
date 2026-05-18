@@ -93,45 +93,50 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                   onLayout={c.measurePostAddressFieldBottom}
                   style={s.postAddressFieldWrap}
                 >
-                  {c.selectedGeocode ? (
-                    <View
-                      style={[
-                        s.postSelectedAddressWrap,
-                        { borderColor: c.postPlaceError ? colors.danger : colors.border, backgroundColor: colors.card },
-                      ]}
-                    >
-                      <View style={s.postSelectedAddressTextCol}>
-                        <Text style={[s.postSelectedAddressLabel, { color: colors.textMuted }]}>Selected address</Text>
-                        <Text style={[s.postSelectedAddressText, { color: colors.text }]} numberOfLines={3}>
-                          {c.selectedGeocode.formattedAddress}
-                        </Text>
+                  <View
+                    style={[
+                      s.postAddressInputWrap,
+                      {
+                        borderColor: c.postPlaceError ? colors.danger : colors.border,
+                        backgroundColor: colors.card,
+                      },
+                    ]}
+                  >
+                    {c.selectedGeocode ? (
+                      <View style={s.postSelectedAddressWrap}>
+                        <View style={s.postSelectedAddressTextCol}>
+                          <Text style={[s.postSelectedAddressLabel, { color: colors.textMuted }]}>Selected address</Text>
+                          <Text style={[s.postSelectedAddressText, { color: colors.text }]} numberOfLines={3}>
+                            {c.selectedGeocode.formattedAddress}
+                          </Text>
+                        </View>
                       </View>
+                    ) : (
+                      <TextInput
+                        value={c.postAddressDraft}
+                        onChangeText={(value) => {
+                          c.setPostAddressDraft(value);
+                          if (c.postPlaceError) c.setPostPlaceError(false);
+                        }}
+                        placeholder="Search address (Google)"
+                        placeholderTextColor={colors.textMuted}
+                        style={[s.postAddressInput, { color: colors.text }]}
+                        autoCorrect={false}
+                        editable={Boolean(c.mapsApiKey)}
+                      />
+                    )}
+                    {c.selectedGeocode || c.postAddressDraft.length > 0 ? (
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Change address"
+                        accessibilityLabel="Clear address"
+                        style={s.postAddressClearBtn}
                         onPress={c.clearSelectedAddress}
-                        style={[s.postAddressChangeBtn, { borderColor: colors.border }]}
+                        hitSlop={8}
                       >
-                        <Text style={[s.postAddressChangeBtnText, { color: colors.primary }]}>Change</Text>
+                        <Ionicons name="close-circle" size={22} color={colors.textMuted} />
                       </Pressable>
-                    </View>
-                  ) : (
-                    <TextInput
-                      value={c.postAddressDraft}
-                      onChangeText={(value) => {
-                        c.setPostAddressDraft(value);
-                        if (c.postPlaceError) c.setPostPlaceError(false);
-                      }}
-                      placeholder="Search address (Google)"
-                      placeholderTextColor={colors.textMuted}
-                      style={[
-                        s.postAddressInput,
-                        { marginTop: 0, borderColor: c.postPlaceError ? colors.danger : colors.border, backgroundColor: colors.background, color: colors.text },
-                      ]}
-                      autoCorrect={false}
-                      editable={Boolean(c.mapsApiKey)}
-                    />
-                  )}
+                    ) : null}
+                  </View>
 
                   {!c.selectedGeocode && c.postAddressDraft.trim().length >= 2 && c.mapsApiKey ? (
                     <View
@@ -209,6 +214,17 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                                 c.setPostPlaceError(false);
                               }}
                             >
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Remove place and clear address"
+                                style={[s.postPlaceCardRemoveBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                                onPress={(event) => {
+                                  event.stopPropagation();
+                                  c.clearSelectedAddress();
+                                }}
+                              >
+                                <Ionicons name="close" size={11} color={colors.text} />
+                              </Pressable>
                               <View style={s.postPlaceImageWrap}>
                                 {place.imageUrl ? (
                                   <SmartImage

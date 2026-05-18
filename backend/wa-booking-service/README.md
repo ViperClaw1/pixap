@@ -37,7 +37,8 @@ Service listens on **port 8787** by default (avoids **8081**, which Expo Metro u
 - `WHATSAPP_GRAPH_VERSION` (optional): default `v22.0`.
 - `WHATSAPP_GRAPH_BASE_URL` (optional): default `https://graph.facebook.com`.
 - `WHATSAPP_TEMPLATE_LANGUAGE` (optional): default `en_US`.
-- `WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL` (required only if the `check_availability` template header format is **IMAGE**): public HTTPS image URL used for the header image parameter.
+- `WHATSAPP_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL` / `WHATSAPP_CHECK_IS_AVAILABLE_RU_HEADER_IMAGE_URL` (or `WHATSAPP_TEMPLATE_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL`, etc.): public HTTPS image URL for **IMAGE** headers on `check_is_available_*` templates.
+- Legacy `WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL` still applies to old `check_availability` name if used.
 - `WHATSAPP_TEMPLATE_<TEMPLATE_NAME>_HEADER_IMAGE_URL` (optional): per-template header image URL override (template name uppercased, e.g. `WHATSAPP_TEMPLATE_CHECK_AVAILABILITY_HEADER_IMAGE_URL`).
 - `WHATSAPP_TEMPLATE_HEADER_IMAGE_URL` (optional): fallback header image URL used when a template-specific one is not set.
 - `APP_CALLBACK_URL` (optional): default `https://example.com/api/update-booking` — used only for bookings **without** `supabase_callback_url` / `supabase_callback_token` in the POST body
@@ -56,14 +57,13 @@ Service listens on **port 8787** by default (avoids **8081**, which Expo Metro u
 
 ## Conversation state machine
 
-- `availability`:
-  - `NO` => booking rejected and completed
-  - `YES` => move to `pricing`
-  - unclear => reprompt YES/NO
-- `pricing`:
-  - `YES` => confirmed free (`price=0`) and completed
-  - `NO` => move to `pricing_price_input`
-  - unclear => reprompt YES/NO
-- `pricing_price_input`:
-  - valid number => confirmed with price and completed
-  - invalid => reprompt for numeric price
+Templates are locale-suffixed: `interface_locale` from the app (`ru` → `_ru`, otherwise `_en`).
+
+| Step | Outbound template (base) | Owner reply |
+|------|--------------------------|-------------|
+| `availability` | `check_is_available_{en\|ru}` | Quick reply: available / not available |
+| `pricing` | `chech_free_or_set_price_{en\|ru}` | Free / send price |
+| `pricing_price_input` | (text prompt) | Price + currency in free text |
+| complete | `got_it_{en\|ru}` | — |
+
+On completion the service POSTs `qr_payload` (JSON for the in-app QR on **Bookings**) and sets `confirmable: true` with `confirmed_price` (`0` or parsed price). Payment-link templates are no longer used.

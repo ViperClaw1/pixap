@@ -258,6 +258,8 @@ export default function StoriesFeedScreen() {
     [togglePostLike, runAuthedAction],
   );
 
+  const renderPostSeparator = useCallback(() => <View style={styles.postDivider} />, []);
+
   // ─── renderItem ──────────────────────────────────────────────────────────
   const renderFocusedFeedPost = useCallback<ListRenderItem<FeedPostVm>>(
     ({ item: vm }) => (
@@ -359,6 +361,7 @@ export default function StoriesFeedScreen() {
         onEndReachedThreshold={0.4}
         onEndReached={onLoadMoreFeedStories}
         renderItem={renderFocusedFeedPost}
+        ItemSeparatorComponent={renderPostSeparator}
         ListHeaderComponent={
           <StoriesStripHeader
             topStories={topStories}
@@ -601,7 +604,8 @@ const styles = StyleSheet.create({
   skeletonLinePad: { marginLeft: 12 },
   emptyText: { fontSize: 14 },
   emptyStateWrap: { alignItems: "center", justifyContent: "center" },
-  feedContent: { paddingBottom: 12, gap: 8 },
+  feedContent: { paddingBottom: 12 },
+  postDivider: { height: 10, width: "100%" },
   storiesHeaderWrap: { paddingTop: 8, paddingBottom: 8 },
   storiesHeaderContent: { paddingHorizontal: 12, gap: 12 },
   storyBubble: { width: 72, alignItems: "center", gap: 6 },

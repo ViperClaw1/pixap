@@ -70,6 +70,7 @@ import {
   type BookingRecommendationView,
 } from "@/features/ai-booking-chat";
 import { devWarn } from "@/shared/lib/devLog";
+import { appAlert } from "@/shared/ui/app-popup";
 import {
   AI_BOOKING_COMPOSER_KEYBOARD_MARGIN,
   AI_BOOKING_DEFAULT_COMMENT_INPUT_HEIGHT,
@@ -574,12 +575,16 @@ export default function AIBookingPage() {
           }
         });
       }
-      Alert.alert(
-        price > 0 ? "Draft created" : "Booking confirmed",
-        price > 0
-          ? "Draft booking was added to Bookings. Venue check is started in background."
-          : "Your booking is now in Bookings.",
-      );
+      if (price > 0) {
+        appAlert(
+          "Draft created",
+          "Draft booking was added to Bookings. Venue check is started in background.",
+          undefined,
+          "success",
+        );
+      } else {
+        appAlert("Booking confirmed", "Your booking is now in Bookings.", undefined, "success");
+      }
       navigation.getParent()?.dispatch(
         CommonActions.navigate({
           name: "Bookings",

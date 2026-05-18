@@ -233,8 +233,8 @@ export function CommentsBottomSheet({
       onClose={onClose}
       title="Comments"
       footer={composerFooter}
-      maxHeightFraction={0.8}
-      minHeightFraction={0.8}
+      maxHeightFraction={0.55}
+      minHeightFraction={0.55}
       fitContent
       bodyContentContainerStyle={showEmptyState ? styles.emptyBodyContent : undefined}
     >

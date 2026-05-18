@@ -393,8 +393,8 @@ export function messageThreadThemeStyles(
       backgroundColor: colors.card,
     },
     footer: {
-      borderTopColor: colors.border,
-      backgroundColor: colors.card,
+      borderTopColor: "transparent",
+      backgroundColor: "transparent",
     },
     stickerPanel: {
       borderColor: colors.border,

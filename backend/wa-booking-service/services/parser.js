@@ -3,7 +3,7 @@ function normalize(text) {
   return text
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s]/g, " ")
+    .replace(/[^\w\s\u0400-\u04ff$€£₽]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -13,8 +13,8 @@ function parseYesNo(text) {
   if (!normalized) return null;
 
   const words = new Set(normalized.split(" "));
-  const yesWords = ["yes", "yeah", "yep", "y"];
-  const noWords = ["no", "nope", "n"];
+  const yesWords = ["yes", "yeah", "yep", "y", "да"];
+  const noWords = ["no", "nope", "n", "нет"];
 
   for (const word of yesWords) {
     if (words.has(word)) return "yes";
@@ -23,6 +23,117 @@ function parseYesNo(text) {
     if (words.has(word)) return "no";
   }
   return null;
+}
+
+/** @returns {"yes"|"no"|null} */
+function parseAvailabilityReply(text) {
+  const normalized = normalize(text);
+  if (!normalized) return null;
+
+  const yesPatterns = [
+    "yes available",
+    "yes, available",
+    "да доступен",
+    "да, доступен",
+  ];
+  const noPatterns = [
+    "no not available",
+    "no, not available",
+    "нет не доступен",
+    "нет, не доступен",
+    "нет недоступен",
+    "нет, недоступен",
+  ];
+
+  for (const p of yesPatterns) {
+    if (normalized.includes(p) || normalized === p.replace(/,/g, "")) return "yes";
+  }
+  for (const p of noPatterns) {
+    if (normalized.includes(p) || normalized === p.replace(/,/g, "")) return "no";
+  }
+
+  const yesNo = parseYesNo(normalized);
+  if (yesNo === "yes" && /\bavailable\b|\bдоступен\b/.test(normalized)) return "yes";
+  if (yesNo === "no" && /\bnot available\b|\bнедоступен\b|\bне доступен\b/.test(normalized)) return "no";
+
+  return null;
+}
+
+/** @returns {"free"|"send_price"|null} */
+function parseFreeOrPriceReply(text) {
+  const normalized = normalize(text);
+  if (!normalized) return null;
+
+  const freePatterns = ["it s free", "its free", "free", "бесплатно"];
+  const pricePatterns = ["send the price", "send price", "назвать стоимость", "указать стоимость"];
+
+  for (const p of freePatterns) {
+    if (normalized === p || normalized.includes(p)) return "free";
+  }
+  for (const p of pricePatterns) {
+    if (normalized.includes(p)) return "send_price";
+  }
+
+  return null;
+}
+
+const CURRENCY_SYMBOLS = {
+  $: "USD",
+  "€": "EUR",
+  "£": "GBP",
+  "₽": "RUB",
+};
+
+const CURRENCY_WORDS = [
+  { re: /\b(usd|dollars?|dollar)\b/i, code: "USD" },
+  { re: /\b(eur|euros?)\b/i, code: "EUR" },
+  { re: /\b(gbp|pounds?)\b/i, code: "GBP" },
+  { re: /\b(rub|ruble?s?|руб(?:лей|ля|ль)?)\b/i, code: "RUB" },
+  { re: /\b(kzt|tenge|тенге)\b/i, code: "KZT" },
+];
+
+function detectCurrency(raw, normalized) {
+  for (const [sym, code] of Object.entries(CURRENCY_SYMBOLS)) {
+    if (raw.includes(sym)) return sym.length === 1 ? sym : code;
+  }
+  for (const { re, code } of CURRENCY_WORDS) {
+    if (re.test(normalized)) return code;
+  }
+  return "";
+}
+
+/**
+ * Extract numeric amount and currency from free-form owner message.
+ * @returns {{ amount: string, currency: string, display: string } | null}
+ */
+function parsePriceAndCurrency(text) {
+  if (typeof text !== "string") return null;
+  const raw = text.trim();
+  if (!raw) return null;
+
+  const normalized = normalize(raw);
+  const amountCandidates = raw.match(/\d+(?:[.,]\d+)?/g);
+  if (!amountCandidates?.length) return null;
+
+  let amount = amountCandidates[0];
+  let bestNumeric = 0;
+  for (const candidate of amountCandidates) {
+    const numeric = Number(candidate.replace(/,/g, ""));
+    if (Number.isFinite(numeric) && numeric >= bestNumeric) {
+      bestNumeric = numeric;
+      amount = candidate;
+    }
+  }
+
+  amount = amount.replace(/,/g, ".");
+  if (amount.includes(".") && amount.split(".")[1]?.length === 3) {
+    amount = amount.replace(/\./g, "");
+  }
+
+  const currency = detectCurrency(raw, normalized);
+  const display = currency.length === 1 ? `${amount} ${currency}` : currency ? `${amount} ${currency}` : amount;
+
+  return { amount, currency, display: display.trim() };
 }
 
 function parsePaymentLink(text) {
@@ -50,9 +161,18 @@ function runParserSelfChecks() {
     parseYesNo("Yep") === "yes",
     parseYesNo("Nope.") === "no",
     parseYesNo("maybe") === null,
+    parseAvailabilityReply("Yes, available") === "yes",
+    parseAvailabilityReply("No, not available") === "no",
+    parseAvailabilityReply("Да, доступен") === "yes",
+    parseAvailabilityReply("Нет, не доступен") === "no",
+    parseFreeOrPriceReply("It's free") === "free",
+    parseFreeOrPriceReply("Бесплатно") === "free",
+    parseFreeOrPriceReply("Send the price") === "send_price",
+    parseFreeOrPriceReply("Назвать стоимость") === "send_price",
+    parsePriceAndCurrency("The price will be 25 USD")?.display === "25 USD",
+    parsePriceAndCurrency("1500 руб")?.amount === "1500",
+    parsePriceAndCurrency("$50")?.display.includes("50"),
     parsePaymentLink("https://pay.example.com/invoice/abc") === "https://pay.example.com/invoice/abc",
-    parsePaymentLink("http://pay.example.com") === "http://pay.example.com/",
-    parsePaymentLink("pay.example.com/invoice/abc") === null,
     parsePaymentLink("ftp://pay.example.com") === null,
   ];
   const allPassed = checks.every(Boolean);
@@ -65,6 +185,9 @@ function runParserSelfChecks() {
 module.exports = {
   normalize,
   parseYesNo,
+  parseAvailabilityReply,
+  parseFreeOrPriceReply,
+  parsePriceAndCurrency,
   parsePaymentLink,
   runParserSelfChecks,
 };

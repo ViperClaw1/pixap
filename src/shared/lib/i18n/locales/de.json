@@ -61,7 +61,8 @@
     "goHome": "Zur Startseite"
   },
   "search": {
-    "placeholder": "Suchen…"
+    "placeholder": "Suchen…",
+    "noMatchingPlaces": "Keine passenden Orte"
   },
   "category": {
     "fallbackName": "Kategorie"

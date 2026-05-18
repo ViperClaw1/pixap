@@ -1,15 +1,14 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
-import { FlashList, type ListRenderItem } from "@shopify/flash-list";
+import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBusinessCards } from "@/entities/business-card";
+import { useBusinessCards, type BusinessCard } from "@/entities/business-card";
 import type { SearchStackParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
@@ -24,12 +23,56 @@ type Nav = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
 
 const PLACE_CARD_MAX_TAGS = 3;
 
+type SearchPlaceRowProps = {
+  item: BusinessCard;
+  styles: ReturnType<typeof mergeStaticAndThemed<typeof searchStaticStyles>>;
+  onPress: (id: string) => void;
+};
+
+function SearchPlaceRow({ item, styles, onPress }: SearchPlaceRowProps) {
+  const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
+
+  return (
+    <Pressable style={styles.row} onPress={() => onPress(item.id)}>
+      <SmartImage
+        uri={getOptimizedImageUrl(getLatestBusinessCardImage(item.images), 168, 168, 72)}
+        fallbackUri={getLatestBusinessCardImage(item.images)}
+        bundledFallback={PLACE_IMAGE_FALLBACK}
+        recyclingKey={item.id}
+        style={styles.thumb}
+        contentFit="cover"
+      />
+      <View style={styles.body}>
+        <Text style={styles.name} numberOfLines={1}>
+          {item.name}
+        </Text>
+        {item.address?.trim() ? (
+          <Text style={styles.meta} numberOfLines={1}>
+            {item.address.trim()}
+          </Text>
+        ) : null}
+        {visibleTags.length > 0 ? (
+          <View style={styles.tagsRow}>
+            {visibleTags.map((tag) => (
+              <View key={tag} style={styles.tagPill}>
+                <Text style={styles.tagText} numberOfLines={1}>
+                  {tag}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
 export default function SearchScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const { data: places = [], isLoading } = useBusinessCards();
   const [q, setQ] = useState("");
   const [visibleCount, setVisibleCount] = useState(PLACE_LIST_BATCH_SIZE);
@@ -40,27 +83,48 @@ export default function SearchScreen() {
     return places.filter(
       (p) =>
         p.name.toLowerCase().includes(s) ||
-        p.tags.some((t) => t.toLowerCase().includes(s)) ||
+        p.tags.some((tag) => tag.toLowerCase().includes(s)) ||
         (p.description ?? "").toLowerCase().includes(s),
     );
   }, [places, q]);
 
   useEffect(() => {
     setVisibleCount(PLACE_LIST_BATCH_SIZE);
-  }, [places, q]);
+  }, [places]);
 
   const visibleFiltered = useMemo(
     () => filtered.slice(0, visibleCount),
     [filtered, visibleCount],
   );
   const canShowMore = visibleCount < filtered.length;
+  const showEmptyState = !isLoading && q.trim().length > 0 && filtered.length === 0;
 
   const themed = useThemeStyles(({ colors: c, isDark: dark }) => searchThemeStyles(c, dark));
   const styles = useMemo(() => mergeStaticAndThemed(searchStaticStyles, themed), [themed]);
 
   const listContentPadding = useMemo(
-    () => ({ paddingBottom: 100 + insets.bottom }),
-    [insets.bottom],
+    () => ({
+      flexGrow: showEmptyState ? 1 : undefined,
+      paddingBottom: 100 + insets.bottom,
+    }),
+    [insets.bottom, showEmptyState],
+  );
+
+  const handleQueryChange = useCallback((text: string) => {
+    setQ(text);
+    setVisibleCount(PLACE_LIST_BATCH_SIZE);
+  }, []);
+
+  const clearQuery = useCallback(() => {
+    setQ("");
+    setVisibleCount(PLACE_LIST_BATCH_SIZE);
+  }, []);
+
+  const openPlace = useCallback(
+    (id: string) => {
+      navigation.navigate("PlaceDetail", { id });
+    },
+    [navigation],
   );
 
   const listFooter = useMemo(
@@ -76,56 +140,32 @@ export default function SearchScreen() {
     [canShowMore, isLoading, styles.showMoreBtn, styles.showMoreBtnText, t],
   );
 
-  const renderSearchItem = useCallback<ListRenderItem<(typeof visibleFiltered)[number]>>(
-    (info) => {
-      const item = info.item;
-      const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
-      return (
-        <Pressable style={styles.row} onPress={() => navigation.navigate("PlaceDetail", { id: item.id })}>
-          <SmartImage
-            uri={getOptimizedImageUrl(getLatestBusinessCardImage(item.images), 168, 168, 72)}
-            fallbackUri={getLatestBusinessCardImage(item.images)}
-            bundledFallback={PLACE_IMAGE_FALLBACK}
-            recyclingKey={item.id}
-            style={styles.thumb}
-            contentFit="cover"
-          />
-          <View style={styles.body}>
-            <Text style={styles.name} numberOfLines={1}>
-              {item.name}
-            </Text>
-            {item.address?.trim() ? (
-              <Text style={styles.meta} numberOfLines={1}>
-                {item.address.trim()}
-              </Text>
-            ) : null}
-            {visibleTags.length > 0 ? (
-              <View style={styles.tagsRow}>
-                {visibleTags.map((tag) => (
-                  <View key={tag} style={styles.tagPill}>
-                    <Text style={styles.tagText} numberOfLines={1}>
-                      {tag}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        </Pressable>
-      );
-    },
-    [navigation, styles],
-  );
-
   return (
     <View style={[styles.root, { paddingTop: Math.max(insets.top, 12) }]} {...androidSwipeBackPanHandlers}>
-      <TextInput
-        style={styles.input}
-        placeholder={t("search.placeholder")}
-        value={q}
-        onChangeText={setQ}
-        placeholderTextColor={colors.textMuted}
-      />
+      <View style={styles.inputWrap}>
+        <TextInput
+          style={styles.input}
+          placeholder={t("search.placeholder")}
+          value={q}
+          onChangeText={handleQueryChange}
+          placeholderTextColor={colors.textMuted}
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="search"
+        />
+        {q.length > 0 ? (
+          <Pressable
+            style={styles.clearBtn}
+            onPress={clearQuery}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+            hitSlop={8}
+          >
+            <Ionicons name="close-circle" size={22} color={colors.textMuted} />
+          </Pressable>
+        ) : null}
+      </View>
+
       {isLoading ? (
         <ShimmerProvider active>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={listContentPadding}>
@@ -133,21 +173,25 @@ export default function SearchScreen() {
           </ScrollView>
         </ShimmerProvider>
       ) : (
-        <FlashList
-          data={visibleFiltered}
-          keyExtractor={(p) => p.id}
-          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.placeRow}
+        <ScrollView
+          style={styles.list}
           contentContainerStyle={listContentPadding}
-          renderItem={renderSearchItem}
-          ListFooterComponent={listFooter}
-          removeClippedSubviews
-          initialNumToRender={8}
-          maxToRenderPerBatch={10}
-          windowSize={8}
-          updateCellsBatchingPeriod={40}
-        />
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          {showEmptyState ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyText}>{t("search.noMatchingPlaces", "No matching places")}</Text>
+            </View>
+          ) : (
+            visibleFiltered.map((item) => (
+              <SearchPlaceRow key={item.id} item={item} styles={styles} onPress={openPlace} />
+            ))
+          )}
+          {!showEmptyState ? listFooter : null}
+        </ScrollView>
       )}
     </View>
   );
 }
-
