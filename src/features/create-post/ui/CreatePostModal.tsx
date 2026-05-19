@@ -180,11 +180,7 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
 
                 {c.postPlaceError ? (
                   <Text style={[s.postFieldError, { color: colors.danger }]}>
-                    {!c.selectedGeocode
-                      ? "Please select an address from the suggestions."
-                      : c.matchedPlacesForAddress.length > 0
-                        ? "Please choose one of the places listed for this address."
-                        : "Please select an address from the suggestions."}
+                    Please select an address from the suggestions.
                   </Text>
                 ) : null}
 
@@ -192,7 +188,10 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                   c.matchedPlaceCarouselVm.length > 0 ? (
                     <>
                       <Text style={[s.postMatchedPlacesCaption, { color: colors.textMuted }]}>
-                        Places at this address in the app — pick one
+                        Places at this address in the app (optional)
+                      </Text>
+                      <Text style={[s.postFieldHint, { color: colors.textMuted }]}>
+                        Link your post to a venue, or skip if it is about this address in general.
                       </Text>
                       <ScrollView
                         horizontal

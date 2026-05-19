@@ -14,7 +14,8 @@
     "messages": "Messages",
     "favorites": "Favoris",
     "profile": "Profil",
-    "feed": "Fil"
+    "feed": "Fil",
+    "search": "Recherche"
   },
   "notifications": {
     "sheetTitle": "Notifications",
@@ -284,6 +285,29 @@
       "storyFailedTitle": "Échec de la story",
       "storyFailedBody": "Impossible de publier la story."
     }
+  },
+  "crowd": {
+    "liveMeter": "Affluence en direct",
+    "empty": "Calme",
+    "low": "Peu de monde",
+    "medium": "Modéré",
+    "mediumHeadline": "Ça se remplit",
+    "busy": "Animé",
+    "packed": "Bondé",
+    "calm": "Calme pour l'instant",
+    "busyNow": "Animé en ce moment",
+    "packedLabel": "Bondé en ce moment",
+    "score": "Score {{score}}",
+    "checkInCta": "Je suis sur place",
+    "checkInSuccess": "Présence enregistrée",
+    "checkInSuccessMessage": "Merci — cela aide les autres à voir l'affluence.",
+    "alreadyCheckedIn": "Déjà enregistré",
+    "alreadyCheckedInMessage": "Votre visite est déjà comptée. Nouvel enregistrement dans environ 15 minutes.",
+    "checkInFailed": "Échec de l'enregistrement",
+    "tooFar": "Vous devez être à moins de 100 m du lieu.",
+    "locationDenied": "L'accès à la position est requis.",
+    "rateLimited": "Nouvel enregistrement possible dans environ 15 minutes.",
+    "checkInError": "Impossible d'enregistrer votre présence."
   },
   "errorBoundary": {
     "retry": "Réessayer",

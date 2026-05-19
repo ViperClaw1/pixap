@@ -21,6 +21,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useDeleteMessage, useReactToMessage, useSendMessage, useThreadMessages } from "@/entities/messages";
 import { navigateFeedFocusStory, navigateFeedPlaceDetail } from "@/app/navigation/appNavigation";
 import type { CartStackParamList } from "@/app/navigation/types";
@@ -71,6 +72,7 @@ export default function MessageThreadPage() {
   const [attachmentViewer, setAttachmentViewer] = useState<MessageAttachmentDraft | null>(null);
   const [isStickerPanelOpen, setStickerPanelOpen] = useState(false);
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
+  const { user } = useAuth();
   const { messages, peer, peerLastSeenAt, isLoading } = useThreadMessages(params.threadId);
   const sendMessage = useSendMessage();
   const reactToMessage = useReactToMessage();
@@ -95,9 +97,9 @@ export default function MessageThreadPage() {
   );
   const openSharedStory = useCallback(
     (storyId: string) => {
-      navigateFeedFocusStory(navigation, storyId);
+      navigateFeedFocusStory(navigation, storyId, user?.id ?? null);
     },
-    [navigation],
+    [navigation, user?.id],
   );
 
   const peerName = isSupport
@@ -121,9 +123,23 @@ export default function MessageThreadPage() {
     [scrollFabVisible],
   );
 
-  const scrollToBottom = useCallback(() => {
-    listRef.current?.scrollToEnd({ animated: true });
-  }, []);
+  const scrollToBottom = useCallback((animated = true) => {
+    listRef.current?.scrollToEnd({ animated });
+    isAtBottomRef.current = true;
+    scrollFabVisible.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
+    setShowScrollFab(false);
+  }, [scrollFabVisible]);
+
+  const flushScrollAfterSend = useCallback(() => {
+    if (!scrollAfterSendRef.current) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!scrollAfterSendRef.current) return;
+        scrollAfterSendRef.current = false;
+        scrollToBottom(true);
+      });
+    });
+  }, [scrollToBottom]);
 
   const scrollFabAnimatedStyle = useAnimatedStyle(() => ({
     opacity: scrollFabVisible.value,
@@ -132,11 +148,13 @@ export default function MessageThreadPage() {
 
   useEffect(() => {
     if (!scrollAfterSendRef.current || rows.length === 0) return;
-    scrollAfterSendRef.current = false;
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true });
-    });
-  }, [rows]);
+    flushScrollAfterSend();
+  }, [rows, flushScrollAfterSend]);
+
+  const handleListContentSizeChange = useCallback(() => {
+    if (!scrollAfterSendRef.current) return;
+    flushScrollAfterSend();
+  }, [flushScrollAfterSend]);
 
   const openDeleteOptions = (messageId: string, isMine: boolean) => {
     if (!isMine) return;
@@ -357,6 +375,7 @@ export default function MessageThreadPage() {
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
               onScroll={handleListScroll}
+              onContentSizeChange={handleListContentSizeChange}
               scrollEventThrottle={16}
               renderItem={renderRow}
               removeClippedSubviews

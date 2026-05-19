@@ -109,6 +109,10 @@ export const queryKeys = {
   reviews: {
     byBusinessCard: (businessCardId: string) => ["reviews", businessCardId] as const,
   },
+  venueCrowd: {
+    byVenue: (venueId: string) => ["venue_crowd", venueId] as const,
+    prefix: ["venue_crowd"] as const,
+  },
   userRole: {
     byUser: (userId: string | undefined | null) => ["user-role", userId ?? null] as const,
   },

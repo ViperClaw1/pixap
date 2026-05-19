@@ -14,7 +14,8 @@
     "messages": "Nachrichten",
     "favorites": "Favoriten",
     "profile": "Profil",
-    "feed": "Feed"
+    "feed": "Feed",
+    "search": "Suche"
   },
   "notifications": {
     "sheetTitle": "Benachrichtigungen",
@@ -284,6 +285,29 @@
       "storyFailedTitle": "Story fehlgeschlagen",
       "storyFailedBody": "Story konnte nicht veröffentlicht werden."
     }
+  },
+  "crowd": {
+    "liveMeter": "Live-Auslastung",
+    "empty": "Ruhig",
+    "low": "Wenig los",
+    "medium": "Mäßig",
+    "mediumHeadline": "Es wird voller",
+    "busy": "Viel los",
+    "packed": "Sehr voll",
+    "calm": "Gerade ruhig",
+    "busyNow": "Gerade viel los",
+    "packedLabel": "Gerade sehr voll",
+    "score": "Wert {{score}}",
+    "checkInCta": "Ich bin gerade hier",
+    "checkInSuccess": "Eingecheckt",
+    "checkInSuccessMessage": "Danke — so sehen andere, wie voll es ist.",
+    "alreadyCheckedIn": "Bereits eingecheckt",
+    "alreadyCheckedInMessage": "Ihr Besuch zählt bereits. Erneuter Check-in in etwa 15 Minuten.",
+    "checkInFailed": "Check-in fehlgeschlagen",
+    "tooFar": "Sie müssen innerhalb von 100 m sein.",
+    "locationDenied": "Standortzugriff ist für den Check-in erforderlich.",
+    "rateLimited": "Erneuter Check-in in etwa 15 Minuten möglich.",
+    "checkInError": "Check-in konnte nicht gespeichert werden."
   },
   "errorBoundary": {
     "retry": "Erneut versuchen",

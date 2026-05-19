@@ -14,7 +14,8 @@
     "messages": "Messages",
     "favorites": "Favorites",
     "profile": "Profile",
-    "feed": "Feed"
+    "feed": "Feed",
+    "search": "Search"
   },
   "notifications": {
     "sheetTitle": "Notifications",
@@ -116,8 +117,6 @@
     "paymentPaid": "Paid",
     "pay": "Pay",
     "waitingForVenue": "Waiting for venue response",
-    "qrTitle": "Booking QR",
-    "qrFree": "Free booking",
     "noBookings": "No bookings",
     "choosePlace": "Choose place",
     "noTags": "No tags",
@@ -286,6 +285,29 @@
       "storyFailedTitle": "Story failed",
       "storyFailedBody": "Could not publish story."
     }
+  },
+  "crowd": {
+    "liveMeter": "Live crowd",
+    "empty": "Quiet",
+    "low": "Low activity",
+    "medium": "Moderate",
+    "mediumHeadline": "Getting busy",
+    "busy": "Busy",
+    "packed": "Packed",
+    "calm": "Calm right now",
+    "busyNow": "Busy right now",
+    "packedLabel": "Packed right now",
+    "score": "Score {{score}}",
+    "checkInCta": "I'm here now",
+    "checkInSuccess": "Checked in",
+    "checkInSuccessMessage": "Thanks for helping others see how busy it is.",
+    "alreadyCheckedIn": "You're already checked in",
+    "alreadyCheckedInMessage": "Your visit is already counted. You can check in again in about 15 minutes.",
+    "checkInFailed": "Check-in failed",
+    "tooFar": "You need to be within 100 m of this place.",
+    "locationDenied": "Location access is required to check in.",
+    "rateLimited": "You can check in again in about 15 minutes.",
+    "checkInError": "Could not record your check-in. Try again later."
   },
   "errorBoundary": {
     "retry": "Try again",

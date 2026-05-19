@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCards, type BusinessCard } from "@/entities/business-card";
 import type { SearchStackParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
@@ -72,7 +73,10 @@ export default function SearchScreen() {
   const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
-  const { colors } = useAppTheme();
+  const { colors, mode, setMode } = useAppTheme();
+  const toggleThemeMode = () => {
+    setMode(mode === "dark" ? "light" : "dark");
+  };
   const { data: places = [], isLoading } = useBusinessCards();
   const [q, setQ] = useState("");
   const [visibleCount, setVisibleCount] = useState(PLACE_LIST_BATCH_SIZE);
@@ -141,7 +145,15 @@ export default function SearchScreen() {
   );
 
   return (
-    <View style={[styles.root, { paddingTop: Math.max(insets.top, 12) }]} {...androidSwipeBackPanHandlers}>
+    <View style={styles.root} {...androidSwipeBackPanHandlers}>
+      <AppHeader
+        title={t("header.search")}
+        leftIcon="arrow-back"
+        onLeftPress={() => navigation.goBack()}
+        rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+        onRightPress={toggleThemeMode}
+      />
+      <View style={styles.content}>
       <View style={styles.inputWrap}>
         <TextInput
           style={styles.input}
@@ -192,6 +204,7 @@ export default function SearchScreen() {
           {!showEmptyState ? listFooter : null}
         </ScrollView>
       )}
+      </View>
     </View>
   );
 }

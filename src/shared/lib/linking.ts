@@ -26,6 +26,7 @@ export const linkingConfig = {
         BookingFlow: "book/:id",
         AIBooking: "pixai",
         VibeMatch: "vibe-match",
+        FeedStoryViewer: "story/:storyId",
         OAuthCallback: "~oauth/callback",
       },
     },
@@ -33,6 +34,7 @@ export const linkingConfig = {
       path: "feed",
       screens: {
         FeedMain: "",
+        FeedStoryViewer: "story/:storyId",
         PlaceDetail: "place/:id",
         Category: "category/:id",
         ShoppingItems: "shop/:id",

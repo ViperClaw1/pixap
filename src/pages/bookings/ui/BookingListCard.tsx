@@ -8,7 +8,6 @@ import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useCancelBooking, type Booking, type BookingDisplayStatus } from "@/entities/booking";
 import type { BookingsStackParamList } from "@/app/navigation/types";
 import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
-import { BookingQrCode, parseWaQrPayload } from "@/features/booking-qr";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import type { bookingsStaticStyles } from "./bookingsStyles";
 
@@ -57,7 +56,6 @@ function statusPalette(status: BookingDisplayStatus) {
 export type BookingListItem = Booking & {
   displayStatus: BookingDisplayStatus;
   waPaymentLink: string | null;
-  waQrPayload: unknown;
 };
 
 type BookingsScreenStyles = typeof bookingsStaticStyles;
@@ -79,11 +77,6 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
     (item.displayStatus === "confirmed" || item.displayStatus === "payment awaiting") &&
     item.payment_status === "pending" &&
     Boolean(item.waPaymentLink);
-  const qrPayload = parseWaQrPayload(item.waQrPayload);
-  const showQr =
-    qrPayload != null &&
-    item.displayStatus !== "cancelled" &&
-    item.displayStatus !== "draft";
   const thumbEdge = isCompact ? 56 : BOOKING_THUMB_SIZE;
   const { uri: thumbUri, fallbackUri: thumbFallback } = bookingThumbUris(item.business_card?.images, thumbEdge);
 
@@ -170,7 +163,6 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
             <Text style={styles.waitingBadgeText}>{t("bookings.waitingForVenue")}</Text>
           </View>
         ) : null}
-        {showQr ? <BookingQrCode payload={qrPayload} /> : null}
         <View style={[styles.badge, { backgroundColor: palette.bg }]}>
           <Text style={[styles.badgeText, { color: palette.fg }]}>{t(bookingFilterTranslationKey(item.displayStatus))}</Text>
         </View>

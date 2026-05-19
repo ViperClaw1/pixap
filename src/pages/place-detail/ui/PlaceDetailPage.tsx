@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import {
+  InteractionManager,
   Platform,
   View,
   Text,
@@ -42,6 +44,14 @@ import { placeDetailStaticStyles, placeDetailThemeStyles } from "./placeDetailSt
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 import { useBatchStoryUpload } from "@/features/create-story";
+import { StoryUploadProgressOverlay } from "@/shared/ui/story-upload-progress/StoryUploadProgressOverlay";
+import { usePostShareSheet } from "@/features/post-share";
+import { LiveCrowdCard, usePlaceCrowdCheckin } from "@/features/live-crowd-meter";
+import { logCrowdCheckin } from "@/entities/venue-crowd";
+import { appAlert } from "@/shared/ui/app-popup";
+import { useTranslation } from "react-i18next";
+import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomSheet";
+import { profileAvatar } from "@/pages/stories-feed/lib/feedPostHelpers";
 import { Easing, cancelAnimation, useSharedValue, withTiming } from "react-native-reanimated";
 
 type R = RouteProp<BrowseFlowParamList, "PlaceDetail">;
@@ -52,7 +62,7 @@ const DOUBLE_TAP_DELAY_MS = 260;
 export default function PlaceDetailScreen() {
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
-  const { openAIBooking } = useSubscriptionGatedNavigation(navigation);
+  const { openAIBooking, openBookingFlow } = useSubscriptionGatedNavigation(navigation);
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
@@ -66,16 +76,65 @@ export default function PlaceDetailScreen() {
     refetch: refetchStories,
   } = useStories(id);
   const { user } = useAuth();
+  const { t } = useTranslation();
   const isFavorite = useIsFavorite(id);
   const toggleFavorite = useToggleFavorite();
+  const shareSheet = usePostShareSheet();
   const [directionsOpen, setDirectionsOpen] = useState(false);
   const [storySourceModalVisible, setStorySourceModalVisible] = useState(false);
+  const [shareStorySourceModalVisible, setShareStorySourceModalVisible] = useState(false);
   const storyUpload = useBatchStoryUpload(id);
+  const shareStoryUpload = useBatchStoryUpload(id);
   const [heroSlide, setHeroSlide] = useState(0);
   const [heroPaused, setHeroPaused] = useState(false);
   const [seenStoryIds, setSeenStoryIds] = useState<Record<string, true>>({});
   const progress = useSharedValue(0);
   const lastTapRef = useRef<{ at: number; index: number } | null>(null);
+
+  const crowdCheckin = usePlaceCrowdCheckin({
+    venueId: id,
+    venueLatitude: place?.latitude,
+    venueLongitude: place?.longitude,
+    isAuthenticated: Boolean(user?.id),
+    autoOnMount: Boolean(place?.id),
+  });
+
+  useEffect(() => {
+    if (!place) return;
+    logCrowdCheckin("place_detail:venue_loaded", {
+      venueId: place.id,
+      name: place.name,
+      address: place.address,
+      latitude: place.latitude ?? null,
+      longitude: place.longitude ?? null,
+    });
+  }, [place]);
+
+  const onCrowdCheckIn = useCallback(async () => {
+    const outcome = await crowdCheckin.checkInManual();
+    if (outcome === "recorded") {
+      appAlert(t("crowd.checkInSuccess"), t("crowd.checkInSuccessMessage"), undefined, "success");
+      return;
+    }
+    if (outcome === "location_denied") {
+      appAlert(t("crowd.checkInFailed"), t("crowd.locationDenied"), undefined, "alert");
+      return;
+    }
+    if (outcome === "too_far") {
+      const devHint = __DEV__
+        ? "\n\n[DEV] См. логи [CrowdCheckin] в Metro: venue coords, GPS, client/server distance_m."
+        : "";
+      appAlert(t("crowd.checkInFailed"), `${t("crowd.tooFar")}${devHint}`, undefined, "alert");
+      return;
+    }
+    if (outcome === "rate_limited") {
+      appAlert(t("crowd.alreadyCheckedIn"), t("crowd.alreadyCheckedInMessage"), undefined, "info");
+      return;
+    }
+    if (outcome === "error") {
+      appAlert(t("crowd.checkInFailed"), t("crowd.checkInError"), undefined, "alert");
+    }
+  }, [crowdCheckin, t]);
 
   const themed = useThemeStyles(({ colors: c }) => placeDetailThemeStyles(c));
   const styles = useMemo(
@@ -152,6 +211,47 @@ export default function PlaceDetailScreen() {
       galleryFallbacks: heroImages.length > 0 ? heroImages : fallbackGalleryImages,
     };
   }, [place]);
+
+  const onShare = useCallback(() => {
+    if (!place) return;
+    if (!user) {
+      navigateToProfileAuth(navigation);
+      return;
+    }
+    shareSheet.openShareForPlace({
+      placeId: place.id,
+      placeName: place.name,
+      images: imageVm.heroImagesRaw,
+      storyId: shareSheet.shareStoryId,
+    });
+  }, [imageVm.heroImagesRaw, navigation, place, shareSheet, user]);
+
+  const onShareAddToStory = useCallback(() => {
+    if (shareSheet.shareOnlyPlaceId && !shareSheet.sharePostId) {
+      shareSheet.resetShareState();
+      InteractionManager.runAfterInteractions(() => {
+        setShareStorySourceModalVisible(true);
+      });
+      return;
+    }
+    void shareSheet.handleShareToStory(navigation);
+  }, [navigation, shareSheet]);
+
+  const onShareStorySourceChoose = useCallback(
+    async (source: "camera" | "gallery") => {
+      setShareStorySourceModalVisible(false);
+      const createdStoryId = await shareStoryUpload.onChooseStorySource(source);
+      if (!createdStoryId || !place) return;
+      shareSheet.attachShareStoryId(createdStoryId);
+      shareSheet.openShareForPlace({
+        placeId: place.id,
+        placeName: place.name,
+        images: imageVm.heroImagesRaw,
+        storyId: createdStoryId,
+      });
+    },
+    [imageVm.heroImagesRaw, place, shareSheet, shareStoryUpload],
+  );
 
   const restartHeroProgress = useCallback(() => {
     cancelAnimation(progress);
@@ -275,9 +375,14 @@ export default function PlaceDetailScreen() {
           <Pressable style={styles.iconBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.iconBtnText}>←</Text>
           </Pressable>
-          <Pressable style={styles.iconBtn} onPress={onFavorite}>
-            <Text style={styles.iconBtnText}>{isFavorite ? "♥" : "♡"}</Text>
-          </Pressable>
+          <View style={styles.heroBarActions}>
+            <Pressable style={styles.iconBtn} onPress={onShare} accessibilityLabel="Share">
+              <Ionicons name="share-outline" size={20} color={colors.mediaOverlayText} />
+            </Pressable>
+            <Pressable style={styles.iconBtn} onPress={onFavorite} accessibilityLabel="Favorite">
+              <Text style={styles.iconBtnText}>{isFavorite ? "♥" : "♡"}</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -296,6 +401,22 @@ export default function PlaceDetailScreen() {
         <Text style={styles.rating}>
           {Number(place.rating).toFixed(1)} ({reviews.length} reviews)
         </Text>
+
+        {user?.id ? (
+        <LiveCrowdCard
+          venueId={place.id}
+          onCheckIn={() => void onCrowdCheckIn()}
+          isCheckingIn={crowdCheckin.isCheckingIn}
+          crowdCardStyle={styles.crowdCard}
+          crowdBadgeStyle={styles.crowdBadge}
+          crowdTitleStyle={styles.crowdTitle}
+          crowdHeadlineStyle={styles.crowdHeadline}
+          crowdMetaStyle={styles.crowdMeta}
+          crowdCheckInBtnStyle={styles.crowdCheckInBtn}
+          crowdCheckInTextStyle={styles.crowdCheckInText}
+        />
+        ) : null}
+
         <View style={styles.tags}>
           {place.tags.map((tag) => (
             <Text key={tag} style={styles.tag}>
@@ -315,7 +436,7 @@ export default function PlaceDetailScreen() {
           </Pressable>
         </View>
 
-        <Pressable style={styles.primaryBtn} onPress={() => navigation.navigate("BookingFlow", { id: place.id })}>
+        <Pressable style={styles.primaryBtn} onPress={() => openBookingFlow({ id: place.id })}>
           <Text style={styles.primaryBtnText}>Book now</Text>
         </Pressable>
         <Pressable style={styles.outlineBtn} onPress={() => openAIBooking({ id: place.id })}>
@@ -338,8 +459,41 @@ export default function PlaceDetailScreen() {
         onClose={() => setStorySourceModalVisible(false)}
         onChoose={(source) => {
           setStorySourceModalVisible(false);
-          storyUpload.onChooseStorySource(source);
+          void storyUpload.onChooseStorySource(source);
         }}
+      />
+
+      <StorySourcePickerModal
+        visible={shareStorySourceModalVisible}
+        onClose={() => setShareStorySourceModalVisible(false)}
+        onChoose={(source) => {
+          void onShareStorySourceChoose(source);
+        }}
+      />
+
+      <StoryUploadProgressOverlay visible={shareStoryUpload.uploadingStory} stage={shareStoryUpload.uploadStage} />
+
+      <ShareBottomSheet
+        visible={shareSheet.shareVisible}
+        onClose={shareSheet.resetShareState}
+        users={shareSheet.shareUsers}
+        loading={shareSheet.shareUsersLoading}
+        searchValue={shareSheet.shareSearch}
+        onChangeSearch={shareSheet.setShareSearch}
+        resolveAvatarUri={profileAvatar}
+        sharePostId={shareSheet.sharePostId}
+        sharePlaceId={shareSheet.shareOnlyPlaceId}
+        shareStoryId={shareSheet.shareStoryId}
+        sharePostHasMedia={shareSheet.sharePostImages.length > 0}
+        sharePlaceName={shareSheet.sharePlaceName}
+        shareSending={shareSheet.shareSending}
+        sheetAlert={shareSheet.shareAlert}
+        onDismissSheetAlert={shareSheet.dismissShareAlert}
+        onShowSheetAlert={shareSheet.showShareAlertOptions}
+        onAddToStory={onShareAddToStory}
+        onWhatsAppShare={shareSheet.handleShareToWhatsapp}
+        onSystemShare={shareSheet.handleSystemShare}
+        onCopyLink={shareSheet.handleCopyPostLink}
       />
     </ScrollView>
     </View>

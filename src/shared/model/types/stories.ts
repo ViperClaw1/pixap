@@ -30,10 +30,12 @@ export interface StoryGroup {
 }
 
 export interface StoryViewerRouteParams {
-  groups: StoryGroup[];
-  initialGroupIndex: number;
-  initialStoryIndex: number;
-  placeId: string;
+  groups?: StoryGroup[];
+  initialGroupIndex?: number;
+  initialStoryIndex?: number;
+  placeId?: string;
+  /** Deep link / in-app open-by-id: loads viewer context on mount when groups are omitted. */
+  storyId?: string;
   /** When opening viewer from archive grid: story id → initial carousel slide index. */
   initialMediaByStoryId?: Record<string, number>;
 }

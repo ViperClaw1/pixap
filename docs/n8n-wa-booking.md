@@ -69,23 +69,13 @@ Idempotent: if `wa_n8n_started_at` is already set for the cart row, the function
   "confirmable": true,
   "confirmed_slot": null,
   "confirmed_price": "25 USD",
-  "payment_link": null,
-  "qr_payload": {
-    "client_name": "…",
-    "client_phone": "…",
-    "place_name": "…",
-    "booking_date": "2026-04-18",
-    "booking_slot": "14:30",
-    "is_free": false,
-    "price": "25 USD"
-  }
+  "payment_link": null
 }
 ```
 
 - `status_lines` must be a **JSON array of strings** (replaces the previous list in the UI).
 - Set **`confirmable`: `true`** only when the venue flow finished (free or price received).
 - `confirmed_price` is optional; if parseable as a number, **Confirm** in Cart uses it as `cost`.
-- **`qr_payload`** is stored on `cart_items.wa_qr_payload` and shown as a JSON QR on the **Bookings** screen when linked to the booking row.
 - `payment_link` is legacy; the current flow does not request payment URLs from the venue.
 
 JWT verification is **disabled** for this function in [`supabase/config.toml`](../supabase/config.toml); when `N8N_INBOUND_SECRET` is set, the function checks **`x-wa-booking-secret`** (preferred) or legacy **`Authorization: Bearer <secret>`** (only works if your gateway does not require a JWT).
@@ -107,7 +97,7 @@ Optionally enable Postgres **Realtime** on `public.cart_items` so the app update
 
 ## Database
 
-Migrations `20260416_cart_items_wa_n8n.sql` and `20260518120000_cart_items_wa_qr_payload.sql` add `wa_*` columns on `cart_items` (including `wa_qr_payload`). Apply migrations before deploying functions.
+Migration `20260416_cart_items_wa_n8n.sql` adds `wa_*` columns on `cart_items`. Apply migrations before deploying functions.
 
 ## Deploy / refresh the Edge function
 
