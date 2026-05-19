@@ -20,6 +20,8 @@ export interface BusinessCard {
   contact_whatsapp?: string | null;
   type: "featured" | "recommended";
   created_at: string;
+  latitude?: number | null;
+  longitude?: number | null;
   category?: { id: string; name: string } | null;
 }
 

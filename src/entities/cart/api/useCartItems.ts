@@ -25,7 +25,6 @@ export interface CartItem {
   wa_confirmable: boolean;
   wa_confirmed_slot: string | null;
   wa_confirmed_price: string | null;
-  wa_qr_payload: unknown;
   wa_payment_link: string | null;
   business_card?: {
     id: string;

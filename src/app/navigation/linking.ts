@@ -54,6 +54,31 @@ function stateForSupabaseAuthCallback(fullPath: string) {
 
 const FEED_TAB_INDEX = 0;
 
+function stateForStoryViewerPath(fullPath: string) {
+  const normalized = normalizePath(fullPath);
+  let storyId: string | null = null;
+  if (normalized.startsWith("story/")) {
+    const raw = normalized.slice("story/".length).split("/")[0] ?? "";
+    storyId = decodeURIComponent(raw).trim() || null;
+  } else if (normalized.startsWith("feed/story/")) {
+    const raw = normalized.slice("feed/story/".length).split("/")[0] ?? "";
+    storyId = decodeURIComponent(raw).trim() || null;
+  }
+  if (!storyId) return null;
+  return {
+    routes: [
+      {
+        name: "Feed" as const,
+        state: {
+          routes: [{ name: "FeedStoryViewer" as const, params: { storyId } }],
+          index: 0,
+        },
+      },
+    ],
+    index: FEED_TAB_INDEX,
+  };
+}
+
 function stateForPostDetailPath(fullPath: string) {
   const normalized = normalizePath(fullPath);
   let postId: string | null = null;
@@ -121,6 +146,10 @@ export const linking: LinkingOptions<RootTabParamList> = {
     const postDetail = stateForPostDetailPath(path);
     if (postDetail) {
       return postDetail as ReturnType<typeof getStateFromPathInternal>;
+    }
+    const storyViewer = stateForStoryViewerPath(path);
+    if (storyViewer) {
+      return storyViewer as ReturnType<typeof getStateFromPathInternal>;
     }
     const authCallback = stateForSupabaseAuthCallback(path);
     if (authCallback) {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   BackHandler,
   InteractionManager,
@@ -13,7 +14,8 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { BlurView } from "expo-blur";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useFocusedOverlapKeyboardInset, useKeyboardInset } from "@/shared/lib/keyboard";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -23,7 +25,10 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { fetchStoryViewerContext } from "@/entities/story/lib/fetchStoryViewerContext";
 import { useStoryProgress, useStoryViewer, useReplyToStory, useReactToStory } from "@/entities/story";
+import type { StoryGroup } from "@/shared/model/types/stories";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { StoryMediaSlide } from "@/widgets/stories-strip";
@@ -49,6 +54,8 @@ const COMPOSER_KEYBOARD_GAP_AT_REF_IOS = -30;
 /** Clears input bottom + footer `paddingBottom` above the keyboard (matches top padding). */
 const COMPOSER_ANDROID_KEYBOARD_GAP = COMPOSER_FOOTER_PADDING_ANDROID + 35;
 const DOUBLE_TAP_MS = 260;
+/** Min downward drag (px) before dismiss; matches StoryViewerPage threshold. */
+const DISMISS_DRAG_PX = 100;
 
 type FeedMediaSlide = {
   key: string;
@@ -88,8 +95,53 @@ function buildFlatMediaSlides(flatStories: { story: StoryItem; groupIndex: numbe
 export default function FeedStoryViewerPage() {
   const { params } = useRoute<FeedStoryViewerRoute>();
   const navigation = useNavigation<FeedStoryViewerNav>();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+  const deepLinkStoryId = params.storyId?.trim() ?? "";
+  const hasInlineGroups = (params.groups?.length ?? 0) > 0;
+  const [resolvedGroups, setResolvedGroups] = useState<StoryGroup[] | null>(null);
+  const [resolvedInitialGroupIndex, setResolvedInitialGroupIndex] = useState(0);
+  const [resolvedInitialStoryIndex, setResolvedInitialStoryIndex] = useState(0);
+  const [resolvedPlaceId, setResolvedPlaceId] = useState("");
+  const [deepLinkLoading, setDeepLinkLoading] = useState(Boolean(deepLinkStoryId && !hasInlineGroups));
+  const [deepLinkFailed, setDeepLinkFailed] = useState(false);
+
+  useEffect(() => {
+    if (hasInlineGroups || !deepLinkStoryId) {
+      setDeepLinkLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setDeepLinkLoading(true);
+    setDeepLinkFailed(false);
+    void fetchStoryViewerContext(deepLinkStoryId, user?.id ?? null)
+      .then((context) => {
+        if (cancelled) return;
+        if (!context) {
+          setDeepLinkFailed(true);
+          return;
+        }
+        setResolvedGroups(context.groups);
+        setResolvedInitialGroupIndex(context.initialGroupIndex);
+        setResolvedInitialStoryIndex(context.initialStoryIndex);
+        setResolvedPlaceId(context.placeId);
+      })
+      .catch(() => {
+        if (!cancelled) setDeepLinkFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setDeepLinkLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [deepLinkStoryId, hasInlineGroups, user?.id]);
+
+  const viewerGroups = params.groups ?? resolvedGroups ?? [];
+  const viewerInitialGroupIndex = params.initialGroupIndex ?? resolvedInitialGroupIndex;
+  const viewerInitialStoryIndex = params.initialStoryIndex ?? resolvedInitialStoryIndex;
+  const viewerPlaceId = params.placeId ?? resolvedPlaceId;
   const composerKeyboardGap = useMemo(
     () => (COMPOSER_KEYBOARD_GAP_AT_REF_IOS / COMPOSER_GAP_REF_WIDTH_PX) * width,
     [width],
@@ -164,9 +216,9 @@ export default function FeedStoryViewerPage() {
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const viewer = useStoryViewer({
-    groups: params.groups,
-    initialGroupIndex: params.initialGroupIndex,
-    initialStoryIndex: params.initialStoryIndex,
+    groups: viewerGroups,
+    initialGroupIndex: viewerInitialGroupIndex,
+    initialStoryIndex: viewerInitialStoryIndex,
     loop: true,
   });
 
@@ -177,10 +229,10 @@ export default function FeedStoryViewerPage() {
   const defaultCarouselIndex = useMemo(() => {
     if (!flatMediaSlides.length) return 0;
     const idx = flatMediaSlides.findIndex(
-      (s) => s.groupIndex === params.initialGroupIndex && s.storyIndex === params.initialStoryIndex,
+      (s) => s.groupIndex === viewerInitialGroupIndex && s.storyIndex === viewerInitialStoryIndex,
     );
     return idx >= 0 ? idx : 0;
-  }, [flatMediaSlides, params.initialGroupIndex, params.initialStoryIndex]);
+  }, [flatMediaSlides, viewerInitialGroupIndex, viewerInitialStoryIndex]);
 
   const [mediaSlideIndex, setMediaSlideIndex] = useState(defaultCarouselIndex);
   const didInitMediaIndexRef = useRef(false);
@@ -211,8 +263,8 @@ export default function FeedStoryViewerPage() {
   const activeSlide = flatMediaSlides[safeSlideIndex] ?? null;
   const activeStory = activeSlide?.story ?? null;
   const activeGroup =
-    activeSlide != null && params.groups[activeSlide.groupIndex] != null
-      ? params.groups[activeSlide.groupIndex]
+    activeSlide != null && viewerGroups[activeSlide.groupIndex] != null
+      ? viewerGroups[activeSlide.groupIndex]
       : null;
 
   const activeImageUrl = activeSlide?.rawUri ?? null;
@@ -360,6 +412,82 @@ export default function FeedStoryViewerPage() {
     setPaused(false);
   }, [setPaused]);
 
+  const dismissTranslateY = useSharedValue(0);
+
+  const closeViewer = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  const goToNextSlide = useCallback(() => {
+    carouselRef.current?.next({ animated: true });
+  }, []);
+
+  const goToPrevSlide = useCallback(() => {
+    carouselRef.current?.prev({ animated: true });
+  }, []);
+
+  const tapGesture = useMemo(
+    () => Gesture.Tap().maxDuration(250).onEnd(() => runOnJS(handleSlideTap)()),
+    [handleSlideTap],
+  );
+
+  const longPressGesture = useMemo(
+    () =>
+      Gesture.LongPress()
+        .minDuration(180)
+        .onBegin(() => runOnJS(setPaused)(true))
+        .onFinalize(() => runOnJS(setPaused)(false)),
+    [setPaused],
+  );
+
+  const dismissPanGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(!previewOpen && !keyboardOpen)
+        .onBegin(() => {
+          runOnJS(setPaused)(true);
+        })
+        .onUpdate((e) => {
+          if (e.translationY > 0 && Math.abs(e.translationY) > Math.abs(e.translationX)) {
+            dismissTranslateY.value = e.translationY;
+          }
+        })
+        .onEnd((e) => {
+          const isVertical = Math.abs(e.translationY) > Math.abs(e.translationX);
+          if (isVertical) {
+            const shouldClose =
+              e.translationY > DISMISS_DRAG_PX || (e.translationY > 48 && e.velocityY > 700);
+            if (shouldClose) {
+              runOnJS(closeViewer)();
+              return;
+            }
+            dismissTranslateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+            runOnJS(setPaused)(false);
+            return;
+          }
+          if (e.translationX < -70) {
+            runOnJS(goToNextSlide)();
+          } else if (e.translationX > 70) {
+            runOnJS(goToPrevSlide)();
+          }
+          dismissTranslateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+          runOnJS(setPaused)(false);
+        }),
+    [closeViewer, dismissTranslateY, goToNextSlide, goToPrevSlide, keyboardOpen, previewOpen, setPaused],
+  );
+
+  const mediaGesture = useMemo(
+    () => Gesture.Simultaneous(dismissPanGesture, Gesture.Exclusive(longPressGesture, tapGesture)),
+    [dismissPanGesture, longPressGesture, tapGesture],
+  );
+
+  const dismissDragStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ translateY: dismissTranslateY.value }],
+    }),
+    [dismissTranslateY],
+  );
+
   useEffect(() => {
     if (!previewOpen) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -368,6 +496,30 @@ export default function FeedStoryViewerPage() {
     });
     return () => sub.remove();
   }, [previewOpen, closeImagePreview]);
+
+  useEffect(() => {
+    if (!previewOpen) return;
+    dismissTranslateY.value = 0;
+  }, [dismissTranslateY, previewOpen]);
+
+  if (deepLinkLoading) {
+    return (
+      <View style={[styles.root, styles.deepLinkState]}>
+        <ActivityIndicator size="large" color="#ffffff" />
+      </View>
+    );
+  }
+
+  if (deepLinkFailed || (!hasInlineGroups && deepLinkStoryId && !viewerGroups.length)) {
+    return (
+      <View style={[styles.root, styles.deepLinkState]}>
+        <Text style={styles.deepLinkStateText}>Story is unavailable or has expired.</Text>
+        <Pressable style={styles.deepLinkCloseBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.deepLinkCloseBtnText}>Close</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (flatMediaSlides.length === 0 || !activeStory || !activeGroup) {
     return (
@@ -379,7 +531,7 @@ export default function FeedStoryViewerPage() {
 
   return (
     <View style={styles.root}>
-      <View style={styles.storyChrome} collapsable={false}>
+      <Animated.View style={[styles.storyChrome, dismissDragStyle]} collapsable={false}>
         <Carousel
           ref={carouselRef}
           width={width}
@@ -388,6 +540,7 @@ export default function FeedStoryViewerPage() {
           defaultIndex={defaultCarouselIndex}
           loop={flatMediaSlides.length > 1}
           autoFillData={false}
+          enabled={false}
           scrollAnimationDuration={550}
           onScrollStart={() => setCarouselUserInteracting(true)}
           onScrollEnd={() => setCarouselUserInteracting(false)}
@@ -396,13 +549,7 @@ export default function FeedStoryViewerPage() {
             const rawUri = item.rawUri;
             const optimized = rawUri ? getOptimizedImageUrl(rawUri, 1080, 1920, 78) : null;
             return (
-              <Pressable
-                style={styles.absoluteFill}
-                onPress={handleSlideTap}
-                onLongPress={() => setPaused(true)}
-                onPressOut={() => setPaused(false)}
-                delayLongPress={180}
-              >
+              <View style={styles.absoluteFill}>
                 <StoryMediaSlide
                   optimizedUri={optimized || rawUri}
                   fallbackUri={rawUri}
@@ -410,10 +557,14 @@ export default function FeedStoryViewerPage() {
                   width={width}
                   height={height}
                 />
-              </Pressable>
+              </View>
             );
           }}
         />
+
+        <GestureDetector gesture={mediaGesture}>
+          <Animated.View style={styles.mediaGestureLayer} collapsable={false} />
+        </GestureDetector>
 
         <View style={[styles.topProgressRow, { top: Math.max(4, insets.top + 4) }]}>
           <StoryProgressBar
@@ -424,7 +575,7 @@ export default function FeedStoryViewerPage() {
         </View>
 
         <View style={[styles.topRow, { top: Math.max(22, insets.top + 22) }]}>
-          <Pressable style={styles.iconButton} onPress={() => navigation.goBack()}>
+          <Pressable style={styles.iconButton} onPress={closeViewer}>
             <Ionicons name="arrow-back" size={22} color="#111111" />
           </Pressable>
           <View style={styles.authorRow}>
@@ -516,7 +667,7 @@ export default function FeedStoryViewerPage() {
             </View>
           </View>
         </Animated.View>
-      </View>
+      </Animated.View>
 
       {previewOpen ? (
         <View style={styles.previewOverlayRoot} pointerEvents="box-none">
@@ -729,6 +880,10 @@ const styles = StyleSheet.create({
   storyChrome: {
     flex: 1,
   },
+  mediaGestureLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 4,
+  },
   previewOverlayRoot: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
@@ -794,6 +949,34 @@ const styles = StyleSheet.create({
     color: "#111111",
     fontSize: 14,
     fontWeight: "500",
+  },
+  deepLinkState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#000000",
+    paddingHorizontal: 24,
+    gap: 16,
+  },
+  deepLinkStateText: {
+    color: "#ffffff",
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  deepLinkCloseBtn: {
+    minHeight: 42,
+    paddingHorizontal: 18,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deepLinkCloseBtnText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 

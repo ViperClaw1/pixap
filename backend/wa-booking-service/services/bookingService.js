@@ -178,18 +178,6 @@ function deliveryStatusLine(status, details, locale) {
   return ru ? `Статус WhatsApp: ${status}` : `WhatsApp status: ${status}`;
 }
 
-function buildQrPayload(booking, { isFree, priceDisplay }) {
-  return {
-    client_name: booking.customer_name ?? "Client",
-    client_phone: booking.customer_phone ?? "—",
-    place_name: booking.venue_name,
-    booking_date: booking.date,
-    booking_slot: booking.time,
-    is_free: Boolean(isFree),
-    price: isFree ? null : priceDisplay ?? null,
-  };
-}
-
 function makeBookingSnapshot(booking) {
   return {
     id: booking.id,
@@ -258,9 +246,6 @@ async function postSupabaseCartCallback(booking, patch) {
   }
   if (patch.payment_link !== undefined) {
     body.payment_link = patch.payment_link == null ? null : String(patch.payment_link);
-  }
-  if (patch.qr_payload !== undefined) {
-    body.qr_payload = patch.qr_payload;
   }
 
   let lastError = null;
@@ -375,7 +360,6 @@ async function completeBookingWithTerms(booking, { isFree, priceDisplay }) {
   booking.updated_at = new Date().toISOString();
   removeActiveBooking(booking.owner_phone, booking.id);
 
-  const qrPayload = buildQrPayload(booking, { isFree, priceDisplay });
   const locale = booking.interface_locale;
 
   const sendResult = await sendLocaleTemplate(booking, TEMPLATE_GOT_IT, []);
@@ -388,14 +372,12 @@ async function completeBookingWithTerms(booking, { isFree, priceDisplay }) {
       confirmable: true,
       confirmed_price: isFree ? "0" : priceDisplay,
       payment_link: null,
-      qr_payload: qrPayload,
     },
     {
       booking_id: booking.id,
       status: booking.status,
       step: booking.step,
       price: booking.price,
-      qr_payload: qrPayload,
     },
   );
 }

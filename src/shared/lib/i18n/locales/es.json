@@ -14,7 +14,8 @@
     "messages": "Mensajes",
     "favorites": "Favoritos",
     "profile": "Perfil",
-    "feed": "Inicio"
+    "feed": "Inicio",
+    "search": "Buscar"
   },
   "notifications": {
     "sheetTitle": "Notificaciones",
@@ -284,6 +285,29 @@
       "storyFailedTitle": "Error en la historia",
       "storyFailedBody": "No se pudo publicar la historia."
     }
+  },
+  "crowd": {
+    "liveMeter": "Afluencia en vivo",
+    "empty": "Tranquilo",
+    "low": "Poca actividad",
+    "medium": "Moderado",
+    "mediumHeadline": "Se está llenando",
+    "busy": "Concurrido",
+    "packed": "A tope",
+    "calm": "Tranquilo ahora",
+    "busyNow": "Concurrido ahora",
+    "packedLabel": "A tope ahora",
+    "score": "Puntuación {{score}}",
+    "checkInCta": "Estoy aquí ahora",
+    "checkInSuccess": "Registro guardado",
+    "checkInSuccessMessage": "Gracias — así otros ven cuánta gente hay.",
+    "alreadyCheckedIn": "Ya estás registrado",
+    "alreadyCheckedInMessage": "Tu visita ya está contada. Puedes volver a registrarte en unos 15 minutos.",
+    "checkInFailed": "No se pudo registrar",
+    "tooFar": "Debes estar a menos de 100 m del lugar.",
+    "locationDenied": "Se necesita acceso a la ubicación.",
+    "rateLimited": "Puedes volver a registrarte en unos 15 minutos.",
+    "checkInError": "No se pudo guardar el registro."
   },
   "errorBoundary": {
     "retry": "Reintentar",

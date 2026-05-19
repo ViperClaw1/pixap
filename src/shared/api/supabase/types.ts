@@ -153,7 +153,6 @@ export type Database = {
           wa_confirmable: boolean
           wa_confirmed_price: string | null
           wa_confirmed_slot: string | null
-          wa_qr_payload: Json | null
           wa_payment_link: string | null
           wa_n8n_callback_token: string | null
           wa_n8n_started_at: string | null
@@ -177,7 +176,6 @@ export type Database = {
           wa_confirmable?: boolean
           wa_confirmed_price?: string | null
           wa_confirmed_slot?: string | null
-          wa_qr_payload?: Json | null
           wa_payment_link?: string | null
           wa_n8n_callback_token?: string | null
           wa_n8n_started_at?: string | null
@@ -201,7 +199,6 @@ export type Database = {
           wa_confirmable?: boolean
           wa_confirmed_price?: string | null
           wa_confirmed_slot?: string | null
-          wa_qr_payload?: Json | null
           wa_payment_link?: string | null
           wa_n8n_callback_token?: string | null
           wa_n8n_started_at?: string | null
@@ -258,6 +255,41 @@ export type Database = {
           {
             foreignKeyName: "favorites_business_card_id_fkey"
             columns: ["business_card_id"]
+            isOneToOne: false
+            referencedRelation: "business_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_crowd_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json
+          signal_type: string
+          user_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          signal_type: string
+          user_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          signal_type?: string
+          user_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_crowd_snapshots_venue_id_fkey"
+            columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "business_cards"
             referencedColumns: ["id"]
@@ -599,6 +631,20 @@ export type Database = {
           p_start: string
         }
         Returns: string[]
+      },
+      get_venue_live_crowd: {
+        Args: {
+          p_venue_id: string
+        }
+        Returns: Json
+      },
+      record_venue_crowd_checkin: {
+        Args: {
+          p_latitude: number
+          p_longitude: number
+          p_venue_id: string
+        }
+        Returns: Json
       },
       has_role: {
         Args: {

@@ -3,7 +3,8 @@ import type { ThemeColors } from "@/shared/theme/palettes";
 
 export const searchStaticStyles = StyleSheet.create({
   thumb: { width: 56, height: 56, borderRadius: 8 },
-  root: { flex: 1, paddingHorizontal: 16 },
+  root: { flex: 1 },
+  content: { flex: 1, paddingHorizontal: 16 },
   list: { flex: 1 },
   inputWrap: {
     flexDirection: "row",

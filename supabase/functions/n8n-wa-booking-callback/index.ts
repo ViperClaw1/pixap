@@ -1,16 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-type WaQrPayload = {
-  client_name: string;
-  client_phone: string;
-  place_name: string;
-  booking_date: string;
-  booking_slot: string;
-  is_free: boolean;
-  price: string | null;
-};
-
 type Body = {
   callback_token?: string;
   status_lines?: unknown;
@@ -18,34 +8,7 @@ type Body = {
   confirmed_slot?: string | null;
   confirmed_price?: string | null;
   payment_link?: string | null;
-  qr_payload?: unknown;
 };
-
-function normalizeQrPayload(raw: unknown): WaQrPayload | null | undefined {
-  if (raw === undefined) return undefined;
-  if (raw == null) return null;
-  if (typeof raw !== "object") return null;
-  const o = raw as Record<string, unknown>;
-  const str = (k: string) => (typeof o[k] === "string" ? String(o[k]).trim() : "");
-  const client_name = str("client_name");
-  const client_phone = str("client_phone");
-  const place_name = str("place_name");
-  const booking_date = str("booking_date");
-  const booking_slot = str("booking_slot");
-  if (!client_name || !place_name || !booking_date || !booking_slot) return null;
-  if (typeof o.is_free !== "boolean") return null;
-  const price =
-    o.price == null ? null : typeof o.price === "string" ? String(o.price).trim() || null : null;
-  return {
-    client_name,
-    client_phone: client_phone || "—",
-    place_name,
-    booking_date,
-    booking_slot,
-    is_free: o.is_free,
-    price: o.is_free ? null : price,
-  };
-}
 
 function jsonHeaders() {
   return { ...corsHeaders, "Content-Type": "application/json" };
@@ -153,14 +116,6 @@ Deno.serve(async (req) => {
         : null
       : undefined;
 
-  const qrPayload = normalizeQrPayload(body.qr_payload);
-  if (body.qr_payload !== undefined && qrPayload === null) {
-    return new Response(JSON.stringify({ error: "Invalid qr_payload shape" }), {
-      status: 400,
-      headers: jsonHeaders(),
-    });
-  }
-
   const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
   const { data: row, error: selErr } = await db
@@ -191,7 +146,6 @@ Deno.serve(async (req) => {
   if (slot !== null) patch.wa_confirmed_slot = slot;
   if (price !== null) patch.wa_confirmed_price = price;
   if (paymentLink !== undefined) patch.wa_payment_link = paymentLink;
-  if (qrPayload !== undefined) patch.wa_qr_payload = qrPayload;
 
   const { error: updErr } = await db.from("cart_items").update(patch).eq("id", row.id);
   if (updErr) {

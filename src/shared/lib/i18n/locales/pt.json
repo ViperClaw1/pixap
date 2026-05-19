@@ -14,7 +14,8 @@
     "messages": "Mensagens",
     "favorites": "Favoritos",
     "profile": "Perfil",
-    "feed": "Feed"
+    "feed": "Feed",
+    "search": "Pesquisar"
   },
   "notifications": {
     "sheetTitle": "Notificações",
@@ -284,6 +285,29 @@
       "storyFailedTitle": "Falha no story",
       "storyFailedBody": "Não foi possível publicar o story."
     }
+  },
+  "crowd": {
+    "liveMeter": "Movimento ao vivo",
+    "empty": "Tranquilo",
+    "low": "Pouco movimento",
+    "medium": "Moderado",
+    "mediumHeadline": "Está enchendo",
+    "busy": "Movimentado",
+    "packed": "Lotado",
+    "calm": "Tranquilo agora",
+    "busyNow": "Movimentado agora",
+    "packedLabel": "Lotado agora",
+    "score": "Pontuação {{score}}",
+    "checkInCta": "Estou aqui agora",
+    "checkInSuccess": "Check-in registrado",
+    "checkInSuccessMessage": "Obrigado — assim outros veem como está cheio.",
+    "alreadyCheckedIn": "Você já fez check-in",
+    "alreadyCheckedInMessage": "Sua visita já foi contada. Novo check-in em cerca de 15 minutos.",
+    "checkInFailed": "Falha no check-in",
+    "tooFar": "Você precisa estar a até 100 m do local.",
+    "locationDenied": "É necessário acesso à localização.",
+    "rateLimited": "Novo check-in em cerca de 15 minutos.",
+    "checkInError": "Não foi possível registrar o check-in."
   },
   "errorBoundary": {
     "retry": "Tentar novamente",

@@ -8,7 +8,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { fetchProfilePhone, usePublicProfiles } from "@/entities/user";
 import { queryKeys } from "@/shared/api/queryKeys";
+import { buildPlaceShareUrl } from "@/shared/lib/placeShareLink";
 import { buildPostShareUrl } from "@/shared/lib/postShareLink";
+import { buildStoryShareUrl } from "@/shared/lib/storyShareLink";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 
@@ -23,6 +25,8 @@ export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase
   const [shareSearch, setShareSearch] = useState("");
   const [sharePostId, setSharePostId] = useState<string | null>(null);
   const [sharePostPlaceId, setSharePostPlaceId] = useState<string | null>(null);
+  const [shareOnlyPlaceId, setShareOnlyPlaceId] = useState<string | null>(null);
+  const [shareStoryId, setShareStoryId] = useState<string | null>(null);
   const [sharePostImages, setSharePostImages] = useState<string[]>([]);
   const [sharePlaceName, setSharePlaceName] = useState("");
   const [shareSending, setShareSending] = useState(false);
@@ -73,13 +77,23 @@ export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase
     setShareSearch("");
     setSharePostId(null);
     setSharePostPlaceId(null);
+    setShareOnlyPlaceId(null);
+    setShareStoryId(null);
     setSharePostImages([]);
     setSharePlaceName("");
     setShareAlert(null);
   }, []);
 
+  const resolveShareLink = useCallback(() => {
+    if (shareStoryId) return buildStoryShareUrl(shareStoryId);
+    if (sharePostId) return buildPostShareUrl(sharePostId);
+    if (shareOnlyPlaceId) return buildPlaceShareUrl(shareOnlyPlaceId);
+    return "";
+  }, [shareOnlyPlaceId, sharePostId, shareStoryId]);
+
   const openShareForPost = useCallback(
     (params: { postId: string; placeId: string | null; images: string[]; placeName: string }) => {
+      setShareOnlyPlaceId(null);
       setSharePostId(params.postId);
       setSharePostPlaceId(params.placeId);
       setSharePostImages(params.images);
@@ -89,13 +103,39 @@ export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase
     [],
   );
 
+  const openShareForPlace = useCallback(
+    (params: { placeId: string; placeName: string; images: string[]; storyId?: string | null }) => {
+      setSharePostId(null);
+      setSharePostPlaceId(params.placeId);
+      setShareOnlyPlaceId(params.placeId);
+      setShareStoryId(params.storyId?.trim() || null);
+      setSharePostImages(params.images);
+      setSharePlaceName(params.placeName);
+      setShareVisible(true);
+    },
+    [],
+  );
+
+  const attachShareStoryId = useCallback((storyId: string) => {
+    const normalized = storyId.trim();
+    if (!normalized) return;
+    setShareStoryId(normalized);
+  }, []);
+
   const handleShareToStory = useCallback(
     (navigation: NativeStackNavigationProp<BrowseFlowParamList>) => {
       const postId = sharePostId;
-      const placeId = sharePostPlaceId;
-      if (!postId || !sharePostImages.length) {
-        showShareAlert("Could not open story composer", "Post images are required.", undefined, "alert");
-        return;
+      const placeId = sharePostPlaceId ?? shareOnlyPlaceId;
+      if (shareOnlyPlaceId && !postId) {
+        return false;
+      }
+      if (!sharePostImages.length) {
+        showShareAlert("Could not open story composer", "Images are required.", undefined, "alert");
+        return true;
+      }
+      if (!postId) {
+        showShareAlert("Could not open story composer", "Share target is missing.", undefined, "alert");
+        return true;
       }
       resetShareState();
       navigation.navigate("AddStoryFromPost", {
@@ -103,17 +143,17 @@ export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase
         placeId,
         postImages: sharePostImages,
       });
+      return true;
     },
-    [resetShareState, sharePostId, sharePostPlaceId, sharePostImages, showShareAlert],
+    [resetShareState, shareOnlyPlaceId, sharePostId, sharePostPlaceId, sharePostImages, showShareAlert],
   );
 
   const handleShareToWhatsapp = useCallback(
     async (peerUserId: string) => {
-      const postId = sharePostId;
-      if (!postId) return;
+      const link = resolveShareLink();
+      if (!link) return;
       setShareSending(true);
       try {
-        const link = buildPostShareUrl(postId);
         const phone = await queryClient.fetchQuery({
           queryKey: queryKeys.profile.phone(peerUserId),
           queryFn: () => fetchProfilePhone(peerUserId),
@@ -139,22 +179,20 @@ export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase
         setShareSending(false);
       }
     },
-    [queryClient, sharePostId, showShareAlert],
+    [queryClient, resolveShareLink, showShareAlert],
   );
 
   const handleSystemShare = useCallback(async () => {
-    const postId = sharePostId;
-    if (!postId) return;
-    const link = buildPostShareUrl(postId);
+    const link = resolveShareLink();
+    if (!link) return;
     await Share.share({ message: link, url: link });
-  }, [sharePostId]);
+  }, [resolveShareLink]);
 
   const handleCopyPostLink = useCallback(async () => {
-    const postId = sharePostId;
-    if (!postId) return;
-    const link = buildPostShareUrl(postId);
+    const link = resolveShareLink();
+    if (!link) return;
     await Clipboard.setStringAsync(link);
-  }, [sharePostId]);
+  }, [resolveShareLink]);
 
   return {
     shareVisible,
@@ -162,6 +200,8 @@ export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase
     shareUsers,
     shareUsersLoading,
     sharePostId,
+    shareOnlyPlaceId,
+    shareStoryId,
     sharePostImages,
     sharePlaceName,
     shareSending,
@@ -171,6 +211,8 @@ export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase
     showShareAlertOptions,
     setShareSearch,
     openShareForPost,
+    openShareForPlace,
+    attachShareStoryId,
     resetShareState,
     handleShareToStory,
     handleShareToWhatsapp,

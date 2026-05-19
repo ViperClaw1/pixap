@@ -66,4 +66,4 @@ Templates are locale-suffixed: `interface_locale` from the app (`ru` → `_ru`, 
 | `pricing_price_input` | (text prompt) | Price + currency in free text |
 | complete | `got_it_{en\|ru}` | — |
 
-On completion the service POSTs `qr_payload` (JSON for the in-app QR on **Bookings**) and sets `confirmable: true` with `confirmed_price` (`0` or parsed price). Payment-link templates are no longer used.
+On completion the service sets `confirmable: true` with `confirmed_price` (`0` or parsed price). Payment-link templates are no longer used.

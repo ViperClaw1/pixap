@@ -233,14 +233,6 @@ export function useCreatePostComposer(
       return;
     }
 
-    if (matchedForSubmit.length > 0) {
-      const validExisting = selectedPostPlaceId && matchedForSubmit.some((card) => card.id === selectedPostPlaceId);
-      if (!validExisting) {
-        setPostPlaceError(true);
-        return;
-      }
-    }
-
     if (!content) {
       setPostInputError(true);
       return;
@@ -265,7 +257,10 @@ export function useCreatePostComposer(
         throw new Error("Photo upload failed. Please try again.");
       }
 
-      const placeIdForPost = matchedForSubmit.length > 0 ? selectedPostPlaceId : null;
+      const placeIdForPost =
+        selectedPostPlaceId && matchedForSubmit.some((card) => card.id === selectedPostPlaceId)
+          ? selectedPostPlaceId
+          : null;
       const mediaUrl = JSON.stringify(uploadedUrls);
 
       setPostSubmitStage("creating_post");

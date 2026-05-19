@@ -3,7 +3,7 @@ import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { useEntitlement } from "@/entities/subscription";
 import { shouldEnforceSubscriptionPaywall } from "./shouldEnforceSubscriptionPaywall";
 
-type GatedScreen = "AIBooking" | "VibeMatch";
+type GatedScreen = "AIBooking" | "VibeMatch" | "BookingFlow";
 
 export function useSubscriptionGatedNavigation(navigation: NavigationProp<ParamListBase>) {
   const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
@@ -31,8 +31,14 @@ export function useSubscriptionGatedNavigation(navigation: NavigationProp<ParamL
 
   const openVibeMatch = useCallback(() => openGatedScreen("VibeMatch"), [openGatedScreen]);
 
+  const openBookingFlow = useCallback(
+    (params: { id: string }) => openGatedScreen("BookingFlow", params),
+    [openGatedScreen],
+  );
+
   return {
     openAIBooking,
+    openBookingFlow,
     openVibeMatch,
     shouldEnforcePaywall,
     hasSubscriptionAccess,

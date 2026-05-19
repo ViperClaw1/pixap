@@ -16,8 +16,12 @@ type Props = {
   searchValue: string;
   onChangeSearch: (value: string) => void;
   resolveAvatarUri: (value?: string | null) => string | null;
-  /** Shared post id; required for actions. */
+  /** Shared post id; required for post share actions. */
   sharePostId: string | null;
+  /** Place id when sharing a place without a post. */
+  sharePlaceId?: string | null;
+  /** Story id when a place story was created for sharing. */
+  shareStoryId?: string | null;
   /** True when the post has at least one image URL for story-from-post. */
   sharePostHasMedia: boolean;
   sharePlaceName: string;
@@ -57,6 +61,8 @@ export function ShareBottomSheet({
   onChangeSearch,
   resolveAvatarUri,
   sharePostId,
+  sharePlaceId = null,
+  shareStoryId = null,
   sharePostHasMedia,
   sharePlaceName,
   shareSending,
@@ -94,8 +100,10 @@ export function ShareBottomSheet({
   }, []);
 
   const hasSelectedUser = !!selectedUser;
-  const actionsEnabled = !!sharePostId && !shareSending;
-  const canRunAddStoryAction = actionsEnabled && sharePostHasMedia;
+  const shareTargetActive = !!(sharePostId || sharePlaceId || shareStoryId);
+  const actionsEnabled = shareTargetActive && !shareSending;
+  const canRunPlaceStoryPicker = Boolean(sharePlaceId && !sharePostId);
+  const canRunAddStoryAction = actionsEnabled && (sharePostHasMedia || canRunPlaceStoryPicker);
 
   const requireSelectedUser = () => {
     if (hasSelectedUser) return true;
@@ -196,7 +204,7 @@ export function ShareBottomSheet({
           </View>
         )}
 
-        {sharePostId ? (
+        {shareTargetActive ? (
           <View style={[styles.footer, { borderTopColor: colors.border }]}>
             {sharePlaceName ? <Text style={[styles.shareContext, { color: colors.textMuted }]}>Sharing: {sharePlaceName}</Text> : null}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsRow}>

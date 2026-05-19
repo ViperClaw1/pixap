@@ -48,9 +48,14 @@ const USERNAME_REGEX = /^[a-z0-9._-]+$/;
 const USERNAME_MIN_LENGTH = 3;
 const USERNAME_MAX_LENGTH = 30;
 
+const sanitizeUsernameFromEmailLocalPart = (localPart: string): string => {
+  const normalized = localPart.trim().toLowerCase();
+  return normalized.replace(/[^a-z0-9._-]/g, "_").slice(0, USERNAME_MAX_LENGTH);
+};
+
 const deriveDefaultUsername = (email?: string | null): string => {
-  const local = (email ?? "").split("@")[0]?.trim().toLowerCase() ?? "";
-  return local.slice(0, USERNAME_MAX_LENGTH);
+  const local = (email ?? "").split("@")[0] ?? "";
+  return sanitizeUsernameFromEmailLocalPart(local);
 };
 
 const validateUsername = (value: string): string | null => {

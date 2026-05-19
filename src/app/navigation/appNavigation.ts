@@ -1,4 +1,5 @@
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
+import { navigateToFeedStoryViewer } from "./navigateToStoryViewer";
 import type { RootTabParamList } from "./types";
 
 /**
@@ -15,8 +16,8 @@ export function navigateFeedPlaceDetail(navigation: AppNavigation, placeId: stri
   rootTabNavigation(navigation).navigate("Feed", { screen: "PlaceDetail", params: { id: placeId } });
 }
 
-export function navigateFeedFocusStory(navigation: AppNavigation, storyId: string): void {
-  rootTabNavigation(navigation).navigate("Feed", { screen: "FeedMain", params: { focusStoryId: storyId } });
+export function navigateFeedFocusStory(navigation: AppNavigation, storyId: string, viewerUserId: string | null): void {
+  void navigateToFeedStoryViewer(navigation, storyId, viewerUserId);
 }
 
 /** Profile → Auth and similar flows that expect a generic navigation handle. */
