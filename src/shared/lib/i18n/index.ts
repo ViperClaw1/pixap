@@ -7,3 +7,4 @@ export {
   i18n,
   type AppLanguage,
 } from "./init";
+export { PageI18nProvider } from "./PageI18nProvider";

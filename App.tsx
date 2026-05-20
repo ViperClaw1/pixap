@@ -17,7 +17,7 @@ import { supabaseConfigError } from "@/shared/api/supabase/client";
 import { logStartupDiagnostics } from "@/shared/lib/startupDiagnostics";
 import { useAppToastConfig } from "@/shared/ui/app-toast/createAppToastConfig";
 import { AppPopupHost } from "@/shared/ui/app-popup";
-import { ensurePushNotificationHandler } from "@/shared/lib/push/pushNotifications";
+import { ensurePushNotificationHandler, setPushNotificationOpenHandler } from "@/shared/lib/push/pushNotifications";
 import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -39,6 +39,19 @@ function NavigationRoot() {
       task.cancel();
       unsubscribe?.();
     };
+  }, []);
+
+  useEffect(() => {
+    setPushNotificationOpenHandler((data) => {
+      if (!rootNavigationRef.isReady()) return;
+      if (data.kind !== "daily_recommendation") return;
+      const date = typeof data.date === "string" ? data.date : undefined;
+      rootNavigationRef.navigate("Home", {
+        screen: "DailyRecommendations",
+        params: { date },
+      });
+    });
+    return () => setPushNotificationOpenHandler(null);
   }, []);
 
   const base = isDark ? DarkTheme : DefaultTheme;

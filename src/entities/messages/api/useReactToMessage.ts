@@ -36,7 +36,10 @@ export function useReactToMessage() {
       return { threadId };
     },
     onSuccess: (_res, vars) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.threadPrefix(vars.threadId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.messages.threadPrefix(vars.threadId),
+        refetchType: "active",
+      });
     },
   });
 }

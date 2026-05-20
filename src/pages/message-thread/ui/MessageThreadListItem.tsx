@@ -3,7 +3,6 @@ import { Linking, Pressable, Text, View, type StyleProp, type TextStyle } from "
 import { Ionicons } from "@expo/vector-icons";
 import { Swipeable } from "react-native-gesture-handler";
 import type { MessageBubble } from "@/entities/messages";
-import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import { REACTION_SET, isStickerAssetUri } from "../model/constants";
@@ -11,7 +10,7 @@ import type { MessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { splitShareEntityContent } from "@/shared/lib/placeShareMessage";
 import { findFirstHttpUrl, splitTextWithUrls } from "@/shared/lib/messageUrlSegments";
 import { MessageUrlPreviewBlock } from "@/features/message-link-preview";
-import { detectAttachmentKind, MessageVideoThumbnail } from "@/features/message-attachments";
+import { detectAttachmentKind, MessageAttachmentBubble } from "@/features/message-attachments";
 
 type Props = {
   item: MessageBubble;
@@ -19,7 +18,7 @@ type Props = {
   styles: MessageThreadStyles;
   colors: ThemeColors;
   mode: ThemeMode;
-  peerLastSeenAt: string | null | undefined;
+  peerLastReadAt: string | null | undefined;
   reactionPickerMessageId: string | null;
   onToggleReactionPicker: (messageId: string) => void;
   onOpenDelete: (messageId: string, isMine: boolean) => void;
@@ -28,6 +27,7 @@ type Props = {
   onOpenSharedPlace?: (placeId: string) => void;
   onOpenSharedStory?: (storyId: string) => void;
   onOpenAttachment?: (uri: string) => void;
+  enableLinkPreview?: boolean;
 };
 
 function messageHasVisibleText(content: string | null | undefined): boolean {
@@ -168,7 +168,7 @@ function MessageThreadListItemComponent({
   styles: s,
   colors,
   mode,
-  peerLastSeenAt,
+  peerLastReadAt,
   reactionPickerMessageId,
   onToggleReactionPicker,
   onOpenDelete,
@@ -177,10 +177,11 @@ function MessageThreadListItemComponent({
   onOpenSharedPlace,
   onOpenSharedStory,
   onOpenAttachment,
+  enableLinkPreview = true,
 }: Props) {
   const isMine = message.mine;
   const isReadByPeer =
-    isMine && !!peerLastSeenAt && new Date(message.created_at).getTime() <= new Date(peerLastSeenAt).getTime();
+    isMine && !!peerLastReadAt && new Date(message.created_at).getTime() <= new Date(peerLastReadAt).getTime();
 
   const bareMediaOnly = message.attachments.length > 0 && !messageHasVisibleText(message.content);
   const hasMediaPlusText =
@@ -246,24 +247,18 @@ function MessageThreadListItemComponent({
               {message.attachments.map((uri) => {
                 const sticker = isStickerAssetUri(uri);
                 const boxStyle = sticker ? s.bubbleAttachmentSticker : s.bubbleAttachmentImage;
-                const kind = detectAttachmentKind(uri, null);
-                const inner =
-                  kind === "image" ? (
-                    <SmartImage uri={uri} style={boxStyle} contentFit="cover" />
-                  ) : kind === "video" ? (
-                    <MessageVideoThumbnail videoUri={uri} style={boxStyle} iconColor={colors.textMuted} />
-                  ) : (
-                    <View style={[boxStyle, s.bubbleAttachmentPlaceholder]}>
-                      <Ionicons name="document-text-outline" size={sticker ? 22 : 28} color={colors.textMuted} />
-                    </View>
-                  );
                 return (
                   <Pressable
                     key={`${message.id}-${uri}`}
                     onPress={() => onOpenAttachment?.(uri)}
                     disabled={!onOpenAttachment}
                   >
-                    {inner}
+                    <MessageAttachmentBubble
+                      uri={uri}
+                      boxStyle={boxStyle}
+                      placeholderStyle={s.bubbleAttachmentPlaceholder}
+                      iconColor={colors.textMuted}
+                    />
                   </Pressable>
                 );
               })}
@@ -304,16 +299,6 @@ function MessageThreadListItemComponent({
                         ? s.bubbleAttachmentBleedSingleMine
                         : s.bubbleAttachmentBleedSinglePeer
                       : s.bubbleAttachmentImage;
-                  const inner =
-                    kind === "image" ? (
-                      <SmartImage uri={uri} style={boxStyle} contentFit="cover" />
-                    ) : kind === "video" ? (
-                      <MessageVideoThumbnail videoUri={uri} style={boxStyle} iconColor={colors.textMuted} />
-                    ) : (
-                      <View style={[boxStyle, s.bubbleAttachmentPlaceholder]}>
-                        <Ionicons name="document-text-outline" size={sticker ? 22 : 28} color={colors.textMuted} />
-                      </View>
-                    );
                   return (
                     <Pressable
                       key={`${message.id}-${uri}`}
@@ -321,7 +306,13 @@ function MessageThreadListItemComponent({
                       onPress={() => onOpenAttachment?.(uri)}
                       disabled={!onOpenAttachment}
                     >
-                      {inner}
+                      <MessageAttachmentBubble
+                        uri={uri}
+                        boxStyle={boxStyle}
+                        placeholderStyle={s.bubbleAttachmentPlaceholder}
+                        iconColor={colors.textMuted}
+                        imageLayout={singleBleed ? "bleed" : "thumb"}
+                      />
                     </Pressable>
                   );
                 })}
@@ -334,7 +325,7 @@ function MessageThreadListItemComponent({
                   onOpenPlace={onOpenSharedPlace}
                   onOpenStory={onOpenSharedStory}
                 />
-                {previewUrl ? <MessageUrlPreviewBlock url={previewUrl} /> : null}
+                {enableLinkPreview && previewUrl ? <MessageUrlPreviewBlock url={previewUrl} /> : null}
                 <View style={[s.bubbleMetaRow, isMine ? s.bubbleMetaRowMine : s.bubbleMetaRowPeer]}>
                   <Text style={[s.bubbleMeta, isMine ? s.bubbleMetaMine : s.bubbleMetaPeer]}>
                     {new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -365,25 +356,19 @@ function MessageThreadListItemComponent({
               <View style={[s.bubbleAttachments, isMine ? s.bubbleAttachmentsMine : null]}>
                 {message.attachments.map((uri) => {
                   const sticker = isStickerAssetUri(uri);
-                  const kind = detectAttachmentKind(uri, null);
                   const boxStyle = sticker ? s.bubbleAttachmentSticker : s.bubbleAttachmentImage;
-                  const inner =
-                    kind === "image" ? (
-                      <SmartImage uri={uri} style={boxStyle} contentFit="cover" />
-                    ) : kind === "video" ? (
-                      <MessageVideoThumbnail videoUri={uri} style={boxStyle} iconColor={colors.textMuted} />
-                    ) : (
-                      <View style={[boxStyle, s.bubbleAttachmentPlaceholder]}>
-                        <Ionicons name="document-text-outline" size={sticker ? 22 : 28} color={colors.textMuted} />
-                      </View>
-                    );
                   return (
                     <Pressable
                       key={`${message.id}-${uri}`}
                       onPress={() => onOpenAttachment?.(uri)}
                       disabled={!onOpenAttachment}
                     >
-                      {inner}
+                      <MessageAttachmentBubble
+                        uri={uri}
+                        boxStyle={boxStyle}
+                        placeholderStyle={s.bubbleAttachmentPlaceholder}
+                        iconColor={colors.textMuted}
+                      />
                     </Pressable>
                   );
                 })}
@@ -398,7 +383,7 @@ function MessageThreadListItemComponent({
                   onOpenPlace={onOpenSharedPlace}
                   onOpenStory={onOpenSharedStory}
                 />
-                {previewUrl ? <MessageUrlPreviewBlock url={previewUrl} /> : null}
+                {enableLinkPreview && previewUrl ? <MessageUrlPreviewBlock url={previewUrl} /> : null}
               </>
             ) : null}
             {!hasMediaPlusText ? (

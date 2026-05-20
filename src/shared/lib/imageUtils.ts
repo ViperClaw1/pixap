@@ -1,10 +1,22 @@
+import { env } from "@/shared/lib/env";
+
 /**
- * Supabase Storage Image Transformations (`/render/image/`) require a paid add-on.
+ * Supabase Storage Image Transformations (`/render/image/`) require Pro + Dashboard toggle.
  * Without it, transformed URLs return 403 and break feed/story media in the app.
  * Set `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1` after enabling transforms in the project.
  */
 export function isSupabaseImageTransformEnabled(): boolean {
-  return process.env.EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM === "1";
+  return env.supabaseImageTransformEnabled;
+}
+
+/** Original `/object/public/` URL when a `/render/image/public/` request fails (403 before Pro/transforms). */
+export function getSupabaseStorageObjectFallbackUrl(url: string): string | null {
+  if (!url.includes("supabase.co/storage/v1/render/image/public/")) return null;
+  const pathOnly = url.split("?")[0]?.split("#")[0] ?? url;
+  const objectPath = pathOnly.replace("/storage/v1/render/image/public/", "/storage/v1/object/public/");
+  if (objectPath === pathOnly) return null;
+  const hash = url.includes("#") ? url.slice(url.indexOf("#")) : "";
+  return `${objectPath}${hash}`;
 }
 
 /**

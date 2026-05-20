@@ -30,6 +30,10 @@ verify_jwt = false
 # Invoked by pg_cron/pg_net with service role bearer (not a user session JWT).
 verify_jwt = false
 
+[functions.generate-daily-recommendations]
+# Invoked by pg_cron/pg_net with service role bearer (not a user session JWT).
+verify_jwt = false
+
 [functions.pixai-booking-chat]
 verify_jwt = false
 

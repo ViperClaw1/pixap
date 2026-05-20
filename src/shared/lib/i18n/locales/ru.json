@@ -30,8 +30,125 @@
     "loading": "Загрузка...",
     "unknownError": "Неизвестная ошибка",
     "cancel": "Отмена",
+    "ok": "ОК",
     "delete": "Удалить",
     "unknownUser": "Неизвестный пользователь"
+  },
+  "editProfile": {
+    "savedTitle": "Сохранено",
+    "savedBody": "Данные профиля обновлены.",
+    "personalizeCta": "Настроить рекомендации"
+  },
+  "onboarding": {
+    "actions": {
+      "back": "Назад",
+      "skip": "Пропустить",
+      "continue": "Далее",
+      "startRating": "Оценить места",
+      "finish": "Готово",
+      "prev": "Назад",
+      "next": "Вперёд"
+    },
+    "steps": {
+      "venueCategories": {
+        "title": "Какие заведения вам нравятся?",
+        "subtitle": "Выберите всё подходящее — мы настроим рекомендации."
+      },
+      "vibes": {
+        "title": "Ваш вайб",
+        "subtitle": "Какой должна быть атмосфера?"
+      },
+      "habits": {
+        "title": "Привычки",
+        "subtitle": "Как вы обычно проводите вечера?"
+      },
+      "music": {
+        "title": "Музыка",
+        "subtitle": "Что должно играть?"
+      },
+      "temperament": {
+        "title": "Ваша энергия",
+        "subtitle": "Быстрые ползунки — не психотест."
+      }
+    },
+    "categories": {
+      "bars": "Бары",
+      "clubs": "Клубы",
+      "lounges": "Лаунжи",
+      "techno": "Техно",
+      "live_music": "Живая музыка",
+      "rooftop": "Крыши",
+      "restaurants": "Рестораны",
+      "wine_bars": "Винные бары",
+      "cocktail_bars": "Коктейльные",
+      "hookah_lounges": "Кальянные",
+      "cafes": "Кафе",
+      "beach_clubs": "Бич-клабы",
+      "art_spaces": "Арт-пространства",
+      "jazz_bars": "Джаз-бары",
+      "underground": "Андеграунд",
+      "luxury": "Люкс",
+      "casual": "Казуал",
+      "networking": "Нетворкинг",
+      "party_places": "Тусовочные",
+      "quiet_places": "Тихие места"
+    },
+    "vibes": {
+      "calm": "Спокойно",
+      "energetic": "Энергично",
+      "aesthetic": "Эстетика",
+      "luxury": "Люкс",
+      "chaotic": "Хаос",
+      "underground": "Андеграунд",
+      "romantic": "Романтика",
+      "social": "Социально",
+      "intimate": "Уютно",
+      "loud": "Громко",
+      "cozy": "Камерно"
+    },
+    "habits": {
+      "night_out": "Люблю ходить ночью",
+      "books_tables": "Часто бронирую столики",
+      "spontaneous": "Люблю спонтанные выходы",
+      "quiet_spots": "Люблю тихие места",
+      "music_focused": "Хожу ради музыки",
+      "meet_people": "Люблю знакомиться с людьми"
+    },
+    "music": {
+      "techno": "Техно",
+      "house": "Хаус",
+      "hip_hop": "Хип-хоп",
+      "jazz": "Джаз",
+      "afro": "Афро",
+      "indie": "Инди",
+      "pop": "Поп",
+      "electronic": "Электроника",
+      "live_music": "Живая музыка",
+      "rnb": "R&B",
+      "ambient": "Эмбиент"
+    },
+    "temperament": {
+      "introvertLow": "Интроверт",
+      "introvertHigh": "Экстраверт",
+      "energyLow": "Низкая энергия",
+      "energyHigh": "Высокая энергия",
+      "adventureLow": "Рутина",
+      "adventureHigh": "Авантюра",
+      "planningLow": "Спонтанность",
+      "planningHigh": "Планирование"
+    },
+    "rating": {
+      "hate": "Ненавижу",
+      "notForMe": "Не моё",
+      "neutral": "Нейтрально",
+      "like": "Нравится",
+      "love": "Обожаю"
+    },
+    "venue": {
+      "location": "{{city}}",
+      "progress": "Оценено {{count}} из {{min}}",
+      "empty": "Сейчас нет мест для оценки. Попробуйте позже."
+    }
   },
   "home": {
     "searchPlaceholder": "Рестораны, салоны, события…",
@@ -69,7 +186,9 @@
     "fallbackName": "Категория"
   },
   "vibeMatch": {
-    "chooseAtLeastOnePlace": "Пожалуйста, выберите хотя бы одно место"
+    "chooseAtLeastOnePlace": "Пожалуйста, выберите хотя бы одно место",
+    "moodNotesPlaceholder": "Добавьте детали (необязательно)",
+    "moodRequired": "Выберите хотя бы один вайб или кратко опишите настроение."
   },
   "messages": {
     "searchPlaceholder": "Поиск чатов и пользователей",
@@ -90,7 +209,11 @@
     "toastCouldNotOpenSupport": "Не удалось открыть чат поддержки",
     "support": "Поддержка",
     "supportSubtitle": "Чат с нашей командой",
-    "followed": "Подписан"
+    "followed": "Подписан",
+    "thread": {
+      "peerTyping": "печатает...",
+      "peerOnline": "в сети"
+    }
   },
   "bookings": {
     "filter": {
@@ -249,6 +372,12 @@
     "actions": {
       "manageSubscription": "Управление подпиской",
       "getPremium": "Получить PixAI Premium",
+      "completeOnboarding": "Завершить онбординг",
+      "updatePreferences": "Обновить предпочтения",
+      "retakeTaste": "Пройти заново",
+      "retakeTasteTitle": "Пройти заново?",
+      "retakeTasteBody": "Оценки мест из онбординга будут удалены, вы начнёте сначала.",
+      "retakeTasteConfirm": "Начать заново",
       "archive": "Архив",
       "privacy": "Конфиденциальность и безопасность",
       "settings": "Настройки"
@@ -308,6 +437,54 @@
     "locationDenied": "Для отметки нужен доступ к геолокации.",
     "rateLimited": "Повторная отметка возможна примерно через 15 минут.",
     "checkInError": "Не удалось сохранить отметку. Попробуйте позже."
+  },
+  "bookingCredits": {
+    "balanceBadge": "Осталось кредитов: {{count}}",
+    "introBadge": "{{count}} бесплатных брони · {{days}} дн.",
+    "noCreditsTitle": "Нет кредитов на бронирование",
+    "noCreditsMessage": "Оформите Premium, чтобы получить кредиты, или дождитесь следующего платёжного периода.",
+    "insufficientForStops": "Для маршрута нужно {{count}} кредитов, у вас их меньше."
+  },
+  "subscriptionPaywall": {
+    "title": "Откройте Pix AI Booking",
+    "subtitleNoCredits": "Кредиты на бронирование закончились. Выберите тариф, чтобы продолжить.",
+    "subtitleUpgrade": "Больше кредитов и полный доступ к PixAI.",
+    "monthlyTitle": "PixAI Premium Monthly",
+    "annualTitle": "PixAI Premium Plus",
+    "monthlyCredits": "10 кредитов на бронирование за период",
+    "annualCredits": "100 кредитов на бронирование за период",
+    "featureAiBooking": "Pix AI умное бронирование",
+    "featureVibeMatch": "Pix AI vibe matching",
+    "featurePostBoost": "Продвижение постов в ленте (скоро)",
+    "perMonth": "/мес",
+    "perYear": "/год",
+    "ctaMonthly": "Premium, {{price}}/мес",
+    "ctaMonthlyFallback": "Premium Monthly",
+    "ctaAnnual": "Premium Plus, {{price}}/год",
+    "ctaAnnualFallback": "Premium Plus Annual",
+    "restore": "Восстановить покупки",
+    "manageApple": "Управление в App Store",
+    "manageGoogle": "Управление в Google Play",
+    "legal": "Условия и оплата управляются аккаунтом магазина приложений.",
+    "expoGoHint": "Покупки недоступны в Expo Go. Используйте dev или production сборку."
+  },
+  "postBoost": {
+    "title": "Продвижение поста в ленте",
+    "comingSoon": "Скоро — ваши посты будут выше в выдаче.",
+    "enabledHint": "Продвинуть этот пост в ленте."
+  },
+  "dailyRecommendations": {
+    "title": "Для вас на сегодня",
+    "subtitle": "Свежие подборки под ваш вкус.",
+    "heroTitle": "Для вас на сегодня",
+    "heroSubtitle": "Персональные рекомендации обновляются каждый день.",
+    "openHero": "Открыть ежедневные рекомендации",
+    "empty": "На сегодня подборок пока нет. Загляните позже.",
+    "save": "Сохранить",
+    "unsave": "Убрать",
+    "share": "Поделиться",
+    "dislike": "Не нравится",
+    "book": "Забронировать"
   },
   "errorBoundary": {
     "retry": "Повторить",

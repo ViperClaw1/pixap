@@ -76,7 +76,8 @@ export async function hydrateFeedPosts(
       .from("post_comments" as any)
       .select("id, post_id, parent_id, content, created_at, user_id")
       .in("post_id", postIds)
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })
+      .limit(Math.min(400, postIds.length * 8)),
     supabase.from("post_reactions" as any).select("post_id, type").in("post_id", postIds),
     userId
       ? supabase.from("post_reactions" as any).select("post_id, type").eq("user_id", userId).in("post_id", postIds)

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -15,28 +15,38 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { useDeleteMessage, useReactToMessage, useSendMessage, useThreadMessages } from "@/entities/messages";
+import {
+  useDeleteMessage,
+  useDebouncedMarkThreadRead,
+  useMessageThreadTyping,
+  useReactToMessage,
+  useSendMessage,
+  useThreadMessages,
+} from "@/entities/messages";
+import { useIsUserOnline } from "@/entities/user-presence";
 import { navigateFeedFocusStory, navigateFeedPlaceDetail } from "@/app/navigation/appNavigation";
 import type { CartStackParamList } from "@/app/navigation/types";
 import Toast from "react-native-toast-message";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { STICKER_URLS } from "../model/constants";
-import { formatRelativeLastSeen, peerFullName } from "../model/format";
+import { peerFullName } from "../model/format";
+import { resolvePeerPresenceStatus } from "../model/peerPresenceStatus";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
-import { useKeyboardInset } from "@/shared/lib/keyboard";
+import { useFooterKeyboardLift, useKeyboardInset } from "@/shared/lib/keyboard";
 import type { MessageThreadListRow } from "../model/types";
 import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
-import { MessageThreadListItem } from "./MessageThreadListItem";
+import { markMessagingPerfEnd, markMessagingPerfStart } from "@/shared/lib/messagingPerf";
+import { MessageThreadRow } from "./MessageThreadRow";
+import { MessageThreadSkeleton } from "./MessageThreadSkeleton";
+import { ThreadHeader } from "./ThreadHeader";
 import {
   AttachmentViewerModal,
   detectAttachmentKind,
@@ -48,6 +58,9 @@ type MessageThreadNav = NativeStackNavigationProp<CartStackParamList, "MessageTh
 
 const SCROLL_AT_BOTTOM_THRESHOLD_PX = 48;
 const SCROLL_TO_BOTTOM_SHOW_THRESHOLD_PX = 500;
+const LOAD_OLDER_SCROLL_THRESHOLD_PX = 120;
+/** adjustResize уже поднимает контент; уменьшаем ручной paddingBottom футера на Android. */
+const MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX = 64;
 
 export default function MessageThreadPage() {
   const { t } = useTranslation();
@@ -61,22 +74,53 @@ export default function MessageThreadPage() {
   }
   const stableBottomInset = stableBottomInsetRef.current;
   const listRef = useRef<FlashListRef<MessageThreadListRow>>(null);
+  const footerMeasureRef = useRef<View>(null);
   const isAtBottomRef = useRef(true);
   const scrollAfterSendRef = useRef(false);
+  const pendingOpenScrollRef = useRef(true);
   const scrollFabVisible = useSharedValue(0);
   const [showScrollFab, setShowScrollFab] = useState(false);
   const { colors, mode } = useAppTheme();
-  const tabBarHeight = useBottomTabBarHeight();
   const [draft, setDraft] = useState(params.initialDraft ?? "");
   const [attachments, setAttachments] = useState<MessageAttachmentDraft[]>([]);
   const [attachmentViewer, setAttachmentViewer] = useState<MessageAttachmentDraft | null>(null);
   const [isStickerPanelOpen, setStickerPanelOpen] = useState(false);
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
   const { user } = useAuth();
-  const { messages, peer, peerLastSeenAt, isLoading } = useThreadMessages(params.threadId);
+  const {
+    messages,
+    peer,
+    peerLastReadAt,
+    peerLastSeenAt,
+    isLoading,
+    hasMoreOlder,
+    loadOlderMessages,
+    isLoadingOlder,
+  } = useThreadMessages(params.threadId);
+  const peerIsOnline = useIsUserOnline(isSupport ? null : peer?.id);
+  const { schedule: scheduleMarkRead } = useDebouncedMarkThreadRead(params.threadId, !isLoading);
+  const { peerIsTyping, stopTyping } = useMessageThreadTyping({
+    threadId: params.threadId,
+    userId: user?.id,
+    peerId: isSupport ? null : (peer?.id ?? null),
+    draft,
+    enabled: !isSupport,
+  });
   const sendMessage = useSendMessage();
   const reactToMessage = useReactToMessage();
   const deleteMessage = useDeleteMessage();
+
+  useEffect(() => {
+    markMessagingPerfStart("thread_open");
+    pendingOpenScrollRef.current = true;
+  }, [params.threadId]);
+
+  useEffect(() => {
+    if (!isLoading && messages.length >= 0) {
+      markMessagingPerfEnd("thread_open", `${messages.length} messages`);
+    }
+  }, [isLoading, messages.length]);
+
   const leaveThread = useCallback(() => {
     if (navigation.canGoBack()) {
       navigation.goBack();
@@ -102,6 +146,34 @@ export default function MessageThreadPage() {
     [navigation, user?.id],
   );
 
+  const peerPresence = useMemo(
+    () =>
+      resolvePeerPresenceStatus({
+        peerIsTyping,
+        peerIsOnline,
+        peerLastSeenAt,
+        typingLabel: t("messages.thread.peerTyping"),
+        onlineLabel: t("messages.thread.peerOnline"),
+      }),
+    [peerIsTyping, peerIsOnline, peerLastSeenAt, t],
+  );
+
+  const scheduleMarkReadRef = useRef(scheduleMarkRead);
+  scheduleMarkReadRef.current = scheduleMarkRead;
+
+  useFocusEffect(
+    useCallback(() => {
+      pendingOpenScrollRef.current = true;
+      scheduleMarkReadRef.current();
+      return undefined;
+    }, []),
+  );
+
+  useEffect(() => {
+    if (!messages.length) return;
+    scheduleMarkReadRef.current();
+  }, [messages.length]);
+
   const peerName = isSupport
     ? (params.threadTitle ?? t("messages.support"))
     : peerFullName(peer?.first_name ?? params.peerFirstName ?? null, peer?.last_name ?? params.peerLastName ?? null);
@@ -114,21 +186,34 @@ export default function MessageThreadPage() {
       const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
       isAtBottomRef.current = distanceFromBottom <= SCROLL_AT_BOTTOM_THRESHOLD_PX;
       const shouldShowFab = distanceFromBottom > SCROLL_TO_BOTTOM_SHOW_THRESHOLD_PX;
-      scrollFabVisible.value = withTiming(shouldShowFab ? 1 : 0, {
-        duration: 200,
-        easing: Easing.out(Easing.cubic),
-      });
+      // Android: do not assign withTiming() from JS scroll handler — corrupts SharedValue (String/Double crash).
+      scrollFabVisible.value = shouldShowFab ? 1 : 0;
       setShowScrollFab((prev) => (prev === shouldShowFab ? prev : shouldShowFab));
+
+      if (contentOffset.y < LOAD_OLDER_SCROLL_THRESHOLD_PX && hasMoreOlder && !isLoadingOlder) {
+        void loadOlderMessages();
+      }
     },
-    [scrollFabVisible],
+    [hasMoreOlder, isLoadingOlder, loadOlderMessages, scrollFabVisible],
   );
 
   const scrollToBottom = useCallback((animated = true) => {
     listRef.current?.scrollToEnd({ animated });
     isAtBottomRef.current = true;
-    scrollFabVisible.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
+    scrollFabVisible.value = 0;
     setShowScrollFab(false);
   }, [scrollFabVisible]);
+
+  const flushScrollToBottomOnOpen = useCallback(() => {
+    if (!pendingOpenScrollRef.current) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!pendingOpenScrollRef.current) return;
+        scrollToBottom(false);
+        pendingOpenScrollRef.current = false;
+      });
+    });
+  }, [scrollToBottom]);
 
   const flushScrollAfterSend = useCallback(() => {
     if (!scrollAfterSendRef.current) return;
@@ -141,10 +226,26 @@ export default function MessageThreadPage() {
     });
   }, [scrollToBottom]);
 
-  const scrollFabAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: scrollFabVisible.value,
-    transform: [{ scale: 0.88 + scrollFabVisible.value * 0.12 }],
-  }));
+  const scrollFabAnimatedStyle = useAnimatedStyle(() => {
+    const visibility = scrollFabVisible.value;
+    return {
+      opacity: withTiming(visibility, { duration: 200, easing: Easing.out(Easing.cubic) }),
+      transform: [
+        {
+          scale: withTiming(0.88 + visibility * 0.12, { duration: 200, easing: Easing.out(Easing.cubic) }),
+        },
+      ],
+    };
+  });
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (rows.length === 0) {
+      pendingOpenScrollRef.current = false;
+      return;
+    }
+    flushScrollToBottomOnOpen();
+  }, [isLoading, rows.length, params.threadId, flushScrollToBottomOnOpen]);
 
   useEffect(() => {
     if (!scrollAfterSendRef.current || rows.length === 0) return;
@@ -152,72 +253,92 @@ export default function MessageThreadPage() {
   }, [rows, flushScrollAfterSend]);
 
   const handleListContentSizeChange = useCallback(() => {
+    if (pendingOpenScrollRef.current) {
+      flushScrollToBottomOnOpen();
+    }
     if (!scrollAfterSendRef.current) return;
     flushScrollAfterSend();
-  }, [flushScrollAfterSend]);
+  }, [flushScrollAfterSend, flushScrollToBottomOnOpen]);
 
-  const openDeleteOptions = (messageId: string, isMine: boolean) => {
-    if (!isMine) return;
-    Alert.alert("Delete message", "Choose delete mode", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete for me",
-        onPress: () => {
-          void deleteMessage
-            .mutateAsync({ threadId: params.threadId, messageId, mode: "me" })
-            .then(() => {
-              Toast.show({
-                type: "success",
-                text1: "Deleted for you",
+  const openDeleteOptions = useCallback(
+    (messageId: string, isMine: boolean) => {
+      if (!isMine) return;
+      Alert.alert("Delete message", "Choose delete mode", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete for me",
+          onPress: () => {
+            void deleteMessage
+              .mutateAsync({ threadId: params.threadId, messageId, mode: "me" })
+              .then(() => {
+                Toast.show({ type: "success", text1: "Deleted for you" });
+              })
+              .catch((error) => {
+                Toast.show({
+                  type: "error",
+                  text1: "Delete failed",
+                  text2: error instanceof Error ? error.message : "Please try again.",
+                });
               });
-            })
-            .catch((error) => {
-              Toast.show({
-                type: "error",
-                text1: "Delete failed",
-                text2: error instanceof Error ? error.message : "Please try again.",
-              });
-            });
+          },
         },
-      },
-      ...(isMine
-        ? [
-            {
-              text: "Delete for everyone",
-              style: "destructive" as const,
-              onPress: () => {
-                void deleteMessage
-                  .mutateAsync({ threadId: params.threadId, messageId, mode: "everyone" })
-                  .then(() => {
-                    Toast.show({
-                      type: "success",
-                      text1: "Deleted for everyone",
-                    });
-                  })
-                  .catch((error) => {
-                    Toast.show({
-                      type: "error",
-                      text1: "Delete failed",
-                      text2: error instanceof Error ? error.message : "Please try again.",
-                    });
-                  });
-              },
-            },
-          ]
-        : []),
-    ]);
-  };
+        {
+          text: "Delete for everyone",
+          style: "destructive",
+          onPress: () => {
+            void deleteMessage
+              .mutateAsync({ threadId: params.threadId, messageId, mode: "everyone" })
+              .then(() => {
+                Toast.show({ type: "success", text1: "Deleted for everyone" });
+              })
+              .catch((error) => {
+                Toast.show({
+                  type: "error",
+                  text1: "Delete failed",
+                  text2: error instanceof Error ? error.message : "Please try again.",
+                });
+              });
+          },
+        },
+      ]);
+    },
+    [deleteMessage, params.threadId],
+  );
 
   const styles = useMessageThreadStyles(insets.top, stableBottomInset);
-
-  const keyboardInsetAnim = useKeyboardInset({ tabBarHeight });
-
-  const contentAnimatedStyle = useAnimatedStyle(
-    () => ({
-      paddingBottom: keyboardInsetAnim.value,
-    }),
-    [keyboardInsetAnim],
+  const { lift: iosKeyboardLift, recalculate: recalculateIosKeyboardLift } = useFooterKeyboardLift(
+    () => footerMeasureRef.current,
+    { gap: 0, enabled: Platform.OS === "ios" },
   );
+  const androidKeyboardInset = useKeyboardInset({
+    gap: 0,
+    tabBarHeight: 0,
+    ignoreWindowResize: true,
+    enabled: Platform.OS === "android",
+  });
+
+  const contentAnimatedStyle = useAnimatedStyle(() => {
+    if (Platform.OS === "ios") {
+      return { transform: [{ translateY: -iosKeyboardLift.value }] };
+    }
+    return {
+      paddingBottom: Math.max(0, androidKeyboardInset.value - MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX),
+    };
+  });
+
+  const listKeyboardSpacerStyle = useAnimatedStyle(() => ({
+    height: Platform.OS === "android" ? androidKeyboardInset.value : 0,
+  }));
+
+  const scrollFabPositionStyle = useAnimatedStyle(() => {
+    const lift = Platform.OS === "android" ? androidKeyboardInset.value : 0;
+    return { bottom: 12 + lift };
+  });
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    recalculateIosKeyboardLift();
+  }, [attachments.length, isStickerPanelOpen, peerIsTyping, recalculateIosKeyboardLift]);
 
   const mergeDrafts = useCallback((prev: MessageAttachmentDraft[], next: MessageAttachmentDraft[]) => {
     const seen = new Set(prev.map((p) => p.uri));
@@ -270,119 +391,123 @@ export default function MessageThreadPage() {
     setAttachments((prev) => mergeDrafts(prev, next));
   };
 
-  const toggleStickerPanel = () => {
+  const toggleStickerPanel = useCallback(() => {
     setStickerPanelOpen((prev) => !prev);
-  };
+  }, []);
 
-  const openAttachmentViewer = useCallback((uri: string, draft?: MessageAttachmentDraft | null) => {
-    if (draft?.uri === uri) {
-      setAttachmentViewer(draft);
+  const openAttachmentViewer = useCallback((uri: string, draftAttachment?: MessageAttachmentDraft | null) => {
+    if (draftAttachment?.uri === uri) {
+      setAttachmentViewer(draftAttachment);
       return;
     }
     setAttachmentViewer({ uri, mimeType: null, name: null });
   }, []);
 
-  /** FlashList при первом mount с data=[] и center-стилем не пересчитывает layout после fetch. */
+  const onToggleReactionPicker = useCallback((messageId: string) => {
+    setReactionPickerMessageId((prev) => (prev === messageId ? null : messageId));
+  }, []);
+
+  const onCloseReactionPicker = useCallback(() => setReactionPickerMessageId(null), []);
+
+  const onReact = useCallback(
+    (messageId: string, reaction: string, active: boolean) => {
+      void reactToMessage.mutateAsync({
+        threadId: params.threadId,
+        messageId,
+        reaction,
+        active,
+      });
+    },
+    [params.threadId, reactToMessage],
+  );
+
   const awaitingInitialMessages = isLoading && rows.length === 0;
-
   const keyExtractor = useCallback((row: MessageThreadListRow) => row.key, []);
+  const getItemType = useCallback((row: MessageThreadListRow) => row.kind, []);
 
-  const renderRow = useCallback(({ item }: { item: MessageThreadListRow }) => {
-    if (item.kind === "divider") {
-      return (
-        <View style={styles.dividerWrap}>
-          <Text style={styles.dividerText}>{item.label}</Text>
-        </View>
-      );
-    }
-    return (
-      <MessageThreadListItem
-        item={item.message}
-        groupedWithPrevious={item.groupedWithPrevious}
+  const listKeyboardSpacer = useCallback(
+    () => <Animated.View style={listKeyboardSpacerStyle} />,
+    [listKeyboardSpacerStyle],
+  );
+
+  const renderRow = useCallback(
+    ({ item }: { item: MessageThreadListRow }) => (
+      <MessageThreadRow
+        item={item}
         styles={styles}
         colors={colors}
         mode={mode}
-        peerLastSeenAt={peerLastSeenAt}
+        peerLastReadAt={peerLastReadAt}
         reactionPickerMessageId={reactionPickerMessageId}
-        onToggleReactionPicker={(messageId) =>
-          setReactionPickerMessageId((prev) => (prev === messageId ? null : messageId))
-        }
+        onToggleReactionPicker={onToggleReactionPicker}
         onOpenDelete={openDeleteOptions}
-        onReact={(messageId, reaction, active) =>
-          void reactToMessage.mutateAsync({
-            threadId: params.threadId,
-            messageId,
-            reaction,
-            active,
-          })
-        }
-        onCloseReactionPicker={() => setReactionPickerMessageId(null)}
+        onReact={onReact}
+        onCloseReactionPicker={onCloseReactionPicker}
         onOpenSharedPlace={openSharedPlace}
         onOpenSharedStory={openSharedStory}
         onOpenAttachment={(uri) => openAttachmentViewer(uri, null)}
       />
-    );
-  }, [
-    colors,
-    mode,
-    openAttachmentViewer,
-    openDeleteOptions,
-    openSharedPlace,
-    openSharedStory,
-    params.threadId,
-    peerLastSeenAt,
-    reactToMessage,
-    reactionPickerMessageId,
-    styles,
-  ]);
+    ),
+    [
+      colors,
+      mode,
+      onCloseReactionPicker,
+      onReact,
+      onToggleReactionPicker,
+      openAttachmentViewer,
+      openDeleteOptions,
+      openSharedPlace,
+      openSharedStory,
+      peerLastReadAt,
+      reactionPickerMessageId,
+      styles,
+    ],
+  );
 
   return (
     <View style={styles.root} {...androidSwipeBackPanHandlers}>
-      <Animated.View style={[styles.content, contentAnimatedStyle]}>
-        <View style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={leaveThread}>
-            <Ionicons name="arrow-back" size={20} color={colors.text} />
-          </Pressable>
-          <View style={styles.headerCenter}>
-            <Text style={styles.peerName} numberOfLines={1}>
-              {peerName}
-            </Text>
-            <Text style={styles.peerSeen}>{formatRelativeLastSeen(peerLastSeenAt)}</Text>
-          </View>
-          {isSupport ? (
-            <View style={[styles.peerAvatar, styles.supportPeerAvatar, { backgroundColor: colors.accent }]}>
-              <Ionicons name="headset-outline" size={20} color={colors.onAccent} />
-            </View>
-          ) : (
-            <UserAvatarImage uri={peerAvatar} style={styles.peerAvatar} contentFit="cover" />
-          )}
-        </View>
+      <ThreadHeader
+        styles={styles}
+        colors={colors}
+        peerName={peerName}
+        presenceLabel={peerPresence.label}
+        presenceIsOnline={peerPresence.isOnline}
+        isSupport={isSupport}
+        peerAvatar={peerAvatar}
+        onBack={leaveThread}
+      />
 
+      <Animated.View style={[styles.content, contentAnimatedStyle]}>
         {awaitingInitialMessages ? (
-          <View style={[styles.list, styles.listContent, styles.listLoading]}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
+          <MessageThreadSkeleton styles={styles} />
         ) : (
           <View style={styles.listWrap}>
+            {isLoadingOlder ? (
+              <View style={{ paddingVertical: 8, alignItems: "center" }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : null}
             <FlashList
               ref={listRef}
               key={params.threadId}
               style={styles.list}
               data={rows}
               keyExtractor={keyExtractor}
+              getItemType={getItemType}
               estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageBubble}
               contentContainerStyle={[styles.listContent, rows.length === 0 && styles.listContentEmpty]}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
               onScroll={handleListScroll}
               onContentSizeChange={handleListContentSizeChange}
-              scrollEventThrottle={16}
+              scrollEventThrottle={32}
               renderItem={renderRow}
               removeClippedSubviews
-              initialNumToRender={18}
-              maxToRenderPerBatch={14}
-              windowSize={10}
-              updateCellsBatchingPeriod={40}
+              initialNumToRender={12}
+              maxToRenderPerBatch={10}
+              windowSize={7}
+              updateCellsBatchingPeriod={50}
+              ListFooterComponent={listKeyboardSpacer}
               ListEmptyComponent={
                 <View style={styles.emptyWrap}>
                   <Text style={styles.emptyText}>No messages yet.</Text>
@@ -390,7 +515,7 @@ export default function MessageThreadPage() {
               }
             />
             <Animated.View
-              style={[styles.scrollToBottomBtn, scrollFabAnimatedStyle]}
+              style={[styles.scrollToBottomBtn, scrollFabPositionStyle, scrollFabAnimatedStyle]}
               pointerEvents={showScrollFab ? "auto" : "none"}
             >
               <Pressable
@@ -405,7 +530,13 @@ export default function MessageThreadPage() {
           </View>
         )}
 
-        <View style={styles.footer}>
+        <View ref={footerMeasureRef} collapsable={false}>
+          <View style={styles.footer}>
+          {peerIsTyping ? (
+            <View style={styles.typingRow} accessibilityLiveRegion="polite">
+              <Text style={styles.typingText}>{t("messages.thread.peerTyping")}</Text>
+            </View>
+          ) : null}
           {isStickerPanelOpen ? (
             <View style={styles.stickerPanel}>
               {STICKER_URLS.map((stickerUri) => (
@@ -478,6 +609,7 @@ export default function MessageThreadPage() {
               style={[styles.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}
               disabled={(!draft.trim().length && !attachments.length) || sendMessage.isPending}
               onPress={() => {
+                stopTyping();
                 if (!isAtBottomRef.current) {
                   scrollAfterSendRef.current = true;
                 }
@@ -507,6 +639,7 @@ export default function MessageThreadPage() {
                 <Ionicons name="paper-plane-outline" size={17} color={colors.onPrimary} />
               )}
             </Pressable>
+          </View>
           </View>
         </View>
       </Animated.View>

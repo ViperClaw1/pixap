@@ -1,4 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  refillBookingCreditsByEntitlementRef,
+  shouldRefillCreditsOnAppleNotification,
+} from "../_shared/bookingCredits.ts";
 
 function decodeJwtPayload<T>(jwt: string): T {
   const parts = jwt.split(".");
@@ -79,6 +83,15 @@ Deno.serve(async (req) => {
           })
           .eq("platform", "ios")
           .eq("original_transaction_id", tx.originalTransactionId);
+
+        if (
+          status === "active" &&
+          shouldRefillCreditsOnAppleNotification(decoded.notificationType)
+        ) {
+          await refillBookingCreditsByEntitlementRef(admin, "ios", {
+            originalTransactionId: tx.originalTransactionId,
+          });
+        }
       }
     }
 

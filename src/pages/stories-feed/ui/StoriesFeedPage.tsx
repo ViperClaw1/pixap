@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   InteractionManager,
-  PixelRatio,
   Platform,
   Pressable,
   ScrollView,
@@ -26,7 +25,7 @@ import { useMyFollowing, useProfile, useToggleFollow } from "@/entities/user";
 import { useBusinessCards } from "@/entities/business-card";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
-import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
+import { feedMediaDeviceDpr, getFeedPostCarouselImageUrls } from "@/shared/lib/feedMediaUrls";
 import { getOptimizedImageUrlPreset } from "@/shared/lib/imagePresets";
 import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
 import { ShimmerSurface } from "@/shared/ui/shimmer/ShimmerSurface";
@@ -117,16 +116,11 @@ export default function StoriesFeedScreen() {
     return Math.max(FEED_CAROUSEL_MIN_HEIGHT, Math.min(fromViewport, maxFromMainBlock));
   }, [feedMainBlockHeight, height]);
 
-  const optimizedPostImageSize = useMemo(() => {
-    const dpr = PixelRatio.get();
-    return { width: quantizeDecodePx(Math.round(width * dpr)), height: quantizeDecodePx(Math.round(sliderHeight * dpr)) };
-  }, [sliderHeight, width]);
-
   const focusedPostVms = useMemo<FeedPostVm[]>(
     () =>
       focusedPosts.map((post) => {
         const postImagesRaw = getPostImages(post);
-        const dpr = PixelRatio.get();
+        const dpr = feedMediaDeviceDpr();
         const authorAvatarRaw = profileAvatar(post.profile?.avatar_url);
         const authorAvatar = authorAvatarRaw
           ? getOptimizedImageUrlPreset(authorAvatarRaw, "thumb", { dpr }) || authorAvatarRaw
@@ -134,15 +128,13 @@ export default function StoriesFeedScreen() {
         return {
           post,
           postImagesRaw,
-          postImages: postImagesRaw.map(
-            (url) => getOptimizedImageUrl(url, optimizedPostImageSize.width, optimizedPostImageSize.height, 78) || url,
-          ),
+          postImages: getFeedPostCarouselImageUrls(postImagesRaw),
           postSlideBlurhashes: slideBlurhashesForPost(post, postImagesRaw.length),
           authorAvatarRaw,
           authorAvatar,
         };
       }),
-    [focusedPosts, optimizedPostImageSize.height, optimizedPostImageSize.width],
+    [focusedPosts],
   );
 
   // ─── Stories ─────────────────────────────────────────────────────────────
@@ -231,11 +223,12 @@ export default function StoriesFeedScreen() {
       for (const token of viewableItems) {
         if (token.isViewable && typeof token.index === "number") maxVisible = Math.max(maxVisible, token.index);
       }
-      const windowEnd = Math.min(vms.length - 1, maxVisible + 4);
+      const windowEnd = Math.min(vms.length - 1, maxVisible + 2);
       const uris: string[] = [];
       for (let i = maxVisible; i <= windowEnd; i++) {
         const vm = vms[i];
-        if (vm) for (const u of vm.postImages.slice(0, 2)) if (u) uris.push(u);
+        const first = vm?.postImages[0];
+        if (first) uris.push(first);
       }
       InteractionManager.runAfterInteractions(() => { void preloadSmartImages(uris); });
     },
@@ -500,7 +493,7 @@ function StoriesStripHeader({
   onAddStory: () => void;
   onLoadMoreStories: () => void;
 }) {
-  const stripDpr = PixelRatio.get();
+  const stripDpr = feedMediaDeviceDpr();
   const onStoriesStripScroll = useCallback(
     (offsetX: number, layoutWidth: number, contentWidth: number) => {
       if (layoutWidth + offsetX < contentWidth - 48) return;

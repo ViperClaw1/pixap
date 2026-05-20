@@ -1,4 +1,5 @@
 export * from "./api/usePostsFeed";
+export * from "./api/useInteractedPlaceIds";
 export * from "./api/usePostById";
 export * from "./api/usePostComments";
 export * from "./api/useReplyToPostComment";

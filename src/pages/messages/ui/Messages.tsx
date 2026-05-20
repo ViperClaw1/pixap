@@ -1,15 +1,15 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { Alert, Platform, Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useIsFocused, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import Toast from "react-native-toast-message";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 import { useMyFollowing, useToggleFollow } from "@/entities/user";
@@ -17,12 +17,16 @@ import { usePublicProfiles } from "@/entities/user";
 import {
   findDirectThreadForPeer,
   findSupportThread,
+  prefetchThreadMessages,
   useMarkThreadRead,
   useMessagesInbox,
+  useMessagesInboxTyping,
   useOpenOrCreateSupportThread,
   useOpenOrCreateThread,
   usePeopleToFollow,
 } from "@/entities/messages";
+import type { FollowSuggestion } from "@/entities/messages/api/usePeopleToFollow";
+import type { MessageThreadItem } from "@/shared/model/types/messages";
 import { SupportChatCard } from "./SupportChatCard";
 import type { CartStackParamList } from "@/app/navigation/types";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
@@ -30,13 +34,16 @@ import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSh
 import { MESSAGES_COMPACT_WIDTH, useMessagesStyles } from "./messagesStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import { devWarn } from "@/shared/lib/devLog";
-import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
-
-function fullName(first?: string | null, last?: string | null, emptyLabel = "Unknown user") {
-  return `${first?.trim() ?? ""} ${last?.trim() ?? ""}`.trim() || emptyLabel;
-}
+import { markMessagingPerfEnd, markMessagingPerfStart } from "@/shared/lib/messagingPerf";
+import { MessagesThreadRow } from "./MessagesThreadRow";
+import { MessagesPersonRow } from "./MessagesPersonRow";
 
 const SKELETON_IDS = ["1", "2", "3"] as const;
+
+type MessagesListRow =
+  | { kind: "section"; key: string; title: string }
+  | { kind: "thread"; key: string; thread: MessageThreadItem }
+  | { kind: "person"; key: string; person: FollowSuggestion };
 
 export default function MessagesPage() {
   const { t } = useTranslation();
@@ -45,28 +52,40 @@ export default function MessagesPage() {
   const isCompact = windowWidth < MESSAGES_COMPACT_WIDTH;
   const actionIconSize = isCompact ? 18 : 22;
   const navigation = useNavigation<NativeStackNavigationProp<CartStackParamList>>();
+  const isScreenFocused = useIsFocused();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { colors, mode, setMode } = useAppTheme();
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [startChatModalOpen, setStartChatModalOpen] = useState(false);
   const [deletedThreadIds, setDeletedThreadIds] = useState<Set<string>>(new Set());
-  const { threads, isLoading: inboxLoading } = useMessagesInbox(search);
-  const { people, isLoading: peopleLoading } = usePeopleToFollow(search);
-  const { data: publicProfiles = [], isLoading: publicProfilesLoading } = usePublicProfiles("");
+  const { threads, isPending: inboxPending } = useMessagesInbox(search);
+  const { people, isPending: peoplePending } = usePeopleToFollow(search);
+  const sectionsPending = inboxPending || peoplePending;
+  const { data: publicProfiles = [], isLoading: publicProfilesLoading } = usePublicProfiles("", startChatModalOpen);
   const { followingSet } = useMyFollowing();
-  const isPageLoading = inboxLoading || peopleLoading;
   const markThreadRead = useMarkThreadRead();
   const openOrCreateThread = useOpenOrCreateThread();
   const openOrCreateSupportThread = useOpenOrCreateSupportThread();
   const toggleFollow = useToggleFollow();
   const supportThread = useMemo(() => findSupportThread(threads), [threads]);
 
+  useEffect(() => {
+    markMessagingPerfStart("inbox_open");
+  }, []);
+
+  useEffect(() => {
+    if (!sectionsPending) {
+      markMessagingPerfEnd("inbox_open", `${threads.length} threads`);
+    }
+  }, [sectionsPending, threads.length]);
+
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
   };
 
-  const onToggleFollower = (person: (typeof people)[number]) => {
+  const onToggleFollower = (person: FollowSuggestion) => {
     const isFollowing = followingSet.has(person.id);
     void toggleFollow
       .mutateAsync({ followingId: person.id, isFollowing })
@@ -88,32 +107,38 @@ export default function MessagesPage() {
       });
   };
 
-  const navigateToThread = (
-    threadId: string,
-    person: {
-      id: string;
-      first_name?: string | null;
-      last_name?: string | null;
-      avatar_url?: string | null;
+  const navigateToThread = useCallback(
+    (
+      threadId: string,
+      person: {
+        id: string;
+        first_name?: string | null;
+        last_name?: string | null;
+        avatar_url?: string | null;
+      },
+    ) => {
+      navigation.navigate("MessageThread", {
+        threadId,
+        peerId: person.id,
+        peerFirstName: person.first_name,
+        peerLastName: person.last_name,
+        peerAvatarUrl: person.avatar_url,
+      });
     },
-  ) => {
-    navigation.navigate("MessageThread", {
-      threadId,
-      peerId: person.id,
-      peerFirstName: person.first_name,
-      peerLastName: person.last_name,
-      peerAvatarUrl: person.avatar_url,
-    });
-  };
+    [navigation],
+  );
 
-  const navigateToSupportThread = (threadId: string) => {
-    navigation.navigate("MessageThread", {
-      threadId,
-      peerId: "",
-      isSupport: true,
-      threadTitle: t("messages.support"),
-    });
-  };
+  const navigateToSupportThread = useCallback(
+    (threadId: string) => {
+      navigation.navigate("MessageThread", {
+        threadId,
+        peerId: "",
+        isSupport: true,
+        threadTitle: t("messages.support"),
+      });
+    },
+    [navigation, t],
+  );
 
   const onOpenSupport = () => {
     if (supportThread) {
@@ -134,12 +159,7 @@ export default function MessagesPage() {
       });
   };
 
-  const onOpenChat = (person: {
-    id: string;
-    first_name?: string | null;
-    last_name?: string | null;
-    avatar_url?: string | null;
-  }) => {
+  const onOpenChat = (person: FollowSuggestion) => {
     const existingThreadId = findDirectThreadForPeer(threads, person.id);
     if (existingThreadId) {
       setStartChatModalOpen(false);
@@ -167,314 +187,293 @@ export default function MessagesPage() {
     () => threads.filter((thread) => !thread.is_support && !deletedThreadIds.has(thread.thread_id)),
     [deletedThreadIds, threads],
   );
+  const typingThreadIds = useMessagesInboxTyping(visibleThreads, user?.id, isScreenFocused);
+  const peerTypingLabel = t("messages.thread.peerTyping");
 
-  const onDeleteThread = (threadId: string, title: string) => {
-    Alert.alert(t("messages.deleteChatTitle"), t("messages.deleteChatMessage", { name: title }), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"),
-        style: "destructive",
-        onPress: () => {
-          setDeletedThreadIds((prev) => {
-            const next = new Set(prev);
-            next.add(threadId);
-            return next;
-          });
-          Toast.show({
-            type: "success",
-            text1: t("messages.toastChatDeleted"),
-            text2: t("messages.toastChatRemoved", { title }),
-          });
+  const listRows = useMemo((): MessagesListRow[] => {
+    const rows: MessagesListRow[] = [
+      { kind: "section", key: "section-chats", title: t("messages.myChats") },
+    ];
+    if (!sectionsPending) {
+      for (const thread of visibleThreads) {
+        rows.push({ kind: "thread", key: thread.thread_id, thread });
+      }
+    }
+    rows.push({ kind: "section", key: "section-people", title: t("messages.peopleToFollow") });
+    if (!sectionsPending) {
+      for (const person of people) {
+        rows.push({ kind: "person", key: person.id, person });
+      }
+    }
+    return rows;
+  }, [people, sectionsPending, t, visibleThreads]);
+
+  const onDeleteThread = useCallback(
+    (threadId: string, title: string) => {
+      Alert.alert(t("messages.deleteChatTitle"), t("messages.deleteChatMessage", { name: title }), [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("common.delete"),
+          style: "destructive",
+          onPress: () => {
+            setDeletedThreadIds((prev) => {
+              const next = new Set(prev);
+              next.add(threadId);
+              return next;
+            });
+            Toast.show({
+              type: "success",
+              text1: t("messages.toastChatDeleted"),
+              text2: t("messages.toastChatRemoved", { title }),
+            });
+          },
         },
-      },
-    ]);
-  };
+      ]);
+    },
+    [t],
+  );
 
+  const openThread = useCallback(
+    (thread: MessageThreadItem) => {
+      const peer = thread.participants.find((participant) => participant.id !== user?.id) ?? thread.participants[0];
+      navigateToThread(thread.thread_id, {
+        id: peer?.id ?? thread.last_sender_id,
+        first_name: peer?.first_name ?? null,
+        last_name: peer?.last_name ?? null,
+        avatar_url: peer?.avatar_url ?? thread.last_sender_avatar_url,
+      });
+      if (thread.unread_count && !markThreadRead.isPending) {
+        void markThreadRead.mutateAsync(thread.thread_id);
+      }
+    },
+    [markThreadRead, navigateToThread, user?.id],
+  );
+
+  const prefetchThread = useCallback(
+    (threadId: string) => {
+      if (!user?.id) return;
+      void prefetchThreadMessages(queryClient, threadId, user.id);
+    },
+    [queryClient, user?.id],
+  );
+
+  const tabBarHeight = useBottomTabBarHeight();
   const styles = useMessagesStyles(insets.bottom);
 
-  return (
-    <ScrollView style={styles.root} contentContainerStyle={[styles.content, isCompact ? styles.contentCompact : null]}>
-      <AppHeader
-        title={t("header.messages")}
-        leftIcon="add"
-        onLeftPress={() => setStartChatModalOpen(true)}
-        rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
-        onRightPress={toggleThemeMode}
-        notificationsEnabled
-      />
+  const listContentStyle = useMemo(
+    () => [
+      styles.content,
+      isCompact ? styles.contentCompact : null,
+      // FlashList on Android adds tab-bar clearance on top of safe-area padding from theme.
+      Platform.OS === "android" ? { paddingBottom: tabBarHeight + 12 } : null,
+    ],
+    [isCompact, styles.content, styles.contentCompact, tabBarHeight],
+  );
 
-      <SupportChatCard
-        styles={styles}
-        colors={colors}
-        isCompact={isCompact}
-        isOpening={openOrCreateSupportThread.isPending}
-        existingThread={supportThread}
-        onPress={onOpenSupport}
-      />
-
-      <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={18} color={colors.textMuted} />
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder={t("messages.searchPlaceholder")}
-          placeholderTextColor={colors.textMuted}
-          style={styles.searchInput}
+  const listHeader = useMemo(
+    () => (
+      <>
+        <AppHeader
+          title={t("header.messages")}
+          leftIcon="add"
+          onLeftPress={() => setStartChatModalOpen(true)}
+          rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+          onRightPress={toggleThemeMode}
+          notificationsEnabled
         />
-      </View>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{t("messages.myChats")}</Text>
-      </View>
-      {isPageLoading ? (
-        <ShimmerProvider active>
-          <View style={styles.skeletonWrap}>
-            {SKELETON_IDS.map((id) => (
-              <View key={`inbox-skeleton-${id}`} style={styles.skeletonCard}>
-                <ShimmerSurface width={48} height={48} borderRadius={24} />
-                <View style={styles.skeletonMain}>
-                  <ShimmerSurface width={160} height={12} borderRadius={10} />
-                  <ShimmerSurface width={110} height={10} borderRadius={10} />
-                </View>
-              </View>
-            ))}
-          </View>
-        </ShimmerProvider>
-      ) : visibleThreads.length ? (
-        <FlashList
-          data={visibleThreads}
-          keyExtractor={(thread) => thread.thread_id}
-          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageRow}
-          scrollEnabled={false}
-          removeClippedSubviews
-          initialNumToRender={8}
-          maxToRenderPerBatch={8}
-          windowSize={6}
-          updateCellsBatchingPeriod={40}
-          renderItem={({ item: thread }) => (
-            <Swipeable
-              overshootRight={false}
-              renderRightActions={() => (
-                <View style={styles.swipeActionWrap}>
-                  <Pressable
-                    style={[styles.swipeActionBtn, styles.swipeDeleteBtn]}
-                    onPress={() => onDeleteThread(thread.thread_id, thread.last_sender_name || unknownLabel)}
-                  >
-                    <Ionicons name="trash-outline" size={22} color={colors.onAccent} />
-                  </Pressable>
-                </View>
-              )}
-            >
-              <Pressable
-                style={[styles.card, isCompact ? styles.cardCompact : null]}
-                onPress={() => {
-                  if (thread.unread_count && !markThreadRead.isPending) {
-                    void markThreadRead.mutateAsync(thread.thread_id);
-                  }
-                  const peer = thread.participants.find((participant) => participant.id !== user?.id) ?? thread.participants[0];
-                  navigation.navigate("MessageThread", {
-                    threadId: thread.thread_id,
-                    peerId: peer?.id ?? thread.last_sender_id,
-                    peerFirstName: peer?.first_name ?? null,
-                    peerLastName: peer?.last_name ?? null,
-                    peerAvatarUrl: peer?.avatar_url ?? thread.last_sender_avatar_url,
-                  });
-                }}
-              >
-                <UserAvatarImage
-                  uri={thread.last_sender_avatar_url}
-                  style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
-                  contentFit="cover"
-                />
-                <View style={styles.cardMain}>
-                  <View style={styles.rowBetween}>
-                    <Text style={[styles.title, styles.chatTitle]} numberOfLines={1}>
-                      {thread.last_sender_name}
-                    </Text>
-                  </View>
-                  <Text style={styles.subtitle} numberOfLines={1} ellipsizeMode="tail">
-                    {thread.last_message_text}
-                  </Text>
-                </View>
-                <View style={styles.threadActionsWrap}>
-                  <Text style={styles.time}>
-                    {formatRelativeTime(thread.last_message_at, { style: "compact" })}
-                  </Text>
-                  <View style={styles.threadReadIndicator}>
-                    <Ionicons
-                      name={thread.unread_count > 0 ? "checkmark" : "checkmark-done"}
-                      size={16}
-                      color={thread.unread_count > 0 ? colors.textMuted : colors.primary}
-                    />
-                  </View>
-                </View>
-              </Pressable>
-            </Swipeable>
-          )}
+        <SupportChatCard
+          styles={styles}
+          colors={colors}
+          isCompact={isCompact}
+          isOpening={openOrCreateSupportThread.isPending}
+          existingThread={supportThread}
+          onPress={onOpenSupport}
         />
-      ) : (
-        <Text style={styles.empty}>{t("messages.noChatsFound")}</Text>
-      )}
+        <View style={styles.searchWrap}>
+          <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder={t("messages.searchPlaceholder")}
+            placeholderTextColor={colors.textMuted}
+            style={styles.searchInput}
+          />
+        </View>
+      </>
+    ),
+    [
+      colors,
+      isCompact,
+      mode,
+      openOrCreateSupportThread.isPending,
+      styles,
+      supportThread,
+      search,
+      t,
+    ],
+  );
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{t("messages.peopleToFollow")}</Text>
-      </View>
-      {isPageLoading ? (
-        <ShimmerProvider active>
-          <View style={styles.skeletonWrap}>
-            {SKELETON_IDS.map((id) => (
-              <View key={`people-skeleton-${id}`} style={[styles.skeletonCard, isCompact ? styles.skeletonCardCompact : null]}>
-                <ShimmerSurface
-                  width={isCompact ? 40 : 48}
-                  height={isCompact ? 40 : 48}
-                  borderRadius={isCompact ? 20 : 24}
-                 
-                />
-                <View style={styles.skeletonMain}>
-                  <ShimmerSurface width={160} height={12} borderRadius={10} />
-                  <ShimmerSurface width={110} height={10} borderRadius={10} />
-                </View>
-                <View style={styles.skeletonActions}>
-                  <ShimmerSurface
-                    width={isCompact ? 36 : 44}
-                    height={isCompact ? 36 : 44}
-                    borderRadius={isCompact ? 18 : 22}
-                   
-                  />
-                  <ShimmerSurface
-                    width={isCompact ? 36 : 44}
-                    height={isCompact ? 36 : 44}
-                    borderRadius={isCompact ? 18 : 22}
-                   
-                  />
-                </View>
-              </View>
-            ))}
-          </View>
-        </ShimmerProvider>
-      ) : people.length ? (
-        <FlashList
-          data={people}
-          keyExtractor={(person) => person.id}
-          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageRow}
-          scrollEnabled={false}
-          removeClippedSubviews
-          initialNumToRender={8}
-          maxToRenderPerBatch={8}
-          windowSize={6}
-          updateCellsBatchingPeriod={40}
-          renderItem={({ item: person }) => (
-            <Swipeable
-              overshootRight={false}
-              renderRightActions={() => (
-                <View style={styles.swipeActionWrap}>
-                  <Pressable
-                    style={[styles.swipeActionBtn, styles.swipeChatBtn, isCompact ? styles.swipeActionBtnCompact : null]}
-                    onPress={() => onOpenChat(person)}
-                  >
-                    <Ionicons name="chatbubble-ellipses" size={actionIconSize} color={colors.onAccent} />
-                  </Pressable>
-                </View>
-              )}
-              renderLeftActions={() => (
-                <View style={styles.swipeActionWrap}>
-                  <Pressable
-                    style={[styles.swipeActionBtn, styles.swipeFollowBtn, isCompact ? styles.swipeActionBtnCompact : null]}
-                    onPress={() => onToggleFollower(person)}
-                  >
-                    <Ionicons
-                      name={followingSet.has(person.id) ? "person-remove" : "person-add"}
-                      size={actionIconSize}
-                      color={colors.onAccent}
-                    />
-                  </Pressable>
-                </View>
-              )}
-            >
-              <View style={[styles.card, isCompact ? styles.cardCompact : null]}>
-                <UserAvatarImage
-                  uri={person.avatar_url}
-                  style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
-                  contentFit="cover"
-                />
-                <View style={styles.cardMain}>
-                  <Text style={[styles.title, isCompact ? styles.titleCompact : null]} numberOfLines={1}>
-                    {fullName(person.first_name, person.last_name, unknownLabel)}
-                  </Text>
-                  <View style={[styles.userMetaRow, isCompact ? styles.userMetaRowCompact : null]}>
-                    <Text style={[styles.username, isCompact ? styles.usernameCompact : null]} numberOfLines={1}>
-                      @{person.username?.trim() || unknownLabel}
-                    </Text>
-                    {followingSet.has(person.id) ? (
-                      <View style={[styles.followedBadge, isCompact ? styles.followedBadgeCompact : null]}>
-                        <Text style={[styles.followedBadgeText, isCompact ? styles.followedBadgeTextCompact : null]}>
-                          {t("messages.followed")}
-                        </Text>
+  const keyExtractor = useCallback((row: MessagesListRow) => row.key, []);
+  const getItemType = useCallback((row: MessagesListRow) => row.kind, []);
+
+  const renderItem = useCallback(
+    ({ item }: { item: MessagesListRow }) => {
+      if (item.kind === "section") {
+        const showSectionsSkeleton = sectionsPending;
+        return (
+          <View>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{item.title}</Text>
+            </View>
+            {item.key === "section-chats" && !sectionsPending && !visibleThreads.length ? (
+              <Text style={styles.empty}>{t("messages.noChatsFound")}</Text>
+            ) : null}
+            {item.key === "section-chats" && showSectionsSkeleton ? (
+              <ShimmerProvider active>
+                <View style={styles.skeletonWrap}>
+                  {SKELETON_IDS.map((id) => (
+                    <View key={`inbox-skeleton-${id}`} style={styles.skeletonCard}>
+                      <ShimmerSurface width={48} height={48} borderRadius={24} />
+                      <View style={styles.skeletonMain}>
+                        <ShimmerSurface width={160} height={12} borderRadius={10} />
+                        <ShimmerSurface width={110} height={10} borderRadius={10} />
                       </View>
-                    ) : null}
-                  </View>
+                    </View>
+                  ))}
                 </View>
-                <View style={[styles.actionsWrap, isCompact ? styles.actionsWrapCompact : null]}>
-                  <Pressable
-                    style={[styles.iconActionBtn, styles.followBtn, isCompact ? styles.iconActionBtnCompact : null]}
-                    onPress={() => onToggleFollower(person)}
-                  >
-                    <Ionicons
-                      name={followingSet.has(person.id) ? "person-remove" : "person-add"}
-                      size={actionIconSize}
-                      color={colors.onAccent}
-                    />
-                  </Pressable>
-                  <Pressable
-                    style={[styles.iconActionBtn, styles.chatBtn, isCompact ? styles.iconActionBtnCompact : null]}
-                    onPress={() => onOpenChat(person)}
-                  >
-                    <Ionicons name="chatbubble-ellipses" size={actionIconSize} color={colors.onAccent} />
-                  </Pressable>
+              </ShimmerProvider>
+            ) : null}
+            {item.key === "section-people" && showSectionsSkeleton ? (
+              <ShimmerProvider active>
+                <View style={styles.skeletonWrap}>
+                  {SKELETON_IDS.map((id) => (
+                    <View
+                      key={`people-skeleton-${id}`}
+                      style={[styles.skeletonCard, isCompact ? styles.skeletonCardCompact : null]}
+                    >
+                      <ShimmerSurface
+                        width={isCompact ? 40 : 48}
+                        height={isCompact ? 40 : 48}
+                        borderRadius={isCompact ? 20 : 24}
+                      />
+                      <View style={styles.skeletonMain}>
+                        <ShimmerSurface width={160} height={12} borderRadius={10} />
+                        <ShimmerSurface width={110} height={10} borderRadius={10} />
+                      </View>
+                    </View>
+                  ))}
                 </View>
-              </View>
-            </Swipeable>
-          )}
+              </ShimmerProvider>
+            ) : null}
+            {item.key === "section-people" && !sectionsPending && !people.length ? (
+              <Text style={styles.empty}>{t("messages.noUsersFound")}</Text>
+            ) : null}
+          </View>
+        );
+      }
+
+      if (item.kind === "thread") {
+        return (
+          <MessagesThreadRow
+            thread={item.thread}
+            styles={styles}
+            colors={colors}
+            isCompact={isCompact}
+            peerIsTyping={typingThreadIds.has(item.thread.thread_id)}
+            typingLabel={peerTypingLabel}
+            onPress={() => openThread(item.thread)}
+            onPressIn={() => prefetchThread(item.thread.thread_id)}
+            onDelete={() => onDeleteThread(item.thread.thread_id, item.thread.last_sender_name || unknownLabel)}
+          />
+        );
+      }
+
+      return (
+        <MessagesPersonRow
+          person={item.person}
+          styles={styles}
+          colors={colors}
+          isCompact={isCompact}
+          actionIconSize={actionIconSize}
+          unknownLabel={unknownLabel}
+          isFollowing={followingSet.has(item.person.id)}
+          followedLabel={t("messages.followed")}
+          onOpenChat={() => onOpenChat(item.person)}
+          onToggleFollow={() => onToggleFollower(item.person)}
         />
-      ) : (
-        <Text style={styles.empty}>{t("messages.noUsersFound")}</Text>
-      )}
+      );
+    },
+    [
+      actionIconSize,
+      colors,
+      followingSet,
+      isCompact,
+      onDeleteThread,
+      onOpenChat,
+      onToggleFollower,
+      openThread,
+      sectionsPending,
+      peerTypingLabel,
+      prefetchThread,
+      styles,
+      t,
+      typingThreadIds,
+      unknownLabel,
+      visibleThreads.length,
+    ],
+  );
+
+  const listEmpty = useMemo(() => {
+    if (sectionsPending) return null;
+    if (!visibleThreads.length && !people.length) {
+      return <Text style={styles.empty}>{t("messages.noChatsFound")}</Text>;
+    }
+    return null;
+  }, [people.length, sectionsPending, styles.empty, t, visibleThreads.length]);
+
+  return (
+    <View style={styles.root}>
+      <FlashList
+        style={styles.root}
+        data={listRows}
+        keyExtractor={keyExtractor}
+        getItemType={getItemType}
+        estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageRow}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+        renderItem={renderItem}
+        contentContainerStyle={listContentStyle}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+        initialNumToRender={10}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        updateCellsBatchingPeriod={40}
+      />
 
       <BottomSheetPickerModal visible={startChatModalOpen} onClose={() => setStartChatModalOpen(false)} title={t("messages.startChatTitle")}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>
+        <View style={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>
           {publicProfilesLoading ? (
             <Text style={styles.empty}>{t("common.loading")}</Text>
           ) : publicProfiles.filter((profile) => profile.id !== user?.id).length ? (
             publicProfiles
               .filter((profile) => profile.id !== user?.id)
               .map((item) => (
-                <View key={item.id} style={[styles.card, isCompact ? styles.cardCompact : null]}>
-                  <UserAvatarImage
-                    uri={item.avatar_url}
-                    style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
-                    contentFit="cover"
-                  />
-                  <View style={styles.cardMain}>
-                    <Text style={[styles.title, isCompact ? styles.titleCompact : null]} numberOfLines={1}>
-                      {fullName(item.first_name, item.last_name, unknownLabel)}
-                    </Text>
-                    <Text style={[styles.username, isCompact ? styles.usernameCompact : null]} numberOfLines={1}>
-                      @{item.username?.trim() || unknownLabel}
-                    </Text>
-                  </View>
-                  <Pressable
-                    style={[styles.iconActionBtn, styles.chatBtn, isCompact ? styles.iconActionBtnCompact : null]}
-                    onPress={() => onOpenChat(item)}
-                  >
-                    <Ionicons name="chatbubble-ellipses" size={isCompact ? 18 : 20} color={colors.onAccent} />
-                  </Pressable>
-                </View>
+                <Pressable
+                  key={item.id}
+                  style={[styles.card, isCompact ? styles.cardCompact : null]}
+                  onPress={() => onOpenChat(item)}
+                >
+                  <Text style={styles.title} numberOfLines={1}>
+                    {`${item.first_name?.trim() ?? ""} ${item.last_name?.trim() ?? ""}`.trim() || unknownLabel}
+                  </Text>
+                </Pressable>
               ))
           ) : (
             <Text style={styles.empty}>{t("messages.noUsersFound")}</Text>
           )}
-        </ScrollView>
+        </View>
       </BottomSheetPickerModal>
-    </ScrollView>
+    </View>
   );
 }

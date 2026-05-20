@@ -93,7 +93,7 @@ const GRID_COLUMNS = 3;
 const GRID_BATCH_ROWS = 7;
 /** Matches `calCircle` size in storiesArchiveStyles. */
 const CAL_CIRCLE_SIZE = 40;
-const PREFETCH_BATCH_SIZE = 8;
+const PREFETCH_BATCH_SIZE = 4;
 const ARCHIVE_TAB_ORDER: ArchiveTab[] = ["grid", "calendar", "map"];
 const MAP_REGION_EDGE_PADDING = 0.02;
 const MAP_REGION_MIN_DELTA = 0.08;
@@ -374,11 +374,7 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
     const viewportRows = Math.max(1, Math.ceil(tabBodyMinHeight / gridTileHeight));
     const preloadCount = Math.min(gridItems.length, (viewportRows + 2) * GRID_COLUMNS);
     const batch = Array.from(
-      new Set(
-        gridItems
-          .slice(0, preloadCount)
-          .flatMap((g) => [g.thumbUri, g.thumbFallbackUri].filter((u): u is string => Boolean(u))),
-      ),
+      new Set(gridItems.slice(0, preloadCount).map((g) => g.thumbUri).filter((u) => u.length > 0)),
     );
     const task = InteractionManager.runAfterInteractions(() => {
       void preloadSmartImages(batch);
@@ -439,7 +435,6 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
       const thumb = previewThumbByYmd.get(cell.ymd);
       if (!thumb) continue;
       uris.push(thumb.thumbUri);
-      if (thumb.thumbFallbackUri) uris.push(thumb.thumbFallbackUri);
     }
     if (!uris.length) return;
     const task = InteractionManager.runAfterInteractions(() => {

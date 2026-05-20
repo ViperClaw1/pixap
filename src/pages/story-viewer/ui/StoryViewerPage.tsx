@@ -39,7 +39,7 @@ import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import Toast from "react-native-toast-message";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { getFeedStoryFullscreenImageUrl } from "@/shared/lib/feedMediaUrls";
 import { StoryDiscussionGlassSheet } from "./StoryDiscussionGlassSheet";
 
 type StoryViewerRoute = RouteProp<BrowseFlowParamList, "StoryViewer">;
@@ -136,8 +136,8 @@ export default function StoryViewerScreen() {
   useEffect(() => {
     const next = parseStoryMediaUrl(viewer.flatStories[viewer.currentFlatIndex + 1]?.story.media_url);
     const nextGroup = parseStoryMediaUrl(params.groups[viewer.currentGroupIndex + 1]?.stories[0]?.media_url);
-    const nextOptimized = getOptimizedImageUrl(next, 1080, 1920, 78) || next;
-    const nextGroupOptimized = getOptimizedImageUrl(nextGroup, 1080, 1920, 78) || nextGroup;
+    const nextOptimized = getFeedStoryFullscreenImageUrl(next) || next;
+    const nextGroupOptimized = getFeedStoryFullscreenImageUrl(nextGroup) || nextGroup;
     if (nextOptimized) void Image.prefetch(nextOptimized);
     if (nextGroupOptimized) void Image.prefetch(nextGroupOptimized);
   }, [params.groups, viewer.currentFlatIndex, viewer.currentGroupIndex, viewer.flatStories]);

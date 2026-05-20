@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { Alert, PixelRatio, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { StoryReactionType } from "@/shared/model/types/stories";
 import type { FeedStoryItem } from "@/entities/story";
@@ -7,6 +7,7 @@ import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import { ReactionBar } from "./ReactionBar";
 import { CommentPreview } from "./CommentPreview";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { feedMediaDeviceDpr } from "@/shared/lib/feedMediaUrls";
 import { getOptimizedImageUrlPreset } from "@/shared/lib/imagePresets";
 
 interface FeedStoryCardProps {
@@ -41,7 +42,7 @@ function FeedStoryCardComponent({
     const last = story.profile?.last_name?.trim() ?? "";
     return `${first} ${last}`.trim() || "Unknown User";
   }, [story.profile?.first_name, story.profile?.last_name]);
-  const deviceDpr = PixelRatio.get();
+  const deviceDpr = feedMediaDeviceDpr();
   const coverImage = useMemo(
     () => (story.media_url ? getOptimizedImageUrlPreset(story.media_url, "medium", { dpr: deviceDpr }) : ""),
     [deviceDpr, story.media_url],

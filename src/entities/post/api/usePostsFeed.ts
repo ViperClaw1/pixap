@@ -12,6 +12,7 @@ import {
   isMissingMediaBlurhashesError,
   normalizePostRow,
 } from "@/entities/post/lib/hydrateFeedPosts";
+import { useInteractedPlaceIds } from "./useInteractedPlaceIds";
 
 export type FeedPostItem = PostItem & {
   place_name: string;
@@ -27,45 +28,18 @@ export type FeedPostItem = PostItem & {
 type FeedPage = { posts: FeedPostItem[]; hasMore: boolean; page: number };
 
 const FEED_PAGE_SIZE = 12;
-const FETCH_WINDOW_MULTIPLIER = 4;
-
-async function getInteractedPlaceIds(userId: string): Promise<string[]> {
-  const [ownPostsResult, ownReactionsResult, ownCommentsResult] = await Promise.all([
-    supabase.from("posts" as any).select("place_id").eq("user_id", userId).limit(300),
-    supabase.from("post_reactions" as any).select("post_id").eq("user_id", userId).not("post_id", "is", null).limit(500),
-    supabase.from("post_comments" as any).select("post_id").eq("user_id", userId).limit(500),
-  ]);
-
-  const ownPostPlaces = ((ownPostsResult.data ?? []) as Array<{ place_id: string | null }>)
-    .map((row) => row.place_id)
-    .filter((id): id is string => Boolean(id));
-  const relatedPostIds = Array.from(
-    new Set(
-      [
-        ...((ownReactionsResult.data ?? []) as Array<{ post_id: string | null }>).map((row) => row.post_id),
-        ...((ownCommentsResult.data ?? []) as Array<{ post_id: string }>).map((row) => row.post_id),
-      ].filter(Boolean) as string[],
-    ),
-  );
-
-  if (!relatedPostIds.length) return Array.from(new Set(ownPostPlaces));
-
-  const { data: relatedPosts } = await supabase.from("posts" as any).select("id, place_id").in("id", relatedPostIds);
-  const placeIds = new Set(ownPostPlaces);
-  for (const row of (relatedPosts ?? []) as Array<{ place_id: string | null }>) {
-    if (row.place_id) placeIds.add(row.place_id);
-  }
-  return Array.from(placeIds);
-}
+/** Raw posts pulled from DB before client-side ranking (lower = less PostgREST egress). */
+const FETCH_WINDOW_MULTIPLIER = 2;
+const MAX_FEED_FETCH_ROWS = 60;
 
 async function fetchPostsFeedPage(params: {
   page: number;
   userId: string | undefined;
   followingSet: ReadonlySet<string>;
+  interactedPlaceIds: string[];
 }): Promise<FeedPage> {
-  const { page, userId, followingSet } = params;
-  const fetchLimit = page * FEED_PAGE_SIZE * FETCH_WINDOW_MULTIPLIER;
-  const interactedPlaceIds = userId ? await getInteractedPlaceIds(userId) : [];
+  const { page, userId, followingSet, interactedPlaceIds } = params;
+  const fetchLimit = Math.min(page * FEED_PAGE_SIZE * FETCH_WINDOW_MULTIPLIER, MAX_FEED_FETCH_ROWS);
 
   const postsSelectLegacy = "id, user_id, place_id, content, media_url, created_at";
   const postsSelectWithGeo =
@@ -125,6 +99,7 @@ export function usePostsFeed() {
   const { user } = useAuth();
   const { followingIds, followingSet } = useMyFollowing();
   const followingSignature = useMemo(() => [...followingIds].sort().join(","), [followingIds]);
+  const { data: interactedPlaceIds = [] } = useInteractedPlaceIds(user?.id);
 
   const feedQueryKey = queryKeys.posts.feed(user?.id ?? null, followingSignature);
   const realtimeConnected = usePostsFeedRealtime(user?.id ?? null);
@@ -135,12 +110,13 @@ export function usePostsFeed() {
     maxPages: 1,
     staleTime: 45 * 1000,
     gcTime: 5 * 60 * 1000,
-    refetchInterval: realtimeConnected ? false : 25_000,
+    refetchInterval: realtimeConnected ? false : 45_000,
     queryFn: async ({ pageParam }) =>
       fetchPostsFeedPage({
         page: pageParam,
         userId: user?.id,
         followingSet,
+        interactedPlaceIds,
       }),
     getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
   });

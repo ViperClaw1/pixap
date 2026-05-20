@@ -18,6 +18,8 @@ type Extra = {
   pixaiWhatsAppE164?: string;
   /** Store product id for PixAI monthly subscription. */
   pixAiMonthlySubscriptionSku?: string;
+  /** Store product id for PixAI annual (Premium Plus) subscription. */
+  pixAiAnnualSubscriptionSku?: string;
 };
 
 function getExtra(): Extra {
@@ -90,5 +92,20 @@ export const env = {
       process.env.EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU ??
       "pixai_premium_monthly"
     ).trim();
+  },
+  get pixAiAnnualSubscriptionSku(): string {
+    return (
+      getExtra().pixAiAnnualSubscriptionSku ??
+      process.env.EXPO_PUBLIC_PIXAI_ANNUAL_SUBSCRIPTION_SKU ??
+      "pixai_premium_annual"
+    ).trim();
+  },
+  /**
+   * Requires Pro + Storage Image Transformations in Supabase Dashboard.
+   * Set `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1` in EAS / .env when enabled.
+   */
+  get supabaseImageTransformEnabled(): boolean {
+    const v = process.env.EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM;
+    return v === "1" || v === "true";
   },
 };

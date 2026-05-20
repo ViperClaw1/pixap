@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Linking, Platform, Alert } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Alert,
+  useWindowDimensions,
+} from "react-native";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -21,11 +32,15 @@ import { useCreateStory } from "@/entities/story";
 import type { ProfileStackParamList, RootTabParamList } from "@/app/navigation/types";
 import { StoriesArchiveView } from "@/widgets/stories-archive";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { useProfileStyles } from "./profileStyles";
+import { PROFILE_COMPACT_WIDTH, useProfileStyles } from "./profileStyles";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { useEntitlement } from "@/entities/subscription";
+import { useBookingCredits } from "@/entities/booking-credits";
+import { usePreferenceOnboardingGate } from "@/features/preference-onboarding";
+import { ProfileBookingCreditsBadge } from "./ProfileBookingCreditsBadge";
+import { ProfileOnboardingActions } from "./ProfileOnboardingActions";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
@@ -71,6 +86,7 @@ function ProfileScreenContent() {
   const { suggestions } = useSuggestedProfiles(12);
   const toggleFollow = useToggleFollow();
   const { status: subscriptionStatus, isTrial, expiresAt, storeEnvironment, isActive } = useEntitlement();
+  const { balance, credits } = useBookingCredits();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [storiesArchiveMounted, setStoriesArchiveMounted] = useState(false);
   const [storiesArchiveVisible, setStoriesArchiveVisible] = useState(false);
@@ -102,6 +118,8 @@ function ProfileScreenContent() {
     }
   }, [loading, user, navigation]);
 
+  usePreferenceOnboardingGate(navigation);
+
   useEffect(() => {
     const requestedCreateStep = route.params?.openCreateStep;
     const shouldOpenCreateModal = Boolean(route.params?.openCreateModal) || Boolean(requestedCreateStep);
@@ -111,7 +129,10 @@ function ProfileScreenContent() {
     navigation.setParams({ openCreateStep: undefined, openCreateModal: undefined });
   }, [navigation, route.params?.openCreateModal, route.params?.openCreateStep]);
 
+  const { width: windowWidth } = useWindowDimensions();
+  const isCompact = windowWidth < PROFILE_COMPACT_WIDTH;
   const styles = useProfileStyles();
+  const linkRowStyle = isCompact ? [styles.link, styles.linkCompact] : styles.link;
 
   const userName = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || t("profile.defaultUserName");
   const isEmailVerified = Boolean(profile?.is_verified);
@@ -328,7 +349,7 @@ function ProfileScreenContent() {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
-        style={styles.root}
+        style={[styles.root, isCompact ? styles.rootCompact : null]}
         contentContainerStyle={{ paddingTop: 12, paddingBottom: Math.max(insets.bottom, 24) }}
       >
       <AppHeader
@@ -399,6 +420,7 @@ function ProfileScreenContent() {
                 : t("profile.expires", { date: new Date(expiresAt).toLocaleDateString() })}
             </Text>
           ) : null}
+          <ProfileBookingCreditsBadge balance={balance} credits={credits} />
         </View>
       </View>
       <View style={styles.statRow}>
@@ -507,27 +529,40 @@ function ProfileScreenContent() {
       </View>
 
       <View style={styles.actionsCard}>
-        {actions.map((item, index) => (
+        {actions.slice(0, 1).map((item) => (
+          <Pressable key={item.key} style={linkRowStyle} onPress={item.onPress}>
+            <Ionicons name={item.icon} size={20} color={colors.textMuted} style={styles.linkIcon} />
+            <Text style={styles.linkText}>{item.label}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
+          </Pressable>
+        ))}
+        <ProfileOnboardingActions
+          navigation={navigation}
+          hasUser={Boolean(user)}
+          linkStyle={linkRowStyle}
+          linkTextStyle={styles.linkText}
+          linkIconStyle={styles.linkIcon}
+          textMuted={colors.textMuted}
+        />
+        {actions.slice(1).map((item, index) => (
           <Pressable
             key={item.key}
-            style={[styles.link, index === actions.length - 1 ? { borderBottomWidth: 0 } : null]}
+            style={[linkRowStyle, index === actions.slice(1).length - 1 ? { borderBottomWidth: 0 } : null]}
             onPress={item.onPress}
           >
-            <Ionicons name={item.icon} size={20} color={colors.textMuted} />
-            <Text style={styles.linkText} numberOfLines={1}>
-              {item.label}
-            </Text>
+            <Ionicons name={item.icon} size={20} color={colors.textMuted} style={styles.linkIcon} />
+            <Text style={styles.linkText}>{item.label}</Text>
             {item.badgeCount != null && item.badgeCount > 0 ? (
               <View style={styles.linkMenuBadge}>
                 <Text style={styles.linkMenuBadgeText}>{item.badgeCount > 9 ? "9+" : String(item.badgeCount)}</Text>
               </View>
             ) : null}
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
           </Pressable>
         ))}
       </View>
       {(role === "admin" || role === "partner") && (
-        <Pressable style={[styles.link, { marginTop: 10 }]} onPress={() => navigation.navigate("AdminImageUpload")}>
+        <Pressable style={[linkRowStyle, { marginTop: 10 }]} onPress={() => navigation.navigate("AdminImageUpload")}>
           <Text style={styles.linkText}>{t("profile.partnerUpload")}</Text>
         </Pressable>
       )}

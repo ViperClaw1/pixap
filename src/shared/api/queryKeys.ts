@@ -18,6 +18,7 @@ export const queryKeys = {
     place: (placeId: string) => ["posts", "place", placeId] as const,
     comments: (postId: string) => ["post_comments", "post", postId] as const,
     reactions: (postId: string) => ["post_reactions", "post", postId] as const,
+    interactedPlaces: (userId: string | null) => ["posts", "interacted-places", userId] as const,
   },
   stories: {
     strip: ["stories", "strip"] as const,
@@ -82,6 +83,10 @@ export const queryKeys = {
     user: (userId: string | undefined | null) => ["favorites", userId ?? null] as const,
     prefix: ["favorites"] as const,
   },
+  bookingCredits: {
+    wallet: (userId: string | undefined | null) => ["booking-credits", userId ?? null] as const,
+    prefix: ["booking-credits"] as const,
+  },
   subscription: {
     entitlement: (userId: string | undefined | null) =>
       ["subscription-entitlement", userId ?? null] as const,
@@ -119,5 +124,22 @@ export const queryKeys = {
   userFollows: {
     mine: (userId: string | null) => [USER_FOLLOWS_QUERY_KEY, "mine", userId] as const,
     prefix: [USER_FOLLOWS_QUERY_KEY] as const,
+  },
+  userPreferences: {
+    mine: (userId: string | undefined | null) => ["user_preferences", userId ?? null] as const,
+    prefix: ["user_preferences"] as const,
+  },
+  venueRatings: {
+    mine: (userId: string | undefined | null) => ["venue_ratings", userId ?? null] as const,
+    prefix: ["venue_ratings"] as const,
+  },
+  onboardingVenues: {
+    prefix: ["onboarding_venues"] as const,
+    page: (offset: number) => ["onboarding_venues", offset] as const,
+  },
+  dailyRecommendations: {
+    today: (userId: string | undefined | null, dateYmd: string) =>
+      ["daily_recommendations", "today", userId ?? null, dateYmd] as const,
+    prefix: ["daily_recommendations"] as const,
   },
 } as const;

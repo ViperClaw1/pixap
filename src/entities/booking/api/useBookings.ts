@@ -121,7 +121,10 @@ export const useCreateBooking = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookingCredits.prefix });
+    },
   });
 };
 

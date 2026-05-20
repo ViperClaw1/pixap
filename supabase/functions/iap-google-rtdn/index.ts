@@ -1,4 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  refillBookingCreditsByEntitlementRef,
+  shouldRefillCreditsOnGoogleNotification,
+} from "../_shared/bookingCredits.ts";
 
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -80,6 +84,15 @@ Deno.serve(async (req) => {
       })
       .eq("platform", "android")
       .eq("purchase_token", notification.purchaseToken);
+
+    if (
+      (normalizedStatus === "active" || normalizedStatus === "grace_period") &&
+      shouldRefillCreditsOnGoogleNotification(notificationType)
+    ) {
+      await refillBookingCreditsByEntitlementRef(admin, "android", {
+        purchaseToken: notification.purchaseToken,
+      });
+    }
 
     await admin
       .from("subscription_events")

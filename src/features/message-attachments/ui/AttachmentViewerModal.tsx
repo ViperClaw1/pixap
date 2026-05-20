@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { detectAttachmentKind } from "../lib/detectAttachmentKind";
+import { getMessageAttachmentViewerImageUri } from "../lib/messageAttachmentDisplayUrl";
 import { shareAttachmentUri } from "../api/shareAttachmentUri";
 import type { AttachmentKind } from "../model/types";
 import { AttachmentVideoView } from "./AttachmentVideoView";
@@ -50,6 +51,11 @@ export function AttachmentViewerModal({ visible, uri, mimeHint, displayName, col
     }
   }, [uri, displayName]);
 
+  const imageDisplayUri = useMemo(() => {
+    if (!uri || kind !== "image") return uri;
+    return getMessageAttachmentViewerImageUri(uri);
+  }, [uri, kind]);
+
   if (!uri) return null;
 
   return (
@@ -82,7 +88,12 @@ export function AttachmentViewerModal({ visible, uri, mimeHint, displayName, col
 
         <View style={styles.body}>
           {kind === "image" ? (
-            <SmartImage uri={uri} style={styles.fullMedia} contentFit="contain" />
+            <SmartImage
+              uri={imageDisplayUri}
+              fallbackUri={imageDisplayUri !== uri ? uri : undefined}
+              style={styles.fullMedia}
+              contentFit="contain"
+            />
           ) : null}
 
           {kind === "video" && visible && uri ? <AttachmentVideoView uri={uri} style={styles.fullMedia} /> : null}

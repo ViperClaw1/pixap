@@ -69,14 +69,7 @@ export const PostMediaCarousel = memo(function PostMediaCarousel({
     const neighborIdx = [activeIndex - 1, activeIndex, activeIndex + 1].filter(
       (i) => i >= 0 && i < postImages.length,
     );
-    const uris = neighborIdx.flatMap((i) => {
-      const primary = postImages[i];
-      const raw = postImagesRaw[i];
-      const out: string[] = [];
-      if (primary) out.push(primary);
-      if (raw && raw !== primary) out.push(raw);
-      return out;
-    });
+    const uris = neighborIdx.map((i) => postImages[i]).filter((u): u is string => Boolean(u));
     const task = InteractionManager.runAfterInteractions(() => {
       void preloadSmartImages(uris);
     });

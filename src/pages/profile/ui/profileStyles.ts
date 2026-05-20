@@ -6,10 +6,17 @@ import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 
+/** Below this width, action rows use tighter padding so labels can wrap without ellipsis. */
+export const PROFILE_COMPACT_WIDTH = 400;
+
 export const profileStaticStyles = StyleSheet.create({
   root: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+
+  rootCompact: {
+    paddingHorizontal: 12,
   },
 
   createMenuBody: {
@@ -301,6 +308,22 @@ export const profileStaticStyles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  bookingCreditsBadge: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+
+  bookingCreditsBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
   verifyBtn: {
     minHeight: 32,
     borderRadius: 999,
@@ -450,9 +473,20 @@ export const profileStaticStyles = StyleSheet.create({
     gap: 12,
   },
 
+  linkCompact: {
+    paddingHorizontal: 10,
+    gap: 8,
+  },
+
+  linkIcon: {
+    flexShrink: 0,
+  },
+
   linkText: {
     fontSize: 14,
+    lineHeight: 18,
     flex: 1,
+    flexShrink: 1,
     minWidth: 0,
   },
 
@@ -617,6 +651,13 @@ export function profileThemeStyles(colors: ThemeColors, _mode: ThemeMode) {
     },
     verifyBtnText: {
       color: colors.primary,
+    },
+    bookingCreditsBadge: {
+      backgroundColor: colors.accentSurface,
+      borderColor: colors.border,
+    },
+    bookingCreditsBadgeText: {
+      color: colors.text,
     },
     settingsBtn: {
       borderColor: colors.border,

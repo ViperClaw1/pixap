@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, type ImageErrorEventData, type ImageProps, type ImageSource, type ImageSourceProps } from "expo-image";
+import { getSupabaseStorageObjectFallbackUrl } from "@/shared/lib/imageUtils";
 
 const FALLBACK = require("../../../../assets/android/adaptive-icon-background.png");
 const PREFETCH_CONCURRENCY = 4;
@@ -52,6 +53,10 @@ function buildUriChain(uri?: string | null, fallbackUri?: string | null): string
     if (n && isLoadableUri(n) && !out.includes(n)) out.push(n);
   };
   add(uri);
+  if (uri) {
+    const objectFallback = getSupabaseStorageObjectFallbackUrl(uri);
+    add(objectFallback);
+  }
   add(fallbackUri);
   return out;
 }

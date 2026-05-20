@@ -21,13 +21,18 @@ export type BrowseFlowParamList = {
   BookingFlow: { id: string };
   AIBooking: { id?: string } | undefined;
   VibeMatch: undefined;
-  SubscriptionPaywall: undefined;
+  SubscriptionPaywall: { reason?: "no_credits" | "upgrade" } | undefined;
 };
 
 /** Home tab stack */
 export type HomeStackParamList = {
   HomeMain: undefined;
   SearchMain: undefined;
+  DailyRecommendations:
+    | {
+        date?: string;
+      }
+    | undefined;
   OAuthCallback: undefined;
 } & BrowseFlowParamList;
 
@@ -87,11 +92,17 @@ export type ProfileStackParamList = {
   ResetPassword: undefined;
   PasswordResetSent: { email: string } | undefined;
   EditProfile: undefined;
+  PreferenceOnboarding:
+    | {
+        source?: "gate" | "profile" | "edit_profile";
+        retake?: boolean;
+      }
+    | undefined;
   Favorites: undefined;
   Privacy: undefined;
   NotFound: undefined;
   AdminImageUpload: undefined;
-  SubscriptionPaywall: undefined;
+  SubscriptionPaywall: { reason?: "no_credits" | "upgrade" } | undefined;
 } & BrowseFlowParamList;
 
 /** Root is bottom tabs — tab bar is always mounted. */

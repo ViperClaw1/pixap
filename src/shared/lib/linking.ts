@@ -20,6 +20,7 @@ export const linkingConfig = {
       path: "",
       screens: {
         HomeMain: "",
+        DailyRecommendations: "daily-recommendations",
         PlaceDetail: "place/:id",
         Category: "category/:id",
         ShoppingItems: "shop/:id",

@@ -1,18 +1,23 @@
 import { useLayoutEffect } from "react";
 
-type Nav = { replace: (name: "SubscriptionPaywall") => void };
+type PaywallReason = "no_credits" | "upgrade";
 
-/** After entitlement is known, replace the gated screen with paywall so back returns to the origin route. */
+type Nav = {
+  replace: (name: "SubscriptionPaywall", params?: { reason?: PaywallReason }) => void;
+};
+
+/** After access is known, replace the gated screen with paywall so back returns to the origin route. */
 export function useSubscriptionPaywallRedirect(params: {
-  entitlementLoading: boolean;
+  accessLoading: boolean;
   shouldEnforcePaywall: boolean;
-  hasSubscriptionAccess: boolean;
+  hasAccess: boolean;
+  paywallReason?: PaywallReason;
   navigation: Nav;
 }): void {
-  const { entitlementLoading, shouldEnforcePaywall, hasSubscriptionAccess, navigation } = params;
+  const { accessLoading, shouldEnforcePaywall, hasAccess, paywallReason, navigation } = params;
   useLayoutEffect(() => {
-    if (entitlementLoading) return;
-    if (!shouldEnforcePaywall || hasSubscriptionAccess) return;
-    navigation.replace("SubscriptionPaywall");
-  }, [entitlementLoading, shouldEnforcePaywall, hasSubscriptionAccess, navigation]);
+    if (accessLoading) return;
+    if (!shouldEnforcePaywall || hasAccess) return;
+    navigation.replace("SubscriptionPaywall", { reason: paywallReason ?? "upgrade" });
+  }, [accessLoading, shouldEnforcePaywall, hasAccess, paywallReason, navigation]);
 }

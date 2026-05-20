@@ -1,12 +1,16 @@
 import type { ImagePickerAsset } from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import { supabase } from "@/shared/api/supabase/client";
 import { bytesFromBase64 } from "@/shared/lib/bytesFromBase64";
+import { messageVideoPosterStoragePath } from "@/entities/messages/lib/messageVideoPoster";
 import { prepareImageForStorageUpload, POST_STORAGE_MAX_LONG_EDGE } from "@/shared/lib/prepareImageForStorageUpload";
 
 const STORIES_BUCKET = "stories";
 
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|heic|avif)(\?|#|$)/i;
+const VIDEO_EXT = /\.(mp4|mov|m4v|webm|mkv|avi)(\?|#|$)/i;
+const MESSAGE_VIDEO_POSTER_MAX_EDGE = 480;
 
 function looksLikeRasterImage(uri: string, mime?: string | null): boolean {
   const m = mime?.trim().toLowerCase();
@@ -69,6 +73,39 @@ function contentTypeForExt(ext: string): string {
   }
 }
 
+function looksLikeVideo(uri: string, mime?: string | null): boolean {
+  const m = mime?.trim().toLowerCase();
+  if (m?.startsWith("video/")) return true;
+  const path = uri.split("?")[0]?.split("#")[0] ?? uri;
+  return VIDEO_EXT.test(path);
+}
+
+async function uploadVideoPosterFromLocalUri(
+  userId: string,
+  localVideoUri: string,
+  videoStoragePath: string,
+): Promise<void> {
+  try {
+    const thumb = await VideoThumbnails.getThumbnailAsync(localVideoUri, { time: 400, quality: 0.72 });
+    const asset = { uri: thumb.uri, width: 0, height: 0 } as ImagePickerAsset;
+    const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
+      maxLongEdgePx: MESSAGE_VIDEO_POSTER_MAX_EDGE,
+      format: "webp",
+    });
+    if (!bytes.byteLength) return;
+    const posterPath = messageVideoPosterStoragePath(videoStoragePath, fileExtension);
+    const { error } = await supabase.storage.from(STORIES_BUCKET).upload(posterPath, bytes, {
+      upsert: true,
+      contentType,
+    });
+    if (error) {
+      console.warn("[uploadMessageAttachment] poster upload failed", error.message);
+    }
+  } catch (e) {
+    console.warn("[uploadMessageAttachment] poster generation failed", e);
+  }
+}
+
 async function readLocalUriAsArrayBuffer(uri: string): Promise<ArrayBuffer> {
   try {
     const res = await fetch(uri);
@@ -123,11 +160,17 @@ export async function uploadMessageAttachmentIfLocal(
   const contentType = mime && mime.includes("/") ? mime : contentTypeForExt(extGuess);
   const bytes = await readLocalUriAsArrayBuffer(trimmed);
   if (!bytes.byteLength) throw new Error("Attachment file is empty");
-  const path = `${userId}/msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extGuess}`;
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const path = `${userId}/msg-${suffix}.${extGuess}`;
   const { error } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
     upsert: true,
     contentType,
   });
   if (error) throw error;
+
+  if (looksLikeVideo(trimmed, mime)) {
+    await uploadVideoPosterFromLocalUri(userId, trimmed, path);
+  }
+
   return supabase.storage.from(STORIES_BUCKET).getPublicUrl(path).data.publicUrl;
 }

@@ -145,6 +145,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ? googleMapsAndroidCertSha1.toUpperCase()
         : undefined,
     pixAiMonthlySubscriptionSku: process.env.EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU ?? "pixai_premium_monthly",
+    pixAiAnnualSubscriptionSku: process.env.EXPO_PUBLIC_PIXAI_ANNUAL_SUBSCRIPTION_SKU ?? "pixai_premium_annual",
+    /** Pass through for runtime checks; enable transforms in Supabase Dashboard first. */
+    supabaseImageTransformEnabled:
+      process.env.EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM === "1" ||
+      process.env.EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM === "true",
     eas: {
       projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? "b98667c5-ca9d-4d17-8620-71f832f3befb",
     },

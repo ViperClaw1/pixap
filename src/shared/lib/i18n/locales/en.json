@@ -30,8 +30,125 @@
     "loading": "Loading...",
     "unknownError": "Unknown error",
     "cancel": "Cancel",
+    "ok": "OK",
     "delete": "Delete",
     "unknownUser": "Unknown user"
+  },
+  "editProfile": {
+    "savedTitle": "Saved",
+    "savedBody": "Your profile data was updated.",
+    "personalizeCta": "Personalize recommendations"
+  },
+  "onboarding": {
+    "actions": {
+      "back": "Back",
+      "skip": "Skip for now",
+      "continue": "Continue",
+      "startRating": "Rate places",
+      "finish": "Finish",
+      "prev": "Previous",
+      "next": "Next"
+    },
+    "steps": {
+      "venueCategories": {
+        "title": "What venues do you love?",
+        "subtitle": "Pick all that match your vibe — we'll tailor recommendations."
+      },
+      "vibes": {
+        "title": "Your vibe",
+        "subtitle": "How should places feel when you go out?"
+      },
+      "habits": {
+        "title": "Your habits",
+        "subtitle": "Tell us how you usually spend nights out."
+      },
+      "music": {
+        "title": "Music taste",
+        "subtitle": "What sounds should be playing?"
+      },
+      "temperament": {
+        "title": "Your energy",
+        "subtitle": "Quick sliders — not a personality test."
+      }
+    },
+    "categories": {
+      "bars": "Bars",
+      "clubs": "Clubs",
+      "lounges": "Lounges",
+      "techno": "Techno",
+      "live_music": "Live music",
+      "rooftop": "Rooftop",
+      "restaurants": "Restaurants",
+      "wine_bars": "Wine bars",
+      "cocktail_bars": "Cocktail bars",
+      "hookah_lounges": "Hookah lounges",
+      "cafes": "Cafes",
+      "beach_clubs": "Beach clubs",
+      "art_spaces": "Art spaces",
+      "jazz_bars": "Jazz bars",
+      "underground": "Underground",
+      "luxury": "Luxury",
+      "casual": "Casual",
+      "networking": "Networking",
+      "party_places": "Party places",
+      "quiet_places": "Quiet places"
+    },
+    "vibes": {
+      "calm": "Calm",
+      "energetic": "Energetic",
+      "aesthetic": "Aesthetic",
+      "luxury": "Luxury",
+      "chaotic": "Chaotic",
+      "underground": "Underground",
+      "romantic": "Romantic",
+      "social": "Social",
+      "intimate": "Intimate",
+      "loud": "Loud",
+      "cozy": "Cozy"
+    },
+    "habits": {
+      "night_out": "I love going out at night",
+      "books_tables": "I often book tables",
+      "spontaneous": "I love spontaneous outings",
+      "quiet_spots": "I prefer quiet spots",
+      "music_focused": "I go for the music",
+      "meet_people": "I like meeting new people"
+    },
+    "music": {
+      "techno": "Techno",
+      "house": "House",
+      "hip_hop": "Hip-hop",
+      "jazz": "Jazz",
+      "afro": "Afro",
+      "indie": "Indie",
+      "pop": "Pop",
+      "electronic": "Electronic",
+      "live_music": "Live music",
+      "rnb": "R&B",
+      "ambient": "Ambient"
+    },
+    "temperament": {
+      "introvertLow": "Introvert",
+      "introvertHigh": "Extrovert",
+      "energyLow": "Low energy",
+      "energyHigh": "High energy",
+      "adventureLow": "Routine",
+      "adventureHigh": "Adventurous",
+      "planningLow": "Spontaneous",
+      "planningHigh": "Planner"
+    },
+    "rating": {
+      "hate": "Hate",
+      "notForMe": "Not for me",
+      "neutral": "Neutral",
+      "like": "Like",
+      "love": "Love"
+    },
+    "venue": {
+      "location": "{{city}}",
+      "progress": "{{count}} of {{min}} rated",
+      "empty": "No venues to rate right now. Try again later."
+    }
   },
   "home": {
     "searchPlaceholder": "Search restaurants, salons, events…",
@@ -69,7 +186,9 @@
     "fallbackName": "Category"
   },
   "vibeMatch": {
-    "chooseAtLeastOnePlace": "Please, choose at least one place"
+    "chooseAtLeastOnePlace": "Please, choose at least one place",
+    "moodNotesPlaceholder": "Add details (optional)",
+    "moodRequired": "Pick at least one vibe or add a short description."
   },
   "messages": {
     "searchPlaceholder": "Search chats and users",
@@ -90,7 +209,11 @@
     "toastCouldNotOpenSupport": "Could not open support chat",
     "support": "Support",
     "supportSubtitle": "Chat with our team",
-    "followed": "Followed"
+    "followed": "Followed",
+    "thread": {
+      "peerTyping": "typing...",
+      "peerOnline": "online"
+    }
   },
   "bookings": {
     "filter": {
@@ -249,6 +372,12 @@
     "actions": {
       "manageSubscription": "Manage subscription",
       "getPremium": "Get PixAI Premium",
+      "completeOnboarding": "Complete onboarding",
+      "updatePreferences": "Update preferences",
+      "retakeTaste": "Retake taste profile",
+      "retakeTasteTitle": "Retake taste profile?",
+      "retakeTasteBody": "Your venue ratings from onboarding will be cleared and you'll start fresh.",
+      "retakeTasteConfirm": "Retake",
       "archive": "Archive",
       "privacy": "Privacy & Security",
       "settings": "Settings"
@@ -308,6 +437,54 @@
     "locationDenied": "Location access is required to check in.",
     "rateLimited": "You can check in again in about 15 minutes.",
     "checkInError": "Could not record your check-in. Try again later."
+  },
+  "bookingCredits": {
+    "balanceBadge": "{{count}} booking credits left",
+    "introBadge": "{{count}} free bookings · {{days}} days left",
+    "noCreditsTitle": "No booking credits",
+    "noCreditsMessage": "Subscribe to Premium to get more booking credits, or wait for your next billing cycle.",
+    "insufficientForStops": "You need {{count}} credits for this route but have fewer left."
+  },
+  "subscriptionPaywall": {
+    "title": "Unlock Pix AI Booking",
+    "subtitleNoCredits": "You've used your booking credits. Choose a plan to continue.",
+    "subtitleUpgrade": "Get more booking credits and full PixAI access.",
+    "monthlyTitle": "PixAI Premium Monthly",
+    "annualTitle": "PixAI Premium Plus",
+    "monthlyCredits": "10 booking credits per billing cycle",
+    "annualCredits": "100 booking credits per billing cycle",
+    "featureAiBooking": "Pix AI smart booking",
+    "featureVibeMatch": "Pix AI vibe matching",
+    "featurePostBoost": "Post boost in feed (coming soon)",
+    "perMonth": "/month",
+    "perYear": "/year",
+    "ctaMonthly": "Start Premium, {{price}}/month",
+    "ctaMonthlyFallback": "Start Premium Monthly",
+    "ctaAnnual": "Start Premium Plus, {{price}}/year",
+    "ctaAnnualFallback": "Start Premium Plus Annual",
+    "restore": "Restore purchases",
+    "manageApple": "Manage on App Store",
+    "manageGoogle": "Manage on Google Play",
+    "legal": "Subscription terms and billing are managed by your app store account.",
+    "expoGoHint": "In-app purchases are unavailable in Expo Go. Use a development or production build to subscribe."
+  },
+  "postBoost": {
+    "title": "Boost post in feed",
+    "comingSoon": "Coming soon — your posts will rank higher in discovery.",
+    "enabledHint": "Promote this post in the feed."
+  },
+  "dailyRecommendations": {
+    "title": "Tonight for You",
+    "subtitle": "Fresh picks generated for your taste.",
+    "heroTitle": "Tonight for You",
+    "heroSubtitle": "Fresh personalized picks generated daily.",
+    "openHero": "Open daily recommendations",
+    "empty": "No picks for today yet. Check back soon.",
+    "save": "Save",
+    "unsave": "Unsave",
+    "share": "Share",
+    "dislike": "Dislike",
+    "book": "Book now"
   },
   "errorBoundary": {
     "retry": "Try again",
