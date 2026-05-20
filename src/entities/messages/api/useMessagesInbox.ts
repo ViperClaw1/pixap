@@ -1,26 +1,24 @@
 import { useMemo } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { MessageThreadItem, MessageParticipantProfile } from "@/shared/model/types/messages";
+import { hydrateInboxParticipantsLegacy } from "@/entities/messages/lib/hydrateInboxParticipantsLegacy";
+import { parseInboxParticipants } from "@/entities/messages/lib/parseInboxParticipants";
 import { useMessagesInboxRealtime } from "@/entities/messages/lib/useMessagesRealtime";
 
-type ParticipantRow = {
+type InboxSummaryRow = {
   thread_id: string;
-  user_id: string;
-  last_read_message_at: string | null;
+  last_message_id: string;
+  last_message_text: string;
+  last_message_at: string;
+  last_sender_id: string;
+  unread_count: number;
+  is_support: boolean;
+  participants: unknown;
 };
-
-type MessageRow = {
-  id: string;
-  thread_id: string;
-  sender_id: string;
-  content: string;
-  created_at: string;
-};
-
-type ProfileRow = MessageParticipantProfile;
 
 function fullName(profile?: Partial<MessageParticipantProfile> | null) {
   return `${profile?.first_name?.trim() ?? ""} ${profile?.last_name?.trim() ?? ""}`.trim() || "Unknown user";
@@ -32,117 +30,50 @@ function includesSearch(value: string, search: string) {
 
 export function useMessagesInbox(search: string) {
   const { user } = useAuth();
-  const realtimeConnected = useMessagesInboxRealtime(user?.id ?? null);
+  const isScreenFocused = useIsFocused();
+  const realtimeConnected = useMessagesInboxRealtime(isScreenFocused ? (user?.id ?? null) : null);
 
   const query = useQuery({
     queryKey: queryKeys.messages.inbox(user?.id ?? null),
     queryFn: async () => {
       if (!user?.id) return [] as MessageThreadItem[];
 
-      const { data: ownParticipantsData, error: ownParticipantsError } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table is introduced via migration
-        .from("message_thread_participants" as any)
-        .select("thread_id, user_id, last_read_message_at")
-        .eq("user_id", user.id);
-      if (ownParticipantsError) throw ownParticipantsError;
+      const { data: summaryData, error: summaryError } = await (
+        supabase.rpc as (fn: string) => ReturnType<typeof supabase.rpc>
+      )("get_message_inbox_summary");
+      if (summaryError) throw summaryError;
 
-      const ownParticipants = (ownParticipantsData ?? []) as ParticipantRow[];
-      if (!ownParticipants.length) return [] as MessageThreadItem[];
+      const summaries = (summaryData ?? []) as InboxSummaryRow[];
+      if (!summaries.length) return [] as MessageThreadItem[];
 
-      const threadIds = ownParticipants.map((row) => row.thread_id);
-      const lastReadByThread = new Map<string, string | null>(ownParticipants.map((row) => [row.thread_id, row.last_read_message_at]));
+      const participantsByThread =
+        summaries[0]?.participants != null
+          ? null
+          : await hydrateInboxParticipantsLegacy(summaries);
 
-      const { data: threadsMetaData, error: threadsMetaError } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- columns added via migration
-        .from("message_threads" as any)
-        .select("id, kind")
-        .in("id", threadIds);
-      if (threadsMetaError) throw threadsMetaError;
-      const supportThreadIds = new Set(
-        ((threadsMetaData ?? []) as Array<{ id: string; kind: string }>)
-          .filter((row) => row.kind === "support")
-          .map((row) => row.id),
-      );
+      const items: MessageThreadItem[] = summaries.map((row) => {
+        const participants =
+          participantsByThread?.get(row.thread_id) ?? parseInboxParticipants(row.participants);
+        const senderProfile = participants.find((profile) => profile.id === row.last_sender_id);
+        return {
+          thread_id: row.thread_id,
+          last_message_id: row.last_message_id,
+          last_message_text: row.last_message_text,
+          last_message_at: row.last_message_at,
+          last_sender_id: row.last_sender_id,
+          last_sender_name: row.is_support ? "Support" : fullName(senderProfile),
+          last_sender_avatar_url: row.is_support ? null : (senderProfile?.avatar_url ?? null),
+          unread_count: Number(row.unread_count) || 0,
+          participants,
+          is_support: row.is_support,
+        };
+      });
 
-      const [{ data: messagesData, error: messagesError }, { data: participantsData, error: participantsError }] = await Promise.all([
-        supabase
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table is introduced via migration
-          .from("messages" as any)
-          .select("id, thread_id, sender_id, content, created_at")
-          .in("thread_id", threadIds)
-          .order("created_at", { ascending: false })
-          .limit(400),
-        supabase
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table is introduced via migration
-          .from("message_thread_participants" as any)
-          .select("thread_id, user_id")
-          .in("thread_id", threadIds),
-      ]);
-      if (messagesError) throw messagesError;
-      if (participantsError) throw participantsError;
-
-      const messages = (messagesData ?? []) as MessageRow[];
-      const allParticipants = (participantsData ?? []) as Array<{ thread_id: string; user_id: string }>;
-      if (!messages.length) return [] as MessageThreadItem[];
-
-      const profileIds = Array.from(new Set([...allParticipants.map((row) => row.user_id), ...messages.map((row) => row.sender_id)]));
-      const { data: profilesData, error: profilesError } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- view contains fields required by messages feed
-        .from("public_profiles" as any)
-        .select("id, first_name, last_name, avatar_url, username")
-        .in("id", profileIds);
-      if (profilesError) throw profilesError;
-
-      const profilesById = new Map<string, MessageParticipantProfile>(
-        ((profilesData ?? []) as ProfileRow[]).map((row) => [row.id, row]),
-      );
-
-      const participantsByThread = new Map<string, MessageParticipantProfile[]>();
-      for (const row of allParticipants) {
-        if (!participantsByThread.has(row.thread_id)) participantsByThread.set(row.thread_id, []);
-        const profile = profilesById.get(row.user_id);
-        if (!profile) continue;
-        participantsByThread.get(row.thread_id)!.push(profile);
-      }
-
-      const latestMessageByThread = new Map<string, MessageRow>();
-      const unreadCountByThread = new Map<string, number>();
-      for (const message of messages) {
-        if (!latestMessageByThread.has(message.thread_id)) {
-          latestMessageByThread.set(message.thread_id, message);
-        }
-        const lastReadAt = lastReadByThread.get(message.thread_id);
-        if (message.sender_id !== user.id && (!lastReadAt || new Date(message.created_at).getTime() > new Date(lastReadAt).getTime())) {
-          unreadCountByThread.set(message.thread_id, (unreadCountByThread.get(message.thread_id) ?? 0) + 1);
-        }
-      }
-
-      const items: MessageThreadItem[] = [];
-      for (const threadId of threadIds) {
-        const latestMessage = latestMessageByThread.get(threadId);
-        if (!latestMessage) continue;
-        const senderProfile = profilesById.get(latestMessage.sender_id);
-        const isSupport = supportThreadIds.has(threadId);
-        items.push({
-          thread_id: threadId,
-          last_message_id: latestMessage.id,
-          last_message_text: latestMessage.content,
-          last_message_at: latestMessage.created_at,
-          last_sender_id: latestMessage.sender_id,
-          last_sender_name: isSupport ? "Support" : fullName(senderProfile),
-          last_sender_avatar_url: isSupport ? null : (senderProfile?.avatar_url ?? null),
-          unread_count: unreadCountByThread.get(threadId) ?? 0,
-          participants: participantsByThread.get(threadId) ?? [],
-          is_support: isSupport,
-        });
-      }
-
-      items.sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
       return items;
     },
     enabled: !!user?.id,
-    staleTime: 25 * 1000,
-    refetchInterval: realtimeConnected ? false : 25_000,
+    staleTime: 40 * 1000,
+    refetchInterval: realtimeConnected ? false : 45_000,
   });
 
   const filtered = useMemo(() => {

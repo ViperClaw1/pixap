@@ -588,6 +588,179 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_recommendations: {
+        Row: {
+          id: string
+          user_id: string
+          venue_id: string
+          recommendation_score: number
+          recommendation_reasons: string[]
+          generated_for_date: string
+          generated_rank: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          venue_id: string
+          recommendation_score: number
+          recommendation_reasons?: string[]
+          generated_for_date?: string
+          generated_rank: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          venue_id?: string
+          recommendation_score?: number
+          recommendation_reasons?: string[]
+          generated_for_date?: string
+          generated_rank?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_recommendations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_recommendations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "business_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recommendation_delivery_logs: {
+        Row: {
+          id: string
+          user_id: string
+          generated_for_date: string
+          notification_sent: boolean
+          sent_at: string | null
+          delivery_provider: string
+          error_message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          generated_for_date?: string
+          notification_sent?: boolean
+          sent_at?: string | null
+          delivery_provider?: string
+          error_message?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          generated_for_date?: string
+          notification_sent?: boolean
+          sent_at?: string | null
+          delivery_provider?: string
+          error_message?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      recommendation_events: {
+        Row: {
+          id: string
+          user_id: string
+          event_name: string
+          payload: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          event_name: string
+          payload?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          event_name?: string
+          payload?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
+      recommendation_generation_runs: {
+        Row: {
+          id: string
+          generated_for_date: string
+          started_at: string
+          completed_at: string | null
+          users_processed: number
+          status: string
+          error_log: string | null
+        }
+        Insert: {
+          id?: string
+          generated_for_date?: string
+          started_at?: string
+          completed_at?: string | null
+          users_processed?: number
+          status?: string
+          error_log?: string | null
+        }
+        Update: {
+          id?: string
+          generated_for_date?: string
+          started_at?: string
+          completed_at?: string | null
+          users_processed?: number
+          status?: string
+          error_log?: string | null
+        }
+        Relationships: []
+      }
+      recommendation_interactions: {
+        Row: {
+          id: string
+          user_id: string
+          venue_id: string
+          interaction_type: string
+          source: string
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          venue_id: string
+          interaction_type: string
+          source?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          venue_id?: string
+          interaction_type?: string
+          source?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_interactions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "business_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       public_reviews: {
@@ -632,6 +805,49 @@ export type Database = {
         }
         Returns: string[]
       },
+      enqueue_daily_recommendation_push: {
+        Args: {
+          p_user_id: string
+          p_date?: string
+        }
+        Returns: boolean
+      },
+      generate_daily_recommendations: {
+        Args: {
+          p_user_id?: string
+          p_date?: string
+          p_limit?: number
+          p_force?: boolean
+        }
+        Returns: number
+      },
+      generate_recommendation_reasons: {
+        Args: {
+          p_affinity_score: number
+          p_crowd_score: number
+          p_story_signal: number
+          p_novelty_score: number
+          p_popularity_score: number
+        }
+        Returns: string[]
+      },
+      get_daily_recommendations: {
+        Args: {
+          p_date?: string
+        }
+        Returns: {
+          venue_id: string
+          generated_rank: number
+          recommendation_score: number
+          recommendation_reasons: string[]
+          name: string
+          description: string | null
+          tags: string[] | null
+          images: string[] | null
+          city: string | null
+          rating: number | null
+        }[]
+      },
       get_venue_live_crowd: {
         Args: {
           p_venue_id: string
@@ -645,6 +861,19 @@ export type Database = {
           p_venue_id: string
         }
         Returns: Json
+      },
+      run_daily_recommendation_batch: {
+        Args: {
+          p_run_id: string
+          p_date?: string
+          p_batch_size?: number
+          p_after_user_id?: string | null
+        }
+        Returns: {
+          user_id: string
+          inserted_count: number
+          push_enqueued: boolean
+        }[]
       },
       has_role: {
         Args: {
@@ -690,6 +919,12 @@ export type Database = {
           venue_id: string
           vibe_score: number
         }[]
+      }
+      track_recommendation_event: {
+        Args: {
+          p_event: Json
+        }
+        Returns: undefined
       }
     }
     Enums: {

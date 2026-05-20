@@ -58,8 +58,12 @@ export function useFocusedOverlapKeyboardInset({
   );
 
   const animateTo = useCallback(
-    (overlap: number, duration?: number) => {
+    (overlap: number, duration?: number, options?: { animate?: boolean }) => {
       if (!enabled) return;
+      if (Platform.OS === "ios" && options?.animate === false) {
+        extraInset.value = overlap;
+        return;
+      }
       extraInset.value = withTiming(overlap, {
         duration: duration ?? 250,
         easing: Easing.out(Easing.cubic),
@@ -69,9 +73,9 @@ export function useFocusedOverlapKeyboardInset({
   );
 
   const applyMeasuredInset = useCallback(
-    (keyboardTop: number, rawOverlap: number, duration?: number) => {
+    (keyboardTop: number, rawOverlap: number, duration?: number, animate = true) => {
       const finish = (overlap: number) => {
-        animateTo(overlap, duration);
+        animateTo(overlap, duration, { animate });
         onKeyboardChangeRef.current?.(keyboardTop, rawOverlap);
       };
 
@@ -133,17 +137,43 @@ export function useFocusedOverlapKeyboardInset({
       onKeyboardChangeRef.current?.(wh, 0);
     };
 
-    const showEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    if (Platform.OS === "ios") {
+      const changeSub = Keyboard.addListener("keyboardWillChangeFrame", (event) => {
+        const wh = windowHeight();
+        const h = event.endCoordinates.height;
+        const keyboardTop = event.endCoordinates.screenY ?? wh - h;
+        const rawOverlap = Math.max(0, wh - keyboardTop);
 
-    const showSub = Keyboard.addListener(showEvent, handleShow);
-    const hideSub = Keyboard.addListener(hideEvent, handleHide);
+        if (h < 1 || rawOverlap < 1) {
+          lastFrameRef.current = null;
+          onKeyboardFrameRef.current?.(wh, 0);
+          extraInset.value = 0;
+          onKeyboardChangeRef.current?.(wh, 0);
+          return;
+        }
+
+        lastFrameRef.current = {
+          keyboardTop,
+          rawOverlap,
+          duration: event.duration,
+        };
+        onKeyboardFrameRef.current?.(keyboardTop, rawOverlap);
+        applyMeasuredInset(keyboardTop, rawOverlap, event.duration, false);
+      });
+
+      return () => {
+        changeSub.remove();
+      };
+    }
+
+    const showSub = Keyboard.addListener("keyboardDidShow", handleShow);
+    const hideSub = Keyboard.addListener("keyboardDidHide", handleHide);
 
     return () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, [animateTo, applyMeasuredInset]);
+  }, [animateTo, applyMeasuredInset, extraInset]);
 
   return { extraInset, recalculate };
 }

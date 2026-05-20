@@ -1,4 +1,6 @@
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { usePostBoostFeature } from "@/features/post-boost";
 import Animated from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -20,6 +22,8 @@ interface CreatePostModalProps {
 
 export function CreatePostModal({ composer, onOpenStory, storyAvailable }: CreatePostModalProps) {
   const { colors, isDark } = useAppTheme();
+  const { t } = useTranslation();
+  const postBoost = usePostBoostFeature();
   const c = composer;
 
   const placeImageDecodeSize = { w: 142, h: 84 };
@@ -256,6 +260,25 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                       No place in the app matches this address. The location will be saved on this post only (not added as a new place in the catalogue).
                     </Text>
                   )
+                ) : null}
+
+                {postBoost.enabled ? (
+                  <View
+                    style={[
+                      s.postBoostRow,
+                      { borderColor: colors.border, backgroundColor: colors.card, opacity: postBoost.isImplemented ? 1 : 0.85 },
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.postFieldLabel, { color: colors.text, marginBottom: 4 }]}>
+                        {t("postBoost.title")}
+                      </Text>
+                      <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+                        {postBoost.isImplemented ? t("postBoost.enabledHint") : t("postBoost.comingSoon")}
+                      </Text>
+                    </View>
+                    <Switch value={false} disabled />
+                  </View>
                 ) : null}
 
                 <Text style={[s.postFieldLabel, { color: colors.text }]}>

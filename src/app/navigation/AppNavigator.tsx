@@ -48,6 +48,11 @@ function HomeStackNavigator() {
     <HomeStack.Navigator initialRouteName="HomeMain" screenOptions={stackScreenOptions}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
       <HomeStack.Screen name="SearchMain" getComponent={() => require("@/pages/search").default} options={fullWidthSwipeBackOptions} />
+      <HomeStack.Screen
+        name="DailyRecommendations"
+        getComponent={() => require("@/pages/daily-recommendations").default}
+        options={fullWidthSwipeBackOptions}
+      />
       {renderBrowseFlowScreens(HomeStack.Screen as BrowseFlowStackScreen)}
       <HomeStack.Screen name="OAuthCallback" component={OAuthCallbackScreen} />
     </HomeStack.Navigator>
@@ -99,6 +104,11 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="ResetPassword" getComponent={() => require("@/pages/reset-password").default} />
       <ProfileStack.Screen name="PasswordResetSent" getComponent={() => require("@/pages/password-reset-sent").default} />
       <ProfileStack.Screen name="EditProfile" getComponent={() => require("@/pages/edit-profile").default} options={fullWidthSwipeBackOptions} />
+      <ProfileStack.Screen
+        name="PreferenceOnboarding"
+        getComponent={() => require("@/pages/preference-onboarding").default}
+        options={{ gestureEnabled: false }}
+      />
       <ProfileStack.Screen name="Favorites" getComponent={() => require("@/pages/favorites").default} options={fullWidthSwipeBackOptions} />
       <ProfileStack.Screen name="Privacy" component={PrivacyPolicyScreen} />
       <ProfileStack.Screen name="NotFound" component={NotFoundScreen} />

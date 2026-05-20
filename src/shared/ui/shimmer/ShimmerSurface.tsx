@@ -19,28 +19,32 @@ function ShimmerSurfaceInner({ width, height, borderRadius = 0, style }: Props) 
   const { isDark } = useAppTheme();
   const progress = useShimmerProgress();
   const { base, peak } = getSkeletonShimmerColors(isDark);
+  const layoutWidth = typeof width === "number" && Number.isFinite(width) ? width : 0;
+  const layoutHeight = typeof height === "number" && Number.isFinite(height) ? height : 0;
 
   const translateX = useMemo(
     () =>
       progress.interpolate({
         inputRange: [0, 1],
-        outputRange: [-width, width],
+        outputRange: [-layoutWidth, layoutWidth],
       }),
-    [progress, width],
+    [progress, layoutWidth],
   );
 
-  const stripeWidth = Math.max(width * 2, 120);
+  const stripeWidth = Math.max(layoutWidth * 2, 120);
 
   return (
-    <View style={[{ width, height, borderRadius, backgroundColor: base, overflow: "hidden" }, style]}>
+    <View
+      style={[{ width: layoutWidth, height: layoutHeight, borderRadius, backgroundColor: base, overflow: "hidden" }, style]}
+    >
       <Animated.View
         pointerEvents="none"
         style={{
           position: "absolute",
           top: 0,
-          left: -width,
+          left: -layoutWidth,
           width: stripeWidth,
-          height,
+          height: layoutHeight,
           transform: [{ translateX }],
         }}
       >

@@ -38,7 +38,10 @@ import { useCategories, CategoryIcon, resolveCategoryIconSpec } from "@/entities
 import { useProfile } from "@/entities/user";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
-import { useEntitlement } from "@/entities/subscription";
+import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
+import { useBookingAccess } from "@/features/booking-access";
+import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
+import { useTranslation } from "react-i18next";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import {
   DEFAULT_PHONE_VALUE,
@@ -186,7 +189,15 @@ export default function AIBookingPage() {
 
   const { colors } = useAppTheme();
   const { user, session, loading: authLoading } = useAuth();
-  const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
+  const { t } = useTranslation();
+  const {
+    canAccessAIBooking,
+    isLoading: accessLoading,
+    balance,
+    isIntroActive,
+    introPeriodEndsAt,
+    canUseBookingCredits,
+  } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
   const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
@@ -196,10 +207,13 @@ export default function AIBookingPage() {
     navigation,
   });
   useSubscriptionPaywallRedirect({
-    entitlementLoading,
+    accessLoading,
     shouldEnforcePaywall,
-    hasSubscriptionAccess,
-    navigation: navigation as { replace: (name: "SubscriptionPaywall") => void },
+    hasAccess: canAccessAIBooking,
+    paywallReason: !canUseBookingCredits ? "no_credits" : "upgrade",
+    navigation: navigation as {
+      replace: (name: "SubscriptionPaywall", params?: { reason?: "no_credits" | "upgrade" }) => void;
+    },
   });
   const { messages, runFlow, isLoading } = usePixAI();
   const { data: profile } = useProfile();
@@ -518,6 +532,10 @@ export default function AIBookingPage() {
   };
 
   const onCreateDraft = async () => {
+    if (!canUseBookingCredits) {
+      Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
+      return;
+    }
     if (!ensureProfileComplete()) return;
     if (!selectedPlace || !selectedSlot) {
       Alert.alert("Missing selection", "Choose a place and a slot first.");
@@ -596,6 +614,10 @@ export default function AIBookingPage() {
         navigateToAuthScreen(navigation);
         return;
       }
+      if (isInsufficientBookingCreditsError(error)) {
+        Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
+        return;
+      }
       Alert.alert("Failed", "Could not create booking draft.");
     }
   };
@@ -610,7 +632,7 @@ export default function AIBookingPage() {
       </View>
     );
   }
-  if (entitlementLoading) {
+  if (accessLoading) {
     return (
       <View
         style={[styles.root, { alignItems: "center", justifyContent: "center" }]}
@@ -620,12 +642,19 @@ export default function AIBookingPage() {
       </View>
     );
   }
-  if (shouldEnforcePaywall && !hasSubscriptionAccess) {
+  if (shouldEnforcePaywall && !canAccessAIBooking) {
     return null;
   }
 
   return (
     <View style={styles.root} {...androidSwipeBackPanHandlers}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        <BookingCreditsBadge
+          balance={balance}
+          isIntroActive={isIntroActive}
+          introPeriodEndsAt={introPeriodEndsAt}
+        />
+      </View>
       <ScrollView
         ref={bookingScrollRef}
         style={styles.root}

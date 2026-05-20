@@ -244,8 +244,9 @@ async function postSupabaseCartCallback(booking, patch) {
   if (patch.confirmed_price !== undefined && patch.confirmed_price !== null) {
     body.confirmed_price = String(patch.confirmed_price);
   }
-  if (patch.payment_link !== undefined) {
-    body.payment_link = patch.payment_link == null ? null : String(patch.payment_link);
+  if (patch.payment_link != null) {
+    const link = String(patch.payment_link).trim();
+    if (link) body.payment_link = link;
   }
 
   let lastError = null;

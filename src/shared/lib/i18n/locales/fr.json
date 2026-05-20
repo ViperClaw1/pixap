@@ -30,8 +30,14 @@
     "loading": "Chargement...",
     "unknownError": "Erreur inconnue",
     "cancel": "Annuler",
+    "ok": "OK",
     "delete": "Supprimer",
     "unknownUser": "Utilisateur inconnu"
+  },
+  "editProfile": {
+    "savedTitle": "Enregistré",
+    "savedBody": "Votre profil a été mis à jour.",
+    "personalizeCta": "Personnaliser les recommandations"
   },
   "home": {
     "searchPlaceholder": "Rechercher restaurants, salons, événements…",
@@ -69,7 +75,9 @@
     "fallbackName": "Catégorie"
   },
   "vibeMatch": {
-    "chooseAtLeastOnePlace": "Veuillez choisir au moins un lieu"
+    "chooseAtLeastOnePlace": "Veuillez choisir au moins un lieu",
+    "moodNotesPlaceholder": "Ajoutez des détails (facultatif)",
+    "moodRequired": "Choisissez au moins un vibe ou une courte description."
   },
   "messages": {
     "searchPlaceholder": "Rechercher des discussions et des utilisateurs",
@@ -90,7 +98,11 @@
     "toastCouldNotOpenSupport": "Impossible d'ouvrir le chat d'assistance",
     "support": "Assistance",
     "supportSubtitle": "Discutez avec notre équipe",
-    "followed": "Suivi"
+    "followed": "Suivi",
+    "thread": {
+      "peerTyping": "écrit...",
+      "peerOnline": "en ligne"
+    }
   },
   "bookings": {
     "filter": {
@@ -249,6 +261,12 @@
     "actions": {
       "manageSubscription": "Gérer l'abonnement",
       "getPremium": "Obtenir PixAI Premium",
+      "completeOnboarding": "Terminer l'onboarding",
+      "updatePreferences": "Mettre à jour les préférences",
+      "retakeTaste": "Refaire le profil goût",
+      "retakeTasteTitle": "Refaire le profil goût ?",
+      "retakeTasteBody": "Les notes de l'onboarding seront effacées.",
+      "retakeTasteConfirm": "Recommencer",
       "archive": "Archives",
       "privacy": "Confidentialité et sécurité",
       "settings": "Paramètres"
@@ -308,6 +326,54 @@
     "locationDenied": "L'accès à la position est requis.",
     "rateLimited": "Nouvel enregistrement possible dans environ 15 minutes.",
     "checkInError": "Impossible d'enregistrer votre présence."
+  },
+  "bookingCredits": {
+    "balanceBadge": "{{count}} crédits de réservation",
+    "introBadge": "{{count}} réservations gratuites · {{days}} j",
+    "noCreditsTitle": "Plus de crédits",
+    "noCreditsMessage": "Abonnez-vous à Premium ou attendez le prochain cycle.",
+    "insufficientForStops": "Il faut {{count}} crédits pour cet itinéraire."
+  },
+  "subscriptionPaywall": {
+    "title": "Débloquer Pix AI Booking",
+    "subtitleNoCredits": "Crédits épuisés. Choisissez une offre pour continuer.",
+    "subtitleUpgrade": "Plus de crédits et accès PixAI complet.",
+    "monthlyTitle": "PixAI Premium Monthly",
+    "annualTitle": "PixAI Premium Plus",
+    "monthlyCredits": "10 crédits de réservation par cycle",
+    "annualCredits": "100 crédits de réservation par cycle",
+    "featureAiBooking": "Pix AI smart booking",
+    "featureVibeMatch": "Pix AI vibe matching",
+    "featurePostBoost": "Boost des posts dans le fil (bientôt)",
+    "perMonth": "/mois",
+    "perYear": "/an",
+    "ctaMonthly": "Premium, {{price}}/mois",
+    "ctaMonthlyFallback": "Premium Monthly",
+    "ctaAnnual": "Premium Plus, {{price}}/an",
+    "ctaAnnualFallback": "Premium Plus Annual",
+    "restore": "Restaurer les achats",
+    "manageApple": "Gérer sur l'App Store",
+    "manageGoogle": "Gérer sur Google Play",
+    "legal": "Les conditions et la facturation sont gérées par votre compte store.",
+    "expoGoHint": "Les achats ne sont pas disponibles dans Expo Go."
+  },
+  "postBoost": {
+    "title": "Booster le post dans le fil",
+    "comingSoon": "Bientôt — meilleure visibilité dans la découverte.",
+    "enabledHint": "Promouvoir ce post dans le fil."
+  },
+  "dailyRecommendations": {
+    "title": "Vos picks du jour",
+    "subtitle": "Des recommandations fraîches selon vos goûts.",
+    "heroTitle": "Vos picks du jour",
+    "heroSubtitle": "Des suggestions personnalisées, mises à jour chaque jour.",
+    "openHero": "Ouvrir les recommandations quotidiennes",
+    "empty": "Aucune recommandation pour aujourd'hui.",
+    "save": "Enregistrer",
+    "unsave": "Retirer",
+    "share": "Partager",
+    "dislike": "Je n'aime pas",
+    "book": "Réserver"
   },
   "errorBoundary": {
     "retry": "Réessayer",

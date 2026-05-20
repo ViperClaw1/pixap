@@ -30,8 +30,14 @@
     "loading": "Cargando...",
     "unknownError": "Error desconocido",
     "cancel": "Cancelar",
+    "ok": "OK",
     "delete": "Eliminar",
     "unknownUser": "Usuario desconocido"
+  },
+  "editProfile": {
+    "savedTitle": "Guardado",
+    "savedBody": "Tu perfil se actualizó.",
+    "personalizeCta": "Personalizar recomendaciones"
   },
   "home": {
     "searchPlaceholder": "Buscar restaurantes, salones, eventos…",
@@ -69,7 +75,9 @@
     "fallbackName": "Categoría"
   },
   "vibeMatch": {
-    "chooseAtLeastOnePlace": "Por favor, elige al menos un lugar"
+    "chooseAtLeastOnePlace": "Por favor, elige al menos un lugar",
+    "moodNotesPlaceholder": "Añade detalles (opcional)",
+    "moodRequired": "Elige al menos un vibe o añade una breve descripción."
   },
   "messages": {
     "searchPlaceholder": "Buscar chats y usuarios",
@@ -90,7 +98,11 @@
     "toastCouldNotOpenSupport": "No se pudo abrir el chat de soporte",
     "support": "Soporte",
     "supportSubtitle": "Chatea con nuestro equipo",
-    "followed": "Siguiendo"
+    "followed": "Siguiendo",
+    "thread": {
+      "peerTyping": "escribiendo...",
+      "peerOnline": "en línea"
+    }
   },
   "bookings": {
     "filter": {
@@ -249,6 +261,12 @@
     "actions": {
       "manageSubscription": "Gestionar suscripción",
       "getPremium": "Obtener PixAI Premium",
+      "completeOnboarding": "Completar onboarding",
+      "updatePreferences": "Actualizar preferencias",
+      "retakeTaste": "Repetir perfil de gusto",
+      "retakeTasteTitle": "¿Repetir perfil de gusto?",
+      "retakeTasteBody": "Se borrarán las valoraciones del onboarding.",
+      "retakeTasteConfirm": "Repetir",
       "archive": "Archivo",
       "privacy": "Privacidad y seguridad",
       "settings": "Ajustes"
@@ -308,6 +326,54 @@
     "locationDenied": "Se necesita acceso a la ubicación.",
     "rateLimited": "Puedes volver a registrarte en unos 15 minutos.",
     "checkInError": "No se pudo guardar el registro."
+  },
+  "bookingCredits": {
+    "balanceBadge": "{{count}} créditos de reserva",
+    "introBadge": "{{count}} reservas gratis · {{days}} días",
+    "noCreditsTitle": "Sin créditos de reserva",
+    "noCreditsMessage": "Suscríbete a Premium para más créditos o espera el próximo ciclo.",
+    "insufficientForStops": "Necesitas {{count}} créditos para esta ruta."
+  },
+  "subscriptionPaywall": {
+    "title": "Desbloquea Pix AI Booking",
+    "subtitleNoCredits": "Has agotado tus créditos. Elige un plan para continuar.",
+    "subtitleUpgrade": "Más créditos y acceso completo a PixAI.",
+    "monthlyTitle": "PixAI Premium Monthly",
+    "annualTitle": "PixAI Premium Plus",
+    "monthlyCredits": "10 créditos de reserva por ciclo",
+    "annualCredits": "100 créditos de reserva por ciclo",
+    "featureAiBooking": "Pix AI smart booking",
+    "featureVibeMatch": "Pix AI vibe matching",
+    "featurePostBoost": "Impulso de posts en el feed (pronto)",
+    "perMonth": "/mes",
+    "perYear": "/año",
+    "ctaMonthly": "Premium, {{price}}/mes",
+    "ctaMonthlyFallback": "Premium Monthly",
+    "ctaAnnual": "Premium Plus, {{price}}/año",
+    "ctaAnnualFallback": "Premium Plus Annual",
+    "restore": "Restaurar compras",
+    "manageApple": "Gestionar en App Store",
+    "manageGoogle": "Gestionar en Google Play",
+    "legal": "Los términos y la facturación los gestiona tu tienda de apps.",
+    "expoGoHint": "Las compras no están disponibles en Expo Go."
+  },
+  "postBoost": {
+    "title": "Impulsar post en el feed",
+    "comingSoon": "Pronto — tus posts aparecerán más arriba.",
+    "enabledHint": "Promocionar este post en el feed."
+  },
+  "dailyRecommendations": {
+    "title": "Tu selección de hoy",
+    "subtitle": "Sugerencias frescas según tu estilo.",
+    "heroTitle": "Tu selección de hoy",
+    "heroSubtitle": "Recomendaciones personalizadas cada día.",
+    "openHero": "Abrir recomendaciones diarias",
+    "empty": "Aún no hay recomendaciones para hoy.",
+    "save": "Guardar",
+    "unsave": "Quitar",
+    "share": "Compartir",
+    "dislike": "No me gusta",
+    "book": "Reservar"
   },
   "errorBoundary": {
     "retry": "Reintentar",

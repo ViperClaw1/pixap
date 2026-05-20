@@ -27,6 +27,11 @@ import {
 } from "@/entities/business-card";
 import { useCategories, CategoryIcon, resolveCategoryIconSpec, type Category } from "@/entities/category";
 import { useUnreadCount } from "@/entities/notification";
+import {
+  useDailyRecommendations,
+  useTrackRecommendationEvent,
+  useTrackRecommendationInteraction,
+} from "@/entities/daily-recommendation";
 import { useProfile, useUpdateProfile } from "@/entities/user";
 import type { HomeStackParamList, RootTabParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -52,6 +57,7 @@ import {
 } from "../model/constants";
 import { AnimatedHomeSparklesIcon, AnimatedHomeVibeIcon } from "@/shared/ui/animated-home-header-icons";
 import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
+import { DailyPicksHero } from "@/widgets/daily-picks-hero";
 
 const VIBE_TOOLBAR_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
 const VIBE_TOOLBAR_GRADIENT_DARK = ["#6d28d9", "#be185d", "#ea580c"] as const;
@@ -94,6 +100,9 @@ export default function HomeScreen() {
   const { data: featured = [], isLoading: lf } = useBusinessCards("featured", selectedCity);
   const { data: recommended = [], isLoading: lr } = useBusinessCards(undefined, selectedCity);
   const { data: categories = [], isLoading: lc } = useCategories();
+  const { data: dailyRecommendations = [] } = useDailyRecommendations();
+  const trackRecommendationEvent = useTrackRecommendationEvent();
+  const trackRecommendationInteraction = useTrackRecommendationInteraction();
   const unread = useUnreadCount();
   const { openAIBooking, openVibeMatch } = useSubscriptionGatedNavigation(navigation);
 
@@ -172,6 +181,23 @@ export default function HomeScreen() {
     ),
     [styles.recommendedGap],
   );
+
+  const openDailyRecommendations = useCallback(() => {
+    const top = dailyRecommendations[0];
+    trackRecommendationEvent.mutate({
+      event_name: "daily_recommendations_opened",
+      payload: { source: "home_hero", top_venue_id: top?.venue_id ?? null },
+    });
+    if (top) {
+      trackRecommendationInteraction.mutate({
+        venueId: top.venue_id,
+        interactionType: "open",
+        source: "home_hero",
+        metadata: { generated_rank: top.generated_rank },
+      });
+    }
+    navigation.navigate("DailyRecommendations");
+  }, [dailyRecommendations, navigation, trackRecommendationEvent, trackRecommendationInteraction]);
 
   const listHeader = useMemo(
     () => (
@@ -258,6 +284,8 @@ export default function HomeScreen() {
           <Text style={styles.searchBtnText}>{t("home.searchPlaceholder")}</Text>
         </Pressable>
 
+        <DailyPicksHero recommendation={dailyRecommendations[0] ?? null} onOpen={openDailyRecommendations} />
+
         <Text style={styles.sectionTitle}>{t("home.categories")}</Text>
         {lc ? (
           <CategorySkeletonRow />
@@ -299,6 +327,7 @@ export default function HomeScreen() {
     [
       categories,
       colors,
+      dailyRecommendations,
       featured,
       isDark,
       i18n.language,
@@ -308,6 +337,7 @@ export default function HomeScreen() {
       lr,
       navigation,
       notificationsOpen,
+      openDailyRecommendations,
       recommendedCardWidth,
       renderCategoryRow,
       renderFeaturedRow,

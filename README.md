@@ -260,12 +260,14 @@ Detailed state machine: [backend/wa-booking-service/README.md](backend/wa-bookin
 ### Mobile (`/.env`  see [.env.example](.env.example))
 
 - **`EXPO_PUBLIC_SUPABASE_URL`**, **`EXPO_PUBLIC_SUPABASE_ANON_KEY`**: Required.
+- **`EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM`**: Set to `1` when Pro **Storage Image Transformations** are enabled (see `docs/SUPABASE_IMAGE_TRANSFORMS_SETUP.md`). EAS build profiles set this in `eas.json`.
 - **`EXPO_PUBLIC_OAUTH_REDIRECT_BASE`**: HTTPS site for email / reset links.
 - **`EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI`**: Optional override for native OAuth redirect.
 - **`EXPO_PUBLIC_STRIPE_RETURN_SCHEME`**: Deep link scheme segment for payment return (see `app.config.ts` **`scheme`**: **`pixap`**).
 - **`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`**, **`EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY`**: Maps + REST.
 - **`EXPO_PUBLIC_PIXAPP_API_URL`**: Optional reverse proxy base (e.g. Lemon routes).
-- **`EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU`**: Store SKU for PixAI premium.
+- **`EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU`**: Store SKU for PixAI Premium Monthly (`pixai_premium_monthly`, 10 booking credits per cycle).
+- **`EXPO_PUBLIC_PIXAI_ANNUAL_SUBSCRIPTION_SKU`**: Store SKU for PixAI Premium Plus Annual (`pixai_premium_annual`, 100 booking credits per cycle).
 - **`EXPO_PUBLIC_PIXAI_WHATSAPP_E164`**: Digits-only fallback for PixAI WhatsApp CTAs.
 - **`EXPO_PUBLIC_EAS_PROJECT_ID`**: EAS / push-related.
 

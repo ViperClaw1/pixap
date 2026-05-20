@@ -145,15 +145,31 @@ Deno.serve(async (req) => {
   };
   if (slot !== null) patch.wa_confirmed_slot = slot;
   if (price !== null) patch.wa_confirmed_price = price;
-  if (paymentLink !== undefined) patch.wa_payment_link = paymentLink;
+  // Only persist non-empty links (legacy field). Omitting null avoids PostgREST errors when
+  // migration 20260425_cart_items_wa_payment_link has not been applied yet.
+  if (paymentLink != null && paymentLink.length > 0) {
+    patch.wa_payment_link = paymentLink;
+  }
 
   const { error: updErr } = await db.from("cart_items").update(patch).eq("id", row.id);
   if (updErr) {
     console.error("[n8n-wa-booking-callback] update", updErr);
-    return new Response(JSON.stringify({ error: updErr.message }), {
-      status: 500,
-      headers: jsonHeaders(),
-    });
+    const missingPaymentLinkCol = /wa_payment_link/i.test(updErr.message ?? "");
+    return new Response(
+      JSON.stringify({
+        error: updErr.message,
+        ...(missingPaymentLinkCol
+          ? {
+              hint:
+                "Apply migration 20260425_cart_items_wa_payment_link.sql (supabase db push), then retry.",
+            }
+          : {}),
+      }),
+      {
+        status: 500,
+        headers: jsonHeaders(),
+      },
+    );
   }
 
   return new Response(JSON.stringify({ ok: true }), {

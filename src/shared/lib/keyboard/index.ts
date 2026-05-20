@@ -6,3 +6,5 @@ export type {
   UseFocusedOverlapKeyboardInsetOptions,
 } from "./useFocusedOverlapKeyboardInset";
 export { KeyboardStickyView } from "./KeyboardStickyView";
+export { useFooterKeyboardLift } from "./useFooterKeyboardLift";
+export type { FooterKeyboardLiftOptions, FooterKeyboardLiftResult } from "./useFooterKeyboardLift";

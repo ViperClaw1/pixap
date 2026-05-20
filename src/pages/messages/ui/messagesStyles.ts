@@ -99,6 +99,10 @@ export const messagesStaticStyles = StyleSheet.create({
           lineHeight: 16,
         },
 
+        subtitleTyping: {
+          fontStyle: "italic",
+        },
+
         time: {
           fontSize: 12,
           fontWeight: "600",
@@ -418,6 +422,9 @@ export function messagesThemeStyles(colors: ThemeColors, bottomInset: number) {
     },
     subtitle: {
       color: colors.textMuted,
+    },
+    subtitleTyping: {
+      color: colors.primary,
     },
     time: {
       color: colors.textMuted,

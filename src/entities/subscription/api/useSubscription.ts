@@ -57,7 +57,7 @@ export function useSubscription() {
   }, [session?.access_token, user?.id]);
 
   const productIds = useMemo(
-    () => [env.pixAiMonthlySubscriptionSku].filter((sku) => sku.length > 0),
+    () => [env.pixAiMonthlySubscriptionSku, env.pixAiAnnualSubscriptionSku].filter((sku) => sku.length > 0),
     [],
   );
 
@@ -79,7 +79,10 @@ export function useSubscription() {
       if (rawPurchase && iapServiceRef.current) {
         await iapServiceRef.current.acknowledgePurchase(rawPurchase);
       }
-      await queryClient.invalidateQueries({ queryKey: queryKeys.subscription.entitlement(userId) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.subscription.entitlement(userId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.bookingCredits.prefix }),
+      ]);
       return verified;
     },
     [queryClient],
@@ -136,19 +139,25 @@ export function useSubscription() {
   useEffect(() => {
     if (!session?.access_token || !user?.id) return;
     void syncStatusWithBackend(session.access_token)
-      .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.subscription.entitlement(user.id) }))
+      .then(() =>
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.subscription.entitlement(user.id) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.bookingCredits.prefix }),
+        ]),
+      )
       .catch((error) => {
         devWarn("[subscription] sync-status failed", error);
       });
   }, [queryClient, session?.access_token, user?.id]);
 
   const buyMutation = useMutation({
-    mutationFn: async () => {
-      if (productIds.length === 0) throw new Error("Missing subscription SKU");
+    mutationFn: async (sku?: string) => {
+      const targetSku = sku ?? productIds[0];
+      if (!targetSku || productIds.length === 0) throw new Error("Missing subscription SKU");
       if (!iapSupported || !iapService) {
         throw new Error("In-app purchases are not available in Expo Go. Use a development or production build.");
       }
-      await iapService.startSubscriptionPurchase(productIds[0], productsQuery.data ?? []);
+      await iapService.startSubscriptionPurchase(targetSku, productsQuery.data ?? []);
     },
   });
 

@@ -11,6 +11,7 @@ import {
 let notificationHandlerInstalled = false;
 let consumeInFlight: Promise<void> | null = null;
 let lastConsumeAt = 0;
+let notificationOpenHandler: ((data: Record<string, unknown>) => void) | null = null;
 
 const CONSUME_DEBOUNCE_MS = 4_000;
 
@@ -26,6 +27,14 @@ export function ensurePushNotificationHandler(): void {
       shouldSetBadge: false,
     }),
   });
+  Notifications.addNotificationResponseReceivedListener((response) => {
+    const data = (response.notification.request.content.data ?? {}) as Record<string, unknown>;
+    notificationOpenHandler?.(data);
+  });
+}
+
+export function setPushNotificationOpenHandler(handler: ((data: Record<string, unknown>) => void) | null): void {
+  notificationOpenHandler = handler;
 }
 
 function resolveExpoProjectId(): string | undefined {

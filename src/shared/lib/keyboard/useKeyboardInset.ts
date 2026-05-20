@@ -17,6 +17,10 @@ export interface KeyboardInsetOptions {
   gap?: number;
   bottomInset?: number;
   /**
+   * Не обнулять inset при adjustResize (нужно, если окно «сжалось», но футер всё ещё под клавиатурой).
+   */
+  ignoreWindowResize?: boolean;
+  /**
    * Устарело: раньше переключало `useNativeDriver` у RN Animated.
    * Оставлено для обратной совместимости вызовов; значение игнорируется.
    */
@@ -42,6 +46,7 @@ function resolveAndroidKeyboardOverlap(
   keyboardTop: number,
   keyboardHeight: number,
   baselineWindowHeight: number,
+  ignoreWindowResize: boolean,
 ): number {
   if (keyboardHeight <= 0) return 0;
 
@@ -56,11 +61,19 @@ function resolveAndroidKeyboardOverlap(
     }
   }
 
-  const overlap = Math.min(overlapFromCoords, keyboardHeight);
-  const shrunkBy = baselineWindowHeight - windowHeight;
-  if (shrunkBy >= keyboardHeight * 0.75) {
-    return 0;
+  let overlap = Math.min(overlapFromCoords, keyboardHeight);
+
+  if (!ignoreWindowResize) {
+    const shrunkBy = baselineWindowHeight - windowHeight;
+    if (shrunkBy >= keyboardHeight * 0.75) {
+      return 0;
+    }
   }
+
+  if (ignoreWindowResize && overlap < keyboardHeight * 0.35) {
+    overlap = keyboardHeight;
+  }
+
   return overlap;
 }
 
@@ -69,6 +82,7 @@ export function useKeyboardInset(options: KeyboardInsetOptions = {}): SharedValu
     tabBarHeight = 0,
     gap = Platform.OS === "android" ? 24 : 16,
     bottomInset = 0,
+    ignoreWindowResize = false,
     enabled = true,
     onKeyboardChange,
   } = options;
@@ -80,9 +94,8 @@ export function useKeyboardInset(options: KeyboardInsetOptions = {}): SharedValu
 
   useEffect(() => {
     const fallbackMs = Platform.OS === "android" ? 280 : 250;
-    let androidRecalcTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const animate = (toValue: number, duration: number) => {
+    const setInsetAnimated = (toValue: number, duration: number) => {
       if (!enabled) return;
       keyboardInset.value = withTiming(toValue, {
         duration,
@@ -90,10 +103,13 @@ export function useKeyboardInset(options: KeyboardInsetOptions = {}): SharedValu
       });
     };
 
-    const applyKeyboardShow = (event: {
-      endCoordinates: { height: number; screenY?: number };
-      duration?: number;
-    }) => {
+    const applyKeyboardFrame = (
+      event: {
+        endCoordinates: { height: number; screenY?: number };
+        duration?: number;
+      },
+      options?: { animate?: boolean },
+    ) => {
       const windowHeight = Dimensions.get("window").height;
       const keyboardHeight = event.endCoordinates.height;
       const keyboardTop = event.endCoordinates.screenY ?? windowHeight - keyboardHeight;
@@ -104,49 +120,56 @@ export function useKeyboardInset(options: KeyboardInsetOptions = {}): SharedValu
               keyboardTop,
               keyboardHeight,
               baselineWindowHeightRef.current,
+              ignoreWindowResize,
             )
           : Math.max(0, windowHeight - keyboardTop);
       const inset = Math.max(0, rawOverlap - tabBarHeight - bottomInset + gap);
-      const durationMs = resolveKeyboardAnimationDuration(event.duration, fallbackMs);
-      animate(inset, durationMs);
+
+      if (!enabled) return;
+
+      // iOS: keyboardWillChangeFrame fires every frame — withTiming restarts and stutters.
+      // Mirror native keyboard position directly on the UI thread.
+      if (Platform.OS === "ios" || options?.animate === false) {
+        keyboardInset.value = inset;
+      } else {
+        const durationMs = resolveKeyboardAnimationDuration(event.duration, fallbackMs);
+        setInsetAnimated(inset, durationMs);
+      }
+
       onKeyboardChangeRef.current?.(keyboardTop, rawOverlap);
     };
 
-    const onShow = (event: {
+    const onAndroidShow = (event: {
       endCoordinates: { height: number; screenY?: number };
       duration?: number;
     }) => {
-      applyKeyboardShow(event);
-      if (Platform.OS === "android") {
-        if (androidRecalcTimer) clearTimeout(androidRecalcTimer);
-        androidRecalcTimer = setTimeout(() => applyKeyboardShow(event), 100);
-      }
+      applyKeyboardFrame(event, { animate: false });
     };
 
-    const onHide = (event?: { duration?: number }) => {
-      if (androidRecalcTimer) {
-        clearTimeout(androidRecalcTimer);
-        androidRecalcTimer = null;
-      }
-      const durationMs = resolveKeyboardAnimationDuration(event?.duration, fallbackMs);
-      animate(0, durationMs);
+    const onAndroidHide = () => {
+      keyboardInset.value = 0;
       baselineWindowHeightRef.current = Dimensions.get("window").height;
       const windowHeight = Dimensions.get("window").height;
       onKeyboardChangeRef.current?.(windowHeight, 0);
     };
 
-    const showEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    if (Platform.OS === "ios") {
+      const changeSub = Keyboard.addListener("keyboardWillChangeFrame", (event) => {
+        applyKeyboardFrame(event, { animate: false });
+      });
+      return () => {
+        changeSub.remove();
+      };
+    }
 
-    const showSub = Keyboard.addListener(showEvent, onShow);
-    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    const showSub = Keyboard.addListener("keyboardDidShow", onAndroidShow);
+    const hideSub = Keyboard.addListener("keyboardDidHide", onAndroidHide);
 
     return () => {
-      if (androidRecalcTimer) clearTimeout(androidRecalcTimer);
       showSub.remove();
       hideSub.remove();
     };
-  }, [bottomInset, enabled, gap, keyboardInset, tabBarHeight]);
+  }, [bottomInset, enabled, gap, ignoreWindowResize, keyboardInset, tabBarHeight]);
 
   return keyboardInset;
 }

@@ -236,9 +236,15 @@ function EditProfileScreenContent() {
         rootNavigation?.navigate("Profile", { screen: "ProfileMain" });
       };
       appAlert(
-        "Saved",
-        "Your profile data was updated.",
-        [{ text: "OK", onPress: goToProfile }],
+        t("editProfile.savedTitle"),
+        t("editProfile.savedBody"),
+        [
+          { text: t("common.ok"), onPress: goToProfile },
+          {
+            text: t("editProfile.personalizeCta"),
+            onPress: () => navigation.navigate("PreferenceOnboarding", { source: "edit_profile" }),
+          },
+        ],
         "success",
       );
     } catch (error: unknown) {

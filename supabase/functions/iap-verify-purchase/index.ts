@@ -2,6 +2,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // @ts-expect-error Deno runtime resolves remote URL imports for Edge Functions.
 import { SignJWT, importPKCS8 } from "https://esm.sh/jose@5.9.6";
 import { corsHeaders } from "../_shared/cors.ts";
+import {
+  refillBookingCreditsForUser,
+  shouldRefillCreditsOnVerifiedEntitlement,
+} from "../_shared/bookingCredits.ts";
 
 type VerifyPurchaseRequest = {
   platform: "ios" | "android";
@@ -397,6 +401,14 @@ Deno.serve(async (req) => {
       raw_payload: verification.raw,
       raw_payload_hash: payloadHash,
     });
+
+    if (shouldRefillCreditsOnVerifiedEntitlement(verification.entitlement.status)) {
+      await refillBookingCreditsForUser(
+        admin,
+        userData.user.id,
+        verification.entitlement.product_id,
+      );
+    }
 
     return new Response(JSON.stringify({ entitlement: verification.entitlement }), {
       status: 200,

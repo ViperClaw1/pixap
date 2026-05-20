@@ -3,6 +3,8 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { uploadMessageAttachmentIfLocal } from "@/entities/messages/lib/uploadMessageAttachmentToStories";
+import { appendThreadMessage, removeThreadMessage } from "@/entities/messages/lib/messageCachePatch";
+import type { MessageBubble } from "./useThreadMessages";
 
 export type SendMessageAttachmentInput =
   | string
@@ -10,6 +12,26 @@ export type SendMessageAttachmentInput =
 
 function normalizeAttachment(att: SendMessageAttachmentInput): { uri: string; mimeType?: string | null; name?: string | null } {
   return typeof att === "string" ? { uri: att } : att;
+}
+
+function createOptimisticMessage(params: {
+  id: string;
+  threadId: string;
+  userId: string;
+  content: string;
+  attachments: string[];
+}): MessageBubble {
+  return {
+    id: params.id,
+    thread_id: params.threadId,
+    sender_id: params.userId,
+    content: params.content,
+    attachments: params.attachments,
+    created_at: new Date().toISOString(),
+    mine: true,
+    sender_profile: null,
+    reactions: [],
+  };
 }
 
 export function useSendMessage() {
@@ -50,17 +72,46 @@ export function useSendMessage() {
         });
       if (insertError) throw insertError;
 
+      const at = new Date().toISOString();
       const { error: markReadError } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table is introduced by migration
         .from("message_thread_participants" as any)
-        .update({ last_read_message_at: new Date().toISOString() })
+        .update({ last_read_message_at: at })
         .eq("thread_id", threadId)
         .eq("user_id", user.id);
       if (markReadError) throw markReadError;
     },
-    onSuccess: (_res, vars) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.threadPrefix(vars.threadId) });
+    onMutate: async (vars) => {
+      if (!user?.id) return;
+      const optimisticId = `optimistic-${Date.now()}`;
+      const trimmed = vars.content.trim();
+      appendThreadMessage(
+        queryClient,
+        vars.threadId,
+        user.id,
+        createOptimisticMessage({
+          id: optimisticId,
+          threadId: vars.threadId,
+          userId: user.id,
+          content: trimmed || "[attachment]",
+          attachments: (vars.attachments ?? [])
+            .map(normalizeAttachment)
+            .map((a) => a.uri)
+            .filter((uri) => uri.trim().length > 0),
+        }),
+      );
+      return { optimisticId };
+    },
+    onSuccess: (_res, vars, context) => {
+      if (context?.optimisticId) {
+        removeThreadMessage(queryClient, vars.threadId, user?.id ?? null, context.optimisticId);
+      }
       void queryClient.invalidateQueries({ queryKey: queryKeys.messages.inboxPrefix });
+    },
+    onError: (_err, vars, context) => {
+      if (context?.optimisticId) {
+        removeThreadMessage(queryClient, vars.threadId, user?.id ?? null, context.optimisticId);
+      }
     },
   });
 }

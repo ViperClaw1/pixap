@@ -324,6 +324,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   emptyCommentsContent: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
   },
   modalCommentCard: {
@@ -437,7 +439,6 @@ const styles = StyleSheet.create({
   noCommentsText: {
     fontSize: 14,
     textAlign: "center",
-    lineHeight: 390,
   },
   replyComposerWrap: {
     borderTopWidth: StyleSheet.hairlineWidth,

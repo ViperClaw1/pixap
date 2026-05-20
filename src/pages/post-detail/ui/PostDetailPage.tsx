@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
-  PixelRatio,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -43,7 +42,7 @@ import {
   type FeedPostVm,
 } from "@/pages/stories-feed/lib/feedPostHelpers";
 import type { BrowseFlowParamList, RootTabParamList } from "@/app/navigation/types";
-import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
+import { getFeedPostCarouselImageUrls } from "@/shared/lib/feedMediaUrls";
 import { profileMentionTag } from "@/shared/lib/profileMentionTag";
 
 type PostDetailRoute = RouteProp<BrowseFlowParamList, "PostDetail">;
@@ -81,25 +80,18 @@ export default function PostDetailPage() {
     return Math.max(FEED_CAROUSEL_MIN_HEIGHT, fromViewport);
   }, [height]);
 
-  const optimizedPostImageSize = useMemo(() => {
-    const dpr = PixelRatio.get();
-    return { width: quantizeDecodePx(Math.round(width * dpr)), height: quantizeDecodePx(Math.round(sliderHeight * dpr)) };
-  }, [sliderHeight, width]);
-
   const postVm = useMemo<FeedPostVm | null>(() => {
     if (!post) return null;
     const postImagesRaw = getPostImages(post);
     return {
       post,
       postImagesRaw,
-      postImages: postImagesRaw.map(
-        (url) => getOptimizedImageUrl(url, optimizedPostImageSize.width, optimizedPostImageSize.height, 78) || url,
-      ),
+      postImages: getFeedPostCarouselImageUrls(postImagesRaw),
       postSlideBlurhashes: slideBlurhashesForPost(post, postImagesRaw.length),
       authorAvatarRaw: profileAvatar(post.profile?.avatar_url),
       authorAvatar: profileAvatar(post.profile?.avatar_url),
     };
-  }, [optimizedPostImageSize.height, optimizedPostImageSize.width, post]);
+  }, [post]);
 
   const currentUserAvatarUrl = useMemo(() => {
     const metadataAvatar =

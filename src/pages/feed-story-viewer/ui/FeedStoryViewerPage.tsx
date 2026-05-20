@@ -35,7 +35,7 @@ import { StoryMediaSlide } from "@/widgets/stories-strip";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import Toast from "react-native-toast-message";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { getFeedStoryFullscreenImageUrl } from "@/shared/lib/feedMediaUrls";
 import { parseStoryMediaPrimaryUrl, parseStoryMediaUrls } from "@/shared/lib/storyMediaUrls";
 import type { StoryItem, StoryReactionType } from "@/shared/model/types/stories";
 import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
@@ -270,7 +270,7 @@ export default function FeedStoryViewerPage() {
   const activeImageUrl = activeSlide?.rawUri ?? null;
 
   const activeOptimizedImageUrl = useMemo(
-    () => (activeImageUrl ? getOptimizedImageUrl(activeImageUrl, 1080, 1920, 78) : null),
+    () => (activeImageUrl ? getFeedStoryFullscreenImageUrl(activeImageUrl) : null),
     [activeImageUrl],
   );
   const authorName = useMemo(() => {
@@ -336,20 +336,11 @@ export default function FeedStoryViewerPage() {
   }, []);
 
   useEffect(() => {
-    const candidateIndexes = [
-      mediaSlideIndex - 2,
-      mediaSlideIndex - 1,
-      mediaSlideIndex,
-      mediaSlideIndex + 1,
-      mediaSlideIndex + 2,
-    ].filter((idx) => idx >= 0 && idx < flatMediaSlides.length);
-    const candidateUrls = candidateIndexes
-      .map((idx) => flatMediaSlides[idx]?.rawUri)
-      .filter((url): url is string => Boolean(url));
+    const nextIdx = mediaSlideIndex + 1;
+    const nextUri =
+      nextIdx >= 0 && nextIdx < flatMediaSlides.length ? flatMediaSlides[nextIdx]?.rawUri : null;
     const task = InteractionManager.runAfterInteractions(() => {
-      void preloadSmartImages(
-        candidateUrls.map((url) => getOptimizedImageUrl(url, 1080, 1920, 78) || url),
-      );
+      if (nextUri) void preloadSmartImages([getFeedStoryFullscreenImageUrl(nextUri)]);
     });
     return () => task.cancel();
   }, [flatMediaSlides, mediaSlideIndex]);
@@ -547,7 +538,7 @@ export default function FeedStoryViewerPage() {
           onSnapToItem={handleCarouselSnapToItem}
           renderItem={({ item }) => {
             const rawUri = item.rawUri;
-            const optimized = rawUri ? getOptimizedImageUrl(rawUri, 1080, 1920, 78) : null;
+            const optimized = rawUri ? getFeedStoryFullscreenImageUrl(rawUri) : null;
             return (
               <View style={styles.absoluteFill}>
                 <StoryMediaSlide

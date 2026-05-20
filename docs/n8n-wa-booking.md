@@ -97,7 +97,7 @@ Optionally enable Postgres **Realtime** on `public.cart_items` so the app update
 
 ## Database
 
-Migration `20260416_cart_items_wa_n8n.sql` adds `wa_*` columns on `cart_items`. Apply migrations before deploying functions.
+Migrations `20260416_cart_items_wa_n8n.sql` and `20260425_cart_items_wa_payment_link.sql` add `wa_*` columns on `cart_items` (including optional `wa_payment_link`). **Apply all pending migrations on the Supabase project** before deploying functions — otherwise Railway logs show `supabase_cart_callback_exhausted` with *Could not find the 'wa_payment_link' column* when an older callback build sent `payment_link: null`.
 
 ## Deploy / refresh the Edge function
 
@@ -120,6 +120,7 @@ The Expo log line `Edge Function returned a non-2xx status code` is generic. Aft
 |--------|----------------|
 | Log **`n8n_upstream` 404** and JSON like *"The requested webhook … is not registered"* (n8n / test-mode hint) | **Stale deployment:** Supabase is still running an **old** `n8n-wa-booking-start` that posted to **n8n**. Redeploy this function from the repo (see above). Set secret **`WA_BOOKING_SERVICE_URL`** to your `wa-booking-service` HTTPS base (e.g. `https://api.pixapp.kz`). |
 | `step: "db_select"` / missing column | Migration not applied on the Supabase project used by the app. |
+| Railway **`supabase_cart_callback_exhausted`** + *`wa_payment_link` … schema cache* | Run migration **`20260425_cart_items_wa_payment_link.sql`** (or `supabase db push`). Redeploy **`n8n-wa-booking-callback`** and **`wa-booking-service`** from this repo so callbacks no longer send null `payment_link`. Edge **`n8n-wa-booking-start`** may still return **200** while callbacks fail — cart UI stays empty. |
 | `WA_BOOKING_SERVICE_URL is not set` | Secret missing or typo in the Dashboard. |
 | `wa_booking_status: 404` | Wrong `WA_BOOKING_SERVICE_URL` or Node service not deployed / path not `/webhook/booking`. |
 | `Unauthorized` on **start** | User session not passed to `invoke`. |

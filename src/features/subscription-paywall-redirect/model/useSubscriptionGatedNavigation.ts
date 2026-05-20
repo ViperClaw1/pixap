@@ -1,18 +1,30 @@
 import { useCallback } from "react";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
-import { useEntitlement } from "@/entities/subscription";
+import { useBookingAccess } from "@/features/booking-access";
 import { shouldEnforceSubscriptionPaywall } from "./shouldEnforceSubscriptionPaywall";
 
 type GatedScreen = "AIBooking" | "VibeMatch" | "BookingFlow";
 
 export function useSubscriptionGatedNavigation(navigation: NavigationProp<ParamListBase>) {
-  const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
+  const {
+    isLoading: accessLoading,
+    canAccessBookingFlow,
+    canAccessAIBooking,
+    canAccessVibeMatch,
+    balance,
+  } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
 
   const openGatedScreen = useCallback(
     (screen: GatedScreen, params?: { id?: string }) => {
-      if (shouldEnforcePaywall && !entitlementLoading && !hasSubscriptionAccess) {
-        navigation.navigate("SubscriptionPaywall");
+      const allowed =
+        screen === "BookingFlow"
+          ? canAccessBookingFlow
+          : screen === "AIBooking"
+            ? canAccessAIBooking
+            : canAccessVibeMatch;
+      if (shouldEnforcePaywall && !accessLoading && !allowed) {
+        navigation.navigate("SubscriptionPaywall", { reason: balance <= 0 ? "no_credits" : "upgrade" });
         return;
       }
       if (params != null) {
@@ -21,7 +33,15 @@ export function useSubscriptionGatedNavigation(navigation: NavigationProp<ParamL
       }
       navigation.navigate(screen);
     },
-    [entitlementLoading, hasSubscriptionAccess, navigation, shouldEnforcePaywall],
+    [
+      accessLoading,
+      canAccessAIBooking,
+      canAccessBookingFlow,
+      canAccessVibeMatch,
+      balance,
+      navigation,
+      shouldEnforcePaywall,
+    ],
   );
 
   const openAIBooking = useCallback(
@@ -41,7 +61,9 @@ export function useSubscriptionGatedNavigation(navigation: NavigationProp<ParamL
     openBookingFlow,
     openVibeMatch,
     shouldEnforcePaywall,
-    hasSubscriptionAccess,
-    entitlementLoading,
+    canAccessBookingFlow,
+    canAccessAIBooking,
+    canAccessVibeMatch,
+    accessLoading,
   };
 }

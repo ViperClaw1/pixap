@@ -56,7 +56,7 @@ export function useEntitlement() {
       ? userCreatedAtMs + INTRO_FREE_DAYS * 24 * 60 * 60 * 1000
       : Number.NaN;
     const isIntroTrialActive = Number.isFinite(introTrialEndsAtMs) && Date.now() < introTrialEndsAtMs;
-    const hasSubscriptionAccess = isActive || isIntroTrialActive;
+    const hasSubscriptionAccess = isActive;
     return {
       entitlement,
       isActive,

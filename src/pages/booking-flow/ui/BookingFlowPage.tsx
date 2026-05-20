@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { useTranslation } from "react-i18next";
 import { CommonActions, useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,6 +24,13 @@ import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { devWarn } from "@/shared/lib/devLog";
 import { appAlert } from "@/shared/ui/app-popup";
+import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
+import { useBookingAccess } from "@/features/booking-access";
+import {
+  shouldEnforceSubscriptionPaywall,
+  useSubscriptionPaywallRedirect,
+} from "@/features/subscription-paywall-redirect";
+import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import {
   BOOKING_FLOW_DEFAULT_GUESTS,
   BOOKING_FLOW_MAX_GUESTS,
@@ -66,6 +74,25 @@ export default function BookingFlowPage() {
   const createCartItem = useCreateCartItem();
   const createBooking = useCreateBooking();
   const startN8nWaBooking = useStartN8nWaBooking();
+  const { t } = useTranslation();
+  const {
+    canAccessBookingFlow,
+    isLoading: accessLoading,
+    balance,
+    isIntroActive,
+    introPeriodEndsAt,
+    canUseBookingCredits,
+  } = useBookingAccess();
+  const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
+  useSubscriptionPaywallRedirect({
+    accessLoading,
+    shouldEnforcePaywall,
+    hasAccess: canAccessBookingFlow,
+    paywallReason: !canUseBookingCredits ? "no_credits" : "upgrade",
+    navigation: navigation as {
+      replace: (name: "SubscriptionPaywall", params?: { reason?: "no_credits" | "upgrade" }) => void;
+    },
+  });
 
   const [step, setStep] = useState(0);
   const [selectedDateYmd, setSelectedDateYmd] = useState(() => toYmd(new Date()));
@@ -86,6 +113,17 @@ export default function BookingFlowPage() {
 
   if (!place) return null;
 
+  if (accessLoading) {
+    return (
+      <View style={[styles.root, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+  if (shouldEnforcePaywall && !canAccessBookingFlow) {
+    return null;
+  }
+
   const todayYmd = toYmd(startOfLocalDay(new Date()));
   const earliestBookableMonth = firstOfMonthContaining(new Date());
   const latestBookableMonth = new Date(
@@ -104,6 +142,10 @@ export default function BookingFlowPage() {
   };
 
   const handleConfirm = async () => {
+    if (!canUseBookingCredits) {
+      Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
+      return;
+    }
     if (!isProfileComplete(profile)) {
       Alert.alert("Profile incomplete", "Please, fill out all your profile data before booking.");
       navigation.getParent()?.dispatch(
@@ -175,12 +217,24 @@ export default function BookingFlowPage() {
         navigateToAuthScreen(navigation);
         return;
       }
+      if (isInsufficientBookingCreditsError(error)) {
+        Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
+        return;
+      }
       Alert.alert("Failed to add to cart");
     }
   };
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]} {...androidSwipeBackPanHandlers}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        <BookingCreditsBadge
+          balance={balance}
+          isIntroActive={isIntroActive}
+          introPeriodEndsAt={introPeriodEndsAt}
+          compact
+        />
+      </View>
       {step === 1 ? (
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
           <Pressable onPress={() => setStep(step - 1)}>

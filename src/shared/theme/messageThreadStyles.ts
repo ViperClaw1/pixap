@@ -32,6 +32,15 @@ export const messageThreadStaticStyles = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: "center" },
   peerName: { fontSize: 16, fontWeight: "700" },
   peerSeen: { fontSize: 12, marginTop: 2 },
+  peerTyping: { fontStyle: "italic" },
+  typingRow: {
+    paddingHorizontal: 4,
+    paddingBottom: 6,
+  },
+  typingText: {
+    fontSize: 12,
+    fontStyle: "italic",
+  },
   peerAvatar: { width: 36, height: 36, borderRadius: 18 },
   supportPeerAvatar: {
     alignItems: "center",
@@ -334,6 +343,8 @@ export function messageThreadThemeStyles(
     },
     peerName: { color: colors.text },
     peerSeen: { color: colors.textMuted },
+    peerTyping: { color: colors.primary },
+    typingText: { color: colors.textMuted },
     peerAvatar: { backgroundColor: colors.surface },
     listContent: {
       paddingTop: Math.max(insetsTop, 10) + 62,
@@ -393,8 +404,8 @@ export function messageThreadThemeStyles(
       backgroundColor: colors.card,
     },
     footer: {
-      borderTopColor: "transparent",
-      backgroundColor: "transparent",
+      borderTopColor: colors.border,
+      backgroundColor: colors.card,
     },
     stickerPanel: {
       borderColor: colors.border,

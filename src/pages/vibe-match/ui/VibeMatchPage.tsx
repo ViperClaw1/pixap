@@ -31,7 +31,9 @@ import {
   shouldEnforceSubscriptionPaywall,
   useSubscriptionPaywallRedirect,
 } from "@/features/subscription-paywall-redirect";
-import { useEntitlement } from "@/entities/subscription";
+import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
+import { useBookingAccess } from "@/features/booking-access";
+import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import { appAlert } from "@/shared/ui/app-popup";
 import { useProfile } from "@/entities/user";
 import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } from "@/entities/pixai";
@@ -68,9 +70,9 @@ import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { toYmd } from "@/shared/lib/bookingCalendar";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { VIBE_OPTIONS } from "@/entities/user-preferences";
+import { OnboardingChipGrid } from "@/shared/ui/onboarding/OnboardingChipGrid";
 import { devWarn } from "@/shared/lib/devLog";
-
-const MOOD_PRESETS = ["romantic evening", "drunk friday", "family brunch", "solo chill", "celebration night"] as const;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -128,7 +130,14 @@ export default function VibeMatchPage() {
   const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const { user, session, loading: authLoading } = useAuth();
-  const { hasSubscriptionAccess, isLoading: entitlementLoading } = useEntitlement();
+  const {
+    canAccessVibeMatch,
+    isLoading: accessLoading,
+    balance,
+    isIntroActive,
+    introPeriodEndsAt,
+    canUseBookingCredits,
+  } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
 
   useAuthSessionRedirect({
@@ -137,10 +146,13 @@ export default function VibeMatchPage() {
     navigation,
   });
   useSubscriptionPaywallRedirect({
-    entitlementLoading,
+    accessLoading,
     shouldEnforcePaywall,
-    hasSubscriptionAccess,
-    navigation: navigation as { replace: (name: "SubscriptionPaywall") => void },
+    hasAccess: canAccessVibeMatch,
+    paywallReason: !canUseBookingCredits ? "no_credits" : "upgrade",
+    navigation: navigation as {
+      replace: (name: "SubscriptionPaywall", params?: { reason?: "no_credits" | "upgrade" }) => void;
+    },
   });
 
   const { data: profile } = useProfile();
@@ -149,6 +161,7 @@ export default function VibeMatchPage() {
   const createBooking = useCreateBooking();
   const createCartItem = useCreateCartItem();
 
+  const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
   const [mood, setMood] = useState("");
   const [timeline, setTimeline] = useState<PixAIVibeTimeline>("evening");
   const [city, setCity] = useState("");
@@ -276,10 +289,21 @@ export default function VibeMatchPage() {
   );
   const styles = useMemo(() => mergeStaticAndThemed(vibeMatchStaticStyles, themed), [themed]);
 
+  const toggleMood = useCallback((id: string) => {
+    setSelectedMoods((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
+
+  const resolveMoodPayload = useCallback(() => {
+    const labels = selectedMoods.map((id) => t(id, { keyPrefix: "onboarding.vibes" }));
+    const notes = mood.trim();
+    if (notes) labels.push(notes);
+    return labels.join(", ");
+  }, [mood, selectedMoods, t]);
+
   const onGenerate = useCallback(async () => {
-    const m = mood.trim();
+    const m = resolveMoodPayload();
     if (!m) {
-      Alert.alert("Mood", "Enter a mood or pick a preset.");
+      Alert.alert("Mood", t("vibeMatch.moodRequired"));
       return;
     }
     const cityTrim = city.trim();
@@ -294,7 +318,7 @@ export default function VibeMatchPage() {
     } catch {
       /* surfaced via vibeError */
     }
-  }, [city, mood, runVibePlan, timeline]);
+  }, [city, resolveMoodPayload, runVibePlan, t, timeline]);
 
   const onRetryGenerate = useCallback(() => {
     void onGenerate();
@@ -324,6 +348,10 @@ export default function VibeMatchPage() {
             params: { screen: "EditProfile" },
           }),
         );
+        return;
+      }
+      if (balance < stops.length) {
+        Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.insufficientForStops", { count: stops.length }));
         return;
       }
       setBookingAction(action);
@@ -376,6 +404,11 @@ export default function VibeMatchPage() {
               navigateToAuthScreen(navigation);
               return;
             }
+            if (isInsufficientBookingCreditsError(e)) {
+              Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
+              setLastBookResults(results);
+              return;
+            }
             const message = e instanceof Error ? e.message : String(e);
             results.push({ stop, ok: false, message });
           }
@@ -426,7 +459,9 @@ export default function VibeMatchPage() {
       persons,
       plan,
       profile,
+      balance,
       session?.access_token,
+      t,
       stopAvailability,
       validateForm,
     ],
@@ -462,14 +497,14 @@ export default function VibeMatchPage() {
 
   const errMsg = vibeError instanceof Error ? vibeError.message : vibeError ? String(vibeError) : "";
 
-  if (authLoading || entitlementLoading) {
+  if (authLoading || accessLoading) {
     return (
       <View style={[styles.root, { alignItems: "center", justifyContent: "center" }]} {...androidSwipeBackPanHandlers}>
         <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
-  if (shouldEnforcePaywall && !hasSubscriptionAccess) {
+  if (shouldEnforcePaywall && !canAccessVibeMatch) {
     return null;
   }
 
@@ -482,6 +517,11 @@ export default function VibeMatchPage() {
           </Pressable>
           <Text style={styles.title}>PixAI Vibe Match</Text>
         </View>
+        <BookingCreditsBadge
+          balance={balance}
+          isIntroActive={isIntroActive}
+          introPeriodEndsAt={introPeriodEndsAt}
+        />
         <Text style={styles.subtitle}>Mood + evening flow → one-tap multi-stop cart.</Text>
 
         <View style={styles.section}>
@@ -498,20 +538,14 @@ export default function VibeMatchPage() {
             </Text>
           </Pressable>
           <Text style={styles.label}>Mood</Text>
+          <OnboardingChipGrid options={VIBE_OPTIONS} selected={selectedMoods} onToggle={toggleMood} />
           <TextInput
             style={styles.input}
-            placeholder="e.g. romantic evening"
+            placeholder={t("vibeMatch.moodNotesPlaceholder")}
             placeholderTextColor={colors.textMuted}
             value={mood}
             onChangeText={setMood}
           />
-          <View style={styles.chipRow}>
-            {MOOD_PRESETS.map((p) => (
-              <Pressable key={p} style={styles.chip} onPress={() => setMood(p)}>
-                <Text style={styles.chipText}>{p}</Text>
-              </Pressable>
-            ))}
-          </View>
           <Text style={styles.label}>Timeline</Text>
           <View style={styles.timelineRow}>
             {(["evening", "night", "late_night"] as const).map((t) => (

@@ -8,4 +8,8 @@ export * from "./api/useReactToMessage";
 export * from "./api/useDeleteMessage";
 export { findDirectThreadForPeer } from "./lib/findDirectThreadForPeer";
 export { findSupportThread } from "./lib/findSupportThread";
+export { useMessageThreadTyping } from "./lib/useMessageThreadTyping";
+export { useMessagesInboxTyping } from "./lib/useMessagesInboxTyping";
+export { prefetchThreadMessages } from "./lib/prefetchThreadMessages";
+export { useDebouncedMarkThreadRead } from "./lib/useDebouncedMarkThreadRead";
 export * from "./api/useOpenOrCreateSupportThread";

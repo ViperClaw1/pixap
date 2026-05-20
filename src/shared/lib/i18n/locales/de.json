@@ -30,8 +30,14 @@
     "loading": "Wird geladen...",
     "unknownError": "Unbekannter Fehler",
     "cancel": "Abbrechen",
+    "ok": "OK",
     "delete": "Löschen",
     "unknownUser": "Unbekannter Nutzer"
+  },
+  "editProfile": {
+    "savedTitle": "Gespeichert",
+    "savedBody": "Dein Profil wurde aktualisiert.",
+    "personalizeCta": "Empfehlungen personalisieren"
   },
   "home": {
     "searchPlaceholder": "Restaurants, Salons, Events suchen…",
@@ -69,7 +75,9 @@
     "fallbackName": "Kategorie"
   },
   "vibeMatch": {
-    "chooseAtLeastOnePlace": "Bitte wählen Sie mindestens einen Ort aus"
+    "chooseAtLeastOnePlace": "Bitte wählen Sie mindestens einen Ort aus",
+    "moodNotesPlaceholder": "Details hinzufügen (optional)",
+    "moodRequired": "Wähle mindestens einen Vibe oder eine kurze Beschreibung."
   },
   "messages": {
     "searchPlaceholder": "Chats und Nutzer suchen",
@@ -90,7 +98,11 @@
     "toastCouldNotOpenSupport": "Support-Chat konnte nicht geöffnet werden",
     "support": "Support",
     "supportSubtitle": "Chat mit unserem Team",
-    "followed": "Gefolgt"
+    "followed": "Gefolgt",
+    "thread": {
+      "peerTyping": "tippt...",
+      "peerOnline": "online"
+    }
   },
   "bookings": {
     "filter": {
@@ -249,6 +261,12 @@
     "actions": {
       "manageSubscription": "Abo verwalten",
       "getPremium": "PixAI Premium holen",
+      "completeOnboarding": "Onboarding abschließen",
+      "updatePreferences": "Präferenzen aktualisieren",
+      "retakeTaste": "Geschmacksprofil neu",
+      "retakeTasteTitle": "Geschmacksprofil neu?",
+      "retakeTasteBody": "Onboarding-Bewertungen werden gelöscht.",
+      "retakeTasteConfirm": "Neu starten",
       "archive": "Archiv",
       "privacy": "Datenschutz & Sicherheit",
       "settings": "Einstellungen"
@@ -308,6 +326,54 @@
     "locationDenied": "Standortzugriff ist für den Check-in erforderlich.",
     "rateLimited": "Erneuter Check-in in etwa 15 Minuten möglich.",
     "checkInError": "Check-in konnte nicht gespeichert werden."
+  },
+  "bookingCredits": {
+    "balanceBadge": "{{count}} Buchungsguthaben übrig",
+    "introBadge": "{{count}} gratis Buchungen · {{days}} Tage",
+    "noCreditsTitle": "Keine Buchungsguthaben",
+    "noCreditsMessage": "Abonnieren Sie Premium für mehr Guthaben oder warten Sie auf den nächsten Abrechnungszeitraum.",
+    "insufficientForStops": "Für diese Route brauchen Sie {{count}} Guthaben."
+  },
+  "subscriptionPaywall": {
+    "title": "Pix AI Booking freischalten",
+    "subtitleNoCredits": "Ihre Buchungsguthaben sind aufgebraucht. Wählen Sie einen Plan.",
+    "subtitleUpgrade": "Mehr Guthaben und voller PixAI-Zugang.",
+    "monthlyTitle": "PixAI Premium Monthly",
+    "annualTitle": "PixAI Premium Plus",
+    "monthlyCredits": "10 Buchungsguthaben pro Abrechnungszeitraum",
+    "annualCredits": "100 Buchungsguthaben pro Abrechnungszeitraum",
+    "featureAiBooking": "Pix AI Smart Booking",
+    "featureVibeMatch": "Pix AI Vibe Matching",
+    "featurePostBoost": "Post-Boost im Feed (demnächst)",
+    "perMonth": "/Monat",
+    "perYear": "/Jahr",
+    "ctaMonthly": "Premium, {{price}}/Monat",
+    "ctaMonthlyFallback": "Premium Monthly",
+    "ctaAnnual": "Premium Plus, {{price}}/Jahr",
+    "ctaAnnualFallback": "Premium Plus Annual",
+    "restore": "Käufe wiederherstellen",
+    "manageApple": "Im App Store verwalten",
+    "manageGoogle": "In Google Play verwalten",
+    "legal": "Abonnementbedingungen werden über Ihr Store-Konto verwaltet.",
+    "expoGoHint": "Käufe sind in Expo Go nicht verfügbar."
+  },
+  "postBoost": {
+    "title": "Post im Feed boosten",
+    "comingSoon": "Demnächst — höhere Sichtbarkeit in der Entdeckung.",
+    "enabledHint": "Diesen Post im Feed bewerben."
+  },
+  "dailyRecommendations": {
+    "title": "Heute Abend für dich",
+    "subtitle": "Frische Vorschläge passend zu deinem Geschmack.",
+    "heroTitle": "Heute Abend für dich",
+    "heroSubtitle": "Täglich aktualisierte, personalisierte Picks.",
+    "openHero": "Tägliche Empfehlungen öffnen",
+    "empty": "Für heute gibt es noch keine Picks.",
+    "save": "Speichern",
+    "unsave": "Entfernen",
+    "share": "Teilen",
+    "dislike": "Gefällt nicht",
+    "book": "Jetzt buchen"
   },
   "errorBoundary": {
     "retry": "Erneut versuchen",

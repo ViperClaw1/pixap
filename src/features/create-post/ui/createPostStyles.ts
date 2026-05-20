@@ -58,6 +58,15 @@ export const createPostStyles = StyleSheet.create({
   postPhotoCount: {
     fontSize: 12,
   },
+  postBoostRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
   postFieldLabel: {
     fontSize: 13,
     fontWeight: "700",
