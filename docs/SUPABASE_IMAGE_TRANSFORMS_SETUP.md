@@ -4,10 +4,10 @@
 
 | Step | Where | Status |
 |------|--------|--------|
-| Pro plan | [Dashboard → Billing](https://supabase.com/dashboard/org/_/billing) | Manual |
-| Image Transformations | Project → **Storage** → enable **Image Transformations** | Manual |
-| App env | `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1` | Done in `.env.example`, `eas.json` |
-| Smoke test | `.\scripts\smoke-supabase-image-transform.ps1` | Run after Dashboard toggle |
+| Pro plan | [Dashboard → Billing](https://supabase.com/dashboard/org/_/billing) | Done |
+| Image Transformations | Project → **Storage** → **Image Transformations** | Done |
+| App env | `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1` | Done |
+| Smoke test | `.\scripts\smoke-supabase-image-transform.ps1` | **200** |
 
 ## Dashboard (обязательно)
 

@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/app/providers/AuthProvider";
 import { UserPresenceProvider } from "@/entities/user-presence";
 import { ThemeProvider } from "@/app/providers/ThemeProvider";
+import { StorageEgressMetricsDev } from "@/app/providers/StorageEgressMetricsDev";
 import { AppErrorBoundary } from "@/shared/ui/error-boundary";
 import { AppPopupProvider } from "@/shared/ui/app-popup";
 import { i18n } from "@/shared/lib/i18n";
@@ -33,6 +34,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
               <AuthProvider>
                 <UserPresenceProvider>
                   <AppPopupProvider>
+                    <StorageEgressMetricsDev />
                     <AppErrorBoundary>{children}</AppErrorBoundary>
                   </AppPopupProvider>
                 </UserPresenceProvider>

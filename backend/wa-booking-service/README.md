@@ -58,19 +58,14 @@ Service listens on **port 8787** by default (avoids **8081**, which Expo Metro u
 
 ## Conversation state machine
 
-Templates are locale-suffixed: `interface_locale` from the app (`ru` → `_ru`, otherwise `_en`).
+Template chain (`_ru` / `_en`) is chosen from **`owner_phone`** (`business_cards.contact_whatsapp`), **not** the app UI language:
 
-**Russian UI (`interface_locale: ru`):**
+- **`+7…` or `+37…`** (also digits starting with `7` / `37`) → `check_is_available_ru` → `chech_free_or_set_price_ru` → `got_it_ru`
+- **All other numbers** → `check_is_available_en` → `chech_free_or_set_price_en` → `got_it_en`
 
-1. `check_is_available_ru`
-2. `chech_free_or_set_price_ru` (spelling matches Meta template name)
-3. `got_it_ru`
+`interface_locale` in the POST body from Supabase is logged as `app_interface_locale` only; it does not affect templates.
 
-**All other UI locales (default `en`):**
-
-1. `check_is_available_en`
-2. `chech_free_or_set_price_en`
-3. `got_it_en`
+Price replies from the owner are parsed with case-insensitive ISO codes (`USD`, `RUB`, `EUR`, `AMD`, `KZT`, …) plus localized words (руб, тенге, драм, etc.).
 
 | Step | Outbound template | Owner reply |
 |------|-------------------|-------------|

@@ -183,7 +183,9 @@
     "noMatchingPlaces": "Нет подходящих мест"
   },
   "category": {
-    "fallbackName": "Категория"
+    "fallbackName": "Категория",
+    "noPlaces": "В этой категории пока нет мест",
+    "noPlacesInCity": "В этой категории нет мест в городе {{city}}"
   },
   "vibeMatch": {
     "chooseAtLeastOnePlace": "Пожалуйста, выберите хотя бы одно место",
@@ -234,6 +236,7 @@
     "yesCancel": "Да, отменить",
     "cancel": "Отмена",
     "persons": "Гостей: {{count}}",
+    "venuePrice": "Цена от заведения: {{price}}",
     "comment": "Комментарий: {{text}}",
     "payment": "Оплата: {{state}}",
     "paymentPending": "Ожидает",

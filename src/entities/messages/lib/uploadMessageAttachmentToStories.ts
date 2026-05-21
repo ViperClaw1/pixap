@@ -5,6 +5,7 @@ import { supabase } from "@/shared/api/supabase/client";
 import { bytesFromBase64 } from "@/shared/lib/bytesFromBase64";
 import { messageVideoPosterStoragePath } from "@/entities/messages/lib/messageVideoPoster";
 import { prepareImageForStorageUpload, POST_STORAGE_MAX_LONG_EDGE } from "@/shared/lib/prepareImageForStorageUpload";
+import { buildStorageUploadOptions } from "@/shared/lib/storageUploadOptions";
 
 const STORIES_BUCKET = "stories";
 
@@ -94,10 +95,11 @@ async function uploadVideoPosterFromLocalUri(
     });
     if (!bytes.byteLength) return;
     const posterPath = messageVideoPosterStoragePath(videoStoragePath, fileExtension);
-    const { error } = await supabase.storage.from(STORIES_BUCKET).upload(posterPath, bytes, {
-      upsert: true,
-      contentType,
-    });
+    const { error } = await supabase.storage.from(STORIES_BUCKET).upload(
+      posterPath,
+      bytes,
+      buildStorageUploadOptions(contentType, "immutable"),
+    );
     if (error) {
       console.warn("[uploadMessageAttachment] poster upload failed", error.message);
     }
@@ -145,10 +147,11 @@ export async function uploadMessageAttachmentIfLocal(
         maxLongEdgePx: POST_STORAGE_MAX_LONG_EDGE,
       });
       const path = `${userId}/msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExtension}`;
-      const { error } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
-        upsert: true,
-        contentType,
-      });
+      const { error } = await supabase.storage.from(STORIES_BUCKET).upload(
+        path,
+        bytes,
+        buildStorageUploadOptions(contentType, "immutable"),
+      );
       if (error) throw error;
       return supabase.storage.from(STORIES_BUCKET).getPublicUrl(path).data.publicUrl;
     } catch {
@@ -162,10 +165,11 @@ export async function uploadMessageAttachmentIfLocal(
   if (!bytes.byteLength) throw new Error("Attachment file is empty");
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const path = `${userId}/msg-${suffix}.${extGuess}`;
-  const { error } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
-    upsert: true,
-    contentType,
-  });
+  const { error } = await supabase.storage.from(STORIES_BUCKET).upload(
+    path,
+    bytes,
+    buildStorageUploadOptions(contentType, "immutable"),
+  );
   if (error) throw error;
 
   if (looksLikeVideo(trimmed, mime)) {

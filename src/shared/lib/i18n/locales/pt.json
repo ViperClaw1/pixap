@@ -72,7 +72,9 @@
     "noMatchingPlaces": "Nenhum local correspondente"
   },
   "category": {
-    "fallbackName": "Categoria"
+    "fallbackName": "Categoria",
+    "noPlaces": "Nenhum local nesta categoria",
+    "noPlacesInCity": "Nenhum local nesta categoria em {{city}}"
   },
   "vibeMatch": {
     "chooseAtLeastOnePlace": "Por favor, escolha pelo menos um local",
@@ -123,6 +125,7 @@
     "yesCancel": "Sim, cancelar",
     "cancel": "Cancelar",
     "persons": "Pessoas: {{count}}",
+    "venuePrice": "Preço do local: {{price}}",
     "comment": "Comentário: {{text}}",
     "payment": "Pagamento: {{state}}",
     "paymentPending": "Pendente",

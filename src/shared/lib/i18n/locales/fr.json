@@ -72,7 +72,9 @@
     "noMatchingPlaces": "Aucun lieu correspondant"
   },
   "category": {
-    "fallbackName": "Catégorie"
+    "fallbackName": "Catégorie",
+    "noPlaces": "Aucun lieu dans cette catégorie",
+    "noPlacesInCity": "Aucun lieu dans cette catégorie à {{city}}"
   },
   "vibeMatch": {
     "chooseAtLeastOnePlace": "Veuillez choisir au moins un lieu",
@@ -123,6 +125,7 @@
     "yesCancel": "Oui, annuler",
     "cancel": "Annuler",
     "persons": "Personnes : {{count}}",
+    "venuePrice": "Prix de l'établissement : {{price}}",
     "comment": "Commentaire : {{text}}",
     "payment": "Paiement : {{state}}",
     "paymentPending": "En attente",

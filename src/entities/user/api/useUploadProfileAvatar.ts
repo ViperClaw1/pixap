@@ -4,6 +4,7 @@ import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { AVATAR_STORAGE_MAX_LONG_EDGE, prepareImageForStorageUpload } from "@/shared/lib/prepareImageForStorageUpload";
+import { buildStorageUploadOptions } from "@/shared/lib/storageUploadOptions";
 import { useUpdateProfile } from "./useProfile";
 
 const AVATARS_BUCKET = "avatars";
@@ -26,10 +27,11 @@ export function useUploadProfileAvatar() {
       }
 
       const path = `${user.id}/${Date.now()}.${fileExtension}`;
-      const { error: uploadError } = await supabase.storage.from(AVATARS_BUCKET).upload(path, bytes, {
-        upsert: true,
-        contentType,
-      });
+      const { error: uploadError } = await supabase.storage.from(AVATARS_BUCKET).upload(
+        path,
+        bytes,
+        buildStorageUploadOptions(contentType, "immutable"),
+      );
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(path);

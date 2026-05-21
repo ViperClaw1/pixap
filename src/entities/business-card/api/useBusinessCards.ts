@@ -82,14 +82,16 @@ export const useBusinessCard = (id: string) => {
   });
 };
 
-export const useBusinessCardsByCategory = (categoryId: string) => {
+export const useBusinessCardsByCategory = (categoryId: string, city?: string | null) => {
   return useQuery({
-    queryKey: queryKeys.businessCards.byCategory(categoryId),
+    queryKey: queryKeys.businessCards.byCategory(categoryId, city ?? null),
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("business_cards")
         .select("*, category:categories(id, name)")
         .eq("category_id", categoryId);
+      if (city && city !== ALL_CITIES_OPTION) query = query.eq("city", city);
+      const { data, error } = await query;
       if (error) throw error;
       return data as BusinessCard[];
     },

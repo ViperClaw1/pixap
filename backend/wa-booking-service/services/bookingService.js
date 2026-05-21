@@ -4,6 +4,7 @@ const {
   parsePriceAndCurrency,
 } = require("./parser");
 const { sendWhatsAppMessage, sendWhatsAppTemplate, waTemplateLanguageCode } = require("./whatsapp");
+const { waTemplateLocaleFromOwnerPhone } = require("./waTemplateLocale");
 
 const APP_CALLBACK_URL = process.env.APP_CALLBACK_URL || "https://example.com/api/update-booking";
 const APP_NOTIFY_RETRIES = Number.parseInt(process.env.APP_NOTIFY_RETRIES || "3", 10);
@@ -14,7 +15,7 @@ const TEMPLATE_CHECK_IS_AVAILABLE = "check_is_available";
 const TEMPLATE_FREE_OR_SET_PRICE = "chech_free_or_set_price";
 const TEMPLATE_GOT_IT = "got_it";
 
-/** Ordered WhatsApp template flow per interface locale (matches Meta template names). */
+/** Ordered WhatsApp template flow per venue phone locale (`_ru` / `_en`, see waTemplateLocaleFromOwnerPhone). */
 const TEMPLATE_FLOW_BY_LOCALE = {
   ru: [
     `${TEMPLATE_CHECK_IS_AVAILABLE}_ru`,
@@ -413,7 +414,7 @@ async function createBooking(payload) {
   const date = requireStringField(payload, "date");
   const time = requireStringField(payload, "time");
   const ownerPhone = sanitizePhone(requireStringField(payload, "owner_phone"));
-  const interfaceLocale = normalizeInterfaceLocale(payload.interface_locale);
+  const templateLocale = waTemplateLocaleFromOwnerPhone(ownerPhone);
 
   if (bookingsById.has(bookingId)) {
     const existing = bookingsById.get(bookingId);
@@ -434,7 +435,7 @@ async function createBooking(payload) {
     customer_phone: optionalTrimString(payload, "customer_phone"),
     date,
     time,
-    interface_locale: interfaceLocale,
+    interface_locale: templateLocale,
     status: "pending",
     step: "availability",
     is_free: null,
@@ -449,13 +450,14 @@ async function createBooking(payload) {
   bookingsById.set(bookingId, booking);
   addActiveBooking(ownerPhone, bookingId);
 
-  const displayDate = formatWaBookingDate(date, interfaceLocale);
+  const displayDate = formatWaBookingDate(date, templateLocale);
 
   log("booking_created", {
     booking_id: bookingId,
     owner_phone: ownerPhone,
     step: booking.step,
-    interface_locale: interfaceLocale,
+    template_locale: templateLocale,
+    app_interface_locale: optionalTrimString(payload, "interface_locale"),
   });
 
   await sendLocaleTemplate(booking, TEMPLATE_CHECK_IS_AVAILABLE, [
@@ -469,7 +471,7 @@ async function createBooking(payload) {
   await syncCartOrLegacy(
     booking,
     {
-      status_lines: statusLinesFor(interfaceLocale, "waiting_delivery"),
+      status_lines: statusLinesFor(templateLocale, "waiting_delivery"),
       confirmable: false,
       payment_link: null,
     },
@@ -773,8 +775,12 @@ function getRuntimeTemplateConfig() {
   };
 }
 
-function getResolvedTemplateSequence(locale) {
-  const loc = normalizeInterfaceLocale(locale);
+function getResolvedTemplateSequence(localeOrPhone) {
+  const raw = String(localeOrPhone || "").trim();
+  const loc =
+    raw.startsWith("+") || /^\d/.test(raw)
+      ? waTemplateLocaleFromOwnerPhone(raw)
+      : normalizeInterfaceLocale(raw);
   return TEMPLATE_FLOW_BY_LOCALE[loc] ?? TEMPLATE_FLOW_BY_LOCALE.en;
 }
 
@@ -787,5 +793,6 @@ module.exports = {
   getResolvedTemplateSequence,
   resolveWaTemplate,
   normalizeInterfaceLocale,
+  waTemplateLocaleFromOwnerPhone,
   notifyApp: notifyLegacyApp,
 };

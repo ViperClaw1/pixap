@@ -98,7 +98,8 @@ export const queryKeys = {
       ["business_cards", type ?? null, city ?? null] as const,
     availableCities: ["business_cards", "available_cities"] as const,
     byId: (id: string) => ["business_card", id] as const,
-    byCategory: (categoryId: string) => ["business_cards", "category", categoryId] as const,
+    byCategory: (categoryId: string, city: string | null) =>
+      ["business_cards", "category", categoryId, city ?? null] as const,
     listPrefix: ["business_cards"] as const,
     singlePrefix: ["business_card"] as const,
   },
