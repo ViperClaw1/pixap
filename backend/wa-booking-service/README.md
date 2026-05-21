@@ -59,11 +59,37 @@ Service listens on **port 8787** by default (avoids **8081**, which Expo Metro u
 
 Templates are locale-suffixed: `interface_locale` from the app (`ru` → `_ru`, otherwise `_en`).
 
-| Step | Outbound template (base) | Owner reply |
-|------|--------------------------|-------------|
+**Russian UI (`interface_locale: ru`):**
+
+1. `check_is_available_ru`
+2. `chech_free_or_set_price_ru` (spelling matches Meta template name)
+3. `got_it_ru`
+
+**All other UI locales (default `en`):**
+
+1. `check_is_available_en`
+2. `chech_free_or_set_price_en`
+3. `got_it_en`
+
+| Step | Outbound template | Owner reply |
+|------|-------------------|-------------|
 | `availability` | `check_is_available_{en\|ru}` | Quick reply: available / not available |
 | `pricing` | `chech_free_or_set_price_{en\|ru}` | Free / send price |
 | `pricing_price_input` | (text prompt) | Price + currency in free text |
 | complete | `got_it_{en\|ru}` | — |
+
+Only **`check_is_available_*`** templates use an **IMAGE** header (URL from env). Steps 2–3 are sent without a header image.
+
+`GET /health` returns `flow_templates.sequence_by_locale` and probes header image URLs (when configured).
+
+### WhatsApp delivery `failed` — `Media upload error`
+
+Meta accepted the API call (`message_status: accepted`) but could not fetch the header image URL. Typical causes:
+
+- URL is not a **direct** public **HTTPS** link to **JPG/PNG** (HTML page, signed URL that blocks Meta’s crawler, or `http://`)
+- Image too large or wrong format
+- Wrong env var name (use `WHATSAPP_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL` / `_RU_` or `WHATSAPP_TEMPLATE_HEADER_IMAGE_URL`)
+
+After deploy, check Railway logs for `header_image_precheck_failed` (fail-fast before send) or `delivery_status_ingested` with `hint` and `header_image_url`.
 
 On completion the service sets `confirmable: true` with `confirmed_price` (`0` or parsed price). Payment-link templates are no longer used.

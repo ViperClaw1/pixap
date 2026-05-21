@@ -3,8 +3,11 @@ const WA_GRAPH_VERSION = (process.env.WHATSAPP_GRAPH_VERSION || "v22.0").trim();
 const WA_TEMPLATE_LANGUAGE = (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim();
 
 function waTemplateLanguageCode(interfaceLocale) {
-  if (interfaceLocale === "ru") return "ru";
-  return (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim() || "en_US";
+  if (interfaceLocale === "ru") {
+    return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_RU || "ru").trim() || "ru";
+  }
+  return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_EN || process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en")
+    .trim() || "en";
 }
 
 function requireEnv(name) {
@@ -78,6 +81,52 @@ function templateRequiresImageHeader(templateId) {
   return false;
 }
 
+async function validateHeaderImageUrl(imageUrl) {
+  const url = String(imageUrl || "").trim();
+  if (!url) return { ok: false, reason: "empty_url" };
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, reason: "invalid_url" };
+  }
+  if (parsed.protocol !== "https:") {
+    return { ok: false, reason: "https_required" };
+  }
+
+  const skipVerify =
+    process.env.WHATSAPP_SKIP_HEADER_IMAGE_VERIFY === "1" ||
+    process.env.WHATSAPP_SKIP_HEADER_IMAGE_VERIFY === "true";
+  if (skipVerify) return { ok: true, skipped: true };
+
+  const probe = async (method) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort("timeout"), 8000);
+    try {
+      return await fetch(url, { method, signal: controller.signal, redirect: "follow" });
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  try {
+    let res = await probe("HEAD");
+    if (res.status === 405 || res.status === 501) {
+      res = await probe("GET");
+    }
+    if (!res.ok) {
+      return { ok: false, reason: `http_${res.status}`, content_type: res.headers.get("content-type") };
+    }
+    const contentType = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    if (contentType && !contentType.startsWith("image/")) {
+      return { ok: false, reason: "not_image", content_type: contentType };
+    }
+    return { ok: true, content_type: contentType || null };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 async function postWhatsAppMessage(payload, logMeta) {
   const phoneNumberId = requireEnv("WHATSAPP_PHONE_NUMBER_ID");
   const accessToken = requireEnv("WHATSAPP_ACCESS_TOKEN");
@@ -142,6 +191,24 @@ async function sendWhatsAppTemplate(phone, templateId, variables = [], languageC
       `Missing image header URL for template "${templateId}". Set WHATSAPP_TEMPLATE_${String(templateId).toUpperCase()}_HEADER_IMAGE_URL, legacy WHATSAPP_${String(templateId).toUpperCase()}_HEADER_IMAGE_URL, or WHATSAPP_TEMPLATE_HEADER_IMAGE_URL.`,
     );
   }
+  if (headerImageUrl) {
+    const check = await validateHeaderImageUrl(headerImageUrl);
+    if (!check.ok) {
+      console.error(
+        JSON.stringify({
+          scope: "whatsapp",
+          action: "header_image_precheck_failed",
+          template_id: templateId,
+          header_image_url: headerImageUrl,
+          check,
+          timestamp: new Date().toISOString(),
+        }),
+      );
+      throw new Error(
+        `Header image URL not usable for template "${templateId}": ${check.reason}${check.content_type ? ` (${check.content_type})` : ""}. Meta often reports this later as "Media upload error".`,
+      );
+    }
+  }
   const headerComponent = buildHeaderImageComponent(headerImageUrl);
   const components = [headerComponent, bodyComponent].filter(Boolean);
   const lang =
@@ -158,12 +225,15 @@ async function sendWhatsAppTemplate(phone, templateId, variables = [], languageC
       ...(components.length > 0 ? { components } : {}),
     },
   };
-  return await postWhatsAppMessage(payload, {
+  const sent = await postWhatsAppMessage(payload, {
     action: "send_template",
     phone: to,
     template_id: templateId,
     variables,
+    header_image_url: headerImageUrl || null,
+    language_code: lang,
   });
+  return { ...sent, header_image_url: headerImageUrl || null, template_id: templateId, language_code: lang };
 }
 
 async function sendWhatsAppMessage(phone, text) {
@@ -185,5 +255,6 @@ module.exports = {
   sendWhatsAppTemplate,
   sendWhatsAppMessage,
   templateHeaderImageUrl,
+  validateHeaderImageUrl,
   waTemplateLanguageCode,
 };

@@ -9,13 +9,29 @@ const APP_CALLBACK_URL = process.env.APP_CALLBACK_URL || "https://example.com/ap
 const APP_NOTIFY_RETRIES = Number.parseInt(process.env.APP_NOTIFY_RETRIES || "3", 10);
 const APP_NOTIFY_TIMEOUT_MS = Number.parseInt(process.env.APP_NOTIFY_TIMEOUT_MS || "5000", 10);
 
+/** Base names in Meta; resolved per locale as `{base}_{ru|en}` (see resolveWaTemplate). */
 const TEMPLATE_CHECK_IS_AVAILABLE = "check_is_available";
 const TEMPLATE_FREE_OR_SET_PRICE = "chech_free_or_set_price";
 const TEMPLATE_GOT_IT = "got_it";
 
+/** Ordered WhatsApp template flow per interface locale (matches Meta template names). */
+const TEMPLATE_FLOW_BY_LOCALE = {
+  ru: [
+    `${TEMPLATE_CHECK_IS_AVAILABLE}_ru`,
+    `${TEMPLATE_FREE_OR_SET_PRICE}_ru`,
+    `${TEMPLATE_GOT_IT}_ru`,
+  ],
+  en: [
+    `${TEMPLATE_CHECK_IS_AVAILABLE}_en`,
+    `${TEMPLATE_FREE_OR_SET_PRICE}_en`,
+    `${TEMPLATE_GOT_IT}_en`,
+  ],
+};
+
 const bookingsById = new Map();
 const activeBookingIdsByPhone = new Map();
-const outboundMessageToBookingId = new Map();
+/** @type {Map<string, { bookingId: string, template_id?: string | null, header_image_url?: string | null }>} */
+const outboundMessageMeta = new Map();
 const processedInboundMessageIds = new Map();
 const INBOUND_DEDUPE_TTL_MS = Number.parseInt(process.env.WA_INBOUND_DEDUPE_TTL_MS || String(60 * 60 * 1000), 10);
 
@@ -159,10 +175,14 @@ function getLatestActiveBookingByPhone(phone) {
   return null;
 }
 
-function trackOutboundMessage(booking, messageId) {
+function trackOutboundMessage(booking, messageId, meta = {}) {
   const id = String(messageId || "").trim();
   if (!id) return;
-  outboundMessageToBookingId.set(id, booking.id);
+  outboundMessageMeta.set(id, {
+    bookingId: booking.id,
+    template_id: meta.template_id ?? null,
+    header_image_url: meta.header_image_url ?? null,
+  });
 }
 
 function deliveryStatusLine(status, details, locale) {
@@ -349,7 +369,12 @@ async function syncCartOrLegacy(booking, supabasePatch, legacyPayload) {
 async function sendLocaleTemplate(booking, baseName, variables = []) {
   const templateId = resolveWaTemplate(baseName, booking.interface_locale);
   const languageCode = waTemplateLanguageCode(booking.interface_locale);
-  return sendWhatsAppTemplate(booking.owner_phone, templateId, variables, languageCode);
+  const result = await sendWhatsAppTemplate(booking.owner_phone, templateId, variables, languageCode);
+  trackOutboundMessage(booking, result?.message_id, {
+    template_id: templateId,
+    header_image_url: result?.header_image_url ?? null,
+  });
+  return result;
 }
 
 async function completeBookingWithTerms(booking, { isFree, priceDisplay }) {
@@ -363,8 +388,7 @@ async function completeBookingWithTerms(booking, { isFree, priceDisplay }) {
 
   const locale = booking.interface_locale;
 
-  const sendResult = await sendLocaleTemplate(booking, TEMPLATE_GOT_IT, []);
-  trackOutboundMessage(booking, sendResult?.message_id);
+  await sendLocaleTemplate(booking, TEMPLATE_GOT_IT, []);
 
   await syncCartOrLegacy(
     booking,
@@ -434,14 +458,13 @@ async function createBooking(payload) {
     interface_locale: interfaceLocale,
   });
 
-  const sendResult = await sendLocaleTemplate(booking, TEMPLATE_CHECK_IS_AVAILABLE, [
+  await sendLocaleTemplate(booking, TEMPLATE_CHECK_IS_AVAILABLE, [
     booking.customer_name ?? "Client",
     booking.customer_phone ?? "—",
     venueName,
     displayDate,
     time,
   ]);
-  trackOutboundMessage(booking, sendResult?.message_id);
 
   await syncCartOrLegacy(
     booking,
@@ -479,8 +502,7 @@ async function handleAvailabilityStep(booking, messageText) {
   }
 
   if (decision === "yes") {
-    const sendResult = await sendLocaleTemplate(booking, TEMPLATE_FREE_OR_SET_PRICE, []);
-    trackOutboundMessage(booking, sendResult?.message_id);
+    await sendLocaleTemplate(booking, TEMPLATE_FREE_OR_SET_PRICE, []);
     booking.status = "available";
     booking.step = "pricing";
     booking.updated_at = new Date().toISOString();
@@ -617,7 +639,8 @@ async function processDeliveryStatus(payload) {
   if (!messageId || !status) {
     return { ok: true, ignored: true, reason: "Missing message id or status" };
   }
-  const bookingId = outboundMessageToBookingId.get(messageId);
+  const meta = outboundMessageMeta.get(messageId);
+  const bookingId = meta?.bookingId;
   if (!bookingId) {
     log("delivery_status_unmatched", { message_id: messageId, status });
     return { ok: true, ignored: true, reason: "Unknown outbound message id", message_id: messageId };
@@ -637,7 +660,20 @@ async function processDeliveryStatus(payload) {
 
   const line = deliveryStatusLine(status, errorDetails, booking.interface_locale);
   booking.updated_at = new Date().toISOString();
-  log("delivery_status_ingested", { booking_id: booking.id, message_id: messageId, status, error_details: errorDetails || null });
+  log("delivery_status_ingested", {
+    booking_id: booking.id,
+    message_id: messageId,
+    status,
+    template_id: meta?.template_id ?? null,
+    header_image_url: meta?.header_image_url ?? null,
+    error_details: errorDetails || null,
+    ...(status === "failed" && /media upload/i.test(errorDetails)
+      ? {
+          hint:
+            "WhatsApp could not fetch the template header image. Use a direct public HTTPS JPG/PNG URL (no auth, no HTML). Set WHATSAPP_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL / _RU_ or WHATSAPP_TEMPLATE_HEADER_IMAGE_URL on Railway.",
+        }
+      : {}),
+  });
 
   const isConfirmable =
     booking.status === "confirmed_free" || booking.status === "confirmed_priced";
@@ -722,16 +758,24 @@ function getDebugState() {
   return {
     bookings,
     activeBookingIdsByPhone: Object.fromEntries(activeBookingIdsByPhone.entries()),
-    outboundMessageToBookingId: Object.fromEntries(outboundMessageToBookingId.entries()),
+    outboundMessageMeta: Object.fromEntries(outboundMessageMeta.entries()),
   };
 }
 
 function getRuntimeTemplateConfig() {
   return {
-    check_is_available: TEMPLATE_CHECK_IS_AVAILABLE,
-    free_or_set_price: TEMPLATE_FREE_OR_SET_PRICE,
-    got_it: TEMPLATE_GOT_IT,
+    bases: {
+      check_is_available: TEMPLATE_CHECK_IS_AVAILABLE,
+      free_or_set_price: TEMPLATE_FREE_OR_SET_PRICE,
+      got_it: TEMPLATE_GOT_IT,
+    },
+    sequence_by_locale: TEMPLATE_FLOW_BY_LOCALE,
   };
+}
+
+function getResolvedTemplateSequence(locale) {
+  const loc = normalizeInterfaceLocale(locale);
+  return TEMPLATE_FLOW_BY_LOCALE[loc] ?? TEMPLATE_FLOW_BY_LOCALE.en;
 }
 
 module.exports = {
@@ -740,6 +784,7 @@ module.exports = {
   processWhatsAppWebhook,
   getDebugState,
   getRuntimeTemplateConfig,
+  getResolvedTemplateSequence,
   resolveWaTemplate,
   normalizeInterfaceLocale,
   notifyApp: notifyLegacyApp,

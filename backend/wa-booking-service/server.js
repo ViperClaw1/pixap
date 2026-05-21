@@ -3,7 +3,7 @@ const express = require("express");
 const bookingRoutes = require("./routes/booking");
 const whatsappRoutes = require("./routes/whatsapp");
 const { getDebugState, getRuntimeTemplateConfig } = require("./services/bookingService");
-const { templateHeaderImageUrl } = require("./services/whatsapp");
+const { templateHeaderImageUrl, validateHeaderImageUrl } = require("./services/whatsapp");
 const { runParserSelfChecks } = require("./services/parser");
 
 /** Local default: keep off **8081** (Expo Metro / RN bundler). Production uses `PORT` from the host (e.g. Railway). */
@@ -61,16 +61,25 @@ app.get("/", (_req, res) => {
   res.status(200).json({ ok: true, service: "wa-booking-service", message: "Use GET /health for probes." });
 });
 
-app.get("/health", (_req, res) => {
+app.get("/health", async (_req, res) => {
   const phoneId = (process.env.WHATSAPP_PHONE_NUMBER_ID || "").trim();
-  const templateLanguage = (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim() || "en_US";
+  const flow = getRuntimeTemplateConfig();
+  const enHeaderUrl = templateHeaderImageUrl("check_is_available_en");
+  const ruHeaderUrl = templateHeaderImageUrl("check_is_available_ru");
+  const headerChecks = {};
+  if (enHeaderUrl) headerChecks.check_is_available_en = await validateHeaderImageUrl(enHeaderUrl);
+  if (ruHeaderUrl) headerChecks.check_is_available_ru = await validateHeaderImageUrl(ruHeaderUrl);
+
   res.status(200).json({
     ok: true,
     service: "wa-booking-service",
-    template_language: templateLanguage,
     whatsapp_phone_number_id_suffix: phoneId ? phoneId.slice(-6) : null,
-    flow_templates: getRuntimeTemplateConfig(),
-    check_availability_header_image_configured: Boolean(templateHeaderImageUrl("check_availability")),
+    flow_templates: flow,
+    header_image_urls: {
+      check_is_available_en: enHeaderUrl || null,
+      check_is_available_ru: ruHeaderUrl || null,
+    },
+    header_image_checks: headerChecks,
   });
 });
 
@@ -151,8 +160,17 @@ function listenOnPort(port, attemptIndex) {
         `[server] Using port ${port} because ${DEFAULT_PORT} was busy. Set WA_BOOKING_SERVICE_URL accordingly for Supabase.`,
       );
     }
+    const flow = getRuntimeTemplateConfig();
     console.log(
       `[server] wa-booking-service primary http://${listenHost}:${port} (Railway: set custom domain target port to ${port} if traffic still fails)`,
+    );
+    console.log(
+      JSON.stringify({
+        scope: "server",
+        action: "template_flow_configured",
+        sequence_by_locale: flow.sequence_by_locale,
+        timestamp: new Date().toISOString(),
+      }),
     );
     maybeListenRailwayLegacy8081(port);
   });
