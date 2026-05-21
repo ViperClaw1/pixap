@@ -5,6 +5,7 @@ import {
   STORY_STORAGE_MAX_LONG_EDGE,
   prepareImageForStorageUpload,
 } from "@/shared/lib/prepareImageForStorageUpload";
+import { buildStorageUploadOptions } from "@/shared/lib/storageUploadOptions";
 
 export const STORIES_BUCKET = "stories";
 
@@ -30,10 +31,11 @@ export async function uploadPickerAssetsToStoriesBucket(
       throw new Error("Selected image is empty. Please try another image.");
     }
     const path = buildPath({ userId: ownerId, index, fileExtension });
-    const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(path, bytes, {
-      upsert: true,
-      contentType,
-    });
+    const { error: uploadError } = await supabase.storage.from(STORIES_BUCKET).upload(
+      path,
+      bytes,
+      buildStorageUploadOptions(contentType, "immutable"),
+    );
     if (uploadError) throw uploadError;
     const { data } = supabase.storage.from(STORIES_BUCKET).getPublicUrl(path);
     uploadedUrls.push(data.publicUrl);

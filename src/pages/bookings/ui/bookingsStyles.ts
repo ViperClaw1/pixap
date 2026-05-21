@@ -33,6 +33,7 @@ export const bookingsStaticStyles = StyleSheet.create({
   },
   name: { fontWeight: "700", flexShrink: 1, fontSize: 15 },
   meta: { fontSize: 12, marginTop: 4 },
+  priceFromVenue: { fontSize: 14, marginTop: 6, fontWeight: "700" },
   badge: { marginTop: 8, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
   waitingBadge: {
@@ -107,6 +108,7 @@ export function bookingsThemeStyles(colors: ThemeColors) {
     },
     name: { color: colors.text },
     meta: { color: colors.textMuted },
+    priceFromVenue: { color: colors.text },
     waitingBadge: { backgroundColor: colors.border },
     waitingBadgeText: { color: colors.textMuted },
     empty: { color: colors.textMuted },

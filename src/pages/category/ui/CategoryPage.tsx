@@ -8,6 +8,7 @@ import { useRoute, useNavigation, type RouteProp } from "@react-navigation/nativ
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCardsByCategory } from "@/entities/business-card";
+import { useProfile } from "@/entities/user";
 import { useCategories } from "@/entities/category";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -34,7 +35,9 @@ export default function CategoryScreen() {
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
-  const { data = [], isLoading } = useBusinessCardsByCategory(id);
+  const { data: profile } = useProfile();
+  const profileCity = profile?.city?.trim() || null;
+  const { data = [], isLoading } = useBusinessCardsByCategory(id, profileCity);
   const { data: categories = [] } = useCategories();
   const categoryName = categories.find((category) => category.id === id)?.name ?? t("category.fallbackName");
   const [visibleCount, setVisibleCount] = useState(PLACE_LIST_BATCH_SIZE);
@@ -45,6 +48,10 @@ export default function CategoryScreen() {
 
   const visiblePlaces = useMemo(() => data.slice(0, visibleCount), [data, visibleCount]);
   const canShowMore = visibleCount < data.length;
+  const showEmptyState = !isLoading && data.length === 0;
+  const emptyMessage = profileCity
+    ? t("category.noPlacesInCity", { city: profileCity })
+    : t("category.noPlaces");
 
   const themed = useThemeStyles(
     ({ colors: c, isDark: dark }) => categoryThemeStyles(c, dark, insets.bottom),
@@ -129,6 +136,10 @@ export default function CategoryScreen() {
             <PlaceRowSkeletonList variant="category" />
           </ScrollView>
         </ShimmerProvider>
+      ) : showEmptyState ? (
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyText}>{emptyMessage}</Text>
+        </View>
       ) : (
         <FlashList
           data={visiblePlaces}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, type ImageErrorEventData, type ImageProps, type ImageSource, type ImageSourceProps } from "expo-image";
 import { getSupabaseStorageObjectFallbackUrl } from "@/shared/lib/imageUtils";
+import { recordStorageImageRequest } from "@/shared/lib/storageEgressMetrics";
 
 const FALLBACK = require("../../../../assets/android/adaptive-icon-background.png");
 const PREFETCH_CONCURRENCY = 4;
@@ -88,6 +89,11 @@ export function SmartImage({
   }, [chainKey]);
 
   useEffect(() => {
+    const primary = chain[0];
+    if (primary) recordStorageImageRequest(primary, "display");
+  }, [chainKey, chain]);
+
+  useEffect(() => {
     if (chain.length === 0 && skipBundledPlaceholder) {
       onSourcesExhausted?.();
     }
@@ -152,7 +158,12 @@ export async function preloadSmartImages(uris: Array<string | null | undefined>)
   const queue = normalized.slice(0, PREFETCH_HARD_CAP);
   for (let i = 0; i < queue.length; i += PREFETCH_CONCURRENCY) {
     const batch = queue.slice(i, i + PREFETCH_CONCURRENCY);
-    await Promise.allSettled(batch.map((uri) => Image.prefetch(uri, "memory-disk")));
+    await Promise.allSettled(
+      batch.map((uri) => {
+        recordStorageImageRequest(uri, "prefetch");
+        return Image.prefetch(uri, "memory-disk");
+      }),
+    );
   }
 }
 

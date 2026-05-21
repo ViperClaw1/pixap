@@ -31,7 +31,7 @@ Legacy `N8N_WA_WEBHOOK_URL` is **no longer** used by `n8n-wa-booking-start`.
 
 ## Outbound payload (`n8n-wa-booking-start` → Node `POST /webhook/booking`)
 
-The app invokes `n8n-wa-booking-start` with `{ cart_item_id, interface_locale }` after a cart row is created (when the venue has `contact_whatsapp`). `interface_locale` is the app UI language (`ru` → Russian WhatsApp templates, anything else → English). The function POSTs JSON like:
+The app invokes `n8n-wa-booking-start` with `{ cart_item_id, interface_locale }` after a cart row is created (when the venue has `contact_whatsapp`). **`interface_locale` does not select WhatsApp templates** — `wa-booking-service` picks `_ru` vs `_en` from **`owner_phone`** (`contact_whatsapp`): prefixes **`+7`** / **`+37`** → Russian templates, otherwise English. The function POSTs JSON like:
 
 ```json
 {

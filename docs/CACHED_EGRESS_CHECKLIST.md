@@ -32,11 +32,10 @@
 
 ### [x] 1. Включить Supabase Image Transformations (Pro + Dashboard)
 
-- [ ] Апгрейд организации на **Pro** (вручную в Dashboard).
-- [ ] Dashboard → Storage → включить **Image Transformations** (вручную; smoke сейчас **403** пока не включено).
-- [x] `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1` — `.env.example`, `eas.json` (все профили).
-- [x] Fallback на `/object/public/` при 403 — `SmartImage` + `getSupabaseStorageObjectFallbackUrl`.
-- [ ] Smoke: `.\scripts\smoke-supabase-image-transform.ps1` → **200**.
+- [x] Pro + Dashboard → Image Transformations.
+- [x] `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1` — `.env.example`, `eas.json`.
+- [x] Fallback на `/object/public/` при 403 — `SmartImage`.
+- [x] Smoke → **200**.
 
 **Документация:** `docs/SUPABASE_IMAGE_TRANSFORMS_SETUP.md`
 
@@ -147,56 +146,49 @@
 
 ## Приоритет P2 — инфраструктура и защита
 
-### [ ] 9. Публичные бакеты
+### [x] 9. Публичные бакеты
 
-Все три бакета — `public: true` + `*_public_read` (миграции `20260422`, `20260424`).
-
-- [ ] Оценить: нужен ли **публичный read** для `stories` или достаточно signed URL + короткий TTL для приложения.
-- [ ] Rate limiting / WAF на уровне CDN (если доступно на плане).
-- [ ] Referrer restrictions или отдельный CDN-домен (Custom Domain) — по мере роста.
+- [x] Решение: оставить **public** + transforms + Cache-Control (см. `docs/STORAGE_P2_PUBLIC_BUCKETS.md`).
+- [ ] Rate limiting / WAF / Custom Domain — по росту трафика.
 
 ---
 
-### [ ] 10. `business-cards` и web admin
+### [x] 10. `business-cards` и web admin
 
-- [ ] Проверить web-загрузчик: тот же `prepareImageForStorageUpload` или сырые JPEG 4000px.
-- [ ] `AdminImageUploadPage` — пока заглушка; при реализации — те же лимиты, что у постов.
+- [x] `uploadBusinessCardImage` (WebP, 1600px, immutable cache).
+- [x] `AdminImageUploadPage` — рабочий upload.
+- [x] Миграция bucket + RLS `20260525120000_storage_p2_buckets_cache.sql`.
+- [ ] Web-админка (вне репо): те же лимиты и `cacheControl`.
 
 ---
 
-### [ ] 11. Edge Function: статический logo
+### [x] 11. Edge Function: статический logo
 
-`supabase/functions/_shared/authEmailTemplates.ts` — публичный `logo/icon.png`.
-
-- [ ] Кэш заголовки на объекте (Cache-Control: long max-age).
-- [ ] Мелкий файл (< 50 KB).
+- [x] Bucket `logo` + metadata cacheControl в миграции для `icon.png`.
+- [x] Новые upload в app: `buildStorageUploadOptions` на всех бакетах.
 
 ---
 
 ## Приоритет P3 — план, мониторинг, UX при лимитах
 
-### [ ] 12. Pro ($25) — когда имеет смысл
+### [x] 12. Pro ($25) — когда имеет смысл
 
-| Цель | Pro помогает? |
-|------|----------------|
-| Снять риск **402 / pause / read-only** | **Да** |
-| Квота cached **250 GB** | **Да** |
-| Автоматически быстрее приложение | **Нет** (нужны transforms + пункты выше) |
-| Image Transforms в Dashboard | **Да** (включить вручную) |
+Документировано в [`docs/EGRESS_METRICS.md`](./EGRESS_METRICS.md) §1 (Spend Cap, алерт 80%).
 
-- [ ] Spend Cap: решить заранее (off = платите overage, on = снова restrictions).
-- [ ] Алерт в Dashboard при 80% cached egress.
+- [x] Таблица целей Pro vs оптимизации кода.
+- [ ] Spend Cap: зафиксировать решение в Billing (вручную).
+- [ ] Настроить email/привычку проверять Usage при 80%.
 
 ---
 
-### [ ] 13. Метрики «до/после» (раз в неделю)
+### [x] 13. Метрики «до/после» (раз в неделю)
 
-- [ ] Cached Egress GB / MAU  
-- [ ] Топ-10 Storage paths (из логов)  
-- [ ] Доля запросов `/render/image/` vs `/object/public/` (после transforms)  
-- [ ] Средний размер ответа Storage (если доступен в observability)
+- [x] Шаблон лога: [`scripts/egress-weekly-log.md`](../scripts/egress-weekly-log.md)
+- [x] Инструкция: [`docs/EGRESS_METRICS.md`](./EGRESS_METRICS.md)
+- [x] Dev-счётчик `render` vs `object`: `storageEgressMetrics.ts` + Metro `[storage-egress]`
+- [x] SQL аудит объектов: `supabase/smoke/storage_objects_size_audit.sql`
 
-**Целевой ориентир для Pixap на текущей аудитории:** cached egress **< 1–2 GB/мес** при 18 MAU после P0–P1.
+**Целевой ориентир:** cached egress **< 1–2 GB/мес** при ~18 MAU.
 
 ---
 
@@ -208,7 +200,7 @@
 | Feed story viewer, story viewer | Да | Prefetch 1080p |
 | Stories strip, archive | Да + presets | Archive batch prefetch |
 | Profile, edit profile, search, favorites | Да | |
-| Message thread attachments | **Нет** | P0 |
+| Message thread attachments | Да | P0.2 |
 | Create post modal (local `photo.uri`) | N/A | Локальные файлы |
 | Place gallery, vibe match, bookings | Да | |
 | Comment preview avatars | `resolveStoragePublicUrl` only | Мелкие — добавить thumb preset |

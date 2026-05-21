@@ -66,6 +66,18 @@ export const categoryStaticStyles = StyleSheet.create({
     justifyContent: "center",
   },
   showMoreBtnText: { fontSize: 14, fontWeight: "700" },
+  emptyWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  emptyText: {
+    fontSize: 15,
+    fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 22,
+  },
 });
 
 export function categoryThemeStyles(colors: ThemeColors, _isDark: boolean, bottomInset: number) {
@@ -88,5 +100,6 @@ export function categoryThemeStyles(colors: ThemeColors, _isDark: boolean, botto
     tagText: { color: colors.tagMutedText },
     showMoreBtn: { backgroundColor: colors.accent },
     showMoreBtnText: { color: colors.onAccent },
+    emptyText: { color: colors.textMuted },
   } satisfies Partial<Record<keyof typeof categoryStaticStyles, object>>;
 }

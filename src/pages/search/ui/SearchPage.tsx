@@ -7,6 +7,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCards, type BusinessCard } from "@/entities/business-card";
+import { useProfile } from "@/entities/user";
 import type { SearchStackParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
@@ -77,7 +78,9 @@ export default function SearchScreen() {
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
   };
-  const { data: places = [], isLoading } = useBusinessCards();
+  const { data: profile } = useProfile();
+  const profileCity = profile?.city?.trim() || null;
+  const { data: places = [], isLoading } = useBusinessCards(undefined, profileCity);
   const [q, setQ] = useState("");
   const [visibleCount, setVisibleCount] = useState(PLACE_LIST_BATCH_SIZE);
 

@@ -19,6 +19,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import {
   useBookings,
   deriveBookingDisplayStatus,
+  venueConfirmedPriceLabel,
   type BookingDisplayStatus,
 } from "@/entities/booking";
 import { useBusinessCards } from "@/entities/business-card";
@@ -79,6 +80,7 @@ export default function BookingsScreen() {
         return {
           ...booking,
           waPaymentLink: linkedCartItem?.wa_payment_link?.trim() || null,
+          venueConfirmedPrice: venueConfirmedPriceLabel(linkedCartItem?.wa_confirmed_price),
           displayStatus: deriveBookingDisplayStatus(booking, linkedCartItem),
         };
       })

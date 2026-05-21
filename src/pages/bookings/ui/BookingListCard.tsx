@@ -56,6 +56,8 @@ function statusPalette(status: BookingDisplayStatus) {
 export type BookingListItem = Booking & {
   displayStatus: BookingDisplayStatus;
   waPaymentLink: string | null;
+  /** Price + currency from venue WhatsApp reply (`wa_confirmed_price`). */
+  venueConfirmedPrice: string | null;
 };
 
 type BookingsScreenStyles = typeof bookingsStaticStyles;
@@ -138,6 +140,9 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
           ) : null}
         </View>
         <Text style={styles.meta}>{formatBookingDateTime(item.date_time)}</Text>
+        {item.venueConfirmedPrice ? (
+          <Text style={styles.priceFromVenue}>{t("bookings.venuePrice", { price: item.venueConfirmedPrice })}</Text>
+        ) : null}
         {item.persons ? <Text style={styles.meta}>{t("bookings.persons", { count: item.persons })}</Text> : null}
         {item.comment ? <Text style={styles.meta}>{t("bookings.comment", { text: item.comment })}</Text> : null}
         {item.displayStatus !== "draft" ? (
