@@ -37,10 +37,10 @@ Service listens on **port 8787** by default (avoids **8081**, which Expo Metro u
 - `WHATSAPP_GRAPH_VERSION` (optional): default `v22.0`.
 - `WHATSAPP_GRAPH_BASE_URL` (optional): default `https://graph.facebook.com`.
 - `WHATSAPP_TEMPLATE_LANGUAGE` (optional): default `en_US`.
-- `WHATSAPP_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL` / `WHATSAPP_CHECK_IS_AVAILABLE_RU_HEADER_IMAGE_URL` (or `WHATSAPP_TEMPLATE_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL`, etc.): public HTTPS image URL for **IMAGE** headers on `check_is_available_*` templates.
-- Legacy `WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL` still applies to old `check_availability` name if used.
-- `WHATSAPP_TEMPLATE_<TEMPLATE_NAME>_HEADER_IMAGE_URL` (optional): per-template header image URL override (template name uppercased, e.g. `WHATSAPP_TEMPLATE_CHECK_AVAILABILITY_HEADER_IMAGE_URL`).
-- `WHATSAPP_TEMPLATE_HEADER_IMAGE_URL` (optional): fallback header image URL used when a template-specific one is not set.
+- **Header image URLs are optional.** If your WhatsApp templates use a **static** logo/header uploaded in Meta Business Manager (not a dynamic `{{image}}` variable), **do not set** any `WHATSAPP_*_HEADER_IMAGE_URL` vars — the service sends only body parameters.
+- Set a header URL **only** when the template header is a **dynamic image** in Meta, or you intentionally override the static asset:
+  - `WHATSAPP_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL` / `_RU_`, or `WHATSAPP_TEMPLATE_<TEMPLATE_NAME>_HEADER_IMAGE_URL`, or `WHATSAPP_TEMPLATE_HEADER_IMAGE_URL` (must be a direct public HTTPS JPG/PNG; Supabase Storage object URLs that return JSON 400 will fail).
+- `WHATSAPP_IMAGE_HEADER_REQUIRED_TEMPLATES` (optional): comma-separated template names that **must** have a URL env (advanced; default empty).
 - `APP_CALLBACK_URL` (optional): default `https://example.com/api/update-booking` — used only for bookings **without** `supabase_callback_url` / `supabase_callback_token` in the POST body
 - `APP_NOTIFY_RETRIES` (optional): default `3`
 - `APP_NOTIFY_TIMEOUT_MS` (optional): default `5000`
@@ -78,18 +78,10 @@ Templates are locale-suffixed: `interface_locale` from the app (`ru` → `_ru`, 
 | `pricing_price_input` | (text prompt) | Price + currency in free text |
 | complete | `got_it_{en\|ru}` | — |
 
-Only **`check_is_available_*`** templates use an **IMAGE** header (URL from env). Steps 2–3 are sent without a header image.
+`GET /health` returns `flow_templates.sequence_by_locale` and probes header image URLs **only when** those env vars are set.
 
-`GET /health` returns `flow_templates.sequence_by_locale` and probes header image URLs (when configured).
+### `header_image_precheck_failed` or `Media upload error`
 
-### WhatsApp delivery `failed` — `Media upload error`
-
-Meta accepted the API call (`message_status: accepted`) but could not fetch the header image URL. Typical causes:
-
-- URL is not a **direct** public **HTTPS** link to **JPG/PNG** (HTML page, signed URL that blocks Meta’s crawler, or `http://`)
-- Image too large or wrong format
-- Wrong env var name (use `WHATSAPP_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL` / `_RU_` or `WHATSAPP_TEMPLATE_HEADER_IMAGE_URL`)
-
-After deploy, check Railway logs for `header_image_precheck_failed` (fail-fast before send) or `delivery_status_ingested` with `hint` and `header_image_url`.
+You have a `WHATSAPP_*_HEADER_IMAGE_URL` set, but Meta cannot use that URL (e.g. Supabase Storage link returning **400 JSON** instead of an image). **Fix:** remove all `WHATSAPP_*_HEADER_IMAGE_URL` / `WHATSAPP_TEMPLATE_HEADER_IMAGE_URL` vars on Railway if templates use a **static** header in Meta. Only keep them for templates with a **dynamic** image header variable.
 
 On completion the service sets `confirmable: true` with `confirmed_price` (`0` or parsed price). Payment-link templates are no longer used.
