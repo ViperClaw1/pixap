@@ -68,17 +68,23 @@ function templateHeaderImageUrl(templateId) {
   return fallback && String(fallback).trim() ? String(fallback).trim() : undefined;
 }
 
-function templateRequiresImageHeader(templateId) {
+/**
+ * Templates that must receive a runtime header image URL in the API payload.
+ * Default: none — Meta uses the static header baked into the approved template.
+ * Set WHATSAPP_IMAGE_HEADER_REQUIRED_TEMPLATES only for templates whose header is a
+ * dynamic {{image}} variable in Business Manager.
+ */
+function templateHeaderImageRequired(templateId) {
   const explicitList = String(process.env.WHATSAPP_IMAGE_HEADER_REQUIRED_TEMPLATES || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  if (explicitList.length > 0) {
-    return explicitList.includes(String(templateId));
-  }
-  const id = String(templateId);
-  if (id === "check_availability" || id.startsWith("check_is_available_")) return true;
-  return false;
+  return explicitList.includes(String(templateId));
+}
+
+/** Attach header image component only when an env URL is configured (optional override). */
+function shouldAttachHeaderImage(templateId) {
+  return Boolean(templateHeaderImageUrl(templateId));
 }
 
 async function validateHeaderImageUrl(imageUrl) {
@@ -186,12 +192,12 @@ async function sendWhatsAppTemplate(phone, templateId, variables = [], languageC
   const to = normalizeRecipient(phone);
   const bodyComponent = buildTemplateComponents(variables)?.[0];
   const headerImageUrl = templateHeaderImageUrl(templateId);
-  if (templateRequiresImageHeader(templateId) && !headerImageUrl) {
+  if (templateHeaderImageRequired(templateId) && !headerImageUrl) {
     throw new Error(
-      `Missing image header URL for template "${templateId}". Set WHATSAPP_TEMPLATE_${String(templateId).toUpperCase()}_HEADER_IMAGE_URL, legacy WHATSAPP_${String(templateId).toUpperCase()}_HEADER_IMAGE_URL, or WHATSAPP_TEMPLATE_HEADER_IMAGE_URL.`,
+      `Template "${templateId}" is listed in WHATSAPP_IMAGE_HEADER_REQUIRED_TEMPLATES but no header image URL env is set.`,
     );
   }
-  if (headerImageUrl) {
+  if (shouldAttachHeaderImage(templateId)) {
     const check = await validateHeaderImageUrl(headerImageUrl);
     if (!check.ok) {
       console.error(
@@ -209,7 +215,9 @@ async function sendWhatsAppTemplate(phone, templateId, variables = [], languageC
       );
     }
   }
-  const headerComponent = buildHeaderImageComponent(headerImageUrl);
+  const headerComponent = shouldAttachHeaderImage(templateId)
+    ? buildHeaderImageComponent(headerImageUrl)
+    : undefined;
   const components = [headerComponent, bodyComponent].filter(Boolean);
   const lang =
     typeof languageCode === "string" && languageCode.trim()
@@ -230,6 +238,7 @@ async function sendWhatsAppTemplate(phone, templateId, variables = [], languageC
     phone: to,
     template_id: templateId,
     variables,
+    header_mode: headerComponent ? "dynamic_url" : "static_in_meta_template",
     header_image_url: headerImageUrl || null,
     language_code: lang,
   });

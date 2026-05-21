@@ -670,7 +670,7 @@ async function processDeliveryStatus(payload) {
     ...(status === "failed" && /media upload/i.test(errorDetails)
       ? {
           hint:
-            "WhatsApp could not fetch the template header image. Use a direct public HTTPS JPG/PNG URL (no auth, no HTML). Set WHATSAPP_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL / _RU_ or WHATSAPP_TEMPLATE_HEADER_IMAGE_URL on Railway.",
+            "A WHATSAPP_*_HEADER_IMAGE_URL is set but Meta cannot fetch it. Remove those env vars if the template uses a static header in Meta; or fix the URL to a direct public HTTPS JPG/PNG.",
         }
       : {}),
   });
