@@ -3,7 +3,8 @@ const express = require("express");
 const bookingRoutes = require("./routes/booking");
 const whatsappRoutes = require("./routes/whatsapp");
 const { getDebugState, getRuntimeTemplateConfig } = require("./services/bookingService");
-const { templateHeaderImageUrl, validateHeaderImageUrl } = require("./services/whatsapp");
+const { resolveTemplateHeaderImageUrl, validateHeaderImageUrl, FLOW_TEMPLATE_IDS } = require("./services/whatsapp");
+const { sharedHeaderLogoUrl } = require("./services/whatsappHeaderImage");
 const { runParserSelfChecks } = require("./services/parser");
 
 /** Local default: keep off **8081** (Expo Metro / RN bundler). Production uses `PORT` from the host (e.g. Railway). */
@@ -64,21 +65,25 @@ app.get("/", (_req, res) => {
 app.get("/health", async (_req, res) => {
   const phoneId = (process.env.WHATSAPP_PHONE_NUMBER_ID || "").trim();
   const flow = getRuntimeTemplateConfig();
-  const enHeaderUrl = templateHeaderImageUrl("check_is_available_en");
-  const ruHeaderUrl = templateHeaderImageUrl("check_is_available_ru");
+  const sharedLogo = sharedHeaderLogoUrl() || null;
+  const headerImageUrls = {};
   const headerChecks = {};
-  if (enHeaderUrl) headerChecks.check_is_available_en = await validateHeaderImageUrl(enHeaderUrl);
-  if (ruHeaderUrl) headerChecks.check_is_available_ru = await validateHeaderImageUrl(ruHeaderUrl);
+  for (const templateId of FLOW_TEMPLATE_IDS) {
+    const resolved = resolveTemplateHeaderImageUrl(templateId);
+    headerImageUrls[templateId] = resolved || null;
+    if (resolved) {
+      headerChecks[templateId] = await validateHeaderImageUrl(resolved);
+    }
+  }
 
   res.status(200).json({
     ok: true,
     service: "wa-booking-service",
     whatsapp_phone_number_id_suffix: phoneId ? phoneId.slice(-6) : null,
     flow_templates: flow,
-    header_image_urls: {
-      check_is_available_en: enHeaderUrl || null,
-      check_is_available_ru: ruHeaderUrl || null,
-    },
+    shared_header_logo_configured: Boolean(sharedLogo),
+    shared_header_logo_url: sharedLogo,
+    header_image_urls: headerImageUrls,
     header_image_checks: headerChecks,
   });
 });

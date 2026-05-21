@@ -2,6 +2,14 @@ const WA_GRAPH_BASE = (process.env.WHATSAPP_GRAPH_BASE_URL || "https://graph.fac
 const WA_GRAPH_VERSION = (process.env.WHATSAPP_GRAPH_VERSION || "v22.0").trim();
 const WA_TEMPLATE_LANGUAGE = (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim();
 
+const {
+  templateUsesDynamicImageHeader,
+  resolveTemplateHeaderImageUrl,
+  normalizeMediaUrlForWhatsApp,
+  missingHeaderEnvHint,
+  FLOW_TEMPLATE_IDS,
+} = require("./whatsappHeaderImage");
+
 function waTemplateLanguageCode(interfaceLocale) {
   if (interfaceLocale === "ru") {
     return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_RU || "ru").trim() || "ru";
@@ -49,46 +57,14 @@ function buildHeaderImageComponent(imageUrl) {
   };
 }
 
+/** @deprecated Use resolveTemplateHeaderImageUrl — kept for /health and tests. */
 function templateHeaderImageUrl(templateId) {
-  const templateName = String(templateId);
-  const specific = process.env[`WHATSAPP_TEMPLATE_${templateName.toUpperCase()}_HEADER_IMAGE_URL`];
-  if (specific && String(specific).trim()) return String(specific).trim();
-  const legacyByNameMap = {
-    check_availability: process.env.WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL,
-    check_is_available_en: process.env.WHATSAPP_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL,
-    check_is_available_ru: process.env.WHATSAPP_CHECK_IS_AVAILABLE_RU_HEADER_IMAGE_URL,
-    check_is_free: process.env.WHATSAPP_CHECK_IS_FREE_HEADER_IMAGE_URL,
-    get_payment_link: process.env.WHATSAPP_GET_PAYMENT_LINK_HEADER_IMAGE_URL,
-  };
-  const byName = legacyByNameMap[templateName];
-  if (byName && String(byName).trim()) return String(byName).trim();
-  const availabilityLegacy = process.env.WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL;
-  if (availabilityLegacy && String(availabilityLegacy).trim()) return String(availabilityLegacy).trim();
-  const fallback = process.env.WHATSAPP_TEMPLATE_HEADER_IMAGE_URL;
-  return fallback && String(fallback).trim() ? String(fallback).trim() : undefined;
-}
-
-/**
- * Templates that must receive a runtime header image URL in the API payload.
- * Default: none — Meta uses the static header baked into the approved template.
- * Set WHATSAPP_IMAGE_HEADER_REQUIRED_TEMPLATES only for templates whose header is a
- * dynamic {{image}} variable in Business Manager.
- */
-function templateHeaderImageRequired(templateId) {
-  const explicitList = String(process.env.WHATSAPP_IMAGE_HEADER_REQUIRED_TEMPLATES || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return explicitList.includes(String(templateId));
-}
-
-/** Attach header image component only when an env URL is configured (optional override). */
-function shouldAttachHeaderImage(templateId) {
-  return Boolean(templateHeaderImageUrl(templateId));
+  return resolveTemplateHeaderImageUrl(templateId);
 }
 
 async function validateHeaderImageUrl(imageUrl) {
-  const url = String(imageUrl || "").trim();
+  const raw = String(imageUrl || "").trim();
+  const url = normalizeMediaUrlForWhatsApp(raw);
   if (!url) return { ok: false, reason: "empty_url" };
   let parsed;
   try {
@@ -103,7 +79,9 @@ async function validateHeaderImageUrl(imageUrl) {
   const skipVerify =
     process.env.WHATSAPP_SKIP_HEADER_IMAGE_VERIFY === "1" ||
     process.env.WHATSAPP_SKIP_HEADER_IMAGE_VERIFY === "true";
-  if (skipVerify) return { ok: true, skipped: true };
+  if (skipVerify) {
+    return { ok: true, skipped: true, normalized_url: url !== raw ? url : undefined };
+  }
 
   const probe = async (method) => {
     const controller = new AbortController();
@@ -117,17 +95,31 @@ async function validateHeaderImageUrl(imageUrl) {
 
   try {
     let res = await probe("HEAD");
-    if (res.status === 405 || res.status === 501) {
+    if (res.status === 405 || res.status === 501 || res.status === 400) {
       res = await probe("GET");
     }
     if (!res.ok) {
-      return { ok: false, reason: `http_${res.status}`, content_type: res.headers.get("content-type") };
+      return {
+        ok: false,
+        reason: `http_${res.status}`,
+        content_type: res.headers.get("content-type"),
+        normalized_url: url !== raw ? url : undefined,
+        hint:
+          parsed.hostname.includes("supabase.co") && !url.includes("/object/public/")
+            ? "Use a public Supabase Storage URL (.../object/public/<bucket>/<file>) or set WHATSAPP_HEADER_LOGO_URL to a direct image CDN link."
+            : undefined,
+      };
     }
     const contentType = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
     if (contentType && !contentType.startsWith("image/")) {
-      return { ok: false, reason: "not_image", content_type: contentType };
+      return {
+        ok: false,
+        reason: "not_image",
+        content_type: contentType,
+        normalized_url: url !== raw ? url : undefined,
+      };
     }
-    return { ok: true, content_type: contentType || null };
+    return { ok: true, content_type: contentType || null, normalized_url: url !== raw ? url : undefined };
   } catch (error) {
     return { ok: false, reason: error instanceof Error ? error.message : String(error) };
   }
@@ -191,13 +183,15 @@ async function postWhatsAppMessage(payload, logMeta) {
 async function sendWhatsAppTemplate(phone, templateId, variables = [], languageCode) {
   const to = normalizeRecipient(phone);
   const bodyComponent = buildTemplateComponents(variables)?.[0];
-  const headerImageUrl = templateHeaderImageUrl(templateId);
-  if (templateHeaderImageRequired(templateId) && !headerImageUrl) {
-    throw new Error(
-      `Template "${templateId}" is listed in WHATSAPP_IMAGE_HEADER_REQUIRED_TEMPLATES but no header image URL env is set.`,
-    );
+  const needsHeader = templateUsesDynamicImageHeader(templateId);
+  const headerImageUrl = resolveTemplateHeaderImageUrl(templateId);
+
+  if (needsHeader && !headerImageUrl) {
+    throw new Error(missingHeaderEnvHint(templateId));
   }
-  if (shouldAttachHeaderImage(templateId)) {
+
+  let effectiveHeaderUrl = headerImageUrl;
+  if (needsHeader && headerImageUrl) {
     const check = await validateHeaderImageUrl(headerImageUrl);
     if (!check.ok) {
       console.error(
@@ -211,13 +205,15 @@ async function sendWhatsAppTemplate(phone, templateId, variables = [], languageC
         }),
       );
       throw new Error(
-        `Header image URL not usable for template "${templateId}": ${check.reason}${check.content_type ? ` (${check.content_type})` : ""}. Meta often reports this later as "Media upload error".`,
+        `Header image URL not usable for template "${templateId}": ${check.reason}${check.content_type ? ` (${check.content_type})` : ""}.${check.hint ? ` ${check.hint}` : ""}`,
       );
     }
+    if (check.normalized_url) {
+      effectiveHeaderUrl = check.normalized_url;
+    }
   }
-  const headerComponent = shouldAttachHeaderImage(templateId)
-    ? buildHeaderImageComponent(headerImageUrl)
-    : undefined;
+
+  const headerComponent = needsHeader ? buildHeaderImageComponent(effectiveHeaderUrl) : undefined;
   const components = [headerComponent, bodyComponent].filter(Boolean);
   const lang =
     typeof languageCode === "string" && languageCode.trim()
@@ -238,11 +234,16 @@ async function sendWhatsAppTemplate(phone, templateId, variables = [], languageC
     phone: to,
     template_id: templateId,
     variables,
-    header_mode: headerComponent ? "dynamic_url" : "static_in_meta_template",
-    header_image_url: headerImageUrl || null,
+    header_mode: needsHeader ? "dynamic_url" : "static_in_meta_template",
+    header_image_url: effectiveHeaderUrl || null,
     language_code: lang,
   });
-  return { ...sent, header_image_url: headerImageUrl || null, template_id: templateId, language_code: lang };
+  return {
+    ...sent,
+    header_image_url: effectiveHeaderUrl || null,
+    template_id: templateId,
+    language_code: lang,
+  };
 }
 
 async function sendWhatsAppMessage(phone, text) {
@@ -264,6 +265,9 @@ module.exports = {
   sendWhatsAppTemplate,
   sendWhatsAppMessage,
   templateHeaderImageUrl,
+  resolveTemplateHeaderImageUrl,
   validateHeaderImageUrl,
   waTemplateLanguageCode,
+  templateUsesDynamicImageHeader,
+  FLOW_TEMPLATE_IDS,
 };
