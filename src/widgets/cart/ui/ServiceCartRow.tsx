@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 import { View, Text, Pressable, Alert } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useDeleteCartItem, parseWaStatusLines, type CartItem } from "@/entities/cart";
-import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import type { CartScreenStyles } from "./cartStyles";
 
@@ -38,7 +38,7 @@ function ServiceCartRowInner({ item, stylesThemed, onConfirmBooking, onPayBookin
   return (
     <View style={stylesThemed.card}>
       <SmartImage
-        uri={getLatestBusinessCardImage(item.business_card?.images)}
+        uri={getPrimaryBusinessCardImage(item.business_card?.images)}
         recyclingKey={`svc-${item.id}`}
         style={stylesThemed.thumb}
         contentFit="cover"

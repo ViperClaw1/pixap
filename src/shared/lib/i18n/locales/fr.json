@@ -100,6 +100,8 @@
     "toastCouldNotOpenSupport": "Impossible d'ouvrir le chat d'assistance",
     "support": "Assistance",
     "supportSubtitle": "Discutez avec notre équipe",
+    "mySupportTickets": "Mes tickets d'assistance",
+    "noSupportTickets": "Aucune demande d'assistance pour le moment.",
     "followed": "Suivi",
     "thread": {
       "peerTyping": "écrit...",
@@ -274,6 +276,7 @@
       "privacy": "Confidentialité et sécurité",
       "settings": "Paramètres"
     },
+    "adminDashboard": "Tableau de bord admin",
     "partnerUpload": "Partenaire : téléverser l'image de l'annonce",
     "logOut": "Se déconnecter",
     "create": {
@@ -377,6 +380,50 @@
     "share": "Partager",
     "dislike": "Je n'aime pas",
     "book": "Réserver"
+  },
+  "adminDashboard": {
+    "title": "Tableau de bord admin",
+    "loading": "Chargement des analyses…",
+    "empty": "Aucune donnée pour cette période.",
+    "mockDisclaimer": "Données d'exemple — connectez RPC admin_analytics_summary.",
+    "periodRange": "{{from}} — {{to}}",
+    "period": { "7d": "7 jours", "30d": "30 jours", "90d": "90 jours" },
+    "denied": { "title": "Indisponible", "body": "Réservé aux comptes staff.", "back": "Retour" },
+    "error": { "title": "Échec du chargement", "body": "Vérifiez la connexion.", "retry": "Réessayer" },
+    "sections": {
+      "registrations": "Inscriptions",
+      "registrationsSub": "Nouveaux utilisateurs",
+      "dau": "Utilisateurs actifs/jour",
+      "dauSub": "Via last_seen_at",
+      "whatsapp": "Réservations WhatsApp",
+      "whatsappSub": "Flux WA panier",
+      "subscriptions": "Abonnements",
+      "subscriptionsSub": "Achats IAP et MRR estimé"
+    },
+    "registrations": { "total": "Total sur la période", "growthHint": "vs période précédente" },
+    "dau": { "today": "DAU aujourd'hui", "avg7d": "Moyenne 7 j", "avgHint": "moyenne glissante" },
+    "whatsapp": {
+      "started": "Campagnes lancées",
+      "success": "Réservations réussies",
+      "successRate": "Taux de succès",
+      "conversion": "{{pct}}% conversion",
+      "outcome": {
+        "success": "Succès",
+        "missing_whatsapp": "Pas de WhatsApp",
+        "venue_rejection": "Refus lieu",
+        "other": "Autre"
+      },
+      "outcomeShort": { "success": "OK", "missing_whatsapp": "Sans WA", "venue_rejection": "Refus", "other": "Autre" }
+    },
+    "subscriptions": { "total": "Achats", "mrr": "MRR est.", "mrrHint": "estimation démo" },
+    "charts": {
+      "registrationsOverTime": "Inscriptions dans le temps",
+      "dauOverTime": "Tendance DAU",
+      "whatsappOutcomes": "Répartition",
+      "whatsappBreakdown": "Par catégorie",
+      "purchasesOverTime": "Achats dans le temps",
+      "mrrTrend": "Tendance MRR"
+    }
   },
   "errorBoundary": {
     "retry": "Réessayer",

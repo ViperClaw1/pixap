@@ -12,6 +12,7 @@ import {
   threadCacheHasMessageId,
 } from "./messageCachePatch";
 import { debouncedInboxInvalidate, debouncedThreadInvalidate } from "./messageRealtimeDebounce";
+import { getThreadMessagesCache } from "./messageCachePatch";
 import { parseRealtimeRow, rowToMessageBubble } from "./hydrateRealtimeMessage";
 
 function invalidateInbox(queryClient: QueryClient) {
@@ -107,7 +108,13 @@ export function useMessageThreadRealtime(threadId: string | undefined | null, us
           );
           if (!row || row.thread_id !== tid) return;
           if (threadCacheHasMessageId(queryClient, tid, uid, row.id)) return;
-          appendThreadMessage(queryClient, tid, uid, rowToMessageBubble(row, uid));
+          const cache = getThreadMessagesCache(queryClient, tid, uid);
+          appendThreadMessage(
+            queryClient,
+            tid,
+            uid,
+            rowToMessageBubble(row, uid, cache?.threadMeta ?? null, cache?.viewerIsSupportStaff ?? false),
+          );
           scheduleInboxInvalidate(queryClient, uid);
         },
       )

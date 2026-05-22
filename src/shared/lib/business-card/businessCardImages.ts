@@ -57,10 +57,15 @@ export function normalizeBusinessCardImages(images: unknown): string[] {
   return [];
 }
 
-export function getLatestBusinessCardImage(images: unknown): string | null {
+/** First image in `business_cards.images` (primary hero / list thumbnail). */
+export function getPrimaryBusinessCardImage(images: unknown): string | null {
   const normalized = normalizeBusinessCardImages(images);
-  if (normalized.length === 0) return null;
-  return normalized[normalized.length - 1] ?? null;
+  return normalized[0] ?? null;
+}
+
+/** @deprecated Alias for {@link getPrimaryBusinessCardImage}. */
+export function getLatestBusinessCardImage(images: unknown): string | null {
+  return getPrimaryBusinessCardImage(images);
 }
 
 export type BusinessCardImageSource = {
@@ -81,6 +86,6 @@ export function resolveBusinessCardHeroImagesRaw(place: BusinessCardImageSource 
       : [...normalizedImageList, ...normalizeBusinessCardImages(legacyImage)].filter(
           (url, idx, arr) => arr.indexOf(url) === idx,
         );
-  const heroFallback = getLatestBusinessCardImage(place?.images) ?? getLatestBusinessCardImage(legacyImage);
+  const heroFallback = getPrimaryBusinessCardImage(place?.images) ?? getPrimaryBusinessCardImage(legacyImage);
   return { heroImagesRaw, heroFallback };
 }

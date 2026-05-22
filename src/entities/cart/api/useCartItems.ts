@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { CART_ITEMS_SELECT, localizeBusinessCard } from "@/entities/business-card";
 
 export interface CartItem {
   id: string;
@@ -48,6 +50,8 @@ export function parseWaStatusLines(raw: unknown): string[] {
 export const useCartItems = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { i18n } = useTranslation();
+  const language = i18n.language;
 
   useEffect(() => {
     if (!user?.id) return;
@@ -57,7 +61,7 @@ export const useCartItems = () => {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "cart_items", filter: `user_id=eq.${user.id}` },
         () => {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.cart.items(user.id) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
         },
       )
       .subscribe();
@@ -67,16 +71,22 @@ export const useCartItems = () => {
   }, [user?.id, queryClient]);
 
   return useQuery({
-    queryKey: queryKeys.cart.items(user?.id),
+    queryKey: queryKeys.cart.items(user?.id, language),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cart_items")
-        .select("*, business_card:business_cards(id, name, images, address, category_id, contact_whatsapp)")
+        .select(CART_ITEMS_SELECT as never)
         .eq("user_id", user!.id)
         .eq("status", "created")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as CartItem[];
+      type CartRow = CartItem & {
+        business_card: Parameters<typeof localizeBusinessCard>[0] | null;
+      };
+      return ((data ?? []) as unknown as CartRow[]).map((row) => ({
+        ...row,
+        business_card: row.business_card ? localizeBusinessCard(row.business_card, language) : null,
+      })) as CartItem[];
     },
     enabled: !!user,
     staleTime: 20 * 1000,
@@ -108,7 +118,7 @@ export const useConfirmServiceCartBooking = () => {
       return payload;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.cart.items(user?.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
     },
   });
@@ -142,7 +152,7 @@ export const useCreateCartItem = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.cart.items(user?.id) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix }),
   });
 };
 
@@ -154,6 +164,6 @@ export const useDeleteCartItem = () => {
       const { error } = await supabase.from("cart_items").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.cart.items(user?.id) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix }),
   });
 };

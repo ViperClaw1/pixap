@@ -17,6 +17,12 @@ export interface MessageThreadItem {
   unread_count: number;
   participants: MessageParticipantProfile[];
   is_support?: boolean;
+  /** End-user owner for `kind = support` threads (from inbox RPC). */
+  support_user_id?: string | null;
+  /** `profiles.account_role` of `support_user_id` when known. */
+  support_user_account_role?: "user" | "admin" | null;
+  /** Row title in the messages inbox list. */
+  inbox_title?: string;
 }
 
 export interface Message {

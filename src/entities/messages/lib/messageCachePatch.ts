@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { MessageThreadItem } from "@/shared/model/types/messages";
 import type { MessageBubble } from "../api/useThreadMessages";
+import type { SupportThreadMeta } from "./resolveMessageMine";
 
 export type ThreadMessagesCache = {
   messages: MessageBubble[];
@@ -10,6 +11,8 @@ export type ThreadMessagesCache = {
   lastSeenAtByUserId: Record<string, string | null>;
   hasMoreOlder: boolean;
   oldestLoadedAt: string | null;
+  threadMeta: SupportThreadMeta | null;
+  viewerIsSupportStaff: boolean;
 };
 
 export function getThreadMessagesCache(

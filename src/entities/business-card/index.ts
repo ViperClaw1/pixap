@@ -1,5 +1,18 @@
 export * from "./api/useBusinessCards";
 export * from "./api/useCreateBusinessCardFromGeocode";
+export {
+  localizeBusinessCard,
+  localizeBusinessCardFields,
+  BUSINESS_CARD_I18N_COLUMN_LIST,
+  BUSINESS_CARD_LIST_SELECT,
+  FAVORITES_SELECT,
+  CART_ITEMS_SELECT,
+  BOOKINGS_SELECT,
+  SHOPPING_CART_SELECT,
+  PIXAI_BUSINESS_CARD_SELECT,
+  type BusinessCardI18nRow,
+} from "./lib/localizeBusinessCard";
+export { useLocalizedBusinessCard } from "./lib/useLocalizedBusinessCard";
 export * from "./lib/cityCountry";
 export * from "./lib/addressMatch";
 export { uploadBusinessCardImage, BUSINESS_CARDS_BUCKET } from "./lib/uploadBusinessCardImage";

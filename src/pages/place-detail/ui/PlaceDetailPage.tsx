@@ -27,6 +27,10 @@ import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { resolveBusinessCardHeroImagesRaw } from "@/shared/lib/business-card/businessCardImages";
+import {
+  getBusinessCardDisplayUrl,
+  getBusinessCardDisplayUrls,
+} from "@/shared/lib/business-card/businessCardDisplayUrl";
 import Carousel from "react-native-reanimated-carousel";
 import { StoryBubblesRow } from "@/widgets/stories-strip";
 import { useStories } from "@/entities/story";
@@ -199,16 +203,15 @@ export default function PlaceDetailScreen() {
   const bottomScrollPadding = Platform.OS === "ios" ? Math.max(insets.bottom, 24) : 20;
   const imageVm = useMemo(() => {
     const { heroImagesRaw, heroFallback } = resolveBusinessCardHeroImagesRaw(place);
-    // For place hero we intentionally keep deterministic public object URLs.
-    // Supabase render endpoint can revalidate more often and trigger network hits on re-entry.
-    const heroImages = heroImagesRaw;
+    const heroImages = getBusinessCardDisplayUrls(heroImagesRaw, { size: "hero" });
     const fallbackGalleryImages = heroFallback ? [heroFallback] : [];
+    const galleryRaw = heroImagesRaw.length > 0 ? heroImagesRaw : fallbackGalleryImages;
     return {
       heroImagesRaw,
       heroImages,
-      heroFallback,
-      galleryImages: heroImagesRaw.length > 0 ? heroImagesRaw : fallbackGalleryImages,
-      galleryFallbacks: heroImages.length > 0 ? heroImages : fallbackGalleryImages,
+      heroFallback: heroFallback ? getBusinessCardDisplayUrl(heroFallback, { size: "hero" }) : null,
+      galleryImages: galleryRaw,
+      galleryFallbacks: galleryRaw,
     };
   }, [place]);
 

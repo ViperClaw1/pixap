@@ -60,7 +60,7 @@ function MessagesThreadRowComponent({
         <View style={styles.cardMain}>
           <View style={styles.rowBetween}>
             <Text style={[styles.title, styles.chatTitle]} numberOfLines={1}>
-              {thread.last_sender_name}
+              {thread.inbox_title ?? thread.last_sender_name}
             </Text>
           </View>
           <Text

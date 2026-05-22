@@ -4,8 +4,11 @@ import { useTranslation } from "react-i18next";
 import { SmartImage, preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
-import { getFeedPostCarouselImageUrl } from "@/shared/lib/feedMediaUrls";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
+import {
+  businessCardDisplayFallback,
+  getBusinessCardDisplayUrl,
+} from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { LiveCrowdCard } from "@/features/live-crowd-meter/ui/LiveCrowdCard";
 import type { OnboardingVenue } from "@/entities/user-preferences";
 
@@ -21,9 +24,10 @@ function OnboardingVenueCardInner({ venue }: Props) {
 
   const imageUris = useMemo(() => normalizeBusinessCardImages(venue.images), [venue.images]);
   const heroUri = useMemo(
-    () => (imageUris[0] ? getFeedPostCarouselImageUrl(imageUris[0]) || imageUris[0] : null),
+    () => (imageUris[0] ? getBusinessCardDisplayUrl(imageUris[0], { size: "hero" }) : null),
     [imageUris],
   );
+  const heroFallback = businessCardDisplayFallback(heroUri, imageUris[0]);
 
   useEffect(() => {
     if (heroUri) void preloadSmartImages([heroUri]);
@@ -36,7 +40,7 @@ function OnboardingVenueCardInner({ venue }: Props) {
       <View style={[styles.heroWrap, { height: heroHeight }]}>
         <SmartImage
           uri={heroUri}
-          fallbackUri={imageUris[0] ?? null}
+          fallbackUri={heroFallback}
           bundledFallback={PLACE_IMAGE_FALLBACK}
           recyclingKey={`onboarding-${venue.venue_id}`}
           style={styles.hero}

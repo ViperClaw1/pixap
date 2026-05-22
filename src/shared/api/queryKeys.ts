@@ -36,16 +36,19 @@ export const queryKeys = {
     reactions: (storyId: string) => ["story_reactions", "story", storyId] as const,
   },
   cart: {
-    items: (userId: string | undefined | null) => ["cart_items", userId ?? null] as const,
+    items: (userId: string | undefined | null, language: string) =>
+      ["cart_items", userId ?? null, language] as const,
     itemsPrefix: ["cart_items"] as const,
-    paidItems: (userId: string | undefined | null) => ["paid_cart_items", userId ?? null] as const,
+    paidItems: (userId: string | undefined | null, language: string) =>
+      ["paid_cart_items", userId ?? null, language] as const,
     paidItemsPrefix: ["paid_cart_items"] as const,
   },
   shopping: {
-    cart: (userId: string | undefined | null) => ["shopping_cart", userId ?? null] as const,
+    cart: (userId: string | undefined | null, language: string) =>
+      ["shopping_cart", userId ?? null, language] as const,
     cartPrefix: ["shopping_cart"] as const,
-    paidCartItems: (userId: string | undefined | null) =>
-      ["paid_shopping_cart_items", userId ?? null] as const,
+    paidCartItems: (userId: string | undefined | null, language: string) =>
+      ["paid_shopping_cart_items", userId ?? null, language] as const,
     paidCartItemsPrefix: ["paid_shopping_cart_items"] as const,
   },
   profile: {
@@ -76,11 +79,13 @@ export const queryKeys = {
     unreadPrefix: ["notifications", "unread_count"] as const,
   },
   bookings: {
-    user: (userId: string | undefined | null) => ["bookings", userId ?? null] as const,
+    user: (userId: string | undefined | null, language: string) =>
+      ["bookings", userId ?? null, language] as const,
     prefix: ["bookings"] as const,
   },
   favorites: {
-    user: (userId: string | undefined | null) => ["favorites", userId ?? null] as const,
+    user: (userId: string | undefined | null, language: string) =>
+      ["favorites", userId ?? null, language] as const,
     prefix: ["favorites"] as const,
   },
   bookingCredits: {
@@ -94,12 +99,12 @@ export const queryKeys = {
       ["subscription-products", productIdsJoined, iapReady] as const,
   },
   businessCards: {
-    list: (type: string | undefined, city: string | null) =>
-      ["business_cards", type ?? null, city ?? null] as const,
+    list: (type: string | undefined, city: string | null, language: string) =>
+      ["business_cards", type ?? null, city ?? null, language] as const,
     availableCities: ["business_cards", "available_cities"] as const,
-    byId: (id: string) => ["business_card", id] as const,
-    byCategory: (categoryId: string, city: string | null) =>
-      ["business_cards", "category", categoryId, city ?? null] as const,
+    byId: (id: string, language: string) => ["business_card", id, language] as const,
+    byCategory: (categoryId: string, city: string | null, language: string) =>
+      ["business_cards", "category", categoryId, city ?? null, language] as const,
     listPrefix: ["business_cards"] as const,
     singlePrefix: ["business_card"] as const,
   },
@@ -136,17 +141,22 @@ export const queryKeys = {
   },
   onboardingVenues: {
     prefix: ["onboarding_venues"] as const,
-    page: (offset: number, prefsFingerprint: string) =>
-      ["onboarding_venues", offset, prefsFingerprint] as const,
+    page: (offset: number, prefsFingerprint: string, language: string) =>
+      ["onboarding_venues", offset, prefsFingerprint, language] as const,
   },
   dailyRecommendations: {
-    today: (userId: string | undefined | null, dateYmd: string) =>
-      ["daily_recommendations", "today", userId ?? null, dateYmd] as const,
+    today: (userId: string | undefined | null, dateYmd: string, language: string) =>
+      ["daily_recommendations", "today", userId ?? null, dateYmd, language] as const,
     prefix: ["daily_recommendations"] as const,
   },
   pixai: {
     generationJob: (userId: string | null, jobId: string) =>
       ["pixai", "generation_job", userId, jobId] as const,
     generationJobsPrefix: (userId: string | null) => ["pixai", "generation_job", userId] as const,
+  },
+  adminAnalytics: {
+    byPeriod: (period: number, userId: string | null) =>
+      ["admin-analytics", period, userId] as const,
+    prefix: ["admin-analytics"] as const,
   },
 } as const;

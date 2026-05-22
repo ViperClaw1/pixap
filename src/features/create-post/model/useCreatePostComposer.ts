@@ -150,8 +150,8 @@ export function useCreatePostComposer(
         name: card.name?.trim() || "Unknown place",
         address: card.address?.trim() || "Address unavailable",
         rating: card.rating,
-        imageUrl: card.images.at(-1)?.trim()
-          ? resolveStoragePublicUrl(card.images.at(-1) as string, "business-cards")
+        imageUrl: card.images[0]?.trim()
+          ? resolveStoragePublicUrl(card.images[0] as string, "business-cards")
           : null,
       })),
     [matchedPlacesForAddress],

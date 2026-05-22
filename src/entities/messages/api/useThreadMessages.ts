@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { isProfileAdmin, useProfile } from "@/entities/user";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { MessageParticipantProfile } from "@/shared/model/types/messages";
 import { resolvePeerLastSeenAt } from "@/entities/messages/lib/peerPresence";
@@ -23,8 +24,10 @@ export type MessageBubble = {
 
 export function useThreadMessages(threadId: string) {
   const { user } = useAuth();
+  const { data: profile, isPending: profilePending } = useProfile();
   const queryClient = useQueryClient();
   const userId = user?.id ?? null;
+  const viewerIsSupportStaff = isProfileAdmin(profile?.account_role);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const realtimeConnected = useMessageThreadRealtime(threadId, userId);
 
@@ -39,9 +42,11 @@ export function useThreadMessages(threadId: string) {
           lastSeenAtByUserId: {},
           hasMoreOlder: false,
           oldestLoadedAt: null,
+          threadMeta: null,
+          viewerIsSupportStaff: false,
         };
       }
-      const page = await fetchThreadMessagesPage({ threadId, userId });
+      const page = await fetchThreadMessagesPage({ threadId, userId, viewerIsSupportStaff });
       return {
         messages: page.messages,
         participants: page.participants,
@@ -49,9 +54,11 @@ export function useThreadMessages(threadId: string) {
         lastSeenAtByUserId: page.lastSeenAtByUserId,
         hasMoreOlder: page.hasMoreOlder,
         oldestLoadedAt: page.oldestLoadedAt,
+        threadMeta: page.threadMeta,
+        viewerIsSupportStaff,
       };
     },
-    enabled: !!threadId && !!userId,
+    enabled: !!threadId && !!userId && !profilePending,
     staleTime: 15 * 1000,
     refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.messagesThread,
   });
@@ -63,18 +70,24 @@ export function useThreadMessages(threadId: string) {
       const page = await fetchThreadMessagesPage({
         threadId,
         userId,
+        viewerIsSupportStaff,
         beforeCreatedAt: query.data.oldestLoadedAt,
       });
       prependOlderMessages(queryClient, threadId, userId, page.messages, page.hasMoreOlder, page.oldestLoadedAt);
     } finally {
       setIsLoadingOlder(false);
     }
-  }, [isLoadingOlder, query.data?.hasMoreOlder, query.data?.oldestLoadedAt, queryClient, threadId, userId]);
+  }, [isLoadingOlder, query.data?.hasMoreOlder, query.data?.oldestLoadedAt, queryClient, threadId, userId, viewerIsSupportStaff]);
 
   const peer = useMemo(() => {
     if (!userId) return null;
-    return (query.data?.participants ?? []).find((participant) => participant.id !== userId) ?? null;
-  }, [query.data?.participants, userId]);
+    const participants = query.data?.participants ?? [];
+    const supportUserId = query.data?.threadMeta?.supportUserId;
+    if (viewerIsSupportStaff && supportUserId) {
+      return participants.find((participant) => participant.id === supportUserId) ?? null;
+    }
+    return participants.find((participant) => participant.id !== userId) ?? null;
+  }, [query.data?.participants, query.data?.threadMeta?.supportUserId, userId, viewerIsSupportStaff]);
 
   const peerLastReadAt = useMemo(() => {
     if (!peer?.id) return null;

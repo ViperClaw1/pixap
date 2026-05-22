@@ -3,7 +3,7 @@ import { View, Text, Pressable, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useUpdateShoppingCartQuantity, useRemoveShoppingCartItem, type ShoppingCartItem } from "@/entities/shopping";
-import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { CartScreenStyles } from "./cartStyles";
@@ -67,7 +67,7 @@ function ShopRowInner({ item, stylesThemed, labelColor, onAuthRequired }: Props)
     <View style={stylesThemed.card}>
       <SmartImage
         uri={item.shopping_item?.image}
-        fallbackUri={getLatestBusinessCardImage(item.business_card?.images)}
+        fallbackUri={getPrimaryBusinessCardImage(item.business_card?.images)}
         recyclingKey={`shop-${item.id}`}
         style={stylesThemed.thumb}
         contentFit="cover"

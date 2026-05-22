@@ -3,23 +3,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import type { MessageThreadItem } from "@/shared/model/types/messages";
+import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
+import type { useMessagesStyles } from "./messagesStyles";
 
-type SupportChatCardStyles = {
-  supportCard: object;
-  supportCardCompact: object;
-  supportIconWrap: object;
-  supportIconWrapCompact: object;
-  supportMain: object;
-  supportTitle: object;
-  supportTitleCompact: object;
-  supportSubtitle: object;
-  supportSubtitleCompact: object;
-  supportActionBtn: object;
-  supportActionBtnCompact: object;
-};
+type MessagesStyles = ReturnType<typeof useMessagesStyles>;
 
 type Props = {
-  styles: SupportChatCardStyles;
+  styles: MessagesStyles;
   colors: ThemeColors;
   isCompact: boolean;
   isOpening: boolean;
@@ -29,8 +19,10 @@ type Props = {
 
 export function SupportChatCard({ styles, colors, isCompact, isOpening, existingThread, onPress }: Props) {
   const { t } = useTranslation();
-  const subtitle =
-    existingThread?.last_message_text?.trim() || t("messages.supportSubtitle");
+  const hasThread = existingThread != null;
+  const subtitle = hasThread
+    ? existingThread.last_message_text?.trim() || t("messages.supportSubtitle")
+    : t("messages.supportSubtitle");
 
   return (
     <Pressable
@@ -55,13 +47,35 @@ export function SupportChatCard({ styles, colors, isCompact, isOpening, existing
           {subtitle}
         </Text>
       </View>
-      <View style={[styles.supportActionBtn, isCompact ? styles.supportActionBtnCompact : null]}>
-        {isOpening ? (
-          <ActivityIndicator size="small" color={colors.onAccent} />
-        ) : (
-          <Ionicons name="chatbubble-ellipses" size={isCompact ? 18 : 20} color={colors.onAccent} />
-        )}
-      </View>
+      {hasThread ? (
+        <View style={styles.threadActionsWrap}>
+          <Text style={styles.time}>
+            {formatRelativeTime(existingThread.last_message_at, { style: "compact" })}
+          </Text>
+          <View style={styles.threadReadIndicator}>
+            <Ionicons
+              name={existingThread.unread_count > 0 ? "checkmark" : "checkmark-done"}
+              size={16}
+              color={existingThread.unread_count > 0 ? colors.textMuted : colors.primary}
+            />
+          </View>
+          {existingThread.unread_count > 0 ? (
+            <View style={[styles.supportTicketUnread, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.supportTicketUnreadText, { color: colors.onPrimary }]}>
+                {existingThread.unread_count > 99 ? "99+" : existingThread.unread_count}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : (
+        <View style={[styles.supportActionBtn, isCompact ? styles.supportActionBtnCompact : null]}>
+          {isOpening ? (
+            <ActivityIndicator size="small" color={colors.onAccent} />
+          ) : (
+            <Ionicons name="chatbubble-ellipses" size={isCompact ? 18 : 20} color={colors.onAccent} />
+          )}
+        </View>
+      )}
     </Pressable>
   );
 }

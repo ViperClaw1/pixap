@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { SHOPPING_CART_SELECT, localizeBusinessCard } from "@/entities/business-card";
 import type { ShoppingCartItem, ShoppingItem } from "./useShoppingItems";
 
 function buildPaidShoppingTree(
@@ -32,18 +34,26 @@ function buildPaidShoppingTree(
 
 export const usePaidShoppingCartItems = () => {
   const { user } = useAuth();
+  const { i18n } = useTranslation();
+  const language = i18n.language;
+
   return useQuery({
-    queryKey: queryKeys.shopping.paidCartItems(user?.id),
+    queryKey: queryKeys.shopping.paidCartItems(user?.id, language),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shopping_cart_items")
-        .select("*, shopping_item:shopping_items(*), business_card:business_cards(id, name, images)")
+        .select(SHOPPING_CART_SELECT as never)
         .eq("user_id", user!.id)
         .eq("status", "paid");
       if (error) throw error;
-      const items = data as (Omit<ShoppingCartItem, "shopping_item" | "children"> & {
+      type ShoppingCartRow = Omit<ShoppingCartItem, "shopping_item" | "children"> & {
         shopping_item: ShoppingItem | null;
-      })[];
+        business_card: Parameters<typeof localizeBusinessCard>[0] | null;
+      };
+      const items = ((data ?? []) as unknown as ShoppingCartRow[]).map((row) => ({
+        ...row,
+        business_card: row.business_card ? localizeBusinessCard(row.business_card, language) : null,
+      })) as ShoppingCartRow[];
       return buildPaidShoppingTree(items);
     },
     enabled: !!user,

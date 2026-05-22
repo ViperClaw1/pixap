@@ -77,15 +77,30 @@ export type Database = {
           contact_whatsapp: string | null
           created_at: string
           description: string | null
+          description_de: string | null
+          description_es: string | null
+          description_fr: string | null
+          description_pt: string | null
+          description_ru: string | null
           id: string
           images: string[] | null
           latitude: number | null
           location: unknown | null
           longitude: number | null
           name: string
+          name_de: string | null
+          name_es: string | null
+          name_fr: string | null
+          name_pt: string | null
+          name_ru: string | null
           phone: string
           rating: number
           tags: string[] | null
+          tags_de: string[] | null
+          tags_es: string[] | null
+          tags_fr: string[] | null
+          tags_pt: string[] | null
+          tags_ru: string[] | null
           type: Database["public"]["Enums"]["business_card_type"]
         }
         Insert: {
@@ -96,14 +111,29 @@ export type Database = {
           contact_whatsapp?: string | null
           created_at?: string
           description?: string | null
+          description_de?: string | null
+          description_es?: string | null
+          description_fr?: string | null
+          description_pt?: string | null
+          description_ru?: string | null
           id?: string
           images?: string[] | null
           latitude?: number | null
           longitude?: number | null
           name: string
+          name_de?: string | null
+          name_es?: string | null
+          name_fr?: string | null
+          name_pt?: string | null
+          name_ru?: string | null
           phone?: string
           rating?: number
           tags?: string[] | null
+          tags_de?: string[] | null
+          tags_es?: string[] | null
+          tags_fr?: string[] | null
+          tags_pt?: string[] | null
+          tags_ru?: string[] | null
           type?: Database["public"]["Enums"]["business_card_type"]
         }
         Update: {
@@ -114,14 +144,29 @@ export type Database = {
           contact_whatsapp?: string | null
           created_at?: string
           description?: string | null
+          description_de?: string | null
+          description_es?: string | null
+          description_fr?: string | null
+          description_pt?: string | null
+          description_ru?: string | null
           id?: string
           images?: string[] | null
           latitude?: number | null
           longitude?: number | null
           name?: string
+          name_de?: string | null
+          name_es?: string | null
+          name_fr?: string | null
+          name_pt?: string | null
+          name_ru?: string | null
           phone?: string
           rating?: number
           tags?: string[] | null
+          tags_de?: string[] | null
+          tags_es?: string[] | null
+          tags_fr?: string[] | null
+          tags_pt?: string[] | null
+          tags_ru?: string[] | null
           type?: Database["public"]["Enums"]["business_card_type"]
         }
         Relationships: [
@@ -961,6 +1006,12 @@ export type Database = {
           p_event: Json
         }
         Returns: undefined
+      }
+      admin_analytics_summary: {
+        Args: {
+          p_period_days?: number
+        }
+        Returns: Json
       }
     }
     Enums: {

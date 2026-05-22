@@ -5,6 +5,7 @@ import globals from "globals";
 
 /** FSD: each feature slice is isolated — no imports from sibling features. */
 const FEATURE_SLICES = [
+  "admin-dashboard",
   "ai-booking-chat",
   "auth-session-redirect",
   "create-post",

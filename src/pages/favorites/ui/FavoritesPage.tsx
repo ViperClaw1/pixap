@@ -11,10 +11,13 @@ import { useFavorites } from "@/entities/favorite";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
-import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import {
+  businessCardDisplayFallback,
+  getBusinessCardDisplayUrl,
+} from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { favoritesStaticStyles, favoritesThemeStyles } from "./favoritesStyles";
@@ -75,11 +78,13 @@ export default function FavoritesScreen() {
       renderItem={({ item }) => {
         const b = item.business_card as { id: string; name: string; images: string[] | null; address: string } | null;
         if (!b) return null;
+        const heroRaw = getPrimaryBusinessCardImage(b.images);
+        const heroDisplay = getBusinessCardDisplayUrl(heroRaw, { layoutPx: 168, layoutPxHeight: 168 });
         return (
           <Pressable style={styles.row} onPress={() => navigation.navigate("PlaceDetail", { id: b.id })}>
             <SmartImage
-              uri={getOptimizedImageUrl(getLatestBusinessCardImage(b.images), 168, 168, 72)}
-              fallbackUri={getLatestBusinessCardImage(b.images)}
+              uri={heroDisplay}
+              fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
               recyclingKey={b.id}
               style={styles.thumb}
               contentFit="cover"
