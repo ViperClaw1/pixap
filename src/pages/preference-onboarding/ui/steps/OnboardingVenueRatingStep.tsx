@@ -6,9 +6,11 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import {
   MIN_ONBOARDING_VENUE_RATINGS,
+  buildOnboardingVenuePreferencesFingerprint,
   useCalculateUserAffinity,
   useRecommendedOnboardingVenues,
   type OnboardingVenue,
+  type OnboardingVenuePreferences,
 } from "@/entities/user-preferences";
 import { useUpsertVenueRating } from "@/entities/venue-rating";
 import { useOnboardingRatedVenueIds } from "@/entities/venue-rating";
@@ -22,10 +24,11 @@ const SWIPE_THRESHOLD = 80;
 
 type Props = {
   onComplete: () => void;
+  preferences: OnboardingVenuePreferences;
   ratedCountExternal?: number;
 };
 
-function OnboardingVenueRatingStepContent({ onComplete }: Props) {
+function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const { width } = useWindowDimensions();
@@ -36,7 +39,30 @@ function OnboardingVenueRatingStepContent({ onComplete }: Props) {
   const [ratedCount, setRatedCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
-  const { data: page = [], isLoading } = useRecommendedOnboardingVenues(offset, true);
+  const { favoriteCategories, vibePreferences, habits, favoriteMusic } = preferences;
+  const prefsFingerprint = useMemo(
+    () =>
+      buildOnboardingVenuePreferencesFingerprint({
+        favoriteCategories,
+        vibePreferences,
+        habits,
+        favoriteMusic,
+      }),
+    [favoriteCategories, vibePreferences, habits, favoriteMusic],
+  );
+
+  useEffect(() => {
+    setOffset(0);
+    setVenues([]);
+    setIndex(0);
+  }, [prefsFingerprint]);
+
+  const { data: page = [], isLoading } = useRecommendedOnboardingVenues(
+    offset,
+    preferences,
+    prefsFingerprint,
+    true,
+  );
   const { data: alreadyRated = [] } = useOnboardingRatedVenueIds();
   const upsertRating = useUpsertVenueRating();
   const calculateAffinity = useCalculateUserAffinity();

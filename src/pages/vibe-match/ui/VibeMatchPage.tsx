@@ -73,6 +73,7 @@ import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullS
 import { VIBE_OPTIONS } from "@/entities/user-preferences";
 import { OnboardingChipGrid } from "@/shared/ui/onboarding/OnboardingChipGrid";
 import { devWarn } from "@/shared/lib/devLog";
+import Toast from "react-native-toast-message";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -134,6 +135,8 @@ export default function VibeMatchPage() {
     canAccessVibeMatch,
     isLoading: accessLoading,
     balance,
+    bookingSelectionLimit,
+    exemptFromBookingCredits,
     isIntroActive,
     introPeriodEndsAt,
     canUseBookingCredits,
@@ -253,11 +256,18 @@ export default function VibeMatchPage() {
   }, [planSelectionKey]);
 
   useEffect(() => {
+    if (exemptFromBookingCredits) return;
+    setSelectedVenueIds((prev) =>
+      prev.length <= bookingSelectionLimit ? prev : prev.slice(0, bookingSelectionLimit),
+    );
+  }, [bookingSelectionLimit, exemptFromBookingCredits]);
+
+  useEffect(() => {
     if (!slotsAvailabilityReady || bookableVenueIds.length === 0) return;
     if (selectionSeededForPlanRef.current === planSelectionKey) return;
     selectionSeededForPlanRef.current = planSelectionKey;
-    setSelectedVenueIds(bookableVenueIds);
-  }, [bookableVenueIds, planSelectionKey, slotsAvailabilityReady]);
+    setSelectedVenueIds(bookableVenueIds.slice(0, Math.max(0, bookingSelectionLimit)));
+  }, [bookableVenueIds, bookingSelectionLimit, planSelectionKey, slotsAvailabilityReady]);
 
   const selectedVenueIdSet = useMemo(() => new Set(selectedVenueIds), [selectedVenueIds]);
 
@@ -267,7 +277,8 @@ export default function VibeMatchPage() {
   );
 
   const hasVenueSelection = isSingleStopRoute || selectedBookableStops.length > 0;
-  const bookAllEnabled = allBookable && hasVenueSelection;
+  const canBookFullRoute = isSingleStopRoute || plan.length <= bookingSelectionLimit;
+  const bookAllEnabled = allBookable && hasVenueSelection && canBookFullRoute;
   const partialBookEnabled =
     !isSingleStopRoute && slotsAvailabilityReady && selectedBookableStops.length >= 1;
   const showSelectionWarning =
@@ -276,12 +287,31 @@ export default function VibeMatchPage() {
     bookableVenueIds.length > 1 &&
     selectedBookableStops.length === 0;
 
-  const toggleVenueSelection = useCallback((venueId: string, bookable: boolean) => {
-    if (!bookable) return;
-    setSelectedVenueIds((prev) =>
-      prev.includes(venueId) ? prev.filter((id) => id !== venueId) : [...prev, venueId],
-    );
-  }, []);
+  const showInsufficientCreditsToast = useCallback(
+    (requiredCount: number) => {
+      Toast.show({
+        type: "error",
+        text1: t("bookingCredits.noCreditsTitle"),
+        text2: t("bookingCredits.insufficientForStops", { count: requiredCount }),
+      });
+    },
+    [t],
+  );
+
+  const toggleVenueSelection = useCallback(
+    (venueId: string, bookable: boolean) => {
+      if (!bookable) return;
+      setSelectedVenueIds((prev) => {
+        if (prev.includes(venueId)) return prev.filter((id) => id !== venueId);
+        if (prev.length >= bookingSelectionLimit) {
+          showInsufficientCreditsToast(prev.length + 1);
+          return prev;
+        }
+        return [...prev, venueId];
+      });
+    },
+    [bookingSelectionLimit, showInsufficientCreditsToast],
+  );
 
   const themed = useThemeStyles(
     ({ colors: c }) => vibeMatchThemeStyles(c, insets.top, insets.bottom),
@@ -350,8 +380,8 @@ export default function VibeMatchPage() {
         );
         return;
       }
-      if (balance < stops.length) {
-        Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.insufficientForStops", { count: stops.length }));
+      if (!exemptFromBookingCredits && balance < stops.length) {
+        showInsufficientCreditsToast(stops.length);
         return;
       }
       setBookingAction(action);
@@ -405,7 +435,7 @@ export default function VibeMatchPage() {
               return;
             }
             if (isInsufficientBookingCreditsError(e)) {
-              Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
+              showInsufficientCreditsToast(stops.length);
               setLastBookResults(results);
               return;
             }
@@ -460,8 +490,9 @@ export default function VibeMatchPage() {
       plan,
       profile,
       balance,
+      exemptFromBookingCredits,
       session?.access_token,
-      t,
+      showInsufficientCreditsToast,
       stopAvailability,
       validateForm,
     ],
@@ -469,6 +500,10 @@ export default function VibeMatchPage() {
 
   const onBookAll = useCallback(async () => {
     if (!bookAllEnabled) {
+      if (!canBookFullRoute) {
+        showInsufficientCreditsToast(plan.length);
+        return;
+      }
       if (!allBookable) {
         Alert.alert(
           "Availability",
@@ -478,7 +513,7 @@ export default function VibeMatchPage() {
       return;
     }
     await runBookStops(plan, "all");
-  }, [allBookable, bookAllEnabled, plan, runBookStops]);
+  }, [allBookable, bookAllEnabled, canBookFullRoute, plan, runBookStops, showInsufficientCreditsToast]);
 
   const onPartialBook = useCallback(async () => {
     if (!partialBookEnabled || selectedBookableStops.length === 0) return;

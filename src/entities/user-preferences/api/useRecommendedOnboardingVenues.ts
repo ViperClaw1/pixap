@@ -1,6 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
+import type { Json } from "@/shared/api/supabase/types";
+import {
+  hasOnboardingVenuePreferences,
+  toOnboardingVenuesRpcPrefs,
+  type OnboardingVenuePreferences,
+} from "../lib/onboardingVenuePreferences";
 import type { OnboardingVenue } from "../model/types";
 
 type RpcRow = {
@@ -15,17 +21,25 @@ type RpcRow = {
   rating: number;
 };
 
-export function useRecommendedOnboardingVenues(offset: number, enabled = true) {
-  const limit = 8;
+const PAGE_SIZE = 8;
+
+export function useRecommendedOnboardingVenues(
+  offset: number,
+  preferences: OnboardingVenuePreferences,
+  prefsFingerprint: string,
+  enabled = true,
+) {
+  const canQuery = enabled && hasOnboardingVenuePreferences(preferences);
 
   return useQuery({
-    queryKey: queryKeys.onboardingVenues.page(offset),
-    enabled,
-    staleTime: 60 * 1000,
+    queryKey: queryKeys.onboardingVenues.page(offset, prefsFingerprint),
+    enabled: canQuery,
+    staleTime: 0,
     queryFn: async (): Promise<OnboardingVenue[]> => {
       const { data, error } = await supabase.rpc("get_recommended_onboarding_venues", {
-        p_limit: limit,
+        p_limit: PAGE_SIZE,
         p_offset: offset,
+        p_prefs: toOnboardingVenuesRpcPrefs(preferences) as Json,
       });
       if (error) throw error;
       return ((data ?? []) as RpcRow[]).map((row) => ({

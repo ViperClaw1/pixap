@@ -9,8 +9,8 @@ export const USER_FOLLOWS_QUERY_KEY = "user_follows" as const;
 
 export const queryKeys = {
   posts: {
-    feed: (userId: string | null, followingSignature: string) =>
-      ["posts", "feed", userId, followingSignature] as const,
+    feed: (userId: string | null, followingSignature: string, authorUserId: string | null = null) =>
+      ["posts", "feed", userId, followingSignature, authorUserId] as const,
     /** Prefix: all post feeds for any user / following combo */
     feedPrefix: ["posts", "feed"] as const,
     byId: (postId: string, viewerUserId: string | null) =>
@@ -136,11 +136,17 @@ export const queryKeys = {
   },
   onboardingVenues: {
     prefix: ["onboarding_venues"] as const,
-    page: (offset: number) => ["onboarding_venues", offset] as const,
+    page: (offset: number, prefsFingerprint: string) =>
+      ["onboarding_venues", offset, prefsFingerprint] as const,
   },
   dailyRecommendations: {
     today: (userId: string | undefined | null, dateYmd: string) =>
       ["daily_recommendations", "today", userId ?? null, dateYmd] as const,
     prefix: ["daily_recommendations"] as const,
+  },
+  pixai: {
+    generationJob: (userId: string | null, jobId: string) =>
+      ["pixai", "generation_job", userId, jobId] as const,
+    generationJobsPrefix: (userId: string | null) => ["pixai", "generation_job", userId] as const,
   },
 } as const;

@@ -12,6 +12,7 @@ export type PostRowInput = {
   media_url: string | null;
   media_blurhashes?: unknown;
   created_at: string;
+  boosted_at?: string | null;
   geo_place_name: string | null;
   geo_formatted_address: string | null;
   geo_latitude: number | null;
@@ -41,6 +42,24 @@ export function isMissingMediaBlurhashesError(message?: string) {
   return (message ?? "").toLowerCase().includes("media_blurhashes");
 }
 
+export function isMissingBoostedAtError(message?: string) {
+  return (message ?? "").toLowerCase().includes("boosted_at");
+}
+
+/** Prefer the latest boost timestamp when merging refetch + cache rows. */
+export function pickLaterBoostedAt(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): string | null {
+  const aMs = a ? new Date(a).getTime() : 0;
+  const bMs = b ? new Date(b).getTime() : 0;
+  const aOk = Number.isFinite(aMs) ? aMs : 0;
+  const bOk = Number.isFinite(bMs) ? bMs : 0;
+  if (aOk === 0 && bOk === 0) return null;
+  if (aOk >= bOk) return a ?? null;
+  return b ?? null;
+}
+
 export function normalizePostRow(row: Partial<PostRowInput>): PostRowInput {
   return {
     id: String(row.id ?? ""),
@@ -50,6 +69,7 @@ export function normalizePostRow(row: Partial<PostRowInput>): PostRowInput {
     media_url: (row.media_url as string | null | undefined) ?? null,
     media_blurhashes: row.media_blurhashes,
     created_at: String(row.created_at ?? ""),
+    boosted_at: (row.boosted_at as string | null | undefined) ?? null,
     geo_place_name: (row.geo_place_name as string | null | undefined) ?? null,
     geo_formatted_address: (row.geo_formatted_address as string | null | undefined) ?? null,
     geo_latitude: (row.geo_latitude as number | null | undefined) ?? null,
@@ -191,6 +211,7 @@ export async function hydrateFeedPosts(
       media_url: row.media_url,
       media_blurhashes: parseMediaBlurhashesColumn(row.media_blurhashes),
       created_at: row.created_at,
+      boosted_at: row.boosted_at ?? null,
       reaction_count: reactionCountByPost.get(row.id) ?? 0,
       comment_count: commentCountByPost.get(row.id) ?? 0,
       my_reaction: myReactionByPost.get(row.id) ?? null,
@@ -199,4 +220,30 @@ export async function hydrateFeedPosts(
       is_followed_author: followingSet.has(row.user_id),
     };
   });
+}
+
+/** Fills `boosted_at` when the main feed select omitted the column (schema fallback). */
+export async function enrichPostsBoostedAt(rows: PostRowInput[]): Promise<PostRowInput[]> {
+  if (!rows.length) return rows;
+
+  const postIds = rows.map((row) => row.id);
+  const { data, error } = await supabase
+    .from("posts" as any)
+    .select("id, boosted_at")
+    .in("id", postIds);
+
+  if (error && isMissingBoostedAtError(error.message)) return rows;
+  if (error) throw error;
+
+  const boostedById = new Map<string, string | null>(
+    ((data ?? []) as Array<{ id: string; boosted_at: string | null }>).map((row) => [
+      row.id,
+      row.boosted_at,
+    ]),
+  );
+
+  return rows.map((row) => ({
+    ...row,
+    boosted_at: pickLaterBoostedAt(row.boosted_at, boostedById.get(row.id)),
+  }));
 }

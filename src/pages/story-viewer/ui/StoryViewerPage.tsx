@@ -33,6 +33,7 @@ import { useReactToStory } from "@/entities/story";
 import { useReplyToStory } from "@/entities/story";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import type { StoryItem, StoryReactionType } from "@/shared/model/types/stories";
+import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { StorySlide } from "@/widgets/stories-strip";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
@@ -231,10 +232,13 @@ export default function StoryViewerScreen() {
 
   const contentHeight = Math.max(220, height - insets.top - insets.bottom - 320);
   const rawAuthorAvatar = activeStory?.profile?.avatar_url ?? activeGroup?.profile?.avatar_url ?? null;
-  const authorAvatarUrl =
+  const authorAvatarRaw =
     typeof rawAuthorAvatar === "string" && rawAuthorAvatar.trim().length > 0 ? rawAuthorAvatar.trim() : null;
   const authorAvatarSize = Math.max(64, Math.min(92, Math.round(contentHeight * 0.18)));
   const authorAvatarRadius = authorAvatarSize / 2;
+  const authorAvatarDisplay = authorAvatarRaw
+    ? getAvatarDisplayUrl(authorAvatarRaw, { layoutPx: authorAvatarSize })
+    : null;
 
   if (!activeStory || !activeGroup) {
     return (
@@ -326,10 +330,11 @@ export default function StoryViewerScreen() {
                   },
                 ]}
               >
-                {authorAvatarUrl ? (
+                {authorAvatarDisplay ? (
                   <SmartImage
-                    uri={authorAvatarUrl}
-                    recyclingKey={authorAvatarUrl}
+                    uri={authorAvatarDisplay}
+                    fallbackUri={authorAvatarRaw && authorAvatarRaw !== authorAvatarDisplay ? authorAvatarRaw : undefined}
+                    recyclingKey={authorAvatarDisplay}
                     style={styles.authorAvatarImage}
                     contentFit="cover"
                     skipBundledPlaceholder

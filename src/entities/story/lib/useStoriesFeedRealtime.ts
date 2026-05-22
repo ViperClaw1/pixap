@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
+import { RealtimeConnectionManager } from "@/shared/realtime/connectionManager";
 import { clearStoriesFeedInteractedPlaceCache } from "./storiesFeedInteractedPlaceCache";
 
 function invalidateStoriesFeed(queryClient: QueryClient, userId: string) {
@@ -18,23 +19,43 @@ function invalidateStoryComments(queryClient: QueryClient, storyId: string | und
   }
 }
 
-type RealtimeSubscription = {
+type Listener = (connected: boolean) => void;
+
+type SharedSubscription = {
   refCount: number;
-  realtimeConnected: boolean;
-  listeners: Set<(connected: boolean) => void>;
-  cleanup: () => void;
+  connected: boolean;
+  listeners: Set<Listener>;
+  release: () => void;
 };
 
-const subscriptions = new Map<string, RealtimeSubscription>();
+const sharedByUser = new Map<string, SharedSubscription>();
 
-function setSubscriptionConnected(sub: RealtimeSubscription, connected: boolean) {
-  sub.realtimeConnected = connected;
+function setSharedConnected(sub: SharedSubscription, connected: boolean) {
+  sub.connected = connected;
   for (const listener of sub.listeners) {
     listener(connected);
   }
 }
 
-/** Stories feed + strip: new stories, likes, comments (ref-counted channel per user). */
+function buildStoriesFeedChannel(queryClient: QueryClient, userId: string) {
+  const onStoryCommentsChange = (payload: { new: Record<string, unknown>; old: Record<string, unknown> }) => {
+    const row = (payload.new?.story_id ? payload.new : payload.old) as { story_id?: string };
+    invalidateStoryComments(queryClient, typeof row.story_id === "string" ? row.story_id : undefined);
+    invalidateStoriesFeed(queryClient, userId);
+  };
+
+  return supabase
+    .channel(`stories_feed_${userId}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => {
+      invalidateStoriesFeed(queryClient, userId);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "story_reactions" }, () => {
+      invalidateStoriesFeed(queryClient, userId);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "story_comments" }, onStoryCommentsChange);
+}
+
+/** Stories feed + strip: ref-counted channel per user via RealtimeConnectionManager. */
 export function useStoriesFeedRealtime(userId: string | null | undefined) {
   const queryClient = useQueryClient();
   const [realtimeConnected, setRealtimeConnected] = useState(true);
@@ -45,56 +66,40 @@ export function useStoriesFeedRealtime(userId: string | null | undefined) {
       return;
     }
 
-    let sub = subscriptions.get(userId);
-    if (!sub) {
-      const onStoryCommentsChange = (payload: { new: Record<string, unknown>; old: Record<string, unknown> }) => {
-        const row = (payload.new?.story_id ? payload.new : payload.old) as { story_id?: string };
-        invalidateStoryComments(queryClient, typeof row.story_id === "string" ? row.story_id : undefined);
-        invalidateStoriesFeed(queryClient, userId);
-      };
+    const key = `stories_feed_${userId}`;
+    let shared = sharedByUser.get(userId);
 
-      const channel = supabase
-        .channel(`stories_feed_${userId}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => {
-          invalidateStoriesFeed(queryClient, userId);
-        })
-        .on("postgres_changes", { event: "*", schema: "public", table: "story_reactions" }, () => {
-          invalidateStoriesFeed(queryClient, userId);
-        })
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "story_comments" },
-          onStoryCommentsChange,
-        )
-        .subscribe((status) => {
-          const connected = subscriptions.get(userId);
-          if (connected) setSubscriptionConnected(connected, status === "SUBSCRIBED");
-        });
-
-      sub = {
+    if (!shared) {
+      const manager = RealtimeConnectionManager.get();
+      const entry: SharedSubscription = {
         refCount: 0,
-        realtimeConnected: true,
+        connected: true,
         listeners: new Set(),
-        cleanup: () => {
-          void supabase.removeChannel(channel);
-        },
+        release: () => {},
       };
-      subscriptions.set(userId, sub);
+      entry.release = manager.acquire(
+        key,
+        () => buildStoriesFeedChannel(queryClient, userId),
+        (status) => setSharedConnected(entry, status === "subscribed"),
+        "stories_feed",
+      );
+      shared = entry;
+      sharedByUser.set(userId, shared);
     }
 
-    sub.refCount += 1;
-    const listener = (connected: boolean) => setRealtimeConnected(connected);
-    sub.listeners.add(listener);
-    setRealtimeConnected(sub.realtimeConnected);
+    shared.refCount += 1;
+    const listener: Listener = (connected) => setRealtimeConnected(connected);
+    shared.listeners.add(listener);
+    setRealtimeConnected(shared.connected);
 
     return () => {
-      const current = subscriptions.get(userId);
+      const current = sharedByUser.get(userId);
       if (!current) return;
       current.listeners.delete(listener);
       current.refCount -= 1;
       if (current.refCount <= 0) {
-        current.cleanup();
-        subscriptions.delete(userId);
+        current.release();
+        sharedByUser.delete(userId);
       }
     };
   }, [userId, queryClient]);

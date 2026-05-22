@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { StoryGroup } from "@/shared/model/types/stories";
+import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { profileDisplayName } from "@/shared/lib/profileDisplayName";
 
 interface StoryBubbleProps {
@@ -20,6 +21,12 @@ function StoryBubbleComponent({ group, viewed, onPress, variant = "story", uploa
     if (isAdd) return "Add Story";
     return profileDisplayName(group.profile);
   }, [group.profile, isAdd]);
+
+  const avatarDisplayUri = useMemo(
+    () => getAvatarDisplayUrl(group.profile?.avatar_url, { layoutPx: 64 }),
+    [group.profile?.avatar_url],
+  );
+  const avatarRawUri = group.profile?.avatar_url?.trim() || null;
 
   return (
     <Pressable style={styles.wrapper} disabled={uploading} onPress={onPress}>
@@ -42,7 +49,10 @@ function StoryBubbleComponent({ group, viewed, onPress, variant = "story", uploa
           </View>
         ) : (
           <SmartImage
-            uri={group.profile?.avatar_url}
+            uri={avatarDisplayUri}
+            fallbackUri={
+              avatarRawUri && avatarDisplayUri && avatarRawUri !== avatarDisplayUri ? avatarRawUri : undefined
+            }
             style={styles.avatar}
             contentFit="cover"
             transition={120}

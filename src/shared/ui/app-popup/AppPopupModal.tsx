@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { AppPopupButton, AppPopupOptions } from "./types";
@@ -44,7 +44,16 @@ function resolveVariants(list: AppPopupButton[]): ResolvedButton[] {
   });
 }
 
-export function AppPopupModal({ visible, title, message, buttons, variant, onClose, embedded = false }: Props) {
+export function AppPopupModal({
+  visible,
+  title,
+  message,
+  buttons,
+  variant,
+  loading = false,
+  onClose,
+  embedded = false,
+}: Props) {
   const styles = useAppPopupStyles();
   const { colors } = useAppTheme();
   const variantMeta = variant ? APP_POPUP_VARIANT_META[variant] : null;
@@ -57,7 +66,9 @@ export function AppPopupModal({ visible, title, message, buttons, variant, onClo
   if (!visible) return null;
 
   const onPressAction = (button: AppPopupButton) => {
-    onClose();
+    if (!button.skipCloseOnPress) {
+      onClose();
+    }
     button.onPress?.();
   };
 
@@ -116,15 +127,20 @@ export function AppPopupModal({ visible, title, message, buttons, variant, onClo
             </View>
           ) : null}
           <Text style={styles.title}>{title}</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 8 }} />
+          ) : null}
           {message ? <Text style={styles.message}>{message}</Text> : null}
         </View>
-        <View style={styles.actions}>
-          {useRowLayout ? (
-            <View style={styles.actionsRow}>{actions.map((button) => renderButton(button, "row"))}</View>
-          ) : (
-            actions.map((button) => renderButton(button, "stack"))
-          )}
-        </View>
+        {!loading ? (
+          <View style={styles.actions}>
+            {useRowLayout ? (
+              <View style={styles.actionsRow}>{actions.map((button) => renderButton(button, "row"))}</View>
+            ) : (
+              actions.map((button) => renderButton(button, "stack"))
+            )}
+          </View>
+        ) : null}
       </View>
     </View>
   );

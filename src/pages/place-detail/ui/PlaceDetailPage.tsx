@@ -51,7 +51,7 @@ import { logCrowdCheckin } from "@/entities/venue-crowd";
 import { appAlert } from "@/shared/ui/app-popup";
 import { useTranslation } from "react-i18next";
 import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomSheet";
-import { profileAvatar } from "@/pages/stories-feed/lib/feedPostHelpers";
+import { profileAvatarDisplay } from "@/pages/stories-feed/lib/feedPostHelpers";
 import { Easing, cancelAnimation, useSharedValue, withTiming } from "react-native-reanimated";
 
 type R = RouteProp<BrowseFlowParamList, "PlaceDetail">;
@@ -480,7 +480,7 @@ export default function PlaceDetailScreen() {
         loading={shareSheet.shareUsersLoading}
         searchValue={shareSheet.shareSearch}
         onChangeSearch={shareSheet.setShareSearch}
-        resolveAvatarUri={profileAvatar}
+        resolveAvatarUri={profileAvatarDisplay}
         sharePostId={shareSheet.sharePostId}
         sharePlaceId={shareSheet.shareOnlyPlaceId}
         shareStoryId={shareSheet.shareStoryId}

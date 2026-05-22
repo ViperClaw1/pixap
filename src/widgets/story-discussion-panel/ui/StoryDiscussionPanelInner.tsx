@@ -12,6 +12,7 @@ import {
   type StoryReply,
 } from "@/entities/story";
 import { useProfile } from "@/entities/user";
+import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
@@ -147,7 +148,8 @@ export function StoryDiscussionPanelInner({
     [onRequireAuth, reactMutation, storyId],
   );
 
-  const myAvatarUri = myProfile?.avatar_url?.trim() || null;
+  const myAvatarRaw = myProfile?.avatar_url?.trim() || null;
+  const myAvatarUri = getAvatarDisplayUrl(myAvatarRaw, { layoutPx: 32 });
   const myLabel =
     `${myProfile?.first_name?.trim() ?? ""} ${myProfile?.last_name?.trim() ?? ""}`.trim() || "Me";
 
@@ -262,7 +264,13 @@ export function StoryDiscussionPanelInner({
 
         <View style={styles.footerInputRow}>
           {myAvatarUri ? (
-            <SmartImage uri={myAvatarUri} recyclingKey={myAvatarUri} style={styles.footerAvatar} contentFit="cover" />
+            <SmartImage
+              uri={myAvatarUri}
+              fallbackUri={myAvatarRaw && myAvatarRaw !== myAvatarUri ? myAvatarRaw : undefined}
+              recyclingKey={myAvatarUri}
+              style={styles.footerAvatar}
+              contentFit="cover"
+            />
           ) : (
             <View style={[styles.footerAvatarFallback, { backgroundColor: palette.avatarFallback }]}>
               <Text style={[styles.footerAvatarLetter, { color: palette.text }]}>

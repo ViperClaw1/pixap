@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { StoryComment, StoryReply } from "@/entities/story";
+import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
@@ -34,8 +35,17 @@ type Props = {
 
 function Avatar({ uri, label, palette }: { uri: string | null; label: string; palette: DiscussionUiPalette }) {
   const letter = label.charAt(0).toUpperCase();
-  if (uri) {
-    return <SmartImage uri={uri} recyclingKey={uri ?? label} style={styles.avatar} contentFit="cover" />;
+  const displayUri = getAvatarDisplayUrl(uri, { layoutPx: AVATAR });
+  if (displayUri) {
+    return (
+      <SmartImage
+        uri={displayUri}
+        fallbackUri={uri && uri !== displayUri ? uri : undefined}
+        recyclingKey={displayUri}
+        style={styles.avatar}
+        contentFit="cover"
+      />
+    );
   }
   return (
     <View style={[styles.avatarFallback, { backgroundColor: palette.avatarFallback }]}>

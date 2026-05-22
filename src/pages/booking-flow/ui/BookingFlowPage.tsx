@@ -30,7 +30,6 @@ import {
   shouldEnforceSubscriptionPaywall,
   useSubscriptionPaywallRedirect,
 } from "@/features/subscription-paywall-redirect";
-import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import {
   BOOKING_FLOW_DEFAULT_GUESTS,
   BOOKING_FLOW_MAX_GUESTS,
@@ -78,9 +77,6 @@ export default function BookingFlowPage() {
   const {
     canAccessBookingFlow,
     isLoading: accessLoading,
-    balance,
-    isIntroActive,
-    introPeriodEndsAt,
     canUseBookingCredits,
   } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
@@ -227,14 +223,6 @@ export default function BookingFlowPage() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]} {...androidSwipeBackPanHandlers}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-        <BookingCreditsBadge
-          balance={balance}
-          isIntroActive={isIntroActive}
-          introPeriodEndsAt={introPeriodEndsAt}
-          compact
-        />
-      </View>
       {step === 1 ? (
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
           <Pressable onPress={() => setStep(step - 1)}>

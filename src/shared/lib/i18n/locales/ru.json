@@ -37,7 +37,7 @@
   "editProfile": {
     "savedTitle": "Сохранено",
     "savedBody": "Данные профиля обновлены.",
-    "personalizeCta": "Настроить рекомендации"
+    "personalizeCta": "Настроить"
   },
   "onboarding": {
     "actions": {
@@ -474,7 +474,18 @@
   "postBoost": {
     "title": "Продвижение поста в ленте",
     "comingSoon": "Скоро — ваши посты будут выше в выдаче.",
-    "enabledHint": "Продвинуть этот пост в ленте."
+    "enabledHint": "Продвинуть этот пост в ленте.",
+    "confirmTitle": "Продвинуть пост?",
+    "confirmMessage": "Он появится первым в ленте у всех. Повторно можно через час.",
+    "confirmAction": "Продвинуть",
+    "confirmCancel": "Отмена",
+    "confirmLoading": "Продвигаем пост…",
+    "cooldownTitle": "Повтор пока недоступен",
+    "cooldownMessage": "Этот пост можно продвинуть снова через час.",
+    "toastTitle": "Пост продвинут",
+    "toastMessage": "Пост поднят на первое место в ленте.",
+    "toastErrorTitle": "Не удалось продвинуть",
+    "toastError": "Попробуйте ещё раз."
   },
   "dailyRecommendations": {
     "title": "Для вас на сегодня",

@@ -4,9 +4,11 @@ import { I18nextProvider } from "react-i18next";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/app/providers/AuthProvider";
+import { RealtimeLifecycleProvider } from "@/app/providers/RealtimeLifecycleProvider";
 import { UserPresenceProvider } from "@/entities/user-presence";
 import { ThemeProvider } from "@/app/providers/ThemeProvider";
 import { StorageEgressMetricsDev } from "@/app/providers/StorageEgressMetricsDev";
+import { RealtimeMetricsDev } from "@/app/providers/RealtimeMetricsDev";
 import { AppErrorBoundary } from "@/shared/ui/error-boundary";
 import { AppPopupProvider } from "@/shared/ui/app-popup";
 import { i18n } from "@/shared/lib/i18n";
@@ -32,12 +34,15 @@ export function AppProviders({ children }: { children: ReactNode }) {
           <I18nextProvider i18n={i18n}>
             <QueryClientProvider client={queryClient}>
               <AuthProvider>
+                <RealtimeLifecycleProvider>
                 <UserPresenceProvider>
                   <AppPopupProvider>
                     <StorageEgressMetricsDev />
+                    <RealtimeMetricsDev />
                     <AppErrorBoundary>{children}</AppErrorBoundary>
                   </AppPopupProvider>
                 </UserPresenceProvider>
+                </RealtimeLifecycleProvider>
               </AuthProvider>
             </QueryClientProvider>
           </I18nextProvider>

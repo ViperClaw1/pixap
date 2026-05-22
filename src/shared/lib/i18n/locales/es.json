@@ -37,7 +37,7 @@
   "editProfile": {
     "savedTitle": "Guardado",
     "savedBody": "Tu perfil se actualizó.",
-    "personalizeCta": "Personalizar recomendaciones"
+    "personalizeCta": "Personalizar"
   },
   "home": {
     "searchPlaceholder": "Buscar restaurantes, salones, eventos…",

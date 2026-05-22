@@ -30,6 +30,7 @@ import { fetchStoryViewerContext } from "@/entities/story/lib/fetchStoryViewerCo
 import { useStoryProgress, useStoryViewer, useReplyToStory, useReactToStory } from "@/entities/story";
 import type { StoryGroup } from "@/shared/model/types/stories";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
+import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { StoryMediaSlide } from "@/widgets/stories-strip";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
@@ -278,10 +279,14 @@ export default function FeedStoryViewerPage() {
     const last = activeStory?.profile?.last_name?.trim() ?? "";
     return `${first} ${last}`.trim() || "User";
   }, [activeStory?.profile?.first_name, activeStory?.profile?.last_name]);
-  const authorAvatar = useMemo(() => {
+  const authorAvatarRaw = useMemo(() => {
     const raw = activeStory?.profile?.avatar_url?.trim();
     return raw && raw.length > 0 ? raw : null;
   }, [activeStory?.profile?.avatar_url]);
+  const authorAvatar = useMemo(
+    () => getAvatarDisplayUrl(authorAvatarRaw, { size: "md" }),
+    [authorAvatarRaw],
+  );
   const publishedAgo = useMemo(
     () =>
       activeStory?.created_at
@@ -571,7 +576,13 @@ export default function FeedStoryViewerPage() {
           </Pressable>
           <View style={styles.authorRow}>
             {authorAvatar ? (
-              <SmartImage uri={authorAvatar} recyclingKey={authorAvatar} style={styles.authorAvatar} contentFit="cover" />
+              <SmartImage
+                uri={authorAvatar}
+                fallbackUri={authorAvatarRaw && authorAvatarRaw !== authorAvatar ? authorAvatarRaw : undefined}
+                recyclingKey={authorAvatar}
+                style={styles.authorAvatar}
+                contentFit="cover"
+              />
             ) : (
               <View style={styles.authorAvatarFallback}>
                 <Text style={styles.authorAvatarFallbackText}>{authorName.charAt(0).toUpperCase()}</Text>
@@ -703,7 +714,13 @@ export default function FeedStoryViewerPage() {
             <View style={styles.modalCardHeader}>
               <View style={styles.modalAuthorWrap}>
                 {authorAvatar ? (
-                  <SmartImage uri={authorAvatar} recyclingKey={`${authorAvatar}-modal`} style={styles.authorAvatar} contentFit="cover" />
+                  <SmartImage
+                    uri={authorAvatar}
+                    fallbackUri={authorAvatarRaw && authorAvatarRaw !== authorAvatar ? authorAvatarRaw : undefined}
+                    recyclingKey={`${authorAvatar}-modal`}
+                    style={styles.authorAvatar}
+                    contentFit="cover"
+                  />
                 ) : (
                   <View style={styles.authorAvatarFallback}>
                     <Text style={styles.authorAvatarFallbackText}>{authorName.charAt(0).toUpperCase()}</Text>

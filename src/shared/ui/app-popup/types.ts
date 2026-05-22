@@ -6,6 +6,8 @@ export type AppPopupButton = {
   text: string;
   onPress?: () => void;
   style?: AppPopupButtonStyle;
+  /** When true, the popup stays open after tap (e.g. async confirm with loading state). */
+  skipCloseOnPress?: boolean;
 };
 
 export type AppPopupOptions = {
@@ -14,6 +16,8 @@ export type AppPopupOptions = {
   buttons?: AppPopupButton[];
   /** Shows an icon above the title: check (success), warning (alert), info (info). */
   variant?: AppPopupVariant;
+  /** Hides actions and shows a spinner (buttons ignored). */
+  loading?: boolean;
 };
 
 export type AppPopupState = AppPopupOptions & {

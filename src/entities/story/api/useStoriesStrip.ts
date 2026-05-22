@@ -4,6 +4,7 @@ import { queryKeys } from "@/shared/api/queryKeys";
 import type { StoryProfile } from "@/shared/model/types/stories";
 import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
 import { useStoriesFeedRealtime } from "@/entities/story/lib/useStoriesFeedRealtime";
+import { REALTIME_POLL_MS } from "@/shared/realtime/realtimePolling";
 import { useAuth } from "@/app/providers/AuthProvider";
 
 type StoryStripItem = {
@@ -33,7 +34,7 @@ export const useStoriesStrip = () => {
 
   return useQuery({
     queryKey: queryKeys.stories.strip,
-    refetchInterval: realtimeConnected ? false : 25_000,
+    refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.storiesFeed,
     queryFn: async () => {
       const storiesSelectWithBlur = "id, user_id, created_at, media_url, media_blurhashes";
       const storiesSelectLegacy = "id, user_id, created_at, media_url";

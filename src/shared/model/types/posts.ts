@@ -22,6 +22,8 @@ export interface PostItem {
   /** BlurHash strings parallel to URLs in `media_url` when stored as JSON array (null slots = no hash). */
   media_blurhashes?: (string | null)[] | null;
   created_at: string;
+  /** Set when author boosts the post in the discovery feed. */
+  boosted_at?: string | null;
   reaction_count: number;
   comment_count: number;
   my_reaction: PostReactionType | null;

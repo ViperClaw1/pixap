@@ -21,6 +21,7 @@ export function useUpsertUserPreferences() {
     onSuccess: (data) => {
       queryClient.setQueryData(queryKeys.userPreferences.mine(user?.id), data);
       void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.onboardingVenues.prefix });
     },
   });
 }

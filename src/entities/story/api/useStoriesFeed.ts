@@ -8,6 +8,7 @@ import { useMyFollowing } from "@/entities/user";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
 import { useStoriesFeedRealtime } from "@/entities/story/lib/useStoriesFeedRealtime";
+import { REALTIME_POLL_MS } from "@/shared/realtime/realtimePolling";
 import {
   clearStoriesFeedInteractedPlaceCache,
   getStoriesFeedInteractedPlaceCache,
@@ -297,7 +298,7 @@ export function useStoriesFeed() {
     initialPageParam: 1,
     staleTime: 45 * 1000,
     gcTime: 5 * 60 * 1000,
-    refetchInterval: realtimeConnected ? false : 25_000,
+    refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.storiesFeed,
     queryFn: async ({ pageParam }) =>
       fetchStoriesFeedPage({
         page: pageParam,

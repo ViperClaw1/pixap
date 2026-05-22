@@ -9,6 +9,7 @@ import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
 import { profileName } from "@/pages/stories-feed/lib/feedPostHelpers";
 import { PostMediaCarousel } from "@/widgets/feed-post-carousel";
 import { CommentPreview } from "@/widgets/feed-list";
+import { PostBoostCrownBadge, PostBoostStarButton } from "@/features/post-boost";
 import type { FeedPostVm } from "@/pages/stories-feed/lib/feedPostHelpers";
 
 interface FeedPostCardProps {
@@ -28,6 +29,10 @@ interface FeedPostCardProps {
   onShare: () => void;
   onToggleContent: () => void;
   onToggleFollow: () => void;
+  canBoost?: boolean;
+  isBoosted?: boolean;
+  boostPending?: boolean;
+  onBoost?: () => void;
 }
 
 export const FeedPostCard = memo(function FeedPostCard({
@@ -47,6 +52,10 @@ export const FeedPostCard = memo(function FeedPostCard({
   onShare,
   onToggleContent,
   onToggleFollow,
+  canBoost = false,
+  isBoosted = false,
+  boostPending = false,
+  onBoost,
 }: FeedPostCardProps) {
   const { colors } = useAppTheme();
   const item = vm.post;
@@ -120,46 +129,54 @@ export const FeedPostCard = memo(function FeedPostCard({
         ) : null}
       </View>
 
-      <Pressable onPress={onPress}>
-        {vm.postImages.length > 1 ? (
-          <PostMediaCarousel
-            postId={item.id}
-            postImages={vm.postImages}
-            postImagesRaw={vm.postImagesRaw}
-            postSlideBlurhashes={vm.postSlideBlurhashes}
-            width={width}
-            sliderHeight={sliderHeight}
-          />
-        ) : (
-          <StoryMediaSlide
-            optimizedUri={vm.postImages[0] ?? null}
-            fallbackUri={vm.postImagesRaw[0] ?? null}
-            blurhash={vm.postSlideBlurhashes[0] ?? null}
-            recyclingKey={`${item.id}-feed-slider-single`}
-            width={width}
-            height={sliderHeight}
-          />
-        )}
-      </Pressable>
+      <View style={[styles.mediaFrame, { height: sliderHeight }]}>
+        <Pressable style={styles.mediaPressable} onPress={onPress}>
+          {vm.postImages.length > 1 ? (
+            <PostMediaCarousel
+              postId={item.id}
+              postImages={vm.postImages}
+              postImagesRaw={vm.postImagesRaw}
+              postSlideBlurhashes={vm.postSlideBlurhashes}
+              width={width}
+              sliderHeight={sliderHeight}
+            />
+          ) : (
+            <StoryMediaSlide
+              optimizedUri={vm.postImages[0] ?? null}
+              fallbackUri={vm.postImagesRaw[0] ?? null}
+              blurhash={vm.postSlideBlurhashes[0] ?? null}
+              recyclingKey={`${item.id}-feed-slider-single`}
+              width={width}
+              height={sliderHeight}
+            />
+          )}
+        </Pressable>
+        {isBoosted ? <PostBoostCrownBadge /> : null}
+      </View>
 
       <View style={styles.actionsSection}>
-        <View style={styles.leftActions}>
-          <Pressable style={styles.actionBtn} onPress={onLike}>
-            <AnimatedLikeHeart liked={isLiked} size={24} color={colors.text} likedColor={colors.text} />
-            <Text style={[styles.actionCount, { color: colors.text }]}>{likeCount}</Text>
-          </Pressable>
-          <Pressable style={styles.actionBtn} onPress={onOpenComments}>
-            <Ionicons name="chatbubble-outline" size={23} color={colors.text} />
-            <Text style={[styles.actionCount, { color: colors.text }]}>{item.comment_count}</Text>
-          </Pressable>
-          <Pressable style={styles.actionBtn} onPress={onShare}>
-            <FontAwesome6 name="share" size={20} color={colors.text} />
-          </Pressable>
-          {item.place_id ? (
-            <Pressable style={[styles.bookBtn, { backgroundColor: colors.accent }]} onPress={onBookNow}>
-              <Ionicons name="calendar-outline" size={14} color={colors.onAccent} />
-              <Text style={[styles.bookBtnText, { color: colors.onAccent }]}>Book</Text>
+        <View style={styles.actionsRow}>
+          <View style={styles.leftActions}>
+            <Pressable style={styles.actionBtn} onPress={onLike}>
+              <AnimatedLikeHeart liked={isLiked} size={24} color={colors.text} likedColor={colors.text} />
+              <Text style={[styles.actionCount, { color: colors.text }]}>{likeCount}</Text>
             </Pressable>
+            <Pressable style={styles.actionBtn} onPress={onOpenComments}>
+              <Ionicons name="chatbubble-outline" size={23} color={colors.text} />
+              <Text style={[styles.actionCount, { color: colors.text }]}>{item.comment_count}</Text>
+            </Pressable>
+            <Pressable style={styles.actionBtn} onPress={onShare}>
+              <FontAwesome6 name="share" size={20} color={colors.text} />
+            </Pressable>
+            {item.place_id ? (
+              <Pressable style={[styles.bookBtn, { backgroundColor: colors.accent }]} onPress={onBookNow}>
+                <Ionicons name="calendar-outline" size={14} color={colors.onAccent} />
+                <Text style={[styles.bookBtnText, { color: colors.onAccent }]}>Book</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {canBoost && onBoost ? (
+            <PostBoostStarButton active={isBoosted} disabled={boostPending} onPress={onBoost} />
           ) : null}
         </View>
       </View>
@@ -212,8 +229,11 @@ export const FeedPostCard = memo(function FeedPostCard({
 
 const styles = StyleSheet.create({
   content: { paddingBottom: 8 },
+  mediaFrame: { position: "relative", width: "100%" },
+  mediaPressable: { flex: 1 },
   actionsSection: { paddingHorizontal: 14, paddingTop: 10 },
-  leftActions: { flexDirection: "row", alignItems: "center", gap: 16 },
+  actionsRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  leftActions: { flexDirection: "row", alignItems: "center", gap: 16, flex: 1, flexWrap: "wrap" },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   bookBtn: { minHeight: 34, paddingHorizontal: 14, borderRadius: 14, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center" },
   bookBtnText: { fontSize: 13, fontWeight: "700", lineHeight: 16 },

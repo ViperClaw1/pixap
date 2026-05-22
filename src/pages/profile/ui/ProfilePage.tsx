@@ -35,7 +35,6 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { PROFILE_COMPACT_WIDTH, useProfileStyles } from "./profileStyles";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { useEntitlement } from "@/entities/subscription";
 import { useBookingCredits } from "@/entities/booking-credits";
 import { usePreferenceOnboardingGate } from "@/features/preference-onboarding";
@@ -494,8 +493,7 @@ function ProfileScreenContent() {
               <View key={item.id} style={styles.suggestionCard}>
                 <View style={styles.suggestionAvatarWrap}>
                   <UserAvatarImage
-                    uri={item.avatar_url ? getOptimizedImageUrl(item.avatar_url, 132, 132, 72) : null}
-                    fallbackUri={item.avatar_url}
+                    uri={item.avatar_url}
                     style={{ width: 66, height: 66, borderRadius: 33 }}
                     contentFit="cover"
                     iconSize={30}

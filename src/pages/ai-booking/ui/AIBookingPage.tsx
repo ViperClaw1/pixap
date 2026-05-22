@@ -40,7 +40,6 @@ import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
 import { useBookingAccess } from "@/features/booking-access";
-import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import { useTranslation } from "react-i18next";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import {
@@ -193,9 +192,6 @@ export default function AIBookingPage() {
   const {
     canAccessAIBooking,
     isLoading: accessLoading,
-    balance,
-    isIntroActive,
-    introPeriodEndsAt,
     canUseBookingCredits,
   } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
@@ -648,13 +644,6 @@ export default function AIBookingPage() {
 
   return (
     <View style={styles.root} {...androidSwipeBackPanHandlers}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-        <BookingCreditsBadge
-          balance={balance}
-          isIntroActive={isIntroActive}
-          introPeriodEndsAt={introPeriodEndsAt}
-        />
-      </View>
       <ScrollView
         ref={bookingScrollRef}
         style={styles.root}
