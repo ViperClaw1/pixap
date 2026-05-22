@@ -129,6 +129,15 @@ export default function BookingsScreen() {
   }, [bookingStatuses, createNotification, t]);
 
   const listContentPaddingBottom = 100 + insets.bottom;
+  const showEmptyList = !showSkeleton && items.length === 0;
+
+  const listContentStyle = useMemo(
+    () => [
+      { padding: 16, paddingBottom: listContentPaddingBottom },
+      showEmptyList ? styles.listContentEmpty : null,
+    ],
+    [listContentPaddingBottom, showEmptyList, styles.listContentEmpty],
+  );
 
   const renderItem = useCallback(
     ({ item }: { item: BookingListItem }) => (
@@ -176,11 +185,16 @@ export default function BookingsScreen() {
         </ShimmerProvider>
       ) : (
         <FlashList
+          style={styles.list}
           data={items}
           keyExtractor={(b) => b.id}
           estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.bookingCard}
-          contentContainerStyle={{ padding: 16, paddingBottom: listContentPaddingBottom }}
-          ListEmptyComponent={<Text style={styles.empty}>{t("bookings.noBookings")}</Text>}
+          contentContainerStyle={listContentStyle}
+          ListEmptyComponent={
+            <View style={styles.emptyListWrap}>
+              <Text style={styles.empty}>{t("bookings.noBookings")}</Text>
+            </View>
+          }
           renderItem={renderItem}
           removeClippedSubviews
           initialNumToRender={8}

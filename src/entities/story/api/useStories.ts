@@ -5,6 +5,7 @@ import { queryKeys, STORIES_QUERY_KEY } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 import type { StoryGroup, StoryItem, StoryProfile, StoryReactionType } from "@/shared/model/types/stories";
 import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
+import { REALTIME_POLL_MS } from "@/shared/realtime/realtimePolling";
 
 type StoryRow = {
   id: string;
@@ -164,7 +165,7 @@ export const useStories = (placeId: string) => {
       })) as StoryItem[];
     },
     enabled: !!placeId,
-    refetchInterval: realtimeConnected ? false : 15000,
+    refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.storyComments,
   });
 
   const groupedStories = useMemo(() => groupStories(query.data ?? []), [query.data]);

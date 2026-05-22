@@ -38,6 +38,7 @@ import {
 import {
   getPostImages,
   profileAvatar,
+  profileAvatarDisplay,
   slideBlurhashesForPost,
   type FeedPostVm,
 } from "@/pages/stories-feed/lib/feedPostHelpers";
@@ -89,7 +90,7 @@ export default function PostDetailPage() {
       postImages: getFeedPostCarouselImageUrls(postImagesRaw),
       postSlideBlurhashes: slideBlurhashesForPost(post, postImagesRaw.length),
       authorAvatarRaw: profileAvatar(post.profile?.avatar_url),
-      authorAvatar: profileAvatar(post.profile?.avatar_url),
+      authorAvatar: profileAvatarDisplay(post.profile?.avatar_url),
     };
   }, [post]);
 
@@ -98,7 +99,7 @@ export default function PostDetailPage() {
       typeof user?.user_metadata === "object" && user?.user_metadata && "avatar_url" in user.user_metadata
         ? String((user.user_metadata as Record<string, unknown>).avatar_url ?? "")
         : "";
-    return profileAvatar(myProfile?.avatar_url) ?? profileAvatar(metadataAvatar);
+    return profileAvatarDisplay(myProfile?.avatar_url) ?? profileAvatarDisplay(metadataAvatar);
   }, [myProfile?.avatar_url, user?.user_metadata]);
 
   const redirectToAuth = useCallback(() => {
@@ -216,7 +217,7 @@ export default function PostDetailPage() {
         submittingComment={createPostComment.isPending}
         currentUserId={user?.id}
         currentUserAvatarUrl={currentUserAvatarUrl}
-        resolveAvatarUri={profileAvatar}
+        resolveAvatarUri={profileAvatarDisplay}
         savingCommentId={savingCommentId}
         deletingCommentId={deletingCommentId}
         onToggleReplies={comments.toggleReplies}
@@ -259,7 +260,7 @@ export default function PostDetailPage() {
         loading={shareSheet.shareUsersLoading}
         searchValue={shareSheet.shareSearch}
         onChangeSearch={shareSheet.setShareSearch}
-        resolveAvatarUri={profileAvatar}
+        resolveAvatarUri={profileAvatarDisplay}
         sharePostId={shareSheet.sharePostId}
         sharePostHasMedia={shareSheet.sharePostImages.length > 0}
         sharePlaceName={shareSheet.sharePlaceName}

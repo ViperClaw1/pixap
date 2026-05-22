@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { resolveStoragePublicUrl } from "@/shared/lib/resolveStoragePublicUrl";
+import { getAvatarDisplayUrl, resolveAvatarStorageUrl } from "@/shared/lib/avatarDisplayUrl";
 
 export type CommentPreviewItem = {
   id: string;
@@ -19,8 +19,7 @@ interface CommentPreviewProps {
 }
 
 function commentAvatarUri(path?: string | null) {
-  if (!path?.trim()) return null;
-  return resolveStoragePublicUrl(path, "avatars");
+  return getAvatarDisplayUrl(path, { size: "xs" });
 }
 
 function CommentPreviewComponent({
@@ -38,11 +37,18 @@ function CommentPreviewComponent({
       {comments.length ? (
         <View style={[styles.threadRail, { borderLeftColor: colors.border }]}>
           {comments.map((comment) => {
+            const rawAvatar = resolveAvatarStorageUrl(comment.avatar_url);
             const avatarUri = commentAvatarUri(comment.avatar_url);
             return (
               <View key={comment.id} style={styles.commentRow}>
                 {avatarUri ? (
-                  <SmartImage uri={avatarUri} style={styles.commentAvatar} contentFit="cover" recyclingKey={`comment-preview-${comment.id}`} />
+                  <SmartImage
+                    uri={avatarUri}
+                    fallbackUri={rawAvatar && rawAvatar !== avatarUri ? rawAvatar : undefined}
+                    style={styles.commentAvatar}
+                    contentFit="cover"
+                    recyclingKey={`comment-preview-${comment.id}`}
+                  />
                 ) : (
                   <View style={[styles.commentAvatar, styles.commentAvatarPlaceholder, { backgroundColor: colors.card }]}>
                     <Ionicons name="person-outline" size={11} color={colors.textMuted} />

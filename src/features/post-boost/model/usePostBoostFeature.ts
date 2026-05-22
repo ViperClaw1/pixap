@@ -5,7 +5,7 @@ export function usePostBoostFeature() {
 
   return {
     enabled: hasPostBoostFeature,
-    isImplemented: false,
+    isImplemented: true,
     hasPremiumPlus,
   };
 }

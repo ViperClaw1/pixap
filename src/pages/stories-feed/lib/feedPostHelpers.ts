@@ -1,4 +1,5 @@
 import type { FeedPostItem } from "@/entities/post";
+import { getAvatarDisplayUrl, resolveAvatarStorageUrl, type AvatarDisplaySize } from "@/shared/lib/avatarDisplayUrl";
 import { resolveStoragePublicUrl } from "@/shared/lib/resolveStoragePublicUrl";
 
 export const resolveStorageUrl = resolveStoragePublicUrl;
@@ -7,9 +8,14 @@ export function profileName(first?: string | null, last?: string | null) {
   return `${first?.trim() ?? ""} ${last?.trim() ?? ""}`.trim() || "Unknown user";
 }
 
+/** Public avatars URL for storage path or full URL (feed uses preset on top for display). */
 export function profileAvatar(pathOrUrl?: string | null) {
-  if (!pathOrUrl?.trim()) return null;
-  return resolveStorageUrl(pathOrUrl, "avatars");
+  return resolveAvatarStorageUrl(pathOrUrl);
+}
+
+/** Optimized avatar URL for comments sheet, share sheet, etc. */
+export function profileAvatarDisplay(pathOrUrl?: string | null, size: AvatarDisplaySize = "sm") {
+  return getAvatarDisplayUrl(pathOrUrl, { size });
 }
 
 export function parseMediaUrls(raw?: string | null): string[] {

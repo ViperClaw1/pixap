@@ -73,11 +73,15 @@ function PreferenceOnboardingContent() {
     });
   }, [wizard.isLoading, wizard.step, route.params?.source, route.params?.retake, track]);
 
+  const resetToProfileMain = useCallback(() => {
+    navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
+  }, [navigation]);
+
   const exit = useCallback(() => {
     navigation.goBack();
     if (navigation.canGoBack()) return;
-    navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
-  }, [navigation]);
+    resetToProfileMain();
+  }, [navigation, resetToProfileMain]);
 
   const handleSkip = useCallback(async () => {
     track({
@@ -92,8 +96,8 @@ function PreferenceOnboardingContent() {
   const handleVenueStageComplete = useCallback(async () => {
     await wizard.completeOnboarding();
     await clearOnboardingDraft();
-    exit();
-  }, [exit, wizard]);
+    resetToProfileMain();
+  }, [resetToProfileMain, wizard]);
 
   const handleNext = useCallback(async () => {
     track({
@@ -113,6 +117,21 @@ function PreferenceOnboardingContent() {
     setStepDirection(-1);
     wizard.goBack();
   }, [wizard]);
+
+  const venueRatingPreferences = useMemo(
+    () => ({
+      favoriteCategories: wizard.favoriteCategories,
+      vibePreferences: wizard.vibePreferences,
+      habits: wizard.habits,
+      favoriteMusic: wizard.favoriteMusic,
+    }),
+    [wizard.favoriteCategories, wizard.vibePreferences, wizard.habits, wizard.favoriteMusic],
+  );
+
+  const isVenueStep = wizard.step === "venue_ratings";
+  const continueDisabled = useMemo(() => !wizard.canContinue, [wizard.canContinue]);
+  const canSwipeForward = !isVenueStep && wizard.canContinue;
+  const canSwipeBack = wizard.canGoBack;
 
   if (wizard.isLoading) {
     return (
@@ -135,16 +154,16 @@ function PreferenceOnboardingContent() {
       case "temperament":
         return <TemperamentStep value={wizard.temperament} onChange={wizard.updateTemperament} />;
       case "venue_ratings":
-        return <OnboardingVenueRatingStep onComplete={() => void handleVenueStageComplete()} />;
+        return (
+          <OnboardingVenueRatingStep
+            preferences={venueRatingPreferences}
+            onComplete={() => void handleVenueStageComplete()}
+          />
+        );
       default:
         return null;
     }
   };
-
-  const isVenueStep = wizard.step === "venue_ratings";
-  const continueDisabled = useMemo(() => !wizard.canContinue, [wizard.canContinue]);
-  const canSwipeForward = !isVenueStep && wizard.canContinue;
-  const canSwipeBack = wizard.canGoBack;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>

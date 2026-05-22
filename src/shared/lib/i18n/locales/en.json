@@ -37,7 +37,7 @@
   "editProfile": {
     "savedTitle": "Saved",
     "savedBody": "Your profile data was updated.",
-    "personalizeCta": "Personalize recommendations"
+    "personalizeCta": "Personalize"
   },
   "onboarding": {
     "actions": {
@@ -474,7 +474,18 @@
   "postBoost": {
     "title": "Boost post in feed",
     "comingSoon": "Coming soon — your posts will rank higher in discovery.",
-    "enabledHint": "Promote this post in the feed."
+    "enabledHint": "Promote this post in the feed.",
+    "confirmTitle": "Boost this post?",
+    "confirmMessage": "It will appear first in the feed for everyone. You can boost again in one hour.",
+    "confirmAction": "Boost",
+    "confirmCancel": "Cancel",
+    "confirmLoading": "Boosting your post…",
+    "cooldownTitle": "Boost on cooldown",
+    "cooldownMessage": "You can boost this post again in one hour.",
+    "toastTitle": "Post boosted",
+    "toastMessage": "Your post is now at the top of the feed.",
+    "toastErrorTitle": "Could not boost post",
+    "toastError": "Please try again."
   },
   "dailyRecommendations": {
     "title": "Tonight for You",

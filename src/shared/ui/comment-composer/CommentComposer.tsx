@@ -2,6 +2,7 @@ import { ActivityIndicator, Keyboard, Pressable, StyleSheet, View } from "react-
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { COMMENT_STICKERS } from "@/shared/constants/commentStickers";
+import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 
@@ -43,6 +44,7 @@ export function CommentComposer({
   hasError = false,
 }: Props) {
   const { colors } = useAppTheme();
+  const composerAvatarUri = getAvatarDisplayUrl(avatarUrl, { layoutPx: 32 });
   const footerInset = showStickers ? STICKER_ROW_HEIGHT + 8 : 0;
   const trailingInset = showSendButton ? SEND_BTN_SIZE + 12 : 12;
 
@@ -58,8 +60,13 @@ export function CommentComposer({
   return (
     <View style={styles.commentComposerRow}>
       {showAvatar ? (
-        avatarUrl ? (
-          <SmartImage uri={avatarUrl} style={styles.commentComposerAvatar} contentFit="cover" />
+        composerAvatarUri ? (
+          <SmartImage
+            uri={composerAvatarUri}
+            fallbackUri={avatarUrl?.trim() && avatarUrl !== composerAvatarUri ? avatarUrl : undefined}
+            style={styles.commentComposerAvatar}
+            contentFit="cover"
+          />
         ) : (
           <View style={[styles.commentComposerAvatar, { backgroundColor: colors.card }]} />
         )

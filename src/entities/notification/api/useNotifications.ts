@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { useNotificationsRealtime } from "../lib/useNotificationsRealtime";
+import { REALTIME_POLL_MS } from "@/shared/realtime/realtimePolling";
 
 export interface Notification {
   id: string;
@@ -14,9 +16,11 @@ export interface Notification {
 
 export const useNotifications = () => {
   const { user } = useAuth();
+  const realtimeConnected = useNotificationsRealtime(user?.id);
   return useQuery({
     queryKey: queryKeys.notifications.list(user?.id),
     staleTime: 30 * 1000,
+    refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.notifications,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("notifications")
@@ -32,8 +36,10 @@ export const useNotifications = () => {
 
 export const useUnreadCount = () => {
   const { user } = useAuth();
+  const realtimeConnected = useNotificationsRealtime(user?.id);
   const unreadCountQuery = useQuery({
     queryKey: queryKeys.notifications.unread(user?.id),
+    refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.notifications,
     queryFn: async () => {
       const { count, error } = await supabase
         .from("notifications")

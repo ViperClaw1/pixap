@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { SmartImage, type SmartImageProps } from "@/shared/ui/smart-image/SmartImage";
 
 function hasAvatarUri(uri?: string | null, fallbackUri?: string | null): boolean {
@@ -28,22 +29,31 @@ export function UserAvatarImage({
   ...rest
 }: UserAvatarImageProps) {
   const { colors } = useAppTheme();
-  const chainKey = `${uri ?? ""}|${fallbackUri ?? ""}`;
+  const flat = StyleSheet.flatten(style);
+  const layoutPx = useMemo(() => {
+    if (typeof flat?.width === "number") return flat.width;
+    if (typeof flat?.height === "number") return flat.height;
+    return 40;
+  }, [flat?.height, flat?.width]);
+
+  const displayUri = useMemo(
+    () => getAvatarDisplayUrl(uri, { layoutPx }) ?? getAvatarDisplayUrl(fallbackUri, { layoutPx }),
+    [fallbackUri, layoutPx, uri],
+  );
+  const rawFallback = useMemo(() => {
+    const raw = uri?.trim() || fallbackUri?.trim() || null;
+    return raw && displayUri && raw !== displayUri ? raw : undefined;
+  }, [displayUri, fallbackUri, uri]);
+
+  const chainKey = `${displayUri ?? ""}|${rawFallback ?? ""}`;
   const [sourcesExhausted, setSourcesExhausted] = useState(false);
 
   useEffect(() => {
     setSourcesExhausted(false);
   }, [chainKey]);
 
-  const showPlaceholder = sourcesExhausted || !hasAvatarUri(uri, fallbackUri);
-  const flat = StyleSheet.flatten(style);
-  const dimension =
-    typeof flat?.width === "number"
-      ? flat.width
-      : typeof flat?.height === "number"
-        ? flat.height
-        : 40;
-  const resolvedIconSize = iconSize ?? Math.max(14, Math.round(dimension * 0.42));
+  const showPlaceholder = sourcesExhausted || !hasAvatarUri(displayUri, rawFallback);
+  const resolvedIconSize = iconSize ?? Math.max(14, Math.round(layoutPx * 0.42));
 
   const placeholderStyle = useMemo(
     () => [
@@ -68,8 +78,8 @@ export function UserAvatarImage({
 
   return (
     <SmartImage
-      uri={uri}
-      fallbackUri={fallbackUri}
+      uri={displayUri}
+      fallbackUri={rawFallback}
       style={style}
       skipBundledPlaceholder
       onSourcesExhausted={() => setSourcesExhausted(true)}

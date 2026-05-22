@@ -8,6 +8,7 @@ import type { MessageThreadItem, MessageParticipantProfile } from "@/shared/mode
 import { hydrateInboxParticipantsLegacy } from "@/entities/messages/lib/hydrateInboxParticipantsLegacy";
 import { parseInboxParticipants } from "@/entities/messages/lib/parseInboxParticipants";
 import { useMessagesInboxRealtime } from "@/entities/messages/lib/useMessagesRealtime";
+import { REALTIME_POLL_MS } from "@/shared/realtime/realtimePolling";
 
 type InboxSummaryRow = {
   thread_id: string;
@@ -73,7 +74,7 @@ export function useMessagesInbox(search: string) {
     },
     enabled: !!user?.id,
     staleTime: 40 * 1000,
-    refetchInterval: realtimeConnected ? false : 45_000,
+    refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.messagesInbox,
   });
 
   const filtered = useMemo(() => {

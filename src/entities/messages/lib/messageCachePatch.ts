@@ -57,9 +57,13 @@ export function appendThreadMessage(
   setThreadMessagesCache(queryClient, threadId, userId, (prev) => {
     if (!prev) return prev;
     if (prev.messages.some((m) => m.id === message.id)) return prev;
+    let messages = prev.messages;
+    if (message.mine) {
+      messages = messages.filter((m) => !isOptimisticMessageId(m.id));
+    }
     return {
       ...prev,
-      messages: [...prev.messages, message],
+      messages: [...messages, message],
     };
   });
 }
@@ -76,6 +80,37 @@ export function removeThreadMessage(
       ...prev,
       messages: prev.messages.filter((m) => m.id !== messageId),
     };
+  });
+}
+
+export function isOptimisticMessageId(messageId: string): boolean {
+  return messageId.startsWith("optimistic-");
+}
+
+/** Swap optimistic placeholder for the persisted row (avoids send flicker). */
+export function replaceOptimisticThreadMessage(
+  queryClient: QueryClient,
+  threadId: string,
+  userId: string | null,
+  optimisticId: string,
+  message: MessageBubble,
+) {
+  setThreadMessagesCache(queryClient, threadId, userId, (prev) => {
+    if (!prev) return prev;
+    let replaced = false;
+    const messages = prev.messages
+      .map((m) => {
+        if (m.id === optimisticId) {
+          replaced = true;
+          return message;
+        }
+        return m;
+      })
+      .filter((m) => !isOptimisticMessageId(m.id) || m.id === message.id);
+    if (!replaced && !messages.some((m) => m.id === message.id)) {
+      return { ...prev, messages: [...messages, message] };
+    }
+    return { ...prev, messages };
   });
 }
 

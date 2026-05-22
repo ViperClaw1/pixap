@@ -4,6 +4,7 @@ import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 import type { StoryProfile } from "@/shared/model/types/stories";
+import { REALTIME_POLL_MS } from "@/shared/realtime/realtimePolling";
 
 export interface StoryComment {
   id: string;
@@ -217,6 +218,6 @@ export const useStoryComments = (storyId: string) => {
       });
     },
     enabled: !!storyId,
-    refetchInterval: realtimeConnected ? false : 15000,
+    refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.storyComments,
   });
 };

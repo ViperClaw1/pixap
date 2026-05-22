@@ -3,6 +3,7 @@ import type { ThemeColors } from "@/shared/theme/palettes";
 
 export const bookingsStaticStyles = StyleSheet.create({
   root: { flex: 1 },
+  list: { flex: 1 },
   filters: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
   fpill: {
     paddingHorizontal: 12,
@@ -47,7 +48,20 @@ export const bookingsStaticStyles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
-  empty: { textAlign: "center", marginTop: 32 },
+  listContentEmpty: {
+    flexGrow: 1,
+  },
+  emptyListWrap: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  empty: {
+    textAlign: "center",
+    fontSize: 14,
+    lineHeight: 20,
+  },
   rowHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 },
   rowHeadLeft: { flex: 1, minWidth: 0, paddingRight: 4 },
   cancelBtn: {

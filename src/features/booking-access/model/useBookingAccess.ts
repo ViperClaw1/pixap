@@ -1,11 +1,18 @@
 import { useMemo } from "react";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useBookingCredits } from "@/entities/booking-credits";
 import { useEntitlement } from "@/entities/subscription";
 import { isPaidPremiumProduct, isPremiumPlusProduct } from "@/entities/subscription/model/productIds";
+import { isProfileAdmin, useProfile } from "@/entities/user";
 
 export function useBookingAccess() {
+  const { user } = useAuth();
   const { isLoading: entitlementLoading, isActive, entitlement } = useEntitlement();
   const { isLoading: creditsLoading, credits, balance } = useBookingCredits();
+  const { data: profile, isLoading: profileLoading } = useProfile();
+
+  const isProfileAdminUser = isProfileAdmin(profile?.account_role);
+  const exemptFromBookingCredits = isProfileAdminUser;
 
   const activeProductId = credits?.activeProductId ?? entitlement?.product_id ?? null;
   const hasPaidPremium =
@@ -15,21 +22,27 @@ export function useBookingAccess() {
     credits?.hasPremiumPlus === true ||
     (isActive && isPremiumPlusProduct(entitlement?.product_id));
   const isIntroActive = credits?.isIntroActive === true;
-  const canUseBookingCredits = balance > 0;
+  const hasCreditsBalance = balance > 0;
+  const canUseBookingCredits = exemptFromBookingCredits || hasCreditsBalance;
+
+  const standardPaidBookingAccess = hasCreditsBalance && (isIntroActive || hasPaidPremium);
 
   const access = useMemo(
     () => ({
-      canAccessBookingFlow: canUseBookingCredits && (isIntroActive || hasPaidPremium),
-      canAccessAIBooking: canUseBookingCredits && (isIntroActive || hasPaidPremium),
-      canAccessVibeMatch: canUseBookingCredits && hasPaidPremium,
-      hasPostBoostFeature: hasPremiumPlus,
+      canAccessBookingFlow: exemptFromBookingCredits || standardPaidBookingAccess,
+      canAccessAIBooking: exemptFromBookingCredits || standardPaidBookingAccess,
+      canAccessVibeMatch: exemptFromBookingCredits || standardPaidBookingAccess,
+      hasPostBoostFeature: exemptFromBookingCredits || hasPremiumPlus,
     }),
-    [canUseBookingCredits, hasPaidPremium, hasPremiumPlus, isIntroActive],
+    [exemptFromBookingCredits, hasPremiumPlus, standardPaidBookingAccess],
   );
 
-  const isLoading = entitlementLoading || creditsLoading;
+  const isLoading = entitlementLoading || creditsLoading || (!!user && profileLoading);
 
-  const needsPaywall = !isLoading && !access.canAccessBookingFlow && !access.canAccessVibeMatch;
+  const needsPaywall =
+    !isLoading && !exemptFromBookingCredits && !access.canAccessBookingFlow && !access.canAccessVibeMatch;
+
+  const bookingSelectionLimit = exemptFromBookingCredits ? Number.MAX_SAFE_INTEGER : balance;
 
   return {
     ...access,
@@ -40,6 +53,9 @@ export function useBookingAccess() {
     hasPremiumPlus,
     activeProductId,
     canUseBookingCredits,
+    isProfileAdmin: isProfileAdminUser,
+    exemptFromBookingCredits,
+    bookingSelectionLimit,
     isLoading,
     needsPaywall,
     introPeriodEndsAt: credits?.introPeriodEndsAt ?? null,

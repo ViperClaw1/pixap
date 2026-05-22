@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { PostProfile } from "@/shared/model/types/posts";
+import { REALTIME_POLL_MS } from "@/shared/realtime/realtimePolling";
 
 export interface PostReply {
   id: string;
@@ -98,7 +99,7 @@ export const usePostComments = (postId: string) => {
       })) as PostComment[];
     },
     enabled: !!postId,
-    refetchInterval: realtimeConnected ? false : 15000,
+    refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.postComments,
     select: selectStablePostComments,
   });
 };

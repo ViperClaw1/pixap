@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
   type ViewToken,
 } from "react-native";
-import { FlashList, type ListRenderItem } from "@shopify/flash-list";
+import { FlashList, type FlashListRef, type ListRenderItem } from "@shopify/flash-list";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +21,12 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useStoriesFeed, useStoriesStrip } from "@/entities/story";
 import { usePostComments, usePostsFeed, useReactToPost } from "@/entities/post";
+import {
+  PostBoostConfirmModal,
+  useBoostPost,
+  usePostBoostConfirm,
+  usePostBoostFeature,
+} from "@/features/post-boost";
 import { useMyFollowing, useProfile, useToggleFollow } from "@/entities/user";
 import { useBusinessCards } from "@/entities/business-card";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
@@ -34,7 +40,7 @@ import { CommentsBottomSheet } from "@/shared/ui/comments-bottom-sheet/CommentsB
 import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomSheet";
 import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 import { profileDisplayName } from "@/shared/lib/profileDisplayName";
-import { profileAvatar, profileName, parseMediaUrls, resolveStorageUrl, type FeedPostVm, getPostImages, slideBlurhashesForPost } from "@/pages/stories-feed/lib/feedPostHelpers";
+import { profileAvatar, profileAvatarDisplay, profileName, parseMediaUrls, resolveStorageUrl, type FeedPostVm, getPostImages, slideBlurhashesForPost } from "@/pages/stories-feed/lib/feedPostHelpers";
 import type { BrowseFlowParamList, FeedStackParamList, RootTabParamList } from "@/app/navigation/types";
 import type { StoryGroup } from "@/shared/model/types/stories";
 import { useCreatePostComposer, CreatePostModal } from "@/features/create-post";
@@ -69,7 +75,16 @@ export default function StoriesFeedScreen() {
   const insets = useSafeAreaInsets();
 
   // ─── Data ────────────────────────────────────────────────────────────────
-  const { posts, isLoading } = usePostsFeed();
+  const filterUserId = route.params?.filterUserId?.trim() ?? "";
+  const {
+    posts,
+    isLoading,
+    hasMore: hasMorePosts,
+    loadMore: loadMorePosts,
+    isFetchingNextPage: isFetchingMorePosts,
+  } = usePostsFeed({
+    authorUserId: filterUserId || undefined,
+  });
   const { data: storiesStrip = [] } = useStoriesStrip();
   const {
     stories: feedStories = [],
@@ -85,23 +100,26 @@ export default function StoriesFeedScreen() {
   // ─── Route params ────────────────────────────────────────────────────────
   const focusPostId = route.params?.focusPostId?.trim() ?? "";
   const focusStoryId = route.params?.focusStoryId?.trim() ?? "";
-  const filterUserId = route.params?.filterUserId?.trim() ?? "";
 
-  // ─── Sorted & focused posts ──────────────────────────────────────────────
-  const sortedPosts = useMemo(
-    () => [...posts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-    [posts],
-  );
-  const filteredPosts = useMemo(
-    () => (filterUserId ? sortedPosts.filter((p) => p.user_id === filterUserId) : sortedPosts),
-    [filterUserId, sortedPosts],
-  );
+  // ─── Focused posts (global sort comes from usePostsFeed) ─────────────────
+  const postBoostAccess = usePostBoostFeature();
+  const boostPost = useBoostPost();
+  const feedListRef = useRef<FlashListRef<FeedPostVm>>(null);
+
+  const scrollFeedToTop = useCallback(() => {
+    feedListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
+
+  const postBoostConfirm = usePostBoostConfirm({
+    boostPost,
+    onScrollFeedToTop: scrollFeedToTop,
+  });
   const focusedPosts = useMemo(() => {
-    if (!focusPostId) return filteredPosts;
-    const target = filteredPosts.find((p) => p.id === focusPostId);
-    if (!target) return filteredPosts;
-    return [target, ...filteredPosts.filter((p) => p.id !== focusPostId)];
-  }, [filterUserId, focusPostId, filteredPosts]);
+    if (!focusPostId) return posts;
+    const target = posts.find((p) => p.id === focusPostId);
+    if (!target) return posts;
+    return [target, ...posts.filter((p) => p.id !== focusPostId)];
+  }, [focusPostId, posts]);
 
   // ─── Image sizing ────────────────────────────────────────────────────────
   const feedMainBlockHeight = useMemo(() => {
@@ -120,11 +138,8 @@ export default function StoriesFeedScreen() {
     () =>
       focusedPosts.map((post) => {
         const postImagesRaw = getPostImages(post);
-        const dpr = feedMediaDeviceDpr();
         const authorAvatarRaw = profileAvatar(post.profile?.avatar_url);
-        const authorAvatar = authorAvatarRaw
-          ? getOptimizedImageUrlPreset(authorAvatarRaw, "thumb", { dpr }) || authorAvatarRaw
-          : null;
+        const authorAvatar = profileAvatarDisplay(post.profile?.avatar_url);
         return {
           post,
           postImagesRaw,
@@ -150,6 +165,16 @@ export default function StoriesFeedScreen() {
     loadMoreFeedStories();
   }, [hasMoreFeedStories, isFetchingMoreFeedStories, loadMoreFeedStories]);
 
+  const onLoadMorePosts = useCallback(() => {
+    if (!hasMorePosts || isFetchingMorePosts) return;
+    loadMorePosts();
+  }, [hasMorePosts, isFetchingMorePosts, loadMorePosts]);
+
+  const onFeedEndReached = useCallback(() => {
+    onLoadMorePosts();
+    onLoadMoreFeedStories();
+  }, [onLoadMorePosts, onLoadMoreFeedStories]);
+
   const storyGroups = useMemo<StoryGroup[]>(() => {
     const grouped = new Map<string, StoryGroup>();
     for (const story of feedStories) {
@@ -162,7 +187,7 @@ export default function StoriesFeedScreen() {
 
   const createStoryPlaceId =
     focusedPosts.find((p) => p.place_id)?.place_id ??
-    sortedPosts.find((p) => p.place_id)?.place_id ??
+    posts.find((p) => p.place_id)?.place_id ??
     businessCards[0]?.id ??
     null;
 
@@ -171,7 +196,7 @@ export default function StoriesFeedScreen() {
       typeof user?.user_metadata === "object" && user?.user_metadata && "avatar_url" in user.user_metadata
         ? String((user.user_metadata as Record<string, unknown>).avatar_url ?? "")
         : "";
-    return profileAvatar(myProfile?.avatar_url) ?? profileAvatar(metadataAvatar);
+    return profileAvatarDisplay(myProfile?.avatar_url) ?? profileAvatarDisplay(metadataAvatar);
   }, [myProfile?.avatar_url, user?.user_metadata]);
 
   // ─── Feature hooks ───────────────────────────────────────────────────────
@@ -286,12 +311,32 @@ export default function StoriesFeedScreen() {
             onToggleFollowAuthor(vm.post.user_id, profileName(vm.post.profile?.first_name, vm.post.profile?.last_name)),
           )
         }
+        canBoost={postBoostAccess.enabled && vm.post.user_id === user?.id}
+        isBoosted={Boolean(vm.post.boosted_at)}
+        boostPending={postBoostConfirm.isBoostPending(vm.post.id)}
+        onBoost={() =>
+          runAuthedAction(() => postBoostConfirm.requestBoost(vm.post.id, vm.post.boosted_at))
+        }
       />
     ),
     [
-      comments, followOverrides, followingSet, likeCount, likes, navigation, onPostCardPress,
-      onToggleFollowAuthor, runAuthedAction, shareSheet, sliderHeight, toggleFollow.isPending,
-      togglePostLike, user?.id, width,
+      comments,
+      postBoostConfirm,
+      followOverrides,
+      followingSet,
+      likeCount,
+      likes,
+      navigation,
+      onPostCardPress,
+      onToggleFollowAuthor,
+      postBoostAccess.enabled,
+      runAuthedAction,
+      shareSheet,
+      sliderHeight,
+      toggleFollow.isPending,
+      togglePostLike,
+      user?.id,
+      width,
     ],
   );
 
@@ -338,6 +383,7 @@ export default function StoriesFeedScreen() {
       />
 
       <FlashList
+        ref={feedListRef}
         data={focusedPostVms}
         keyExtractor={(item) => item.post.id}
         estimatedItemSize={sliderHeight + FEED_POST_LIST_ITEM_EXTRA_HEIGHT}
@@ -352,9 +398,16 @@ export default function StoriesFeedScreen() {
         viewabilityConfig={feedViewabilityConfig}
         onViewableItemsChanged={onFeedViewableItemsChanged}
         onEndReachedThreshold={0.4}
-        onEndReached={onLoadMoreFeedStories}
+        onEndReached={onFeedEndReached}
         renderItem={renderFocusedFeedPost}
         ItemSeparatorComponent={renderPostSeparator}
+        ListFooterComponent={
+          isFetchingMorePosts ? (
+            <View style={styles.feedFooterLoader}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : null
+        }
         ListHeaderComponent={
           <StoriesStripHeader
             topStories={topStories}
@@ -387,7 +440,7 @@ export default function StoriesFeedScreen() {
         submittingComment={createPostComment.isPending}
         currentUserId={user?.id}
         currentUserAvatarUrl={currentUserAvatarUrl}
-        resolveAvatarUri={profileAvatar}
+        resolveAvatarUri={profileAvatarDisplay}
         savingCommentId={savingCommentId}
         deletingCommentId={deletingCommentId}
         onToggleReplies={comments.toggleReplies}
@@ -434,6 +487,14 @@ export default function StoriesFeedScreen() {
         }}
       />
 
+      <PostBoostConfirmModal
+        visible={postBoostConfirm.confirmVisible}
+        mode={postBoostConfirm.popupMode}
+        loading={postBoostConfirm.confirmLoading}
+        onConfirm={() => void postBoostConfirm.confirmBoost()}
+        onCancel={postBoostConfirm.cancelBoost}
+      />
+
       <ShareBottomSheet
         visible={shareSheet.shareVisible}
         onClose={shareSheet.resetShareState}
@@ -441,7 +502,7 @@ export default function StoriesFeedScreen() {
         loading={shareSheet.shareUsersLoading}
         searchValue={shareSheet.shareSearch}
         onChangeSearch={shareSheet.setShareSearch}
-        resolveAvatarUri={profileAvatar}
+        resolveAvatarUri={profileAvatarDisplay}
         sharePostId={shareSheet.sharePostId}
         sharePostHasMedia={shareSheet.sharePostImages.length > 0}
         sharePlaceName={shareSheet.sharePlaceName}
@@ -449,7 +510,9 @@ export default function StoriesFeedScreen() {
         sheetAlert={shareSheet.shareAlert}
         onDismissSheetAlert={shareSheet.dismissShareAlert}
         onShowSheetAlert={shareSheet.showShareAlertOptions}
-        onAddToStory={async () => shareSheet.handleShareToStory(navigation)}
+        onAddToStory={async () => {
+          shareSheet.handleShareToStory(navigation);
+        }}
         onWhatsAppShare={shareSheet.handleShareToWhatsapp}
         onSystemShare={shareSheet.handleSystemShare}
         onCopyLink={shareSheet.handleCopyPostLink}
@@ -538,7 +601,7 @@ function StoriesStripHeader({
             ? getOptimizedImageUrlPreset(storyPreviewRaw, "thumb", { dpr: stripDpr }) || storyPreviewRaw
             : null;
           const avatarRaw = profileAvatar(story.profile?.avatar_url);
-          const avatarOpt = avatarRaw ? getOptimizedImageUrlPreset(avatarRaw, "thumb", { dpr: stripDpr }) || avatarRaw : null;
+          const avatarOpt = profileAvatarDisplay(story.profile?.avatar_url);
           const bubbleUri = storyPreviewOpt ?? avatarOpt;
           const bubbleFallback = storyPreviewRaw ?? avatarRaw;
           const bubbleBlur = storyPreviewRaw
@@ -598,6 +661,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14 },
   emptyStateWrap: { alignItems: "center", justifyContent: "center" },
   feedContent: { paddingBottom: 12 },
+  feedFooterLoader: { paddingVertical: 24, alignItems: "center" },
   postDivider: { height: 10, width: "100%" },
   storiesHeaderWrap: { paddingTop: 8, paddingBottom: 8 },
   storiesHeaderContent: { paddingHorizontal: 12, gap: 12 },

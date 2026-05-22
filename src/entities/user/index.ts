@@ -1,4 +1,5 @@
 export * from "./api/useProfile";
+export { isProfileAdmin } from "./lib/isProfileAdmin";
 export * from "./api/profileApi";
 export * from "./api/authSessionApi";
 export * from "./api/useMarkProfileVerified";

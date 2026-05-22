@@ -8,6 +8,7 @@ import { ReactionBar } from "./ReactionBar";
 import { CommentPreview } from "./CommentPreview";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { feedMediaDeviceDpr } from "@/shared/lib/feedMediaUrls";
+import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { getOptimizedImageUrlPreset } from "@/shared/lib/imagePresets";
 
 interface FeedStoryCardProps {
@@ -47,11 +48,11 @@ function FeedStoryCardComponent({
     () => (story.media_url ? getOptimizedImageUrlPreset(story.media_url, "medium", { dpr: deviceDpr }) : ""),
     [deviceDpr, story.media_url],
   );
-  const avatarUri = useMemo(() => {
-    const raw = story.profile?.avatar_url?.trim();
-    if (!raw) return "";
-    return getOptimizedImageUrlPreset(raw, "thumb", { dpr: deviceDpr }) || raw;
-  }, [deviceDpr, story.profile?.avatar_url]);
+  const avatarRaw = story.profile?.avatar_url?.trim() || "";
+  const avatarUri = useMemo(
+    () => getAvatarDisplayUrl(avatarRaw, { layoutPx: 40 }) ?? "",
+    [avatarRaw],
+  );
   const coverBlurhash = story.media_blurhashes?.find((h): h is string => typeof h === "string" && h.length > 0);
 
   const onReactPress = async (type: StoryReactionType) => {
@@ -97,7 +98,7 @@ function FeedStoryCardComponent({
             {story.profile?.avatar_url ? (
               <SmartImage
                 uri={avatarUri}
-                fallbackUri={story.profile.avatar_url}
+                fallbackUri={avatarRaw && avatarRaw !== avatarUri ? avatarRaw : undefined}
                 style={styles.avatarImage}
                 contentFit="cover"
                 skipBundledPlaceholder

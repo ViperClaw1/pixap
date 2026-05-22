@@ -15,7 +15,6 @@ import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { asParamListNavigation } from "@/app/navigation/appNavigation";
@@ -284,8 +283,7 @@ function EditProfileScreenContent() {
         <View style={styles.avatarBlock}>
           <View style={styles.avatarFrame}>
             <UserAvatarImage
-              uri={avatarUrl?.trim() ? getOptimizedImageUrl(avatarUrl, 220, 220, 74) : null}
-              fallbackUri={avatarUrl?.trim() || null}
+              uri={avatarUrl?.trim() || null}
               recyclingKey={avatarUrl || "edit-profile-avatar"}
               style={styles.avatar}
               contentFit="cover"

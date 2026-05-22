@@ -3,12 +3,26 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { uploadMessageAttachmentIfLocal } from "@/entities/messages/lib/uploadMessageAttachmentToStories";
-import { appendThreadMessage, removeThreadMessage } from "@/entities/messages/lib/messageCachePatch";
+import {
+  appendThreadMessage,
+  removeThreadMessage,
+  replaceOptimisticThreadMessage,
+} from "@/entities/messages/lib/messageCachePatch";
+import { rowToMessageBubble } from "@/entities/messages/lib/hydrateRealtimeMessage";
 import type { MessageBubble } from "./useThreadMessages";
 
 export type SendMessageAttachmentInput =
   | string
   | { uri: string; mimeType?: string | null; name?: string | null };
+
+type InsertedMessageRow = {
+  id: string;
+  thread_id: string;
+  sender_id: string;
+  content: string;
+  attachments: string[] | null;
+  created_at: string;
+};
 
 function normalizeAttachment(att: SendMessageAttachmentInput): { uri: string; mimeType?: string | null; name?: string | null } {
   return typeof att === "string" ? { uri: att } : att;
@@ -47,7 +61,7 @@ export function useSendMessage() {
       threadId: string;
       content: string;
       attachments?: SendMessageAttachmentInput[];
-    }) => {
+    }): Promise<InsertedMessageRow> => {
       if (!user?.id) throw new Error("Authentication required");
       const trimmed = content.trim();
       const rawAttachments = (attachments ?? []).map(normalizeAttachment).filter((a) => a.uri.trim().length > 0);
@@ -61,7 +75,7 @@ export function useSendMessage() {
       }
       if (!threadId || (!trimmed && !normalizedAttachments.length)) throw new Error("Message content or attachment is required");
 
-      const { error: insertError } = await supabase
+      const { data: inserted, error: insertError } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table is introduced by migration
         .from("messages" as any)
         .insert({
@@ -69,8 +83,11 @@ export function useSendMessage() {
           sender_id: user.id,
           content: trimmed || "[attachment]",
           attachments: normalizedAttachments,
-        });
+        })
+        .select("id, thread_id, sender_id, content, attachments, created_at")
+        .single();
       if (insertError) throw insertError;
+      if (!inserted) throw new Error("Message insert returned no row");
 
       const at = new Date().toISOString();
       const { error: markReadError } = await supabase
@@ -80,6 +97,8 @@ export function useSendMessage() {
         .eq("thread_id", threadId)
         .eq("user_id", user.id);
       if (markReadError) throw markReadError;
+
+      return inserted as InsertedMessageRow;
     },
     onMutate: async (vars) => {
       if (!user?.id) return;
@@ -102,9 +121,18 @@ export function useSendMessage() {
       );
       return { optimisticId };
     },
-    onSuccess: (_res, vars, context) => {
+    onSuccess: (inserted, vars, context) => {
+      if (!user?.id) return;
       if (context?.optimisticId) {
-        removeThreadMessage(queryClient, vars.threadId, user?.id ?? null, context.optimisticId);
+        replaceOptimisticThreadMessage(
+          queryClient,
+          vars.threadId,
+          user.id,
+          context.optimisticId,
+          rowToMessageBubble(inserted, user.id),
+        );
+      } else {
+        appendThreadMessage(queryClient, vars.threadId, user.id, rowToMessageBubble(inserted, user.id));
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.messages.inboxPrefix });
     },

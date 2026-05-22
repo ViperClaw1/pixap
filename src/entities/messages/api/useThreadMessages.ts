@@ -7,6 +7,7 @@ import { resolvePeerLastSeenAt } from "@/entities/messages/lib/peerPresence";
 import { fetchThreadMessagesPage } from "@/entities/messages/lib/fetchThreadMessagesPage";
 import { prependOlderMessages, type ThreadMessagesCache } from "@/entities/messages/lib/messageCachePatch";
 import { useMessageThreadRealtime } from "@/entities/messages/lib/useMessagesRealtime";
+import { REALTIME_POLL_MS } from "@/shared/realtime/realtimePolling";
 
 export type MessageBubble = {
   id: string;
@@ -52,7 +53,7 @@ export function useThreadMessages(threadId: string) {
     },
     enabled: !!threadId && !!userId,
     staleTime: 15 * 1000,
-    refetchInterval: realtimeConnected ? false : 15_000,
+    refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.messagesThread,
   });
 
   const loadOlderMessages = useCallback(async () => {
