@@ -1,6 +1,7 @@
 import { supabase } from "@/shared/api/supabase/client";
 import type { MessageParticipantProfile } from "@/shared/model/types/messages";
 import type { MessageBubble } from "../api/useThreadMessages";
+import { resolveMessageMine, type SupportThreadMeta } from "./resolveMessageMine";
 
 export const THREAD_MESSAGES_PAGE_SIZE = 50;
 
@@ -35,12 +36,15 @@ export type FetchThreadMessagesPageResult = {
   lastSeenAtByUserId: Record<string, string | null>;
   hasMoreOlder: boolean;
   oldestLoadedAt: string | null;
+  threadMeta: SupportThreadMeta | null;
 };
 
 function hydrateMessages(
   messages: MessageRow[],
   userId: string,
   reactionsByMessage: Map<string, Array<{ reaction: string; user_id: string }>>,
+  threadMeta: SupportThreadMeta | null,
+  viewerIsSupportStaff: boolean,
 ): MessageBubble[] {
   return messages.map((msg) => {
     const rawReactions = reactionsByMessage.get(msg.id) ?? [];
@@ -60,7 +64,12 @@ function hydrateMessages(
         ? msg.attachments.filter((item): item is string => typeof item === "string")
         : [],
       created_at: msg.created_at,
-      mine: msg.sender_id === userId,
+      mine: resolveMessageMine({
+        viewerId: userId,
+        senderId: msg.sender_id,
+        threadMeta,
+        viewerIsSupportStaff,
+      }),
       sender_profile: null,
       reactions: Array.from(reactionAgg.entries()).map(([reaction, payload]) => ({
         reaction,
@@ -74,11 +83,13 @@ function hydrateMessages(
 export async function fetchThreadMessagesPage({
   threadId,
   userId,
+  viewerIsSupportStaff = false,
   beforeCreatedAt,
   limit = THREAD_MESSAGES_PAGE_SIZE,
 }: {
   threadId: string;
   userId: string;
+  viewerIsSupportStaff?: boolean;
   beforeCreatedAt?: string | null;
   limit?: number;
 }): Promise<FetchThreadMessagesPageResult> {
@@ -94,18 +105,34 @@ export async function fetchThreadMessagesPage({
     messagesQuery = messagesQuery.lt("created_at", beforeCreatedAt);
   }
 
-  const [{ data: messagesData, error: messagesError }, { data: participantsData, error: participantsError }] =
-    await Promise.all([
-      messagesQuery,
-      supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .from("message_thread_participants" as any)
-        .select("thread_id, user_id, joined_at, last_read_message_at")
-        .eq("thread_id", threadId),
-    ]);
+  const [
+    { data: messagesData, error: messagesError },
+    { data: participantsData, error: participantsError },
+    { data: threadData, error: threadError },
+  ] = await Promise.all([
+    messagesQuery,
+    supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("message_thread_participants" as any)
+      .select("thread_id, user_id, joined_at, last_read_message_at")
+      .eq("thread_id", threadId),
+    supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("message_threads" as any)
+      .select("kind, support_user_id")
+      .eq("id", threadId)
+      .maybeSingle(),
+  ]);
 
   if (messagesError) throw messagesError;
   if (participantsError) throw participantsError;
+  if (threadError) throw threadError;
+
+  const threadRow = threadData as { kind?: string; support_user_id?: string | null } | null;
+  const threadMeta: SupportThreadMeta | null =
+    threadRow?.kind === "support" && threadRow.support_user_id
+      ? { kind: "support", supportUserId: threadRow.support_user_id }
+      : null;
 
   const rawRows = (messagesData ?? []) as MessageRow[];
   const hasMoreOlder = rawRows.length > limit;
@@ -153,11 +180,12 @@ export async function fetchThreadMessagesPage({
   const oldestLoadedAt = messagesAsc[0]?.created_at ?? null;
 
   return {
-    messages: hydrateMessages(messagesAsc, userId, reactionsByMessage),
+    messages: hydrateMessages(messagesAsc, userId, reactionsByMessage, threadMeta, viewerIsSupportStaff),
     participants: participants.map((row) => profilesById.get(row.user_id)).filter(Boolean) as MessageParticipantProfile[],
     lastReadAtByUserId,
     lastSeenAtByUserId,
     hasMoreOlder,
     oldestLoadedAt,
+    threadMeta,
   };
 }

@@ -7,8 +7,11 @@ import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useCancelBooking, type Booking, type BookingDisplayStatus } from "@/entities/booking";
 import type { BookingsStackParamList } from "@/app/navigation/types";
-import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import {
+  businessCardDisplayFallback,
+  getBusinessCardDisplayUrl,
+} from "@/shared/lib/business-card/businessCardDisplayUrl";
 import type { bookingsStaticStyles } from "./bookingsStyles";
 
 export const BOOKING_THUMB_SIZE = 64;
@@ -18,12 +21,11 @@ function bookingFilterTranslationKey(status: BookingDisplayStatus): string {
 }
 
 export function bookingThumbUris(images: unknown, edgePx = BOOKING_THUMB_SIZE): { uri: string | null; fallbackUri: string | null } {
-  const fallbackUri = getLatestBusinessCardImage(images);
-  if (!fallbackUri) return { uri: null, fallbackUri: null };
-  const dpr = Math.min(2, PixelRatio.get());
-  const edge = Math.round(edgePx * dpr);
-  const uri = getOptimizedImageUrl(fallbackUri, edge, edge, 72) || fallbackUri;
-  return { uri, fallbackUri };
+  const raw = getPrimaryBusinessCardImage(images);
+  if (!raw) return { uri: null, fallbackUri: null };
+  const edge = Math.round(edgePx * Math.min(2, PixelRatio.get()));
+  const uri = getBusinessCardDisplayUrl(raw, { layoutPx: edge, layoutPxHeight: edge });
+  return { uri, fallbackUri: businessCardDisplayFallback(uri, raw) ?? null };
 }
 
 function formatBookingDateTime(value: string): string {

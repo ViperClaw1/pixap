@@ -102,6 +102,7 @@ export type ProfileStackParamList = {
   Privacy: undefined;
   NotFound: undefined;
   AdminImageUpload: undefined;
+  AdminDashboard: undefined;
   SubscriptionPaywall: { reason?: "no_credits" | "upgrade" } | undefined;
 } & BrowseFlowParamList;
 

@@ -24,7 +24,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
@@ -131,7 +131,7 @@ export default function ShoppingItemsScreen() {
           <Pressable style={styles.row} onPress={() => openFlow(item)}>
             <SmartImage
               uri={item.image}
-              fallbackUri={getLatestBusinessCardImage(place?.images)}
+              fallbackUri={getPrimaryBusinessCardImage(place?.images)}
               recyclingKey={`${item.id}-${id}`}
               style={shoppingItemsStaticStyles.thumb}
               contentFit="cover"

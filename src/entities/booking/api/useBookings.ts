@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 import type { CartItem } from "@/entities/cart";
+import { BOOKINGS_SELECT, localizeBusinessCard } from "@/entities/business-card";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 
 export interface Booking {
@@ -66,23 +68,29 @@ export function deriveBookingDisplayStatus(booking: Booking, linkedCartItem?: Ca
 
 export const useBookings = () => {
   const { user } = useAuth();
+  const { i18n } = useTranslation();
+  const language = i18n.language;
+
   return useQuery({
-    queryKey: queryKeys.bookings.user(user?.id),
+    queryKey: queryKeys.bookings.user(user?.id, language),
     queryFn: async () => {
       const query = supabase
         .from("bookings")
-        .select("*, business_card:business_cards(id, name, images, address, category_id)")
+        .select(BOOKINGS_SELECT as never)
         .eq("user_id", user!.id)
         .order("date_time", { ascending: false });
       const { data, error } = await query;
       if (error) throw error;
-      const rows = (data as Booking[]).map((row) => ({
+      const rows = ((data ?? []) as unknown as Booking[]).map((row) => ({
         ...row,
         business_card: row.business_card
-          ? {
-              ...row.business_card,
-              images: normalizeBusinessCardImages(row.business_card.images),
-            }
+          ? localizeBusinessCard(
+              {
+                ...row.business_card,
+                images: normalizeBusinessCardImages(row.business_card.images),
+              },
+              language,
+            )
           : null,
       }));
       return rows;

@@ -65,8 +65,11 @@ import {
   primaryPressableTextStyle,
 } from "@/shared/theme/primaryPressable";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
-import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import {
+  businessCardDisplayFallback,
+  getBusinessCardDisplayUrl,
+} from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { toYmd } from "@/shared/lib/bookingCalendar";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
@@ -81,11 +84,11 @@ const SLOT_MATCH_MS = 45 * 60 * 1000;
 const PLAN_THUMB_SIZE = 56;
 
 function vibeStopThumbUris(images: string[] | undefined): { uri: string | null; fallbackUri: string | null } {
-  const fallbackUri = getLatestBusinessCardImage(images ?? []);
-  if (!fallbackUri) return { uri: null, fallbackUri: null };
+  const raw = getPrimaryBusinessCardImage(images ?? []);
+  if (!raw) return { uri: null, fallbackUri: null };
   const edge = Math.round(PLAN_THUMB_SIZE * Math.min(2, PixelRatio.get()));
-  const uri = getOptimizedImageUrl(fallbackUri, edge, edge, 72) || fallbackUri;
-  return { uri, fallbackUri };
+  const uri = getBusinessCardDisplayUrl(raw, { layoutPx: edge, layoutPxHeight: edge });
+  return { uri, fallbackUri: businessCardDisplayFallback(uri, raw) ?? null };
 }
 
 function scheduleN8nWaBookingStart(cartItemId: string, accessToken: string) {

@@ -31,7 +31,7 @@ export default function PaymentSuccessScreen() {
   useEffect(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.shopping.cartPrefix });
     void queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cart.paidItems(user?.id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.cart.paidItemsPrefix });
     void queryClient.invalidateQueries({ queryKey: queryKeys.shopping.paidCartItemsPrefix });
     void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
   }, [queryClient, user?.id]);

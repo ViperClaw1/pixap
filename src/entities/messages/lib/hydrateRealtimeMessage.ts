@@ -1,4 +1,5 @@
 import type { MessageBubble } from "../api/useThreadMessages";
+import { resolveMessageMine, type SupportThreadMeta } from "./resolveMessageMine";
 
 type MessageRow = {
   id: string;
@@ -9,7 +10,12 @@ type MessageRow = {
   created_at: string;
 };
 
-export function rowToMessageBubble(row: MessageRow, userId: string): MessageBubble {
+export function rowToMessageBubble(
+  row: MessageRow,
+  userId: string,
+  threadMeta: SupportThreadMeta | null = null,
+  viewerIsSupportStaff = false,
+): MessageBubble {
   return {
     id: row.id,
     thread_id: row.thread_id,
@@ -19,7 +25,12 @@ export function rowToMessageBubble(row: MessageRow, userId: string): MessageBubb
       ? row.attachments.filter((item): item is string => typeof item === "string")
       : [],
     created_at: row.created_at,
-    mine: row.sender_id === userId,
+    mine: resolveMessageMine({
+      viewerId: userId,
+      senderId: row.sender_id,
+      threadMeta,
+      viewerIsSupportStaff,
+    }),
     sender_profile: null,
     reactions: [],
   };

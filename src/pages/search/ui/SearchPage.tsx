@@ -11,9 +11,12 @@ import { useProfile } from "@/entities/user";
 import type { SearchStackParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
-import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import {
+  businessCardDisplayFallback,
+  getBusinessCardDisplayUrl,
+} from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { PLACE_LIST_BATCH_SIZE } from "@/shared/lib/placeListBatchSize";
@@ -33,12 +36,14 @@ type SearchPlaceRowProps = {
 
 function SearchPlaceRow({ item, styles, onPress }: SearchPlaceRowProps) {
   const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
+  const heroRaw = getPrimaryBusinessCardImage(item.images);
+  const heroDisplay = getBusinessCardDisplayUrl(heroRaw, { layoutPx: 168, layoutPxHeight: 168 });
 
   return (
     <Pressable style={styles.row} onPress={() => onPress(item.id)}>
       <SmartImage
-        uri={getOptimizedImageUrl(getLatestBusinessCardImage(item.images), 168, 168, 72)}
-        fallbackUri={getLatestBusinessCardImage(item.images)}
+        uri={heroDisplay}
+        fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
         bundledFallback={PLACE_IMAGE_FALLBACK}
         recyclingKey={item.id}
         style={styles.thumb}

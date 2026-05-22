@@ -12,9 +12,9 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import Toast from "react-native-toast-message";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
-import { useMyFollowing, useToggleFollow } from "@/entities/user";
-import { usePublicProfiles } from "@/entities/user";
+import { isProfileAdmin, useMyFollowing, useProfile, useToggleFollow, usePublicProfiles } from "@/entities/user";
 import {
+  findCustomerSupportTickets,
   findDirectThreadForPeer,
   findSupportThread,
   prefetchThreadMessages,
@@ -28,6 +28,7 @@ import {
 import type { FollowSuggestion } from "@/entities/messages/api/usePeopleToFollow";
 import type { MessageThreadItem } from "@/shared/model/types/messages";
 import { SupportChatCard } from "./SupportChatCard";
+import { SupportTicketsSection } from "./SupportTicketsSection";
 import type { CartStackParamList } from "@/app/navigation/types";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
@@ -57,6 +58,8 @@ export default function MessagesPage() {
   const queryClient = useQueryClient();
   const { colors, mode, setMode } = useAppTheme();
   const { user } = useAuth();
+  const { data: profile } = useProfile();
+  const viewerIsSupportStaff = isProfileAdmin(profile?.account_role);
   const [search, setSearch] = useState("");
   const [startChatModalOpen, setStartChatModalOpen] = useState(false);
   const [deletedThreadIds, setDeletedThreadIds] = useState<Set<string>>(new Set());
@@ -69,7 +72,11 @@ export default function MessagesPage() {
   const openOrCreateThread = useOpenOrCreateThread();
   const openOrCreateSupportThread = useOpenOrCreateSupportThread();
   const toggleFollow = useToggleFollow();
-  const supportThread = useMemo(() => findSupportThread(threads), [threads]);
+  const supportThread = useMemo(() => findSupportThread(threads, user?.id), [threads, user?.id]);
+  const customerSupportTickets = useMemo(
+    () => findCustomerSupportTickets(threads, user?.id),
+    [threads, user?.id],
+  );
 
   useEffect(() => {
     markMessagingPerfStart("inbox_open");
@@ -184,10 +191,18 @@ export default function MessagesPage() {
   };
 
   const visibleThreads = useMemo(
-    () => threads.filter((thread) => !thread.is_support && !deletedThreadIds.has(thread.thread_id)),
+    () =>
+      threads.filter((thread) => {
+        if (deletedThreadIds.has(thread.thread_id)) return false;
+        return !thread.is_support;
+      }),
     [deletedThreadIds, threads],
   );
-  const typingThreadIds = useMessagesInboxTyping(visibleThreads, user?.id, isScreenFocused);
+  const typingThreadIds = useMessagesInboxTyping(
+    viewerIsSupportStaff ? customerSupportTickets : visibleThreads,
+    user?.id,
+    isScreenFocused,
+  );
   const peerTypingLabel = t("messages.thread.peerTyping");
 
   const listRows = useMemo((): MessagesListRow[] => {
@@ -235,7 +250,12 @@ export default function MessagesPage() {
 
   const openThread = useCallback(
     (thread: MessageThreadItem) => {
-      const peer = thread.participants.find((participant) => participant.id !== user?.id) ?? thread.participants[0];
+      const customerId = thread.support_user_id;
+      const isCustomerSupport =
+        thread.is_support && viewerIsSupportStaff && customerId && customerId !== user?.id;
+      const peer = isCustomerSupport
+        ? (thread.participants.find((participant) => participant.id === customerId) ?? null)
+        : (thread.participants.find((participant) => participant.id !== user?.id) ?? thread.participants[0]);
       navigateToThread(thread.thread_id, {
         id: peer?.id ?? thread.last_sender_id,
         first_name: peer?.first_name ?? null,
@@ -246,15 +266,15 @@ export default function MessagesPage() {
         void markThreadRead.mutateAsync(thread.thread_id);
       }
     },
-    [markThreadRead, navigateToThread, user?.id],
+    [markThreadRead, navigateToThread, user?.id, viewerIsSupportStaff],
   );
 
   const prefetchThread = useCallback(
     (threadId: string) => {
       if (!user?.id) return;
-      void prefetchThreadMessages(queryClient, threadId, user.id);
+      void prefetchThreadMessages(queryClient, threadId, user.id, viewerIsSupportStaff);
     },
-    [queryClient, user?.id],
+    [queryClient, user?.id, viewerIsSupportStaff],
   );
 
   const tabBarHeight = useBottomTabBarHeight();
@@ -281,14 +301,27 @@ export default function MessagesPage() {
           onRightPress={toggleThemeMode}
           notificationsEnabled
         />
-        <SupportChatCard
-          styles={styles}
-          colors={colors}
-          isCompact={isCompact}
-          isOpening={openOrCreateSupportThread.isPending}
-          existingThread={supportThread}
-          onPress={onOpenSupport}
-        />
+        {viewerIsSupportStaff ? (
+          <SupportTicketsSection
+            styles={styles}
+            colors={colors}
+            isCompact={isCompact}
+            tickets={customerSupportTickets}
+            typingThreadIds={typingThreadIds}
+            typingLabel={peerTypingLabel}
+            onOpenTicket={openThread}
+            onPrefetchTicket={prefetchThread}
+          />
+        ) : (
+          <SupportChatCard
+            styles={styles}
+            colors={colors}
+            isCompact={isCompact}
+            isOpening={openOrCreateSupportThread.isPending}
+            existingThread={supportThread}
+            onPress={onOpenSupport}
+          />
+        )}
         <View style={styles.searchWrap}>
           <Ionicons name="search-outline" size={18} color={colors.textMuted} />
           <TextInput
@@ -303,12 +336,18 @@ export default function MessagesPage() {
     ),
     [
       colors,
+      customerSupportTickets,
       isCompact,
       mode,
       openOrCreateSupportThread.isPending,
+      openThread,
+      peerTypingLabel,
+      prefetchThread,
       styles,
       supportThread,
       search,
+      typingThreadIds,
+      viewerIsSupportStaff,
       t,
     ],
   );

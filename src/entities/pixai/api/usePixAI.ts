@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/shared/api/supabase/client";
 import { devInfo, devWarn } from "@/shared/lib/devLog";
 import { useAuth } from "@/app/providers/AuthProvider";
 import type { BusinessCard } from "@/entities/business-card";
+import { PIXAI_BUSINESS_CARD_SELECT, localizeBusinessCard } from "@/entities/business-card";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { invokePixaiOrchestrateWithAuth, logPixaiOrchestrateInvokeFailure } from "./invokePixaiOrchestrate";
 
@@ -168,15 +170,16 @@ type LooseRpcClient = {
   rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }>;
 };
 
-function mapRowsToPlaces(rows: unknown): PixAIPlace[] {
+function mapRowsToPlaces(rows: unknown, language: string): PixAIPlace[] {
   if (!Array.isArray(rows)) return [];
   return rows.map((row) => {
     const r = row as Record<string, unknown>;
     const images = normalizeBusinessCardImages(r.images as string[] | null | undefined);
     const legacyImage = r.image != null && String(r.image).trim() ? [String(r.image)] : [];
+    const localized = localizeBusinessCard(r as Parameters<typeof localizeBusinessCard>[0], language);
     return {
       id: String(r.id),
-      name: String(r.name ?? ""),
+      name: localized.name,
       address: r.address != null ? String(r.address) : "",
       city: r.city != null ? String(r.city) : null,
       rating: Number(r.rating ?? 0),
@@ -187,7 +190,7 @@ function mapRowsToPlaces(rows: unknown): PixAIPlace[] {
 }
 
 /** When the edge function fails, run the same search against the DB with the user JWT (RPCs + table fallback). */
-async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload): Promise<PixAIPlace[]> {
+async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload, language: string): Promise<PixAIPlace[]> {
   const limit = Math.max(3, Math.min(flow.limit ?? 8, 20));
   const city = flow.city.trim();
   const categoryId = flow.isRestaurantTable ? null : flow.categoryId?.trim() ?? null;
@@ -214,7 +217,7 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload): Promise
     if (error) {
       ({ data, error } = await rpc.rpc("search_business_cards_nearby", nearbyBase));
     }
-    if (!error) places = mapRowsToPlaces(data);
+    if (!error) places = mapRowsToPlaces(data, language);
   }
 
   if (places.length === 0) {
@@ -226,11 +229,11 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload): Promise
       p_category_name: categoryName,
     });
     if (!error) {
-      places = mapRowsToPlaces(data);
+      places = mapRowsToPlaces(data, language);
     } else {
       let q = supabase
         .from("business_cards")
-        .select("id, name, address, city, rating, booking_price, images")
+        .select(PIXAI_BUSINESS_CARD_SELECT as never)
         .ilike("city", city)
         .order("rating", { ascending: false })
         .limit(limit);
@@ -239,18 +242,18 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload): Promise
         q = q.or("name.ilike.%restaurant%,tags.cs.{restaurant},tags.cs.{table}");
       }
       const { data: rows } = await q;
-      places = mapRowsToPlaces(rows ?? []);
+      places = mapRowsToPlaces(rows ?? [], language);
     }
   }
 
   if (places.length === 0 && city) {
     const { data: rows } = await supabase
       .from("business_cards")
-      .select("id, name, address, city, rating, booking_price, images")
+      .select(PIXAI_BUSINESS_CARD_SELECT as never)
       .eq("city", city)
       .order("rating", { ascending: false })
       .limit(3);
-    places = mapRowsToPlaces(rows ?? []);
+    places = mapRowsToPlaces(rows ?? [], language);
   }
 
   return places;
@@ -258,6 +261,7 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload): Promise
 
 export function usePixAI() {
   const { user } = useAuth();
+  const { i18n } = useTranslation();
   const [messages, setMessages] = useState<PixAIMessage[]>([
     {
       id: "welcome",
@@ -278,12 +282,12 @@ export function usePixAI() {
         const payload = data as OrchestratorResponse;
         return {
           ...payload,
-          places: payload.places != null ? mapRowsToPlaces(payload.places) : undefined,
+          places: payload.places != null ? mapRowsToPlaces(payload.places, i18n.language) : undefined,
           catalogFallback: false,
         };
       }
       await logPixaiOrchestrateInvokeFailure(error);
-      const places = await fetchPlacesWhenOrchestratorFails(flow);
+      const places = await fetchPlacesWhenOrchestratorFails(flow, i18n.language);
       if (places.length > 0) {
         devInfo("[PixAI] edge invoke failed; showing results from direct DB search (same filters as orchestrator).");
         return {

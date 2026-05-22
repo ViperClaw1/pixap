@@ -335,6 +335,23 @@ export const messagesStaticStyles = StyleSheet.create({
           gap: 8,
         },
 
+        supportTicketCard: {
+          borderRadius: 14,
+          borderWidth: 1,
+          paddingVertical: 10,
+          paddingHorizontal: 12,
+          marginBottom: 0,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+        },
+
+        supportTicketCardCompact: {
+          paddingVertical: 8,
+          paddingHorizontal: 10,
+          gap: 8,
+        },
+
         supportIconWrap: {
           width: 40,
           height: 40,
@@ -390,6 +407,79 @@ export const messagesStaticStyles = StyleSheet.create({
           width: 32,
           height: 32,
           borderRadius: 16,
+        },
+
+        supportSection: {
+          marginBottom: 12,
+          gap: 6,
+        },
+
+        supportSectionHeader: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 4,
+        },
+
+        supportSectionIconWrap: {
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        },
+
+        supportSectionTitle: {
+          fontSize: 15,
+          fontWeight: "700",
+          letterSpacing: -0.1,
+        },
+
+        supportSectionEmpty: {
+          fontSize: 12,
+          lineHeight: 16,
+          paddingVertical: 4,
+          paddingHorizontal: 2,
+        },
+
+        supportTicketAvatar: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          flexShrink: 0,
+        },
+
+        supportTicketAvatarCompact: {
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+        },
+
+        supportTicketMeta: {
+          alignItems: "flex-end",
+          justifyContent: "center",
+          gap: 4,
+          flexShrink: 0,
+        },
+
+        supportTicketTime: {
+          fontSize: 11,
+          lineHeight: 13,
+        },
+
+        supportTicketUnread: {
+          minWidth: 20,
+          height: 20,
+          borderRadius: 10,
+          paddingHorizontal: 5,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+
+        supportTicketUnreadText: {
+          fontSize: 11,
+          fontWeight: "700",
         },
 });
 
@@ -483,6 +573,10 @@ export function messagesThemeStyles(colors: ThemeColors, bottomInset: number) {
       backgroundColor: colors.card,
       borderColor: colors.border,
     },
+    supportTicketCard: {
+      backgroundColor: colors.card,
+      borderColor: colors.border,
+    },
     supportIconWrap: {
       backgroundColor: colors.accent,
     },
@@ -496,6 +590,9 @@ export function messagesThemeStyles(colors: ThemeColors, bottomInset: number) {
       backgroundColor: colors.actionMuted,
       borderColor: colors.accent,
       borderWidth: 1,
+    },
+    supportTicketTime: {
+      color: colors.textMuted,
     },
     content: { paddingBottom: Math.max(bottomInset, 20) },
   } satisfies Partial<Record<keyof typeof messagesStaticStyles, object>>;

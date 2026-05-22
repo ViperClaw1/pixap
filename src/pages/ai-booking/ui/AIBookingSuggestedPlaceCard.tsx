@@ -3,19 +3,21 @@ import { PixelRatio, Pressable, Text, View } from "react-native";
 import type { PixAIPlace } from "@/entities/pixai";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { getLatestBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
+import {
+  businessCardDisplayFallback,
+  getBusinessCardDisplayUrl,
+} from "@/shared/lib/business-card/businessCardDisplayUrl";
 import type { AIBookingStyles } from "./aiBookingStyles";
 
 const THUMB_SIZE = 74;
 
 function placeThumbUris(images: unknown): { uri: string | null; fallbackUri: string | null } {
-  const fallbackUri = getLatestBusinessCardImage(images);
-  if (!fallbackUri) return { uri: null, fallbackUri: null };
-  const dpr = Math.min(2, PixelRatio.get());
-  const edge = Math.round(THUMB_SIZE * dpr);
-  const uri = getOptimizedImageUrl(fallbackUri, edge, edge, 72) || fallbackUri;
-  return { uri, fallbackUri };
+  const raw = getPrimaryBusinessCardImage(images);
+  if (!raw) return { uri: null, fallbackUri: null };
+  const edge = Math.round(THUMB_SIZE * Math.min(2, PixelRatio.get()));
+  const uri = getBusinessCardDisplayUrl(raw, { layoutPx: edge, layoutPxHeight: edge });
+  return { uri, fallbackUri: businessCardDisplayFallback(uri, raw) ?? null };
 }
 
 type Props = {

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   Platform,
   Pressable,
   Text,
@@ -39,7 +40,7 @@ import { STICKER_URLS } from "../model/constants";
 import { peerFullName } from "../model/format";
 import { resolvePeerPresenceStatus } from "../model/peerPresenceStatus";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
-import { useFooterKeyboardLift, useKeyboardInset } from "@/shared/lib/keyboard";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import type { MessageThreadListRow } from "../model/types";
 import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
@@ -74,7 +75,6 @@ export default function MessageThreadPage() {
   }
   const stableBottomInset = stableBottomInsetRef.current;
   const listRef = useRef<FlashListRef<MessageThreadListRow>>(null);
-  const footerMeasureRef = useRef<View>(null);
   const isAtBottomRef = useRef(true);
   const scrollAfterSendRef = useRef(false);
   const pendingOpenScrollRef = useRef(true);
@@ -306,39 +306,27 @@ export default function MessageThreadPage() {
   );
 
   const styles = useMessageThreadStyles(insets.top, stableBottomInset);
-  const { lift: iosKeyboardLift, recalculate: recalculateIosKeyboardLift } = useFooterKeyboardLift(
-    () => footerMeasureRef.current,
-    { gap: 0, enabled: Platform.OS === "ios" },
-  );
-  const androidKeyboardInset = useKeyboardInset({
+  const keyboardInset = useKeyboardInset({
     gap: 0,
     tabBarHeight: 0,
-    ignoreWindowResize: true,
-    enabled: Platform.OS === "android",
+    ignoreWindowResize: Platform.OS === "android",
+    enabled: true,
   });
 
-  const contentAnimatedStyle = useAnimatedStyle(() => {
-    if (Platform.OS === "ios") {
-      return { transform: [{ translateY: -iosKeyboardLift.value }] };
-    }
-    return {
-      paddingBottom: Math.max(0, androidKeyboardInset.value - MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX),
-    };
-  });
-
-  const listKeyboardSpacerStyle = useAnimatedStyle(() => ({
-    height: Platform.OS === "android" ? androidKeyboardInset.value : 0,
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    paddingBottom:
+      Platform.OS === "android"
+        ? Math.max(0, keyboardInset.value - MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX)
+        : keyboardInset.value,
   }));
 
-  const scrollFabPositionStyle = useAnimatedStyle(() => {
-    const lift = Platform.OS === "android" ? androidKeyboardInset.value : 0;
-    return { bottom: 12 + lift };
-  });
+  const listKeyboardSpacerStyle = useAnimatedStyle(() => ({
+    height: keyboardInset.value,
+  }));
 
-  useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    recalculateIosKeyboardLift();
-  }, [attachments.length, isStickerPanelOpen, peerIsTyping, recalculateIosKeyboardLift]);
+  const scrollFabPositionStyle = useAnimatedStyle(() => ({
+    bottom: 12 + keyboardInset.value,
+  }));
 
   const mergeDrafts = useCallback((prev: MessageAttachmentDraft[], next: MessageAttachmentDraft[]) => {
     const seen = new Set(prev.map((p) => p.uri));
@@ -477,7 +465,7 @@ export default function MessageThreadPage() {
         onBack={leaveThread}
       />
 
-      <Animated.View style={[styles.content, contentAnimatedStyle]}>
+      <Animated.View style={[styles.content, styles.contentBelowHeader, contentAnimatedStyle]}>
         {awaitingInitialMessages ? (
           <MessageThreadSkeleton styles={styles} />
         ) : (
@@ -530,8 +518,7 @@ export default function MessageThreadPage() {
           </View>
         )}
 
-        <View ref={footerMeasureRef} collapsable={false}>
-          <View style={styles.footer}>
+        <View style={styles.footer}>
           {peerIsTyping ? (
             <View style={styles.typingRow} accessibilityLiveRegion="polite">
               <Text style={styles.typingText}>{t("messages.thread.peerTyping")}</Text>
@@ -610,6 +597,7 @@ export default function MessageThreadPage() {
               disabled={(!draft.trim().length && !attachments.length) || sendMessage.isPending}
               onPress={() => {
                 stopTyping();
+                Keyboard.dismiss();
                 if (!isAtBottomRef.current) {
                   scrollAfterSendRef.current = true;
                 }
@@ -639,7 +627,6 @@ export default function MessageThreadPage() {
                 <Ionicons name="paper-plane-outline" size={17} color={colors.onPrimary} />
               )}
             </Pressable>
-          </View>
           </View>
         </View>
       </Animated.View>

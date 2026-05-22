@@ -38,7 +38,7 @@ export function useAutoStartN8nWaBookingForPaidItems(
         })
         .finally(() => {
           n8nStartingRef.current.delete(item.id);
-          void queryClient.invalidateQueries({ queryKey: queryKeys.cart.items(userId) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
         });
     }
   }, [accessToken, enabled, paidServiceDrafts, queryClient, userId]);

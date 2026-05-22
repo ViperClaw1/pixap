@@ -5,8 +5,11 @@ import { useBookingFlowPlacePanelStyles } from "./bookingFlowPlacePanelStyles";
 import Carousel from "react-native-reanimated-carousel";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { getLatestBusinessCardImage, normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import { getPrimaryBusinessCardImage, normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
+import {
+  businessCardDisplayFallback,
+  getBusinessCardDisplayUrls,
+} from "@/shared/lib/business-card/businessCardDisplayUrl";
 
 type Props = {
   place: {
@@ -49,16 +52,16 @@ export function BookingFlowPlacePanel({
     [place.images],
   );
   const heroImages = useMemo(
-    () => heroImagesRaw.map((url) => getOptimizedImageUrl(url, 900, 560) || url),
+    () => getBusinessCardDisplayUrls(heroImagesRaw, { size: "hero" }),
     [heroImagesRaw],
   );
-  const heroFallback = useMemo(() => getLatestBusinessCardImage(place.images), [place.images]);
+  const heroFallback = useMemo(() => getPrimaryBusinessCardImage(place.images), [place.images]);
 
   const renderHeroCarouselItem = useCallback(
     ({ item, index }: { item: string; index: number }) => (
       <SmartImage
         uri={item}
-        fallbackUri={heroImagesRaw[index] ?? null}
+        fallbackUri={businessCardDisplayFallback(item, heroImagesRaw[index])}
         bundledFallback={PLACE_IMAGE_FALLBACK}
         recyclingKey={`${place.id}-booking-panel-${index}`}
         style={styles.hero}

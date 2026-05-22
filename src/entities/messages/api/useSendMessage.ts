@@ -5,6 +5,7 @@ import { queryKeys } from "@/shared/api/queryKeys";
 import { uploadMessageAttachmentIfLocal } from "@/entities/messages/lib/uploadMessageAttachmentToStories";
 import {
   appendThreadMessage,
+  getThreadMessagesCache,
   removeThreadMessage,
   replaceOptimisticThreadMessage,
 } from "@/entities/messages/lib/messageCachePatch";
@@ -123,16 +124,17 @@ export function useSendMessage() {
     },
     onSuccess: (inserted, vars, context) => {
       if (!user?.id) return;
+      const cache = getThreadMessagesCache(queryClient, vars.threadId, user.id);
+      const persisted = rowToMessageBubble(
+        inserted,
+        user.id,
+        cache?.threadMeta ?? null,
+        cache?.viewerIsSupportStaff ?? false,
+      );
       if (context?.optimisticId) {
-        replaceOptimisticThreadMessage(
-          queryClient,
-          vars.threadId,
-          user.id,
-          context.optimisticId,
-          rowToMessageBubble(inserted, user.id),
-        );
+        replaceOptimisticThreadMessage(queryClient, vars.threadId, user.id, context.optimisticId, persisted);
       } else {
-        appendThreadMessage(queryClient, vars.threadId, user.id, rowToMessageBubble(inserted, user.id));
+        appendThreadMessage(queryClient, vars.threadId, user.id, persisted);
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.messages.inboxPrefix });
     },

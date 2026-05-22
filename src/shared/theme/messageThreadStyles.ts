@@ -2,13 +2,18 @@ import { useMemo } from "react";
 import { StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
-import { COMPOSER_HEIGHT, FOOTER_VERTICAL_PADDING } from "@/shared/lib/messageThreadLayout";
+import {
+  COMPOSER_HEIGHT,
+  FOOTER_VERTICAL_PADDING,
+  messageThreadHeaderHeight,
+} from "@/shared/lib/messageThreadLayout";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 
 export const messageThreadStaticStyles = StyleSheet.create({
   root: { flex: 1 },
   content: { flex: 1 },
+  contentBelowHeader: {},
   header: {
     position: "absolute",
     top: 0,
@@ -347,8 +352,11 @@ export function messageThreadThemeStyles(
     typingText: { color: colors.textMuted },
     peerAvatar: { backgroundColor: colors.surface },
     listContent: {
-      paddingTop: Math.max(insetsTop, 10) + 62,
+      paddingTop: 12,
       paddingBottom: Math.max(stableBottomInset, 12) + 12,
+    },
+    contentBelowHeader: {
+      marginTop: messageThreadHeaderHeight(insetsTop),
     },
     emptyText: { color: colors.textMuted },
     dividerText: {

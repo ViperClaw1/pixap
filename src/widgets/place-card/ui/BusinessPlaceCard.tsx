@@ -7,13 +7,16 @@ import { useNavigation, type NavigationProp, type ParamListBase } from "@react-n
 import type { BusinessCard } from "@/entities/business-card";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
-import { getOptimizedImageUrl } from "@/shared/lib/imageUtils";
+import {
+  businessCardDisplayFallback,
+  getBusinessCardDisplayUrl,
+} from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { businessPlaceCardStaticStyles, businessPlaceCardThemeStyles } from "./businessPlaceCardStyles";
-import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
+import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 
 type Props = {
@@ -82,29 +85,31 @@ function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
     () => pickTagsThatFitSingleRow(displayTags, IMAGE_VERTICAL_W - 4),
     [displayTags],
   );
-  const imageUrisRaw = useMemo(() => normalizeBusinessCardImages(place.images), [place.images]);
   const targetDensity = Math.min(2, PixelRatio.get());
-  const lastImageRaw = imageUrisRaw.length > 0 ? imageUrisRaw[imageUrisRaw.length - 1] : null;
-  const lastImageOptimized = useMemo(
-    () =>
-      lastImageRaw
-        ? getOptimizedImageUrl(
-            lastImageRaw,
-            Math.round((variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_W) * targetDensity),
-            Math.round((variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_H) * targetDensity),
-            68,
-          ) || lastImageRaw
-        : null,
-    [lastImageRaw, targetDensity, variant],
+  /** `business_cards.images[0]` — primary list thumbnail (seed insert order). */
+  const heroImageRaw = useMemo(
+    () => getPrimaryBusinessCardImage(place.images),
+    [place.images],
   );
+  const heroImageOptimized = useMemo(() => {
+    if (!heroImageRaw) return null;
+    const layoutW = variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_W;
+    const layoutH = variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_H;
+    return getBusinessCardDisplayUrl(heroImageRaw, {
+      layoutPx: layoutW * targetDensity,
+      layoutPxHeight: layoutH * targetDensity,
+      quality: 68,
+    });
+  }, [heroImageRaw, targetDensity, variant]);
+  const heroImageFallback = businessCardDisplayFallback(heroImageOptimized, heroImageRaw);
 
   if (variant === "horizontal") {
     return (
       <Pressable onPress={handleOpen} style={styles.hRoot}>
         <View style={styles.hImageWrap}>
           <SmartImage
-            uri={lastImageOptimized}
-            fallbackUri={lastImageRaw}
+            uri={heroImageOptimized}
+            fallbackUri={heroImageFallback}
             bundledFallback={PLACE_IMAGE_FALLBACK}
             recyclingKey={`${place.id}-h`}
             style={styles.hImage}
@@ -149,8 +154,8 @@ function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
     <Pressable onPress={handleOpen} style={styles.vRoot}>
       <View style={styles.vImageBlock}>
         <SmartImage
-          uri={lastImageOptimized}
-          fallbackUri={lastImageRaw}
+          uri={heroImageOptimized}
+          fallbackUri={heroImageFallback}
           bundledFallback={PLACE_IMAGE_FALLBACK}
           recyclingKey={`${place.id}-v`}
           style={styles.vImage}

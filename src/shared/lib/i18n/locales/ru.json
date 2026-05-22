@@ -211,6 +211,8 @@
     "toastCouldNotOpenSupport": "Не удалось открыть чат поддержки",
     "support": "Поддержка",
     "supportSubtitle": "Чат с нашей командой",
+    "mySupportTickets": "Мои обращения в поддержку",
+    "noSupportTickets": "Пока нет обращений в поддержку.",
     "followed": "Подписан",
     "thread": {
       "peerTyping": "печатает...",
@@ -385,6 +387,7 @@
       "privacy": "Конфиденциальность и безопасность",
       "settings": "Настройки"
     },
+    "adminDashboard": "Панель администратора",
     "partnerUpload": "Партнёр: загрузить фото объявления",
     "logOut": "Выйти",
     "create": {
@@ -499,6 +502,67 @@
     "share": "Поделиться",
     "dislike": "Не нравится",
     "book": "Забронировать"
+  },
+  "adminDashboard": {
+    "title": "Панель администратора",
+    "loading": "Загрузка аналитики…",
+    "empty": "Нет данных за этот период.",
+    "mockDisclaimer": "Демо-данные — подключите RPC admin_analytics_summary для живых метрик.",
+    "periodRange": "{{from}} — {{to}}",
+    "period": { "7d": "7 дней", "30d": "30 дней", "90d": "90 дней" },
+    "denied": {
+      "title": "Недоступно",
+      "body": "Дашборд только для staff-аккаунтов.",
+      "back": "Назад"
+    },
+    "error": {
+      "title": "Не удалось загрузить аналитику",
+      "body": "Проверьте соединение и повторите.",
+      "retry": "Повторить"
+    },
+    "sections": {
+      "registrations": "Регистрации",
+      "registrationsSub": "Новые пользователи за период",
+      "dau": "DAU (активные в день)",
+      "dauSub": "По last_seen_at",
+      "whatsapp": "WhatsApp-бронирования",
+      "whatsappSub": "Исходы WA-флоу из корзины",
+      "subscriptions": "Подписки",
+      "subscriptionsSub": "Покупки IAP и оценка MRR"
+    },
+    "registrations": { "total": "Всего за период", "growthHint": "к прошлому периоду" },
+    "dau": { "today": "DAU сегодня", "avg7d": "Среднее 7 дн.", "avgHint": "скользящее среднее" },
+    "whatsapp": {
+      "started": "Запущено кампаний",
+      "success": "Успешные брони",
+      "successRate": "Успешность",
+      "conversion": "конверсия {{pct}}%",
+      "outcome": {
+        "success": "Успех",
+        "missing_whatsapp": "Нет WhatsApp",
+        "venue_rejection": "Отказ площадки",
+        "other": "Другое"
+      },
+      "outcomeShort": {
+        "success": "OK",
+        "missing_whatsapp": "Нет WA",
+        "venue_rejection": "Отказ",
+        "other": "Другое"
+      }
+    },
+    "subscriptions": {
+      "total": "Покупок за период",
+      "mrr": "Оценка MRR",
+      "mrrHint": "демо-оценка"
+    },
+    "charts": {
+      "registrationsOverTime": "Регистрации по дням",
+      "dauOverTime": "Тренд DAU",
+      "whatsappOutcomes": "Распределение исходов",
+      "whatsappBreakdown": "По категориям",
+      "purchasesOverTime": "Покупки по дням",
+      "mrrTrend": "Тренд MRR (оценка)"
+    }
   },
   "errorBoundary": {
     "retry": "Повторить",

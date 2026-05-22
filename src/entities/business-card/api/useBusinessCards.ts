@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
+import { BUSINESS_CARD_LIST_SELECT, localizeBusinessCard } from "../lib/localizeBusinessCard";
 
 export const ALL_CITIES_OPTION = "All cities";
 const BUSINESS_CARDS_STARTUP_LIMIT = 120;
@@ -26,22 +28,25 @@ export interface BusinessCard {
 }
 
 export const useBusinessCards = (type?: "featured" | "recommended", city?: string | null) => {
+  const { i18n } = useTranslation();
+  const language = i18n.language;
+
   return useQuery({
-    queryKey: queryKeys.businessCards.list(type, city ?? null),
+    queryKey: queryKeys.businessCards.list(type, city ?? null, language),
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       let query = supabase
         .from("business_cards")
-        .select(
-          "id, name, images, category_id, city, address, rating, tags, description, booking_price, phone, contact_whatsapp, type, created_at, category:categories(id, name)",
-        )
+        .select(BUSINESS_CARD_LIST_SELECT as never)
         .order("created_at", { ascending: false })
         .limit(BUSINESS_CARDS_STARTUP_LIMIT);
       if (type) query = query.eq("type", type);
       if (city && city !== ALL_CITIES_OPTION) query = query.eq("city", city);
       const { data, error } = await query;
       if (error) throw error;
-      return data as BusinessCard[];
+      return ((data ?? []) as unknown as Parameters<typeof localizeBusinessCard>[0][]).map((row) =>
+        localizeBusinessCard(row, language),
+      ) as BusinessCard[];
     },
   });
 };
@@ -67,8 +72,11 @@ export const useAvailableCities = () => {
 };
 
 export const useBusinessCard = (id: string) => {
+  const { i18n } = useTranslation();
+  const language = i18n.language;
+
   return useQuery({
-    queryKey: queryKeys.businessCards.byId(id),
+    queryKey: queryKeys.businessCards.byId(id, language),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("business_cards")
@@ -76,15 +84,21 @@ export const useBusinessCard = (id: string) => {
         .eq("id", id)
         .single();
       if (error) throw error;
-      return data as BusinessCard;
+      return localizeBusinessCard(
+        data as Parameters<typeof localizeBusinessCard>[0],
+        language,
+      ) as BusinessCard;
     },
     enabled: !!id,
   });
 };
 
 export const useBusinessCardsByCategory = (categoryId: string, city?: string | null) => {
+  const { i18n } = useTranslation();
+  const language = i18n.language;
+
   return useQuery({
-    queryKey: queryKeys.businessCards.byCategory(categoryId, city ?? null),
+    queryKey: queryKeys.businessCards.byCategory(categoryId, city ?? null, language),
     queryFn: async () => {
       let query = supabase
         .from("business_cards")
@@ -93,7 +107,9 @@ export const useBusinessCardsByCategory = (categoryId: string, city?: string | n
       if (city && city !== ALL_CITIES_OPTION) query = query.eq("city", city);
       const { data, error } = await query;
       if (error) throw error;
-      return data as BusinessCard[];
+      return ((data ?? []) as unknown as Parameters<typeof localizeBusinessCard>[0][]).map((row) =>
+        localizeBusinessCard(row, language),
+      ) as BusinessCard[];
     },
     enabled: !!categoryId,
   });

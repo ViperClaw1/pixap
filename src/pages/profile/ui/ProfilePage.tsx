@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
@@ -20,8 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { useProfile } from "@/entities/user";
-import { useUserRole } from "@/entities/user";
+import { useProfile, useUserRole, isProfileAdmin } from "@/entities/user";
 import { useProfileSocialMetrics, useSuggestedProfiles, useToggleFollow } from "@/entities/user";
 import { useBusinessCards } from "@/entities/business-card";
 import { useUnreadCount } from "@/entities/notification";
@@ -87,8 +86,8 @@ function ProfileScreenContent() {
   const { status: subscriptionStatus, isTrial, expiresAt, storeEnvironment, isActive } = useEntitlement();
   const { balance, credits } = useBookingCredits();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [storiesArchiveMounted, setStoriesArchiveMounted] = useState(false);
   const [storiesArchiveVisible, setStoriesArchiveVisible] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createStep, setCreateStep] = useState<"menu" | "post" | "story">("menu");
   const [postInput, setPostInput] = useState("");
@@ -163,6 +162,20 @@ function ProfileScreenContent() {
   );
   const createPlaceId = selectedPostPlaceId;
   const currentUserAvatar = profile?.avatar_url?.trim() || null;
+
+  const handleSignOut = useCallback(async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } catch (error) {
+      setIsSigningOut(false);
+      Alert.alert(
+        t("profile.alerts.signOutFailedTitle", { defaultValue: "Sign out failed" }),
+        formatErrorForAlert(error, t("profile.alerts.signOutFailedBody", { defaultValue: "Please try again." })),
+      );
+    }
+  }, [isSigningOut, signOut, t]);
 
   const closeCreateModal = () => {
     setCreateModalOpen(false);
@@ -330,10 +343,7 @@ function ProfileScreenContent() {
         key: "stories-archive",
         label: t("profile.actions.archive"),
         icon: "archive-outline",
-        onPress: () => {
-          setStoriesArchiveMounted(true);
-          setStoriesArchiveVisible(true);
-        },
+        onPress: () => setStoriesArchiveVisible(true),
       },
       { key: "privacy", label: t("profile.actions.privacy"), icon: "shield-outline", onPress: openPrivacy },
       { key: "settings", label: t("profile.actions.settings"), icon: "settings-outline", onPress: () => navigation.navigate("EditProfile") },
@@ -559,14 +569,33 @@ function ProfileScreenContent() {
           </Pressable>
         ))}
       </View>
+      {isProfileAdmin(profile?.account_role) ? (
+        <Pressable style={[linkRowStyle, { marginTop: 10 }]} onPress={() => navigation.navigate("AdminDashboard")}>
+          <Ionicons name="stats-chart-outline" size={20} color={colors.textMuted} style={styles.linkIcon} />
+          <Text style={styles.linkText}>{t("profile.adminDashboard")}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
+        </Pressable>
+      ) : null}
       {(role === "admin" || role === "partner") && (
         <Pressable style={[linkRowStyle, { marginTop: 10 }]} onPress={() => navigation.navigate("AdminImageUpload")}>
           <Text style={styles.linkText}>{t("profile.partnerUpload")}</Text>
         </Pressable>
       )}
-      <Pressable style={styles.signOut} onPress={() => void signOut()}>
-        <Text style={styles.signOutText}>{t("profile.logOut")}</Text>
+      <Pressable
+        style={[styles.signOut, isSigningOut ? { opacity: 0.6 } : null]}
+        onPress={() => void handleSignOut()}
+        disabled={isSigningOut}
+        accessibilityRole="button"
+        accessibilityLabel={t("profile.logOut")}
+        accessibilityState={{ disabled: isSigningOut, busy: isSigningOut }}
+      >
+        {isSigningOut ? (
+          <ActivityIndicator size="small" color={colors.onPrimary} />
+        ) : (
+          <Text style={styles.signOutText}>{t("profile.logOut")}</Text>
+        )}
       </Pressable>
+    </ScrollView>
 
       <BottomSheetPickerModal
         visible={createModalOpen}
@@ -806,25 +835,12 @@ function ProfileScreenContent() {
       </BottomSheetPickerModal>
 
       <NotificationsSheetModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
-    </ScrollView>
 
-    {storiesArchiveMounted ? (
-      <View
-        style={[
-          StyleSheet.absoluteFillObject,
-          {
-            zIndex: 100,
-            opacity: storiesArchiveVisible ? 1 : 0,
-            pointerEvents: storiesArchiveVisible ? "auto" : "none",
-          },
-        ]}
-      >
-        <StoriesArchiveView
-          overlayActive={storiesArchiveVisible}
-          onRequestClose={() => setStoriesArchiveVisible(false)}
-        />
-      </View>
-    ) : null}
+      {storiesArchiveVisible ? (
+        <View style={[StyleSheet.absoluteFillObject, { zIndex: 100 }]}>
+          <StoriesArchiveView overlayActive onRequestClose={() => setStoriesArchiveVisible(false)} />
+        </View>
+      ) : null}
     </View>
   );
 }
