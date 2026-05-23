@@ -10,7 +10,9 @@ const BUSINESS_CARDS_STARTUP_LIMIT = 120;
 export interface BusinessCard {
   id: string;
   name: string;
+  /** Normalized from `images[]` with legacy `image` fallback. */
   images: string[];
+  image?: string | null;
   category_id: string | null;
   city: string | null;
   address: string;

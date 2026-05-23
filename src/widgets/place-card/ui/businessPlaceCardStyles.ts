@@ -22,6 +22,7 @@ export const businessPlaceCardStaticStyles = StyleSheet.create({
     flexShrink: 0,
   },
   hImage: { width: "100%", height: "100%" },
+  imageEmpty: { width: "100%", height: "100%" },
   hHeartBtn: {
     position: "absolute",
     top: 4,
@@ -98,6 +99,7 @@ export function businessPlaceCardThemeStyles(colors: ThemeColors) {
       backgroundColor: colors.card,
       borderColor: colors.border,
     },
+    imageEmpty: { backgroundColor: colors.border },
     hHeartBtn: { backgroundColor: colors.mediaOverlay },
     hTitle: { color: colors.text },
     hAddress: { color: colors.textMuted },

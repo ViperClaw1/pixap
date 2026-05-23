@@ -98,7 +98,7 @@ export default function HomeScreen() {
     return matchesSearchTokens(ALL_CITIES_OPTION, citySearchQuery);
   }, [availableCities, citySearchQuery]);
   const { data: featured = [], isLoading: lf } = useBusinessCards("featured", selectedCity);
-  const { data: recommended = [], isLoading: lr } = useBusinessCards(undefined, selectedCity);
+  const { data: recommended = [], isLoading: lr } = useBusinessCards("recommended", selectedCity);
   const { data: categories = [], isLoading: lc } = useCategories();
   const { data: dailyRecommendations = [] } = useDailyRecommendations();
   const trackRecommendationEvent = useTrackRecommendationEvent();
@@ -145,6 +145,13 @@ export default function HomeScreen() {
     () => recommended.slice(0, visibleRecommendedCount),
     [recommended, visibleRecommendedCount],
   );
+  const recommendedListExtraData = useMemo(
+    () =>
+      visibleRecommended
+        .map((p) => `${p.id}:${p.images[0] ?? p.image ?? ""}`)
+        .join("|"),
+    [visibleRecommended],
+  );
   const canShowMoreRecommended = visibleRecommendedCount < recommended.length;
 
   const renderCategoryRow = useCallback<ListRenderItem<Category>>(
@@ -176,7 +183,7 @@ export default function HomeScreen() {
   const renderRecommendedRow = useCallback<ListRenderItem<BusinessCard>>(
     ({ item }) => (
       <View style={styles.recommendedGap}>
-        <BusinessPlaceCard place={item} variant="horizontal" />
+        <BusinessPlaceCard key={item.id} place={item} variant="horizontal" />
       </View>
     ),
     [styles.recommendedGap],
@@ -371,7 +378,7 @@ export default function HomeScreen() {
       <FlashList
         style={styles.root}
         data={lr ? [] : visibleRecommended}
-        extraData={i18n.language}
+        extraData={`${i18n.language}|${recommendedListExtraData}`}
         keyExtractor={(p) => p.id}
         estimatedItemSize={RECOMMENDED_ITEM_ESTIMATED_SIZE}
         renderItem={renderRecommendedRow}
@@ -379,7 +386,7 @@ export default function HomeScreen() {
         ListFooterComponent={listFooter}
         contentContainerStyle={listContentStyle}
         showsVerticalScrollIndicator={false}
-        removeClippedSubviews
+        removeClippedSubviews={false}
         initialNumToRender={8}
         maxToRenderPerBatch={10}
         windowSize={8}

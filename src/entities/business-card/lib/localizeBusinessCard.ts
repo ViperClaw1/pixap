@@ -1,4 +1,5 @@
 import { APP_LANGUAGES, type AppLanguage } from "@/shared/lib/i18n/init";
+import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 
 const NON_EN_LOCALES = ["ru", "es", "pt", "fr", "de"] as const;
 type NonEnLocale = (typeof NON_EN_LOCALES)[number];
@@ -23,6 +24,9 @@ export type BusinessCardI18nRow = {
   tags_pt?: string[] | null;
   tags_fr?: string[] | null;
   tags_de?: string[] | null;
+  images?: unknown;
+  /** Legacy single-image column; merged into `images` when the array is empty. */
+  image?: string | null;
 };
 
 export const BUSINESS_CARD_I18N_COLUMN_LIST =
@@ -33,6 +37,7 @@ export const BUSINESS_CARD_LIST_SELECT = [
   "id",
   BUSINESS_CARD_I18N_COLUMN_LIST,
   "images",
+  "image",
   "category_id",
   "city",
   "address",
@@ -73,6 +78,17 @@ function nonEmptyTags(value: unknown): string[] | null {
   return tags.length > 0 ? tags : null;
 }
 
+/** Ensures list/detail queries always expose `images[0]` for thumbnails. */
+export function normalizeBusinessCardRowImages(row: {
+  images?: unknown;
+  image?: string | null;
+}): string[] {
+  const fromArray = normalizeBusinessCardImages(row.images);
+  if (fromArray.length > 0) return fromArray;
+  const legacy = normalizeBusinessCardImages(row.image);
+  return legacy;
+}
+
 export function localizeBusinessCardFields(
   row: BusinessCardI18nRow,
   language: string,
@@ -96,5 +112,9 @@ export function localizeBusinessCardFields(
 }
 
 export function localizeBusinessCard<T extends BusinessCardI18nRow>(row: T, language: string): T {
-  return { ...row, ...localizeBusinessCardFields(row, language) };
+  return {
+    ...row,
+    ...localizeBusinessCardFields(row, language),
+    images: normalizeBusinessCardRowImages(row),
+  };
 }

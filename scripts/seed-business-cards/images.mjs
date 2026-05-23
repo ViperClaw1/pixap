@@ -1,5 +1,10 @@
 import { fetchPlacePhotoBytes } from "./googleMaps.mjs";
 import {
+  createSeedImageRegistry,
+  checkImageUnique,
+  registerUploadedImage,
+} from "./seedImageRegistry.mjs";
+import {
   BUSINESS_CARDS_BUCKET,
   PHOTO_POOLS,
   PICSUM_IDS,
@@ -10,6 +15,7 @@ import {
   picsumSeedDownloadUrl,
   sleep,
   unsplashDownloadUrl,
+  toNodeBuffer,
 } from "./lib.mjs";
 
 const UPLOAD_DELAY_MS = 120;
@@ -32,6 +38,8 @@ export class GoogleVenueImagesError extends Error {
   }
 }
 
+export { createSeedImageRegistry } from "./seedImageRegistry.mjs";
+
 async function fetchImageBytes(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
@@ -41,7 +49,10 @@ async function fetchImageBytes(url) {
     const buf = await res.arrayBuffer();
     if (buf.byteLength < 8_000) throw new Error(`too small (${buf.byteLength} bytes)`);
     const contentType = res.headers.get("content-type") ?? "image/jpeg";
-    return { bytes: buf, contentType: contentType.split(";")[0].trim() || "image/jpeg" };
+    return {
+      bytes: toNodeBuffer(buf),
+      contentType: contentType.split(";")[0].trim() || "image/jpeg",
+    };
   } finally {
     clearTimeout(timer);
   }
@@ -68,6 +79,15 @@ function extensionForContentType(contentType) {
   return "jpg";
 }
 
+/** One folder per Google `place_id` — never reuse template slug paths across POIs. */
+function googlePlaceStorageFolder(venue) {
+  const placeId = venue._googlePlace?.placeId?.trim();
+  if (!placeId) {
+    throw new Error(`${venue.slug}: missing Google place_id — cannot upload venue photos`);
+  }
+  return `${SEED_STORAGE_PREFIX}/places/${placeId}`;
+}
+
 function buildStockCandidateUrls(venue, imageIndex) {
   const pool = PHOTO_POOLS[venue.photoPool] ?? PHOTO_POOLS.restaurant;
   const poolIdx = (venue.seedOffset + imageIndex) % pool.length;
@@ -89,11 +109,12 @@ function buildStockCandidateUrls(venue, imageIndex) {
   return candidates;
 }
 
-async function uploadOneImage(supabase, venue, imageIndex, payload) {
+async function uploadOneImage(supabase, storageFolder, imageIndex, payload) {
   const ext = extensionForContentType(payload.contentType);
-  const path = `${SEED_STORAGE_PREFIX}/${venue.slug}/${String(imageIndex + 1).padStart(2, "0")}.${ext}`;
+  const path = `${storageFolder}/${String(imageIndex + 1).padStart(2, "0")}.${ext}`;
+  const body = toNodeBuffer(payload.bytes);
 
-  const { error } = await supabase.storage.from(BUSINESS_CARDS_BUCKET).upload(path, payload.bytes, {
+  const { error } = await supabase.storage.from(BUSINESS_CARDS_BUCKET).upload(path, body, {
     contentType: payload.contentType,
     cacheControl: STORAGE_CACHE_CONTROL,
     upsert: true,
@@ -101,13 +122,13 @@ async function uploadOneImage(supabase, venue, imageIndex, payload) {
   if (error) throw new Error(`storage upload ${path}: ${error.message}`);
 
   const { data } = supabase.storage.from(BUSINESS_CARDS_BUCKET).getPublicUrl(path);
-  log("images", `Uploaded ${path} (${Math.round(payload.bytes.byteLength / 1024)} KB)`);
+  log("images", `Uploaded ${path} (${Math.round(body.byteLength / 1024)} KB)`);
   return data.publicUrl;
 }
 
 /**
  * Google Places photos only — no Unsplash/Picsum fallback.
- * @throws {GoogleVenueImagesError}
+ * Returns `[]` when fewer than `imageCount` unique photos could be collected.
  */
 async function uploadVenueImagesFromGoogleOnly(
   supabase,
@@ -115,27 +136,16 @@ async function uploadVenueImagesFromGoogleOnly(
   imageCount,
   googleApiKey,
   googlePhotoMaxBytes,
+  registry,
 ) {
   const refs = [...new Set(venue._googlePlace?.photoReferences ?? [])];
 
   if (!refs.length) {
-    throw new GoogleVenueImagesError(
-      venue.slug,
-      "Google POI has no photo references",
-      venue._googlePlace?.name ? `place "${venue._googlePlace.name}"` : undefined,
-    );
+    log("images", `${venue.slug}: Google POI has no photo references — images[] will be empty`);
+    return [];
   }
 
-  if (refs.length < imageCount) {
-    throw new GoogleVenueImagesError(
-      venue.slug,
-      `Not enough Google photo references for this venue`,
-      `need ${imageCount}, place "${venue._googlePlace?.name ?? "?"}" has ${refs.length}`,
-    );
-  }
-
-  const capLabel =
-    googlePhotoMaxBytes != null ? `${Math.round(googlePhotoMaxBytes / 1024)} KB` : "no cap";
+  const storageFolder = googlePlaceStorageFolder(venue);
   const urls = [];
   const failures = [];
 
@@ -144,11 +154,32 @@ async function uploadVenueImagesFromGoogleOnly(
     const label = `${venue.slug} #${urls.length + 1}`;
     const refHint = `ref …${ref.slice(-10)}`;
 
+    if (registry.usedPhotoRefs.has(ref)) {
+      log("images", `${label}: skip ${refHint} — already used for another venue`);
+      continue;
+    }
+
     try {
       const payload = await fetchPlacePhotoBytes(ref, googleApiKey, { maxBytes: googlePhotoMaxBytes });
-      const publicUrl = await uploadOneImage(supabase, venue, urls.length, payload);
+      payload.bytes = toNodeBuffer(payload.bytes);
+      const preUploadDup = checkImageUnique(registry, ref, payload.bytes);
+      if (preUploadDup) {
+        failures.push(`${refHint}: ${preUploadDup}`);
+        log("images", `${label}: skip ${refHint} — ${preUploadDup}`);
+        continue;
+      }
+      const publicUrl = await uploadOneImage(supabase, storageFolder, urls.length, payload);
+      if (registry.usedPublicUrls.has(publicUrl)) {
+        failures.push(`${refHint}: storage URL already in catalogue`);
+        log("images", `${label}: skip ${refHint} — public URL already used`);
+        continue;
+      }
+      registerUploadedImage(registry, ref, payload.bytes, publicUrl);
       urls.push(publicUrl);
-      log("images", `${label}: Google Places (${refHint}, ${Math.round(payload.bytes.byteLength / 1024)} KB)`);
+      log(
+        "images",
+        `${label}: Google Places (${refHint}, ${Math.round(payload.bytes.length / 1024)} KB)`,
+      );
       if (urls.length < imageCount) await sleep(UPLOAD_DELAY_MS);
     } catch (err) {
       failures.push(`${refHint}: ${err.message}`);
@@ -157,11 +188,11 @@ async function uploadVenueImagesFromGoogleOnly(
   }
 
   if (urls.length < imageCount) {
-    throw new GoogleVenueImagesError(
-      venue.slug,
-      `Could not collect ${imageCount} Google photos within --google-photo-max-kb=${capLabel}`,
-      failures.length ? failures.join("; ") : "no photo reference succeeded",
+    log(
+      "images",
+      `${venue.slug}: only ${urls.length}/${imageCount} unique Google photo(s) — images[] will be empty (${failures.slice(0, 3).join("; ")})`,
     );
+    return [];
   }
 
   return urls;
@@ -169,12 +200,13 @@ async function uploadVenueImagesFromGoogleOnly(
 
 async function uploadVenueImagesFromStock(supabase, venue, imageCount) {
   const urls = [];
+  const storageFolder = `${SEED_STORAGE_PREFIX}/${venue.slug}`;
 
   for (let i = 0; i < imageCount; i += 1) {
     const label = `${venue.slug} #${i + 1}`;
     const candidates = buildStockCandidateUrls(venue, i);
     const payload = await downloadFromCandidates(label, candidates);
-    urls.push(await uploadOneImage(supabase, venue, i, payload));
+    urls.push(await uploadOneImage(supabase, storageFolder, i, payload));
     if (i < imageCount - 1) await sleep(UPLOAD_DELAY_MS);
   }
 
@@ -184,13 +216,13 @@ async function uploadVenueImagesFromStock(supabase, venue, imageCount) {
 /**
  * Download images and upload to `business-cards` bucket.
  * When `requireGooglePhotos` is true, only Google Places API is used (no stock fallback).
- * @returns {Promise<string[]>} public URLs in display order
+ * @returns {Promise<string[]>} public URLs in display order (empty when Google pipeline fails)
  */
 export async function uploadVenueImages(
   supabase,
   venue,
   imageCount,
-  { googleApiKey = null, googlePhotoMaxBytes = null, requireGooglePhotos = false } = {},
+  { googleApiKey = null, googlePhotoMaxBytes = null, requireGooglePhotos = false, registry = null } = {},
 ) {
   if (imageCount < MIN_IMAGE_COUNT) {
     throw new GoogleVenueImagesError(
@@ -200,20 +232,16 @@ export async function uploadVenueImages(
     );
   }
 
+  const imageRegistry = registry ?? createSeedImageRegistry();
+
   if (requireGooglePhotos) {
     if (!googleApiKey) {
-      throw new GoogleVenueImagesError(
-        venue.slug,
-        "Google API key required for photos",
-        "set EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY or use --no-google with stock images",
-      );
+      log("images", `${venue.slug}: no Google API key — images[] will be empty`);
+      return [];
     }
-    if (!venue._googlePlace) {
-      throw new GoogleVenueImagesError(
-        venue.slug,
-        "No Google Places POI matched",
-        "Places search returned no suitable venue with photos near seed coordinates",
-      );
+    if (!venue._googlePlace?.placeId) {
+      log("images", `${venue.slug}: no matched Google POI — images[] will be empty`);
+      return [];
     }
     return uploadVenueImagesFromGoogleOnly(
       supabase,
@@ -221,21 +249,24 @@ export async function uploadVenueImages(
       imageCount,
       googleApiKey,
       googlePhotoMaxBytes,
+      imageRegistry,
     );
   }
 
   if (googleApiKey && venue._googlePlace?.photoReferences?.length) {
     try {
-      return await uploadVenueImagesFromGoogleOnly(
+      const googleUrls = await uploadVenueImagesFromGoogleOnly(
         supabase,
         venue,
         imageCount,
         googleApiKey,
         googlePhotoMaxBytes,
+        imageRegistry,
       );
+      if (googleUrls.length >= imageCount) return googleUrls;
+      log("images", `${venue.slug}: Google partial/failed — falling back to stock (non-strict mode)`);
     } catch (err) {
-      if (err instanceof GoogleVenueImagesError) throw err;
-      throw new GoogleVenueImagesError(venue.slug, "Google Places photo pipeline failed", err.message);
+      log("images", `${venue.slug}: Google pipeline error — stock fallback (${err.message})`);
     }
   }
 

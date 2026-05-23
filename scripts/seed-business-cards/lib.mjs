@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { Buffer } from "node:buffer";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +12,7 @@ export const SEED_STORAGE_PREFIX = "seed/pixap-demo";
 /** Default venue count when `--count` is omitted. */
 export const SEED_COUNT = 10;
 export const SEED_COUNT_MIN = 1;
-export const SEED_COUNT_MAX = 50;
+export const SEED_COUNT_MAX = 100;
 export const RNG_SEED = 20260522;
 
 /** Matches `public.categories` on project pix (ylcyktbppowabnxuwdrr). */
@@ -29,8 +30,18 @@ export const LOCALES = ["ru", "es", "pt", "fr", "de"];
 
 export const STORAGE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
+/** Node `crypto` and Supabase Storage expect Buffer, not `fetch()`'s ArrayBuffer. */
+export function toNodeBuffer(bytes) {
+  if (Buffer.isBuffer(bytes)) return bytes;
+  if (bytes instanceof ArrayBuffer) return Buffer.from(bytes);
+  if (ArrayBuffer.isView(bytes)) {
+    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  }
+  throw new Error(`Expected binary image data, got ${typeof bytes}`);
+}
+
 /** Default cap for a single Google Places photo download in the seed script. */
-export const DEFAULT_GOOGLE_PHOTO_MAX_KB = 200;
+export const DEFAULT_GOOGLE_PHOTO_MAX_KB = 150;
 
 /** Mulberry32 — deterministic PRNG */
 export function createRng(seed) {
@@ -209,60 +220,88 @@ export function parseTagsArg(raw) {
   return [...new Set(tags)];
 }
 
+const CLI_BOOLEAN_FLAGS = new Set(["--dry-run", "--skip-images", "--no-google"]);
+
+function requireCliValue(flag, args, index) {
+  if (!args[index + 1] || args[index + 1].startsWith("--")) {
+    throw new Error(`${flag} requires a value (e.g. ${flag} Istanbul)`);
+  }
+  return args[index + 1];
+}
+
 export function parseCliArgs(argv) {
   const args = argv.slice(2);
   let city = null;
+  let cityParsedAsShorthand = false;
   let type = null;
   let googlePhotoMaxKb = DEFAULT_GOOGLE_PHOTO_MAX_KB;
   let count = SEED_COUNT;
   let tags = null;
+  const handled = new Set();
 
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
-    if (a === "--city" && args[i + 1]) {
-      city = args[i + 1];
-      i += 1;
+    if (CLI_BOOLEAN_FLAGS.has(a)) {
+      handled.add(i);
       continue;
     }
-    if (a.startsWith("--city=")) {
-      city = a.slice("--city=".length);
+    if (a === "--city" || a.startsWith("--city=")) {
+      city = a.startsWith("--city=") ? a.slice("--city=".length) : requireCliValue("--city", args, i);
+      handled.add(i);
+      if (!a.startsWith("--city=")) handled.add(i + 1);
+      if (!a.startsWith("--city=")) i += 1;
       continue;
     }
-    if (a === "--type" && args[i + 1]) {
-      type = args[i + 1];
-      i += 1;
+    if (a === "--type" || a.startsWith("--type=")) {
+      type = a.startsWith("--type=") ? a.slice("--type=".length) : requireCliValue("--type", args, i);
+      handled.add(i);
+      if (!a.startsWith("--type=")) handled.add(i + 1);
+      if (!a.startsWith("--type=")) i += 1;
       continue;
     }
-    if (a.startsWith("--type=")) {
-      type = a.slice("--type=".length);
+    if (a === "--google-photo-max-kb" || a.startsWith("--google-photo-max-kb=")) {
+      const raw = a.startsWith("--google-photo-max-kb=")
+        ? a.slice("--google-photo-max-kb=".length)
+        : requireCliValue("--google-photo-max-kb", args, i);
+      googlePhotoMaxKb = parseGooglePhotoMaxKbArg(raw);
+      handled.add(i);
+      if (!a.startsWith("--google-photo-max-kb=")) handled.add(i + 1);
+      if (!a.startsWith("--google-photo-max-kb=")) i += 1;
       continue;
     }
-    if (a === "--google-photo-max-kb" && args[i + 1]) {
-      googlePhotoMaxKb = parseGooglePhotoMaxKbArg(args[i + 1]);
-      i += 1;
+    if (a === "--count" || a.startsWith("--count=")) {
+      const raw = a.startsWith("--count=") ? a.slice("--count=".length) : requireCliValue("--count", args, i);
+      count = parseCountArg(raw);
+      handled.add(i);
+      if (!a.startsWith("--count=")) handled.add(i + 1);
+      if (!a.startsWith("--count=")) i += 1;
       continue;
     }
-    if (a.startsWith("--google-photo-max-kb=")) {
-      googlePhotoMaxKb = parseGooglePhotoMaxKbArg(a.slice("--google-photo-max-kb=".length));
-      continue;
+    if (a === "--tags" || a.startsWith("--tags=")) {
+      const raw = a.startsWith("--tags=") ? a.slice("--tags=".length) : requireCliValue("--tags", args, i);
+      tags = parseTagsArg(raw);
+      handled.add(i);
+      if (!a.startsWith("--tags=")) handled.add(i + 1);
+      if (!a.startsWith("--tags=")) i += 1;
     }
-    if (a === "--count" && args[i + 1]) {
-      count = parseCountArg(args[i + 1]);
-      i += 1;
-      continue;
+  }
+
+  for (let i = 0; i < args.length; i += 1) {
+    if (handled.has(i)) continue;
+    const a = args[i];
+    if (!a.startsWith("--")) {
+      throw new Error(
+        `Unexpected argument "${a}". To seed one city use: --city "${a}"`,
+      );
     }
-    if (a.startsWith("--count=")) {
-      count = parseCountArg(a.slice("--count=".length));
-      continue;
+    const shorthand = a.slice(2).trim();
+    if (!shorthand) throw new Error(`Invalid flag "${a}"`);
+    if (city) {
+      throw new Error(`Unknown flag "${a}" (city is already "${city}")`);
     }
-    if (a === "--tags" && args[i + 1]) {
-      tags = parseTagsArg(args[i + 1]);
-      i += 1;
-      continue;
-    }
-    if (a.startsWith("--tags=")) {
-      tags = parseTagsArg(a.slice("--tags=".length));
-    }
+    city = shorthand;
+    cityParsedAsShorthand = true;
+    handled.add(i);
   }
 
   return {
@@ -270,6 +309,7 @@ export function parseCliArgs(argv) {
     skipImages: args.includes("--skip-images"),
     noGoogle: args.includes("--no-google"),
     city: city?.trim() || null,
+    cityParsedAsShorthand,
     type: type?.trim() || null,
     count,
     /** When set, overrides `tags` / `tags_*` on every inserted row (lowercased slugs). */

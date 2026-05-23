@@ -15,7 +15,6 @@ const REQUIRED_SCALAR = [
   "booking_price",
   "type",
   "tags",
-  "images",
 ];
 
 export function validateRow(row) {
@@ -26,8 +25,10 @@ export function validateRow(row) {
     if (v === null || v === undefined || v === "") errors.push(`${key} is empty`);
   }
 
-  if (!Array.isArray(row.images) || row.images.length < 3 || row.images.length > 6) {
-    errors.push(`images must have 3–6 entries (got ${row.images?.length ?? 0})`);
+  if (!Array.isArray(row.images)) {
+    errors.push("images must be an array");
+  } else if (row.images.length > 0 && (row.images.length < 3 || row.images.length > 6)) {
+    errors.push(`images must have 0 or 3–6 entries (got ${row.images.length})`);
   }
 
   if (!Array.isArray(row.tags) || row.tags.length < 3) {
@@ -108,8 +109,17 @@ export function validatePersistedRows(fetched, prepared, expectedCount = SEED_CO
     if (!row.description?.trim()) errors.push("description empty in DB");
     if (!row.name_ru?.trim()) errors.push("name_ru empty in DB");
     if (!row.name_es?.trim()) errors.push("name_es empty in DB");
-    if (!Array.isArray(row.images) || row.images.length < 3) {
-      errors.push(`images incomplete in DB (${row.images?.length ?? 0})`);
+    if (!Array.isArray(row.images)) {
+      errors.push("images missing in DB");
+    } else if (
+      expected.images.length > 0 &&
+      (row.images.length < 3 || row.images.length !== expected.images.length)
+    ) {
+      errors.push(
+        `images mismatch in DB (expected ${expected.images.length}, got ${row.images?.length ?? 0})`,
+      );
+    } else if (expected.images.length === 0 && row.images.length > 0) {
+      errors.push(`expected empty images in DB, got ${row.images.length}`);
     }
 
     if (errors.length) allErrors.push({ name, id: row.id, errors });

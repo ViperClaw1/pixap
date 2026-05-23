@@ -79,10 +79,13 @@ node scripts/seed-business-cards/seed.mjs --city Paris
 # Same with explicit form
 node scripts/seed-business-cards/seed.mjs --city="New York"
 
+# Shorthand (typo-friendly): `--Istanbul` is parsed as `--city Istanbul`
+node scripts/seed-business-cards/seed.mjs --count 20 --type Bars --Istanbul --tags "bars,drink,lounge"
+
 # No --city: each venue gets a random city from the built-in pool (unique when possible)
 node scripts/seed-business-cards/seed.mjs
 
-# Insert only 5 venues (default 10, max 50)
+# Insert only 5 venues (default 10, max 100)
 node scripts/seed-business-cards/seed.mjs --count 5
 node scripts/seed-business-cards/seed.mjs --count=3 --type Restaurants --city Almaty
 
@@ -111,7 +114,18 @@ node scripts/seed-business-cards/seed.mjs --google-photo-max-kb=0
 | `--count 5` | Seed **5** venues; templates cycle if fewer definitions exist for `--type`. |
 | `--count=1` | Single venue. |
 
-Allowed range: **1–50**.
+Allowed range: **1–100**.
+
+### Repeat runs (dedupe)
+
+Before seeding, the script loads existing `business_cards` for the target **city** (and `--type` when set). It skips Google POIs whose **normalized address** (or name+address) is already in the catalogue, shifts search coordinates by `existing count in city + slot index`, and never inserts duplicates within the same run.
+
+### Google photos (strict)
+
+- Storage path: `seed/pixap-demo/places/{google_place_id}/01.jpg` (per POI, not template slug).
+- Tracks `photo_reference`, image bytes fingerprint, and public URLs across the run + existing catalogue — no duplicate photos across venues.
+- If fewer than 3 unique Google photos are collected → **`images: []`** (no Unsplash/Picsum, no partial reuse).
+- `_googlePlace` is cleared between POI attempts so metadata from a previous venue never leaks.
 
 ### `--tags`
 
@@ -134,7 +148,9 @@ If omitted, tags come from each template in `venues.mjs`.
 
 | Flag | Behavior |
 |------|----------|
-| `--city Paris` | All venues use **Paris** (preset → `Paris, France`, or Geocoding API for unknown names). |
+| `--city Paris` | All **count** venues use **Paris** (preset → `Paris, France`, or Geocoding API for unknown names). |
+| `--Istanbul` | Shorthand for `--city Istanbul` (common typos like `--Istambul` are aliased). |
+| *(no `--city`)* | Each venue may get a **different** random city; with `--count` > pool size, cities **repeat**. |
 | *(omitted)* | **Random** city per venue from: Paris, London, Barcelona, Berlin, Dubai, Istanbul, Lisbon, Miami, Moscow, Tokyo, Amsterdam, Rome, New York. |
 
 Unknown cities require `EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY` (or `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`) for geocoding.
