@@ -15,12 +15,21 @@ import { resolveSeedCategoryType, selectVenueDefinitions } from "./categoryTypes
 import {
   applyCityCenterToVenue,
   applyGooglePlaceToVenue,
+  normalizeCityInput,
   pickRandomCityNames,
   resolveCity,
   resolveCityList,
+  SEED_CITY_POOL,
 } from "./cities.mjs";
+import {
+  existingCountForCity,
+  isDuplicateListing,
+  loadExistingVenueIndex,
+  registerPreparedListing,
+} from "./dedupe.mjs";
 import { findPlaceForVenue } from "./googleMaps.mjs";
-import { GoogleVenueImagesError, uploadVenueImages } from "./images.mjs";
+import { createSeedImageRegistry, uploadVenueImages } from "./images.mjs";
+import { loadExistingImageUrls } from "./seedImageRegistry.mjs";
 import {
   LOCALES,
   RNG_SEED,
@@ -88,8 +97,8 @@ function buildInsertRow(venue, rng, images, usedNames) {
       venue.contact_whatsapp,
     rating,
     booking_price,
-    images,
-    image: images[0] ?? "",
+    images: images ?? [],
+    image: images?.[0] ?? null,
   };
 }
 
@@ -99,41 +108,75 @@ function skipVenue(name, reason, details = "") {
   return { skipped: true, name, reason, details };
 }
 
-async function prepareVenue(venue, index, venueCount, { cityResolved, googleApiKey, rng, supabase, usedPlaceIds, usedNames }) {
-  let prepared = applyCityCenterToVenue(venue, cityResolved, rng, index);
-
+async function prepareVenue(
+  venue,
+  index,
+  venueCount,
+  { cityResolved, googleApiKey, rng, supabase, usedPlaceIds, usedNames, existingIndex, imageRegistry },
+) {
   const useGoogle = Boolean(googleApiKey) && !cli.skipImages && !cli.noGoogle;
   const requireGooglePhotos = useGoogle;
+  const priorInCity = existingCountForCity(cityResolved.label, existingIndex);
+  const maxPoiAttempts = useGoogle ? 5 : 1;
 
-  if (useGoogle) {
+  let prepared = null;
+  let place = null;
+
+  for (let attempt = 0; attempt < maxPoiAttempts; attempt += 1) {
+    const geoSlot = index + priorInCity + attempt;
+    prepared = applyCityCenterToVenue(venue, cityResolved, geoSlot);
+    place = null;
+
+    if (!useGoogle) break;
+
     try {
-      const place = await findPlaceForVenue(prepared, cityResolved.label, googleApiKey, {
+      place = await findPlaceForVenue(prepared, cityResolved.label, googleApiKey, {
         excludePlaceIds: usedPlaceIds,
+        excludeAddresses: existingIndex.addresses,
       });
-      if (place) {
-        usedPlaceIds.add(place.placeId);
-        prepared = applyGooglePlaceToVenue(prepared, place);
-        const phoneNote = place.phone ? `, tel ${place.phone}` : "";
-        const priceNote =
-          typeof place.price_level === "number" ? `, price_level=${place.price_level}` : "";
-        log(
-          "google",
-          `Seed "${venue.name.en}" → POI "${place.name}" (${place.distanceM}m, ${place.formatted_address}${phoneNote}${priceNote}, ${place.photoReferences.length} photos)`,
-        );
-      } else if (prepared.photoPool === "restaurant") {
-        return skipVenue(
-          prepared.name.en,
-          "No upscale restaurant with Google photos near seed point",
-          "fast food / bars / $ chains filtered; try another city or loosen --google-photo-max-kb",
-        );
-      } else {
-        return skipVenue(
-          prepared.name.en,
-          "No Google Places POI with photos near seed coordinates",
-        );
-      }
     } catch (err) {
       return skipVenue(prepared.name.en, "Google Places lookup failed", err.message);
+    }
+
+    if (!place) break;
+
+    const dupReason = isDuplicateListing(place.name, place.formatted_address, existingIndex);
+    if (dupReason) {
+      usedPlaceIds.add(place.placeId);
+      log("dedupe", `"${place.name}" skipped — ${dupReason}`);
+      place = null;
+      continue;
+    }
+
+    break;
+  }
+
+  if (!prepared) {
+    return skipVenue(venue.name.en, "Could not assign seed coordinates");
+  }
+
+  if (useGoogle) {
+    if (place) {
+      usedPlaceIds.add(place.placeId);
+      prepared = applyGooglePlaceToVenue(prepared, place);
+      const phoneNote = place.phone ? `, tel ${place.phone}` : "";
+      const priceNote =
+        typeof place.price_level === "number" ? `, price_level=${place.price_level}` : "";
+      log(
+        "google",
+        `Seed "${venue.name.en}" → POI "${place.name}" (${place.distanceM}m, ${place.formatted_address}${phoneNote}${priceNote}, ${place.photoReferences.length} photos)`,
+      );
+    } else if (prepared.photoPool === "restaurant") {
+      return skipVenue(
+        prepared.name.en,
+        "No new upscale restaurant with Google photos near seed point",
+        "catalogue may be exhausted for this area, or relax --google-photo-max-kb",
+      );
+    } else {
+      return skipVenue(
+        prepared.name.en,
+        "No new Google Places POI with photos near seed coordinates",
+      );
     }
   }
 
@@ -155,35 +198,65 @@ async function prepareVenue(venue, index, venueCount, { cityResolved, googleApiK
     images = Array.from({ length: imageCount }, (_, j) => `https://example.com/${prepared.slug}/${j + 1}.jpg`);
     log("images", `Dry run — would use ${source} (${imageCount} files)`);
   } else {
-    try {
-      images = await uploadVenueImages(supabase, prepared, imageCount, {
-        googleApiKey: useGoogle ? googleApiKey : null,
-        googlePhotoMaxBytes: useGoogle ? cli.googlePhotoMaxBytes : null,
-        requireGooglePhotos,
-      });
-    } catch (err) {
-      if (err instanceof GoogleVenueImagesError) {
-        return skipVenue(prepared.name.en, err.reason, err.details || err.message);
-      }
-      throw err;
+    images = await uploadVenueImages(supabase, prepared, imageCount, {
+      googleApiKey: useGoogle ? googleApiKey : null,
+      googlePhotoMaxBytes: useGoogle ? cli.googlePhotoMaxBytes : null,
+      requireGooglePhotos,
+      registry: imageRegistry,
+    });
+    if (requireGooglePhotos && (!images || images.length === 0)) {
+      log(
+        "images",
+        `${prepared.name.en}: no unique Google Places photos — inserting with empty images[]`,
+      );
+      images = [];
     }
   }
 
-  return { skipped: false, row: buildInsertRow(prepared, rng, images, usedNames) };
+  const row = buildInsertRow(prepared, rng, images, usedNames);
+  const dupReason = isDuplicateListing(row.name, row.address, existingIndex);
+  if (dupReason) {
+    return skipVenue(row.name, dupReason);
+  }
+
+  registerPreparedListing(row.name, row.address, cityResolved.label, existingIndex);
+  return { skipped: false, row };
 }
 
 async function main() {
   const googleApiKey = cli.noGoogle ? null : loadGoogleMapsApiKey();
   const rng = createRng(RNG_SEED);
-  const supabase = cli.dryRun ? null : createSupabaseAdmin();
   const venueCount = venueDefinitions.length;
+
+  let supabase = null;
+  let existingIndex = {
+    addresses: new Set(),
+    nameAddressKeys: new Set(),
+    countByCity: new Map(),
+  };
+
+  if (!cli.dryRun) {
+    supabase = createSupabaseAdmin();
+  }
 
   let cityAssignments;
   if (cli.city) {
+    if (cli.cityParsedAsShorthand) {
+      log(
+        "cli",
+        `Parsed "${cli.city}" as city (shorthand). Prefer: --city ${normalizeCityInput(cli.city)}`,
+      );
+    }
     const resolved = await resolveCity(cli.city, googleApiKey);
     cityAssignments = Array.from({ length: venueCount }, () => resolved);
-    log("city", `All venues → ${resolved.label}`);
+    log("city", `All ${venueCount} venues → ${resolved.label}`);
   } else {
+    if (venueCount > SEED_CITY_POOL.length) {
+      log(
+        "city",
+        `No --city: spreading ${venueCount} venues across random cities (pool has ${SEED_CITY_POOL.length}, expect repeats). Use --city "<name>" for one city.`,
+      );
+    }
     const names = pickRandomCityNames(rng, venueCount);
     cityAssignments = await resolveCityList(names, googleApiKey);
     log("city", `Random cities: ${names.join(" · ")}`);
@@ -194,6 +267,24 @@ async function main() {
       "type",
       `Category filter: ${categoryType.displayName} (Places search: ${categoryType.photoPool}, category_id=${categoryType.categoryId})`,
     );
+  }
+
+  const dedupeCities = [...new Set(cityAssignments.map((c) => c.label))];
+  if (!cli.dryRun && supabase) {
+    existingIndex = await loadExistingVenueIndex(supabase, {
+      cities: dedupeCities,
+      categoryId: categoryType?.categoryId ?? null,
+    });
+  } else if (cli.dryRun) {
+    try {
+      const admin = createSupabaseAdmin();
+      existingIndex = await loadExistingVenueIndex(admin, {
+        cities: dedupeCities,
+        categoryId: categoryType?.categoryId ?? null,
+      });
+    } catch (err) {
+      log("dedupe", `Dry-run: could not load existing rows (${err.message})`);
+    }
   }
 
   if (!googleApiKey && !cli.skipImages && !cli.noGoogle) {
@@ -222,6 +313,14 @@ async function main() {
   const skippedVenues = [];
   const usedPlaceIds = new Set();
   const usedNames = new Set();
+  const imageRegistry = createSeedImageRegistry();
+
+  if (!cli.dryRun && supabase) {
+    await loadExistingImageUrls(supabase, imageRegistry, {
+      cities: dedupeCities,
+      categoryId: categoryType?.categoryId ?? null,
+    });
+  }
 
   for (let i = 0; i < venueDefinitions.length; i += 1) {
     const outcome = await prepareVenue(venueDefinitions[i], i, venueCount, {
@@ -231,6 +330,8 @@ async function main() {
       supabase,
       usedPlaceIds,
       usedNames,
+      existingIndex,
+      imageRegistry,
     });
     if (outcome.skipped) {
       skippedVenues.push(outcome);
@@ -256,7 +357,9 @@ async function main() {
   }
 
   if (!prepared.length) {
-    throw new Error("No venues ready to insert — fix Google Places/photo issues or use --no-google");
+    throw new Error(
+      "No new venues ready to insert — catalogue may already cover these cities; try another city, --count, or --type",
+    );
   }
 
   validateBatch(prepared, { label: "pre-insert payload", expectedCount: prepared.length });

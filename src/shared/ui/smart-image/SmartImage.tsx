@@ -103,10 +103,11 @@ export function SmartImage({
   const sourcesExhausted = chain.length > 0 && attempt >= maxAttempts;
   const sourceIndex = Math.min(Math.max(chain.length - 1, 0), attempt);
   /** Без кастомного `cacheKey`: ключ кэша = `uri`, как у `Image.prefetch` — повторный mount попадает в disk/memory. */
-  const source =
+  const activeUri =
     !sourcesExhausted && sourceIndex >= 0 && sourceIndex < chain.length
-      ? { uri: chain[sourceIndex]!, priority }
-      : undefined;
+      ? chain[sourceIndex]!
+      : null;
+  const source = activeUri ? { uri: activeUri, priority, cacheKey: activeUri } : undefined;
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {

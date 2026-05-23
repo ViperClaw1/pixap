@@ -39,42 +39,70 @@ function presetKey(cityInput) {
   return cityInput.trim().toLowerCase();
 }
 
+/** Common typos / shorthand for `--city`. */
+const CITY_ALIASES = {
+  istambul: "istanbul",
+  instanbul: "istanbul",
+  stambul: "istanbul",
+  nyc: "new york",
+  "new-york": "new york",
+  spb: "saint petersburg",
+  "saint-petersburg": "saint petersburg",
+  almaty: "almaty",
+  almaata: "almaty",
+  yerevan: "yerevan",
+};
+
+export function normalizeCityInput(cityInput) {
+  const trimmed = cityInput?.trim();
+  if (!trimmed) return trimmed;
+  const key = presetKey(trimmed);
+  return CITY_ALIASES[key] ?? trimmed;
+}
+
 /**
  * @returns {{ label: string, lat: number, lng: number }}
  */
 export async function resolveCity(cityInput, googleApiKey) {
-  const key = presetKey(cityInput);
+  const normalized = normalizeCityInput(cityInput);
+  const key = presetKey(normalized);
   const preset = CITY_PRESETS[key];
   if (preset) return { ...preset };
 
   if (!googleApiKey) {
     throw new Error(
-      `Unknown city "${cityInput}". Use one of: ${SEED_CITY_POOL.join(", ")} — or set EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY for geocoding.`,
+      `Unknown city "${normalized}". Use one of: ${SEED_CITY_POOL.join(", ")} — or set EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY for geocoding.`,
     );
   }
 
-  log("city", `Geocoding "${cityInput}" via Google…`);
-  return geocodeCity(cityInput, googleApiKey);
+  log("city", `Geocoding "${normalized}" via Google…`);
+  return geocodeCity(normalized, googleApiKey);
 }
 
-/** ~±1.1 km from city center — enough variety, keeps Nearby Search meaningful. */
-function jitterCoordinates(lat, lng, rng) {
+const GEO_SLOT_SPREAD = 0.04;
+const GEO_SLOT_PHI = 0.618033988749895;
+
+/** Deterministic offset from city center; `slotIndex` shifts on repeat runs (existing rows in city). */
+function jitterCoordinates(lat, lng, slotIndex) {
+  const a = (slotIndex * GEO_SLOT_PHI) % 1;
+  const b = (slotIndex * (1 - GEO_SLOT_PHI)) % 1;
   return {
-    lat: lat + (rng() - 0.5) * 0.02,
-    lng: lng + (rng() - 0.5) * 0.02,
+    lat: lat + (a - 0.5) * GEO_SLOT_SPREAD,
+    lng: lng + (b - 0.5) * GEO_SLOT_SPREAD,
   };
 }
 
 /** Apply city label + jittered coordinates when no Google place was matched. */
-export function applyCityCenterToVenue(venue, cityResolved, rng, index) {
-  const { lat, lng } = jitterCoordinates(cityResolved.lat, cityResolved.lng, rng);
+export function applyCityCenterToVenue(venue, cityResolved, slotIndex) {
+  const { lat, lng } = jitterCoordinates(cityResolved.lat, cityResolved.lng, slotIndex);
   const cityShort = cityResolved.label.split(",")[0]?.trim() ?? cityResolved.label;
+  const { _googlePlace: _drop, ...template } = venue;
   return {
-    ...venue,
+    ...template,
     city: cityResolved.label,
     latitude: lat,
     longitude: lng,
-    address: `${10 + index * 7} ${venue.name.en} St, ${cityShort}`,
+    address: `${10 + slotIndex * 7} ${venue.name.en} St, ${cityShort}`,
   };
 }
 

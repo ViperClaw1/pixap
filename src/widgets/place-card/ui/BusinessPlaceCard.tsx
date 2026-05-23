@@ -7,17 +7,15 @@ import { useNavigation, type NavigationProp, type ParamListBase } from "@react-n
 import type { BusinessCard } from "@/entities/business-card";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
-import {
-  businessCardDisplayFallback,
-  getBusinessCardDisplayUrl,
-} from "@/shared/lib/business-card/businessCardDisplayUrl";
+import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { businessCardPlaceholderSource } from "@/shared/assets/placeImageFallback";
 import { businessPlaceCardStaticStyles, businessPlaceCardThemeStyles } from "./businessPlaceCardStyles";
-import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
-import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
+
+const PLACE_CARD_IMAGE_TRANSITION_MS = 200;
 
 type Props = {
   place: BusinessCard;
@@ -49,6 +47,59 @@ function pickTagsThatFitSingleRow(tags: string[], availableWidth: number): strin
     occupied = next;
   }
   return picked;
+}
+
+function placeCardPropsEqual(prev: Props, next: Props): boolean {
+  if (prev.variant !== next.variant || prev.onOpen !== next.onOpen) return false;
+  if (prev.place.id !== next.place.id) return false;
+  const prevThumb = prev.place.images?.[0] ?? prev.place.image ?? "";
+  const nextThumb = next.place.images?.[0] ?? next.place.image ?? "";
+  return prevThumb === nextThumb && prev.place.name === next.place.name;
+}
+
+type PlaceHeroImageProps = {
+  place: BusinessCard;
+  variant: "vertical" | "horizontal";
+  imageStyle: object;
+};
+
+function PlaceHeroImage({ place, variant, imageStyle }: PlaceHeroImageProps) {
+  const targetDensity = Math.min(2, PixelRatio.get());
+  const primaryImageRaw = place.images?.[0] ?? place.image ?? null;
+  const thumb = useMemo(() => {
+    const layoutW = variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_W;
+    const layoutH = variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_H;
+    return getBusinessCardThumbUris(place, {
+      preferRaw: true,
+      layoutPx: layoutW * targetDensity,
+      layoutPxHeight: layoutH * targetDensity,
+    });
+  }, [place, primaryImageRaw, targetDensity, variant]);
+
+  if (!thumb.raw) {
+    return (
+      <SmartImage
+        uri={businessCardPlaceholderSource.uri}
+        recyclingKey={`${place.id}-placeholder`}
+        style={imageStyle}
+        contentFit="cover"
+        transition={PLACE_CARD_IMAGE_TRANSITION_MS}
+      />
+    );
+  }
+
+  return (
+    <SmartImage
+      key={`${place.id}-${thumb.raw}`}
+      uri={thumb.uri}
+      fallbackUri={thumb.fallbackUri}
+      bundledFallback={businessCardPlaceholderSource}
+      recyclingKey={thumb.raw}
+      style={imageStyle}
+      contentFit="cover"
+      transition={PLACE_CARD_IMAGE_TRANSITION_MS}
+    />
+  );
 }
 
 function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
@@ -85,37 +136,12 @@ function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
     () => pickTagsThatFitSingleRow(displayTags, IMAGE_VERTICAL_W - 4),
     [displayTags],
   );
-  const targetDensity = Math.min(2, PixelRatio.get());
-  /** `business_cards.images[0]` — primary list thumbnail (seed insert order). */
-  const heroImageRaw = useMemo(
-    () => getPrimaryBusinessCardImage(place.images),
-    [place.images],
-  );
-  const heroImageOptimized = useMemo(() => {
-    if (!heroImageRaw) return null;
-    const layoutW = variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_W;
-    const layoutH = variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_H;
-    return getBusinessCardDisplayUrl(heroImageRaw, {
-      layoutPx: layoutW * targetDensity,
-      layoutPxHeight: layoutH * targetDensity,
-      quality: 68,
-    });
-  }, [heroImageRaw, targetDensity, variant]);
-  const heroImageFallback = businessCardDisplayFallback(heroImageOptimized, heroImageRaw);
 
   if (variant === "horizontal") {
     return (
       <Pressable onPress={handleOpen} style={styles.hRoot}>
         <View style={styles.hImageWrap}>
-          <SmartImage
-            uri={heroImageOptimized}
-            fallbackUri={heroImageFallback}
-            bundledFallback={PLACE_IMAGE_FALLBACK}
-            recyclingKey={`${place.id}-h`}
-            style={styles.hImage}
-            contentFit="cover"
-            transition={200}
-          />
+          <PlaceHeroImage place={place} variant="horizontal" imageStyle={styles.hImage} />
           <Pressable style={styles.hHeartBtn} onPress={onFavoritePress} hitSlop={8}>
             <AnimatedLikeHeart
               liked={isFavorite}
@@ -153,15 +179,7 @@ function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
   return (
     <Pressable onPress={handleOpen} style={styles.vRoot}>
       <View style={styles.vImageBlock}>
-        <SmartImage
-          uri={heroImageOptimized}
-          fallbackUri={heroImageFallback}
-          bundledFallback={PLACE_IMAGE_FALLBACK}
-          recyclingKey={`${place.id}-v`}
-          style={styles.vImage}
-          contentFit="cover"
-          transition={200}
-        />
+        <PlaceHeroImage place={place} variant="vertical" imageStyle={styles.vImage} />
         <Pressable style={styles.vHeartBtn} onPress={onFavoritePress} hitSlop={8}>
           <AnimatedLikeHeart
             liked={isFavorite}
@@ -195,5 +213,5 @@ function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
   );
 }
 
-const BusinessPlaceCard = memo(BusinessPlaceCardInner);
+const BusinessPlaceCard = memo(BusinessPlaceCardInner, placeCardPropsEqual);
 export default BusinessPlaceCard;

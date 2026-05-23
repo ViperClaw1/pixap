@@ -1,5 +1,6 @@
+import { normalizeListingAddress } from "./dedupe.mjs";
 import { assessUpscaleRestaurant } from "./googleRestaurantFilter.mjs";
-import { log, normalizeSeedPhone, sleep } from "./lib.mjs";
+import { log, normalizeSeedPhone, sleep, toNodeBuffer } from "./lib.mjs";
 
 const BASE = "https://maps.googleapis.com/maps/api";
 const API_DELAY_MS = 200;
@@ -233,7 +234,12 @@ async function resolvePlaceCandidate(candidate, venue, apiKey, distanceM) {
  * Finds the closest Google POI to `venue.latitude` / `venue.longitude` (not a random venue in the city).
  * @returns {Promise<{ placeId: string, name: string, formatted_address: string, lat: number, lng: number, photoReferences: string[], distanceM: number } | null>}
  */
-export async function findPlaceForVenue(venue, cityLabel, apiKey, { excludePlaceIds = null } = {}) {
+export async function findPlaceForVenue(
+  venue,
+  cityLabel,
+  apiKey,
+  { excludePlaceIds = null, excludeAddresses = null } = {},
+) {
   const lat = venue.latitude;
   const lng = venue.longitude;
   if (lat == null || lng == null || Number.isNaN(Number(lat))) {
@@ -256,20 +262,31 @@ export async function findPlaceForVenue(venue, cityLabel, apiKey, { excludePlace
   }
 
   const skippedIds = excludePlaceIds?.size ?? 0;
+  const skippedAddr = excludeAddresses?.size ?? 0;
   const baseLimit = venue.photoPool === "restaurant" ? 24 : 12;
-  const candidateLimit = Math.min(ranked.length, Math.max(baseLimit, baseLimit + skippedIds * 2));
+  const candidateLimit = Math.min(
+    ranked.length,
+    Math.max(baseLimit, baseLimit + skippedIds * 2 + skippedAddr * 2),
+  );
 
   for (const { place, distanceM } of ranked.slice(0, candidateLimit)) {
     if (excludePlaceIds?.has(place.place_id)) continue;
 
     const resolved = await resolvePlaceCandidate(place, venue, apiKey, distanceM);
-    if (resolved) {
-      log(
-        "google",
-        `Matched "${resolved.name}" @ ${resolved.formatted_address} (${resolved.distanceM}m from seed point)`,
-      );
-      return resolved;
+    if (!resolved) continue;
+
+    const addrKey = normalizeListingAddress(resolved.formatted_address);
+    if (excludeAddresses?.size && addrKey && excludeAddresses.has(addrKey)) {
+      log("google", `Skip "${resolved.name}" — address already in business_cards`);
+      excludePlaceIds?.add(resolved.placeId);
+      continue;
     }
+
+    log(
+      "google",
+      `Matched "${resolved.name}" @ ${resolved.formatted_address} (${resolved.distanceM}m from seed point)`,
+    );
+    return resolved;
   }
 
   if (venue.photoPool === "restaurant") {
@@ -304,7 +321,7 @@ async function fetchPlacePhotoAtWidth(photoReference, apiKey, maxwidth) {
     if (buf.byteLength < 8_000) throw new Error(`too small (${buf.byteLength} bytes)`);
     const contentType = res.headers.get("content-type") ?? "image/jpeg";
     return {
-      bytes: buf,
+      bytes: toNodeBuffer(buf),
       contentType: contentType.split(";")[0].trim() || "image/jpeg",
       maxwidth,
     };
@@ -315,7 +332,7 @@ async function fetchPlacePhotoAtWidth(photoReference, apiKey, maxwidth) {
 
 /**
  * @param {{ maxBytes?: number | null }} [options] — when set, downscale via lower `maxwidth` until size fits (or throw).
- * @returns {Promise<{ bytes: ArrayBuffer, contentType: string, maxwidth: number }>}
+ * @returns {Promise<{ bytes: Buffer, contentType: string, maxwidth: number }>}
  */
 export async function fetchPlacePhotoBytes(photoReference, apiKey, { maxBytes = null } = {}) {
   const widths = maxBytes ? PLACE_PHOTO_MAXWIDTH_STEPS : [1400];

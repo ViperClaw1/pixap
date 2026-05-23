@@ -2,7 +2,11 @@ import { feedMediaDeviceDpr } from "@/shared/lib/feedMediaUrls";
 import { getOptimizedImageUrlPreset, type ImagePresetId } from "@/shared/lib/imagePresets";
 import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
 import { resolveStoragePublicUrl } from "@/shared/lib/resolveStoragePublicUrl";
-import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
+import {
+  normalizeBusinessCardImages,
+  resolveBusinessCardHeroImagesRaw,
+  type BusinessCardImageSource,
+} from "@/shared/lib/business-card/businessCardImages";
 
 /** Named targets for business-cards bucket (list cards, hero, fullscreen). */
 export type BusinessCardDisplaySize = "list" | "card" | "hero" | "gallery";
@@ -78,6 +82,24 @@ export function businessCardDisplayFallback(
   pathOrUrl?: string | null,
 ): string | undefined {
   const raw = resolveBusinessCardStorageUrl(pathOrUrl);
-  if (!raw || !displayUri || raw === displayUri) return undefined;
+  if (!raw) return undefined;
   return raw;
+}
+
+/** Primary + raw fallback URIs for list thumbnails (`images[0]` or legacy `image`). */
+export function getBusinessCardThumbUris(
+  source: BusinessCardImageSource | null | undefined,
+  options?: Parameters<typeof getBusinessCardDisplayUrl>[1] & { preferRaw?: boolean },
+): { uri: string | null; fallbackUri: string | null; raw: string | null } {
+  const { preferRaw, ...displayOptions } = options ?? {};
+  const { heroImagesRaw } = resolveBusinessCardHeroImagesRaw(source);
+  const raw = heroImagesRaw[0] ?? null;
+  if (!raw) return { uri: null, fallbackUri: null, raw: null };
+  const rawPublic = resolveBusinessCardStorageUrl(raw) ?? raw;
+  if (preferRaw) {
+    return { uri: rawPublic, fallbackUri: null, raw: rawPublic };
+  }
+  const uri = getBusinessCardDisplayUrl(raw, displayOptions) ?? rawPublic;
+  const fallbackUri = businessCardDisplayFallback(uri, raw) ?? rawPublic;
+  return { uri, fallbackUri, raw: rawPublic };
 }

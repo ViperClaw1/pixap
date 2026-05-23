@@ -3,6 +3,7 @@ export * from "./api/useCreateBusinessCardFromGeocode";
 export {
   localizeBusinessCard,
   localizeBusinessCardFields,
+  normalizeBusinessCardRowImages,
   BUSINESS_CARD_I18N_COLUMN_LIST,
   BUSINESS_CARD_LIST_SELECT,
   FAVORITES_SELECT,
