@@ -17,12 +17,12 @@ import {
   findCustomerSupportTickets,
   findDirectThreadForPeer,
   findSupportThread,
+  prefetchDirectThread,
   prefetchThreadMessages,
   useMarkThreadRead,
   useMessagesInbox,
   useMessagesInboxTyping,
   useOpenOrCreateSupportThread,
-  useOpenOrCreateThread,
   usePeopleToFollow,
 } from "@/entities/messages";
 import type { FollowSuggestion } from "@/entities/messages/api/usePeopleToFollow";
@@ -69,7 +69,6 @@ export default function MessagesPage() {
   const { data: publicProfiles = [], isLoading: publicProfilesLoading } = usePublicProfiles("", startChatModalOpen);
   const { followingSet } = useMyFollowing();
   const markThreadRead = useMarkThreadRead();
-  const openOrCreateThread = useOpenOrCreateThread();
   const openOrCreateSupportThread = useOpenOrCreateSupportThread();
   const toggleFollow = useToggleFollow();
   const supportThread = useMemo(() => findSupportThread(threads, user?.id), [threads, user?.id]);
@@ -166,29 +165,25 @@ export default function MessagesPage() {
       });
   };
 
-  const onOpenChat = (person: FollowSuggestion) => {
-    const existingThreadId = findDirectThreadForPeer(threads, person.id);
-    if (existingThreadId) {
+  const onOpenChat = useCallback(
+    (person: FollowSuggestion) => {
+      const existingThreadId = findDirectThreadForPeer(threads, person.id);
       setStartChatModalOpen(false);
-      navigateToThread(existingThreadId, person);
-      return;
-    }
+      navigateToThread(existingThreadId ?? "", person);
+      if (!existingThreadId) {
+        void prefetchDirectThread(queryClient, person.id, user?.id);
+      }
+    },
+    [navigateToThread, queryClient, threads, user?.id],
+  );
 
-    void openOrCreateThread
-      .mutateAsync(person.id)
-      .then((result) => {
-        setStartChatModalOpen(false);
-        navigateToThread(result.threadId, person);
-      })
-      .catch((error) => {
-        devWarn("open chat failed", error);
-        Toast.show({
-          type: "error",
-          text1: t("messages.toastCouldNotOpenChat"),
-          text2: error instanceof Error ? error.message : t("messages.toastTryAgain"),
-        });
-      });
-  };
+  const onPrefetchChat = useCallback(
+    (person: FollowSuggestion) => {
+      if (findDirectThreadForPeer(threads, person.id)) return;
+      void prefetchDirectThread(queryClient, person.id, user?.id);
+    },
+    [queryClient, threads, user?.id],
+  );
 
   const visibleThreads = useMemo(
     () =>
@@ -438,6 +433,7 @@ export default function MessagesPage() {
           isFollowing={followingSet.has(item.person.id)}
           followedLabel={t("messages.followed")}
           onOpenChat={() => onOpenChat(item.person)}
+          onPrefetchChat={() => onPrefetchChat(item.person)}
           onToggleFollow={() => onToggleFollower(item.person)}
         />
       );
@@ -449,6 +445,7 @@ export default function MessagesPage() {
       isCompact,
       onDeleteThread,
       onOpenChat,
+      onPrefetchChat,
       onToggleFollower,
       openThread,
       sectionsPending,

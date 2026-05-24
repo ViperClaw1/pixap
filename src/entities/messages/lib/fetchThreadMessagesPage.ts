@@ -3,6 +3,8 @@ import type { MessageParticipantProfile } from "@/shared/model/types/messages";
 import type { MessageBubble } from "../api/useThreadMessages";
 import { resolveMessageMine, type SupportThreadMeta } from "./resolveMessageMine";
 
+import { parseAttachmentBlurhashesColumn } from "./parseAttachmentBlurhashesColumn";
+
 export const THREAD_MESSAGES_PAGE_SIZE = 50;
 
 type MessageRow = {
@@ -11,8 +13,13 @@ type MessageRow = {
   sender_id: string;
   content: string;
   attachments: string[] | null;
+  attachment_blurhashes?: unknown;
   created_at: string;
 };
+
+function isMissingAttachmentBlurhashesColumn(message: string): boolean {
+  return message.toLowerCase().includes("attachment_blurhashes");
+}
 
 type ParticipantRow = {
   thread_id: string;
@@ -63,6 +70,7 @@ function hydrateMessages(
       attachments: Array.isArray(msg.attachments)
         ? msg.attachments.filter((item): item is string => typeof item === "string")
         : [],
+      attachment_blurhashes: parseAttachmentBlurhashesColumn(msg.attachment_blurhashes),
       created_at: msg.created_at,
       mine: resolveMessageMine({
         viewerId: userId,
@@ -93,24 +101,31 @@ export async function fetchThreadMessagesPage({
   beforeCreatedAt?: string | null;
   limit?: number;
 }): Promise<FetchThreadMessagesPageResult> {
-  let messagesQuery = supabase
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .from("messages" as any)
-    .select("id, thread_id, sender_id, content, attachments, created_at")
-    .eq("thread_id", threadId)
-    .order("created_at", { ascending: false })
-    .limit(limit + 1);
+  const buildMessagesQuery = (select: string) => {
+    let q = supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("messages" as any)
+      .select(select)
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: false })
+      .limit(limit + 1);
+    if (beforeCreatedAt) {
+      q = q.lt("created_at", beforeCreatedAt);
+    }
+    return q;
+  };
 
-  if (beforeCreatedAt) {
-    messagesQuery = messagesQuery.lt("created_at", beforeCreatedAt);
+  let messagesResult = await buildMessagesQuery(
+    "id, thread_id, sender_id, content, attachments, attachment_blurhashes, created_at",
+  );
+  if (messagesResult.error && isMissingAttachmentBlurhashesColumn(messagesResult.error.message)) {
+    messagesResult = await buildMessagesQuery("id, thread_id, sender_id, content, attachments, created_at");
   }
 
   const [
-    { data: messagesData, error: messagesError },
     { data: participantsData, error: participantsError },
     { data: threadData, error: threadError },
   ] = await Promise.all([
-    messagesQuery,
     supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from("message_thread_participants" as any)
@@ -123,6 +138,9 @@ export async function fetchThreadMessagesPage({
       .eq("id", threadId)
       .maybeSingle(),
   ]);
+
+  const messagesError = messagesResult.error;
+  const messagesData = messagesResult.data;
 
   if (messagesError) throw messagesError;
   if (participantsError) throw participantsError;

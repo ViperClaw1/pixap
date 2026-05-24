@@ -472,7 +472,44 @@
     "manageApple": "Manage on App Store",
     "manageGoogle": "Manage on Google Play",
     "legal": "Subscription terms and billing are managed by your app store account.",
-    "expoGoHint": "In-app purchases are unavailable in Expo Go. Use a development or production build to subscribe."
+    "expoGoHint": "In-app purchases are unavailable in Expo Go. Use a development or production build to subscribe.",
+    "tour": {
+      "rewatch": "How PixAI works",
+      "back": "Back",
+      "next": "Next",
+      "done": "Done",
+      "close": "Close",
+      "slides": {
+        "smartBookingCity": {
+          "title": "Choose your city",
+          "description": "Start Smart Booking by selecting a city. PixAI will find places and available time slots for you."
+        },
+        "smartBookingScope": {
+          "title": "Set search scope",
+          "description": "Search nearby or across the whole city — PixAI adapts to how far you want to go."
+        },
+        "smartBookingAssistant": {
+          "title": "Chat with PixAI",
+          "description": "Describe what you're looking for. The assistant finds matching places and suggests the best options."
+        },
+        "smartBookingSlots": {
+          "title": "Pick date and time",
+          "description": "Browse the calendar and choose a convenient slot at your selected venue."
+        },
+        "smartBookingDetails": {
+          "title": "Confirm booking details",
+          "description": "Review your request, guests, and contact info before sending the booking."
+        },
+        "vibeMatchMood": {
+          "title": "Match your vibe",
+          "description": "Set mood and timeline — Vibe Match builds a multi-stop evening plan tailored to you."
+        },
+        "vibeMatchRoute": {
+          "title": "Book the whole route",
+          "description": "Get a ready-made route with live availability. Book every stop in one tap."
+        }
+      }
+    }
   },
   "postBoost": {
     "title": "Boost post in feed",

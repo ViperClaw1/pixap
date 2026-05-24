@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { InteractionManager, PixelRatio, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
+import { InteractionManager, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -9,7 +9,8 @@ import Carousel from "react-native-reanimated-carousel";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
-import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
+import { getBusinessCardDisplayUrl } from "@/shared/lib/business-card/businessCardDisplayUrl";
+import { isBusinessCardsStorageUrl } from "@/shared/lib/business-card/businessCardPregenStorage";
 
 const AUTO_SLIDE_MS = 5000;
 
@@ -58,13 +59,12 @@ export default function PlaceGalleryPage() {
   const [paused, setPaused] = useState(false);
   const progress = useSharedValue(0);
 
-  const decodeSize = useMemo(() => {
-    const dpr = PixelRatio.get();
-    return {
-      w: Math.max(960, quantizeDecodePx(Math.round(width * dpr))),
-      h: Math.max(1600, quantizeDecodePx(Math.round(height * dpr))),
-    };
-  }, [width, height]);
+  const galleryUri = useCallback((rawOrDisplay: string) => {
+    if (isBusinessCardsStorageUrl(rawOrDisplay)) {
+      return getBusinessCardDisplayUrl(rawOrDisplay, { size: "gallery" }) ?? rawOrDisplay;
+    }
+    return rawOrDisplay;
+  }, []);
 
   const restartProgress = useCallback(() => {
     cancelAnimation(progress);
@@ -90,15 +90,12 @@ export default function PlaceGalleryPage() {
   useEffect(() => {
     if (images.length === 0) return;
     const idxs = [activeIndex - 1, activeIndex, activeIndex + 1].filter((i) => i >= 0 && i < images.length);
-    const uris = idxs.map(
-      (i) =>
-        getOptimizedImageUrl(rawImages[i] ?? images[i], decodeSize.w, decodeSize.h, 78) || rawImages[i] || images[i],
-    );
+    const uris = idxs.map((i) => galleryUri(rawImages[i] ?? images[i]));
     const task = InteractionManager.runAfterInteractions(() => {
       void preloadSmartImages(uris);
     });
     return () => task.cancel();
-  }, [activeIndex, images, rawImages, decodeSize.w, decodeSize.h]);
+  }, [activeIndex, galleryUri, images, rawImages]);
 
   return (
     <View style={styles.root}>
@@ -122,7 +119,7 @@ export default function PlaceGalleryPage() {
               delayLongPress={220}
             >
               <SmartImage
-                uri={getOptimizedImageUrl(rawImages[index] ?? item, decodeSize.w, decodeSize.h, 78) || rawImages[index] || item}
+                uri={galleryUri(rawImages[index] ?? item)}
                 fallbackUri={rawImages[index] ?? item}
                 recyclingKey={`place-gallery-${index}`}
                 style={styles.absoluteFill}

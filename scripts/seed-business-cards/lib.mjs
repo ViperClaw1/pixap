@@ -30,6 +30,11 @@ export const LOCALES = ["ru", "es", "pt", "fr", "de"];
 
 export const STORAGE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
+/** Deep clone venue template so nested `name` / `description` are not shared across slots. */
+export function cloneVenueDefinition(venue) {
+  return structuredClone(venue);
+}
+
 /** Node `crypto` and Supabase Storage expect Buffer, not `fetch()`'s ArrayBuffer. */
 export function toNodeBuffer(bytes) {
   if (Buffer.isBuffer(bytes)) return bytes;
@@ -355,6 +360,47 @@ export function log(step, message) {
 
 export async function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Transient network / rate-limit errors worth retrying in seed scripts. */
+export function isRetryableNetworkError(err) {
+  const msg = String(err?.message ?? err ?? "").toLowerCase();
+  if (msg.includes("fetch failed")) return true;
+  if (msg.includes("econnreset") || msg.includes("etimedout") || msg.includes("socket hang up")) {
+    return true;
+  }
+  if (msg.includes("aborterror") || msg.includes("aborted") || msg.includes("timeout")) return true;
+  const code = err?.code ?? err?.cause?.code;
+  if (code === "ECONNRESET" || code === "ETIMEDOUT" || code === "UND_ERR_CONNECT_TIMEOUT") {
+    return true;
+  }
+  const status = err?.status ?? err?.cause?.status;
+  if (status === 429 || status === 502 || status === 503 || status === 504) return true;
+  return false;
+}
+
+/**
+ * @template T
+ * @param {string} label
+ * @param {() => Promise<T>} fn
+ * @param {{ attempts?: number, baseDelayMs?: number, maxDelayMs?: number }} [options]
+ * @returns {Promise<T>}
+ */
+export async function withRetry(label, fn, { attempts = 4, baseDelayMs = 700, maxDelayMs = 12_000 } = {}) {
+  let lastErr;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const retryable = isRetryableNetworkError(err);
+      if (!retryable || i >= attempts - 1) break;
+      const delay = Math.min(maxDelayMs, baseDelayMs * 2 ** i);
+      log("retry", `${label}: ${err.message} — pause ${delay}ms (attempt ${i + 2}/${attempts})`);
+      await sleep(delay);
+    }
+  }
+  throw lastErr;
 }
 
 /** Curated Unsplash slugs (no placeholder hashes). @see https://unsplash.com/license */

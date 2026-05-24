@@ -16,6 +16,7 @@ type Props = {
   placeholderStyle: StyleProp<ViewStyle>;
   iconColor: string;
   imageLayout?: MessageAttachmentImageLayout;
+  blurhash?: string | null;
 };
 
 export const MessageAttachmentBubble = memo(function MessageAttachmentBubble({
@@ -24,6 +25,7 @@ export const MessageAttachmentBubble = memo(function MessageAttachmentBubble({
   placeholderStyle,
   iconColor,
   imageLayout = "thumb",
+  blurhash,
 }: Props) {
   const sticker = isStickerAssetUri(uri);
   if (sticker) {
@@ -40,12 +42,20 @@ export const MessageAttachmentBubble = memo(function MessageAttachmentBubble({
         style={boxStyle}
         contentFit="cover"
         recyclingKey={displayUri}
+        blurhash={blurhash ?? undefined}
       />
     );
   }
 
   if (kind === "video") {
-    return <MessageVideoThumbnail videoUri={uri} style={boxStyle} iconColor={iconColor} />;
+    return (
+      <MessageVideoThumbnail
+        videoUri={uri}
+        style={boxStyle}
+        iconColor={iconColor}
+        blurhash={blurhash}
+      />
+    );
   }
 
   return (

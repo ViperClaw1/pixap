@@ -101,8 +101,8 @@ export const env = {
     ).trim();
   },
   /**
-   * Requires Pro + Storage Image Transformations in Supabase Dashboard.
-   * Set `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1` in EAS / .env when enabled.
+   * When `1`, Supabase `/render/image/` is used (counts toward transform quota).
+   * Default `0`: pre-generated WebP variants via `/object/public/` (recommended).
    */
   get supabaseImageTransformEnabled(): boolean {
     const v = process.env.EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM;

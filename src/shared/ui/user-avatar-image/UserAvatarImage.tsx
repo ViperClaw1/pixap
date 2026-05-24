@@ -17,6 +17,7 @@ export type UserAvatarImageProps = Omit<SmartImageProps, "skipBundledPlaceholder
   iconSize?: number;
   iconColor?: string;
   placeholderBackgroundColor?: string;
+  blurhash?: string | null;
 };
 
 export function UserAvatarImage({
@@ -26,6 +27,7 @@ export function UserAvatarImage({
   iconSize,
   iconColor,
   placeholderBackgroundColor,
+  blurhash,
   ...rest
 }: UserAvatarImageProps) {
   const { colors } = useAppTheme();
@@ -82,6 +84,7 @@ export function UserAvatarImage({
       fallbackUri={rawFallback}
       style={style}
       skipBundledPlaceholder
+      blurhash={blurhash ?? undefined}
       onSourcesExhausted={() => setSourcesExhausted(true)}
       {...rest}
     />

@@ -1,3 +1,4 @@
+import { resolveAvatarPregeneratedThumbUrl } from "@/shared/lib/avatar/avatarPregenStorage";
 import { resolveStoragePublicUrl } from "@/shared/lib/resolveStoragePublicUrl";
 import { feedMediaDeviceDpr } from "@/shared/lib/feedMediaUrls";
 import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
@@ -31,6 +32,9 @@ export function getAvatarDisplayUrl(
 ): string | null {
   const raw = resolveAvatarStorageUrl(pathOrUrl);
   if (!raw) return null;
+
+  const pregen = resolveAvatarPregeneratedThumbUrl(pathOrUrl);
+  if (pregen) return pregen;
 
   const layoutPx = options?.layoutPx ?? LAYOUT_PX[options?.size ?? "md"];
   const edge = quantizeDecodePx(Math.round(layoutPx * feedMediaDeviceDpr()));

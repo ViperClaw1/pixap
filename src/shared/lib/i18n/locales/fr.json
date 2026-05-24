@@ -361,7 +361,44 @@
     "manageApple": "Gérer sur l'App Store",
     "manageGoogle": "Gérer sur Google Play",
     "legal": "Les conditions et la facturation sont gérées par votre compte store.",
-    "expoGoHint": "Les achats ne sont pas disponibles dans Expo Go."
+    "expoGoHint": "Les achats ne sont pas disponibles dans Expo Go.",
+    "tour": {
+      "rewatch": "Comment fonctionne PixAI",
+      "back": "Retour",
+      "next": "Suivant",
+      "done": "Terminer",
+      "close": "Fermer",
+      "slides": {
+        "smartBookingCity": {
+          "title": "Choisir une ville",
+          "description": "Commencez Smart Booking en choisissant une ville. PixAI trouve des lieux et des créneaux."
+        },
+        "smartBookingScope": {
+          "title": "Portée de recherche",
+          "description": "Recherchez à proximité ou dans toute la ville — PixAI s'adapte à vos préférences."
+        },
+        "smartBookingAssistant": {
+          "title": "Discuter avec PixAI",
+          "description": "Décrivez ce que vous cherchez. L'assistant trouve des lieux et propose les meilleures options."
+        },
+        "smartBookingSlots": {
+          "title": "Date et heure",
+          "description": "Parcourez le calendrier et choisissez un créneau pratique."
+        },
+        "smartBookingDetails": {
+          "title": "Détails de réservation",
+          "description": "Vérifiez la demande, le nombre d'invités et vos coordonnées avant d'envoyer."
+        },
+        "vibeMatchMood": {
+          "title": "Trouver votre vibe",
+          "description": "Indiquez l'ambiance et le moment — Vibe Match compose un parcours multi-étapes."
+        },
+        "vibeMatchRoute": {
+          "title": "Réserver tout le parcours",
+          "description": "Un parcours prêt avec disponibilité en direct — réservez chaque étape en un tap."
+        }
+      }
+    }
   },
   "postBoost": {
     "title": "Booster le post dans le fil",

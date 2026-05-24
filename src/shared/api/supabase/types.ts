@@ -70,6 +70,7 @@ export type Database = {
       }
       business_cards: {
         Row: {
+          blurhashes: string[]
           address: string | null
           booking_price: number
           category_id: string | null
@@ -104,6 +105,7 @@ export type Database = {
           type: Database["public"]["Enums"]["business_card_type"]
         }
         Insert: {
+          blurhashes?: string[]
           address?: string | null
           booking_price?: number
           category_id?: string | null
@@ -878,6 +880,35 @@ export type Database = {
       }
     }
     Functions: {
+      get_business_cards_localized: {
+        Args: {
+          p_type?: string | null
+          p_city?: string | null
+          p_lang?: string
+          p_limit?: number
+        }
+        Returns: {
+          id: string
+          name: string
+          description: string | null
+          tags: string[] | null
+          images: string[] | null
+          image: string | null
+          category_id: string | null
+          city: string | null
+          address: string | null
+          rating: number
+          booking_price: number
+          phone: string
+          contact_whatsapp: string | null
+          type: Database["public"]["Enums"]["business_card_type"]
+          created_at: string
+          latitude: number | null
+          longitude: number | null
+          blurhashes: string[]
+          category: Json | null
+        }[]
+      },
       get_bookings_datetimes_for_availability: {
         Args: {
           p_business_id: string

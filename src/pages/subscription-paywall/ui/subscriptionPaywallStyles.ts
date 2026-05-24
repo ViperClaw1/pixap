@@ -34,6 +34,14 @@ export const subscriptionPaywallStaticStyles = StyleSheet.create({
   },
   secondaryText: { fontWeight: "700" },
   legal: { fontSize: 12, textAlign: "center", marginTop: 6 },
+  tourLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    marginTop: 2,
+  },
+  tourLinkText: { fontSize: 14, fontWeight: "600" },
 });
 
 export function subscriptionPaywallThemeStyles(

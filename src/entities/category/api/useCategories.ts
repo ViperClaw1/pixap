@@ -40,6 +40,6 @@ export const useCategories = () => {
       }));
       return dedupeCategoriesByName(withIcons);
     },
-    staleTime: 10 * 60 * 1000,
+    staleTime: 15 * 60 * 1000,
   });
 };

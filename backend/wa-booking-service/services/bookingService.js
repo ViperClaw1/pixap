@@ -10,22 +10,22 @@ const APP_CALLBACK_URL = process.env.APP_CALLBACK_URL || "https://example.com/ap
 const APP_NOTIFY_RETRIES = Number.parseInt(process.env.APP_NOTIFY_RETRIES || "3", 10);
 const APP_NOTIFY_TIMEOUT_MS = Number.parseInt(process.env.APP_NOTIFY_TIMEOUT_MS || "5000", 10);
 
-/** Base names in Meta; resolved per locale as `{base}_{ru|en}` (see resolveWaTemplate). */
-const TEMPLATE_CHECK_IS_AVAILABLE = "check_is_available";
-const TEMPLATE_FREE_OR_SET_PRICE = "chech_free_or_set_price";
-const TEMPLATE_GOT_IT = "got_it";
+/** Base names in Meta; resolved per locale as `{base}_{rus|eng}` (see resolveWaTemplate). */
+const TEMPLATE_CHECK_IS_AVAILABLE = "check_availability";
+const TEMPLATE_FREE_OR_SET_PRICE = "check_price";
+const TEMPLATE_GOT_IT = "confirm";
 
-/** Ordered WhatsApp template flow per venue phone locale (`_ru` / `_en`, see waTemplateLocaleFromOwnerPhone). */
+/** Ordered WhatsApp template flow per venue phone locale (`_rus` / `_eng`, see waTemplateLocaleFromOwnerPhone). */
 const TEMPLATE_FLOW_BY_LOCALE = {
   ru: [
-    `${TEMPLATE_CHECK_IS_AVAILABLE}_ru`,
-    `${TEMPLATE_FREE_OR_SET_PRICE}_ru`,
-    `${TEMPLATE_GOT_IT}_ru`,
+    `${TEMPLATE_CHECK_IS_AVAILABLE}_rus`,
+    `${TEMPLATE_FREE_OR_SET_PRICE}_rus`,
+    `${TEMPLATE_GOT_IT}_rus`,
   ],
   en: [
-    `${TEMPLATE_CHECK_IS_AVAILABLE}_en`,
-    `${TEMPLATE_FREE_OR_SET_PRICE}_en`,
-    `${TEMPLATE_GOT_IT}_en`,
+    `${TEMPLATE_CHECK_IS_AVAILABLE}_eng`,
+    `${TEMPLATE_FREE_OR_SET_PRICE}_eng`,
+    `${TEMPLATE_GOT_IT}_eng`,
   ],
 };
 
@@ -89,8 +89,8 @@ function normalizeInterfaceLocale(raw) {
 }
 
 function resolveWaTemplate(baseName, locale) {
-  const loc = locale === "ru" ? "ru" : "en";
-  return `${baseName}_${loc}`;
+  const suffix = locale === "ru" ? "rus" : "eng";
+  return `${baseName}_${suffix}`;
 }
 
 function formatWaBookingDate(isoDate, locale) {

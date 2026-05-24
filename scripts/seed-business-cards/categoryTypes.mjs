@@ -1,4 +1,4 @@
-import { CATEGORY_IDS } from "./lib.mjs";
+import { CATEGORY_IDS, cloneVenueDefinition } from "./lib.mjs";
 
 /**
  * App `public.categories.name` → seed profile + Google Places search.
@@ -79,23 +79,19 @@ export function selectVenueDefinitions(allDefinitions, categoryType, count) {
   }
 
   if (pool.length >= count) {
-    return pool.slice(0, count).map((venue) => applyCategoryTypeToVenue(venue, categoryType));
+    return pool
+      .slice(0, count)
+      .map((venue) => applyCategoryTypeToVenue(cloneVenueDefinition(venue), categoryType));
   }
 
   const out = [];
   for (let i = 0; i < count; i += 1) {
     const base = pool[i % pool.length];
     const cycle = Math.floor(i / pool.length);
-    out.push(
-      applyCategoryTypeToVenue(
-        {
-          ...base,
-          slug: cycle === 0 ? base.slug : `${base.slug}-run-${String(i + 1).padStart(2, "0")}`,
-          seedOffset: base.seedOffset + cycle * 13 + i,
-        },
-        categoryType,
-      ),
-    );
+    const cloned = cloneVenueDefinition(base);
+    cloned.slug = cycle === 0 ? base.slug : `${base.slug}-run-${String(i + 1).padStart(2, "0")}`;
+    cloned.seedOffset = base.seedOffset + cycle * 13 + i;
+    out.push(applyCategoryTypeToVenue(cloned, categoryType));
   }
   return out;
 }

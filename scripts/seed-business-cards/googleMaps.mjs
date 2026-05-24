@@ -1,9 +1,9 @@
 import { normalizeListingAddress } from "./dedupe.mjs";
 import { assessUpscaleRestaurant } from "./googleRestaurantFilter.mjs";
-import { log, normalizeSeedPhone, sleep, toNodeBuffer } from "./lib.mjs";
+import { log, normalizeSeedPhone, sleep, toNodeBuffer, withRetry } from "./lib.mjs";
 
 const BASE = "https://maps.googleapis.com/maps/api";
-const API_DELAY_MS = 200;
+const API_DELAY_MS = 350;
 const REQUEST_TIMEOUT_MS = 45_000;
 const NEARBY_RADIUS_M = 280;
 const TEXT_SEARCH_RADIUS_M = 450;
@@ -47,11 +47,19 @@ async function mapsGet(path, params, label) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal });
-    const data = await res.json();
-    if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-      throw new Error(`${label}: ${data.status}${data.error_message ? ` — ${data.error_message}` : ""}`);
-    }
+    const data = await withRetry(label, async () => {
+      const res = await fetch(url, { signal: controller.signal });
+      const json = await res.json();
+      if (json.status === "OVER_QUERY_LIMIT" || json.status === "RESOURCE_EXHAUSTED") {
+        const err = new Error(`${label}: ${json.status}${json.error_message ? ` — ${json.error_message}` : ""}`);
+        err.status = 429;
+        throw err;
+      }
+      if (json.status !== "OK" && json.status !== "ZERO_RESULTS") {
+        throw new Error(`${label}: ${json.status}${json.error_message ? ` — ${json.error_message}` : ""}`);
+      }
+      return json;
+    });
     await sleep(API_DELAY_MS);
     return data;
   } finally {
@@ -315,16 +323,23 @@ async function fetchPlacePhotoAtWidth(photoReference, apiKey, maxwidth) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal, redirect: "follow" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength < 8_000) throw new Error(`too small (${buf.byteLength} bytes)`);
-    const contentType = res.headers.get("content-type") ?? "image/jpeg";
-    return {
-      bytes: toNodeBuffer(buf),
-      contentType: contentType.split(";")[0].trim() || "image/jpeg",
-      maxwidth,
-    };
+    return await withRetry(`place-photo:${maxwidth}`, async () => {
+      const res = await fetch(url, { signal: controller.signal, redirect: "follow" });
+      if (res.status === 429) {
+        const err = new Error(`HTTP 429`);
+        err.status = 429;
+        throw err;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const buf = await res.arrayBuffer();
+      if (buf.byteLength < 8_000) throw new Error(`too small (${buf.byteLength} bytes)`);
+      const contentType = res.headers.get("content-type") ?? "image/jpeg";
+      return {
+        bytes: toNodeBuffer(buf),
+        contentType: contentType.split(";")[0].trim() || "image/jpeg",
+        maxwidth,
+      };
+    });
   } finally {
     clearTimeout(timer);
   }

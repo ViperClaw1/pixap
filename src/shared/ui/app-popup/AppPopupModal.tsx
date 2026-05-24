@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { AppPopupButton, AppPopupOptions } from "./types";
@@ -66,10 +66,17 @@ export function AppPopupModal({
   if (!visible) return null;
 
   const onPressAction = (button: AppPopupButton) => {
-    if (!button.skipCloseOnPress) {
-      onClose();
+    const invokePress = () => button.onPress?.();
+    if (button.skipCloseOnPress) {
+      invokePress();
+      return;
     }
-    button.onPress?.();
+    onClose();
+    if (!button.onPress) return;
+    // Defer until the host Modal finishes dismissing — native pickers won't open over a dismissing Modal.
+    // Do not use InteractionManager here: with Reanimated/keyboard it may never run on some screens.
+    const dismissMs = Platform.OS === "ios" ? 400 : 250;
+    setTimeout(invokePress, dismissMs);
   };
 
   const renderButton = (button: ResolvedButton, layout: "row" | "stack") => {

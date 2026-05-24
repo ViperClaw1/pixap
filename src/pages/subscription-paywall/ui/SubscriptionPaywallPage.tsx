@@ -12,6 +12,7 @@ import { env } from "@/shared/lib/env";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
+import { SubscriptionPaywallTourModal, usePaywallTourAutoOpen } from "@/features/subscription-paywall-tour";
 import { useSubscriptionPaywallStyles } from "./subscriptionPaywallStyles";
 
 const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
@@ -31,6 +32,7 @@ export default function SubscriptionPaywallScreen() {
   const { isActive } = useEntitlement();
   const { balance, isIntroActive, introPeriodEndsAt } = useBookingAccess();
   const [selectedSku, setSelectedSku] = useState(env.pixAiMonthlySubscriptionSku);
+  const { tourVisible, openTour, closeTour } = usePaywallTourAutoOpen();
 
   const paywallReason = route.params?.reason;
 
@@ -69,15 +71,20 @@ export default function SubscriptionPaywallScreen() {
       : t("subscriptionPaywall.subtitleUpgrade");
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} {...androidSwipeBackPanHandlers}>
-      <View style={styles.card}>
-        <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" style={{ alignSelf: "flex-start" }}>
-          <Ionicons name="arrow-back" size={20} color={colors.text} />
-        </Pressable>
-        <Text style={styles.title}>{t("subscriptionPaywall.title")}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
-        <BookingCreditsBadge balance={balance} isIntroActive={isIntroActive} introPeriodEndsAt={introPeriodEndsAt} />
-      </View>
+    <>
+      <ScrollView style={styles.root} contentContainerStyle={styles.content} {...androidSwipeBackPanHandlers}>
+        <View style={styles.card}>
+          <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" style={{ alignSelf: "flex-start" }}>
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
+          </Pressable>
+          <Text style={styles.title}>{t("subscriptionPaywall.title")}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
+          <BookingCreditsBadge balance={balance} isIntroActive={isIntroActive} introPeriodEndsAt={introPeriodEndsAt} />
+          <Pressable accessibilityRole="button" onPress={openTour} style={styles.tourLink}>
+            <Ionicons name="play-circle-outline" size={18} color={colors.primary} />
+            <Text style={[styles.tourLinkText, { color: colors.primary }]}>{t("subscriptionPaywall.tour.rewatch")}</Text>
+          </Pressable>
+        </View>
 
       <Pressable
         style={[styles.card, selectedSku === env.pixAiMonthlySubscriptionSku && { borderColor: colors.primary, borderWidth: 2 }]}
@@ -132,6 +139,8 @@ export default function SubscriptionPaywallScreen() {
         ) : null}
         <Text style={styles.legal}>{t("subscriptionPaywall.legal")}</Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+      <SubscriptionPaywallTourModal visible={tourVisible} onClose={closeTour} />
+    </>
   );
 }

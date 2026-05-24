@@ -31,8 +31,7 @@ import { useMyFollowing, useProfile, useToggleFollow } from "@/entities/user";
 import { useBusinessCards } from "@/entities/business-card";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
-import { feedMediaDeviceDpr, getFeedPostCarouselImageUrls } from "@/shared/lib/feedMediaUrls";
-import { getOptimizedImageUrlPreset } from "@/shared/lib/imagePresets";
+import { getFeedPostCarouselImageUrls, getFeedStoryPreviewImageUrl } from "@/shared/lib/feedMediaUrls";
 import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
 import { ShimmerSurface } from "@/shared/ui/shimmer/ShimmerSurface";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
@@ -556,7 +555,6 @@ function StoriesStripHeader({
   onAddStory: () => void;
   onLoadMoreStories: () => void;
 }) {
-  const stripDpr = feedMediaDeviceDpr();
   const onStoriesStripScroll = useCallback(
     (offsetX: number, layoutWidth: number, contentWidth: number) => {
       if (layoutWidth + offsetX < contentWidth - 48) return;
@@ -597,9 +595,7 @@ function StoriesStripHeader({
           const name = profileDisplayName(story.profile);
           const storyMedia = parseMediaUrls(story.media_url);
           const storyPreviewRaw = storyMedia[0] ? resolveStorageUrl(storyMedia[0], "stories") : null;
-          const storyPreviewOpt = storyPreviewRaw
-            ? getOptimizedImageUrlPreset(storyPreviewRaw, "thumb", { dpr: stripDpr }) || storyPreviewRaw
-            : null;
+          const storyPreviewOpt = storyPreviewRaw ? getFeedStoryPreviewImageUrl(storyPreviewRaw) || storyPreviewRaw : null;
           const avatarRaw = profileAvatar(story.profile?.avatar_url);
           const avatarOpt = profileAvatarDisplay(story.profile?.avatar_url);
           const bubbleUri = storyPreviewOpt ?? avatarOpt;

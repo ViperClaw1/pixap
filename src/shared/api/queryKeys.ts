@@ -69,6 +69,8 @@ export const queryKeys = {
     inboxPrefix: ["messages", "inbox"] as const,
     thread: (threadId: string, userId: string | null) => ["messages", "thread", threadId, userId] as const,
     threadPrefix: (threadId: string) => ["messages", "thread", threadId] as const,
+    directThread: (userId: string, peerUserId: string) =>
+      ["messages", "direct-thread", userId, peerUserId] as const,
     followSuggestions: (userId: string | null, searchNorm: string) =>
       ["messages", "follow-suggestions", userId, searchNorm] as const,
   },

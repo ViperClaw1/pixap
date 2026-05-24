@@ -7,6 +7,13 @@ import {
   resolveBusinessCardHeroImagesRaw,
   type BusinessCardImageSource,
 } from "@/shared/lib/business-card/businessCardImages";
+import {
+  resolveBusinessCardPregeneratedUrl,
+  type BusinessCardPregenVariant,
+} from "@/shared/lib/business-card/businessCardPregenStorage";
+
+/** Layout sizes at or below this use pre-generated `*_thumb.webp` when available. */
+const PREGEN_THUMB_MAX_LAYOUT_PX = 400;
 
 /** Named targets for business-cards bucket (list cards, hero, fullscreen). */
 export type BusinessCardDisplaySize = "list" | "card" | "hero" | "gallery";
@@ -17,6 +24,32 @@ const PRESET_BY_SIZE: Record<BusinessCardDisplaySize, ImagePresetId> = {
   hero: "medium",
   gallery: "large",
 };
+
+const PREGEN_THUMB_PRESETS = new Set<ImagePresetId>(["thumb", "small"]);
+
+function pregenVariantForOptions(
+  options?: Parameters<typeof getBusinessCardDisplayUrl>[1],
+): BusinessCardPregenVariant | null {
+  if (!options) return null;
+  if (options.size === "hero") return "hero";
+  if (options.size === "gallery") return "gallery";
+  if (options.size === "list" || options.size === "card") return "thumb";
+  if (options.preset === "medium") return "hero";
+  if (options.preset === "large") return "gallery";
+  if (options.preset && PREGEN_THUMB_PRESETS.has(options.preset)) return "thumb";
+  const w = options.layoutPx ?? 0;
+  const h = options.layoutPxHeight ?? w;
+  if (w > 0 && w <= PREGEN_THUMB_MAX_LAYOUT_PX && h <= PREGEN_THUMB_MAX_LAYOUT_PX) return "thumb";
+  return null;
+}
+
+function resolvePregeneratedUrl(
+  pathOrUrl: string | null | undefined,
+  raw: string,
+  variant: BusinessCardPregenVariant,
+): string | null {
+  return resolveBusinessCardPregeneratedUrl(pathOrUrl, variant) ?? resolveBusinessCardPregeneratedUrl(raw, variant);
+}
 
 /** DB path or full URL → public business-cards URL (no resize). */
 export function resolveBusinessCardStorageUrl(pathOrUrl?: string | null): string | null {
@@ -42,6 +75,12 @@ export function getBusinessCardDisplayUrl(
 ): string | null {
   const raw = resolveBusinessCardStorageUrl(pathOrUrl);
   if (!raw) return null;
+
+  const pregenVariant = pregenVariantForOptions(options);
+  if (pregenVariant) {
+    const pregen = resolvePregeneratedUrl(pathOrUrl, raw, pregenVariant);
+    if (pregen) return pregen;
+  }
 
   const dpr = feedMediaDeviceDpr();
   if (options?.layoutPx != null && options.layoutPx > 0) {
@@ -99,7 +138,15 @@ export function getBusinessCardThumbUris(
   if (preferRaw) {
     return { uri: rawPublic, fallbackUri: null, raw: rawPublic };
   }
-  const uri = getBusinessCardDisplayUrl(raw, displayOptions) ?? rawPublic;
-  const fallbackUri = businessCardDisplayFallback(uri, raw) ?? rawPublic;
+
+  const pregen = resolvePregeneratedUrl(raw, raw, "thumb");
+  const renderUri = getBusinessCardDisplayUrl(raw, displayOptions);
+
+  const uri = pregen ?? renderUri ?? rawPublic;
+  const fallbackUri =
+    pregen && renderUri && renderUri !== pregen
+      ? renderUri
+      : businessCardDisplayFallback(renderUri ?? uri, raw) ?? rawPublic;
+
   return { uri, fallbackUri, raw: rawPublic };
 }

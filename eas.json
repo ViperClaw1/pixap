@@ -8,19 +8,19 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM": "1"
+        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM": "0"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM": "1"
+        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM": "0"
       }
     },
     "production": {
       "environment": "production",
       "env": {
-        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM": "1"
+        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM": "0"
       },
       "autoIncrement": false,
       "android": {
