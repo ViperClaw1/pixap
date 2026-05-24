@@ -27,6 +27,7 @@ import {
   useDebouncedMarkThreadRead,
   useMessageThreadTyping,
   useReactToMessage,
+  useResolvedMessageThreadId,
   useSendMessage,
   useThreadMessages,
 } from "@/entities/messages";
@@ -40,7 +41,7 @@ import { STICKER_URLS } from "../model/constants";
 import { peerFullName } from "../model/format";
 import { resolvePeerPresenceStatus } from "../model/peerPresenceStatus";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
-import { useKeyboardInset } from "@/shared/lib/keyboard";
+import { useFooterKeyboardLift, useKeyboardInset } from "@/shared/lib/keyboard";
 import type { MessageThreadListRow } from "../model/types";
 import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
@@ -75,6 +76,7 @@ export default function MessageThreadPage() {
   }
   const stableBottomInset = stableBottomInsetRef.current;
   const listRef = useRef<FlashListRef<MessageThreadListRow>>(null);
+  const footerMeasureRef = useRef<View>(null);
   const isAtBottomRef = useRef(true);
   const scrollAfterSendRef = useRef(false);
   const pendingOpenScrollRef = useRef(true);
@@ -87,6 +89,11 @@ export default function MessageThreadPage() {
   const [isStickerPanelOpen, setStickerPanelOpen] = useState(false);
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
   const { user } = useAuth();
+  const { threadId, isResolvingThread, resolveError } = useResolvedMessageThreadId({
+    threadId: params.threadId,
+    peerId: params.peerId,
+    isSupport,
+  });
   const {
     messages,
     peer,
@@ -96,15 +103,16 @@ export default function MessageThreadPage() {
     hasMoreOlder,
     loadOlderMessages,
     isLoadingOlder,
-  } = useThreadMessages(params.threadId);
+  } = useThreadMessages(threadId);
   const peerIsOnline = useIsUserOnline(isSupport ? null : peer?.id);
-  const { schedule: scheduleMarkRead } = useDebouncedMarkThreadRead(params.threadId, !isLoading);
+  const threadReady = !!threadId && !isResolvingThread;
+  const { schedule: scheduleMarkRead } = useDebouncedMarkThreadRead(threadId, threadReady && !isLoading);
   const { peerIsTyping, stopTyping } = useMessageThreadTyping({
-    threadId: params.threadId,
+    threadId,
     userId: user?.id,
-    peerId: isSupport ? null : (peer?.id ?? null),
+    peerId: isSupport ? null : (peer?.id ?? params.peerId ?? null),
     draft,
-    enabled: !isSupport,
+    enabled: !isSupport && threadReady,
   });
   const sendMessage = useSendMessage();
   const reactToMessage = useReactToMessage();
@@ -113,13 +121,22 @@ export default function MessageThreadPage() {
   useEffect(() => {
     markMessagingPerfStart("thread_open");
     pendingOpenScrollRef.current = true;
-  }, [params.threadId]);
+  }, [threadId]);
 
   useEffect(() => {
-    if (!isLoading && messages.length >= 0) {
+    if (!isLoading && messages.length >= 0 && threadReady) {
       markMessagingPerfEnd("thread_open", `${messages.length} messages`);
     }
-  }, [isLoading, messages.length]);
+  }, [isLoading, messages.length, threadReady]);
+
+  useEffect(() => {
+    if (!resolveError) return;
+    Toast.show({
+      type: "error",
+      text1: t("messages.toastCouldNotOpenChat"),
+      text2: resolveError instanceof Error ? resolveError.message : t("messages.toastTryAgain"),
+    });
+  }, [resolveError, t]);
 
   const leaveThread = useCallback(() => {
     if (navigation.canGoBack()) {
@@ -245,7 +262,7 @@ export default function MessageThreadPage() {
       return;
     }
     flushScrollToBottomOnOpen();
-  }, [isLoading, rows.length, params.threadId, flushScrollToBottomOnOpen]);
+  }, [isLoading, rows.length, threadId, flushScrollToBottomOnOpen]);
 
   useEffect(() => {
     if (!scrollAfterSendRef.current || rows.length === 0) return;
@@ -269,7 +286,7 @@ export default function MessageThreadPage() {
           text: "Delete for me",
           onPress: () => {
             void deleteMessage
-              .mutateAsync({ threadId: params.threadId, messageId, mode: "me" })
+              .mutateAsync({ threadId, messageId, mode: "me" })
               .then(() => {
                 Toast.show({ type: "success", text1: "Deleted for you" });
               })
@@ -287,7 +304,7 @@ export default function MessageThreadPage() {
           style: "destructive",
           onPress: () => {
             void deleteMessage
-              .mutateAsync({ threadId: params.threadId, messageId, mode: "everyone" })
+              .mutateAsync({ threadId, messageId, mode: "everyone" })
               .then(() => {
                 Toast.show({ type: "success", text1: "Deleted for everyone" });
               })
@@ -302,31 +319,43 @@ export default function MessageThreadPage() {
         },
       ]);
     },
-    [deleteMessage, params.threadId],
+    [deleteMessage, threadId],
   );
 
   const styles = useMessageThreadStyles(insets.top, stableBottomInset);
-  const keyboardInset = useKeyboardInset({
+  const { lift: iosKeyboardLift, recalculate: recalculateIosKeyboardLift } = useFooterKeyboardLift(
+    () => footerMeasureRef.current,
+    { gap: 0, enabled: Platform.OS === "ios" },
+  );
+  const androidKeyboardInset = useKeyboardInset({
     gap: 0,
     tabBarHeight: 0,
-    ignoreWindowResize: Platform.OS === "android",
-    enabled: true,
+    ignoreWindowResize: true,
+    enabled: Platform.OS === "android",
   });
 
-  const contentAnimatedStyle = useAnimatedStyle(() => ({
-    paddingBottom:
-      Platform.OS === "android"
-        ? Math.max(0, keyboardInset.value - MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX)
-        : keyboardInset.value,
-  }));
+  const contentAnimatedStyle = useAnimatedStyle(() => {
+    if (Platform.OS === "ios") {
+      return { transform: [{ translateY: -iosKeyboardLift.value }] };
+    }
+    return {
+      paddingBottom: Math.max(0, androidKeyboardInset.value - MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX),
+    };
+  });
 
   const listKeyboardSpacerStyle = useAnimatedStyle(() => ({
-    height: keyboardInset.value,
+    height: Platform.OS === "android" ? androidKeyboardInset.value : 0,
   }));
 
-  const scrollFabPositionStyle = useAnimatedStyle(() => ({
-    bottom: 12 + keyboardInset.value,
-  }));
+  const scrollFabPositionStyle = useAnimatedStyle(() => {
+    const lift = Platform.OS === "android" ? androidKeyboardInset.value : 0;
+    return { bottom: 12 + lift };
+  });
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    recalculateIosKeyboardLift();
+  }, [attachments.length, isStickerPanelOpen, peerIsTyping, recalculateIosKeyboardLift]);
 
   const mergeDrafts = useCallback((prev: MessageAttachmentDraft[], next: MessageAttachmentDraft[]) => {
     const seen = new Set(prev.map((p) => p.uri));
@@ -400,16 +429,16 @@ export default function MessageThreadPage() {
   const onReact = useCallback(
     (messageId: string, reaction: string, active: boolean) => {
       void reactToMessage.mutateAsync({
-        threadId: params.threadId,
+        threadId,
         messageId,
         reaction,
         active,
       });
     },
-    [params.threadId, reactToMessage],
+    [reactToMessage, threadId],
   );
 
-  const awaitingInitialMessages = isLoading && rows.length === 0;
+  const awaitingInitialMessages = isResolvingThread || (threadReady && isLoading && rows.length === 0);
   const keyExtractor = useCallback((row: MessageThreadListRow) => row.key, []);
   const getItemType = useCallback((row: MessageThreadListRow) => row.kind, []);
 
@@ -477,7 +506,7 @@ export default function MessageThreadPage() {
             ) : null}
             <FlashList
               ref={listRef}
-              key={params.threadId}
+              key={threadId}
               style={styles.list}
               data={rows}
               keyExtractor={keyExtractor}
@@ -510,7 +539,7 @@ export default function MessageThreadPage() {
                 accessibilityRole="button"
                 accessibilityLabel="Scroll to latest messages"
                 style={styles.scrollToBottomPressable}
-                onPress={scrollToBottom}
+                onPress={() => scrollToBottom()}
               >
                 <Ionicons name="chevron-down" size={22} color={colors.text} />
               </Pressable>
@@ -518,7 +547,8 @@ export default function MessageThreadPage() {
           </View>
         )}
 
-        <View style={styles.footer}>
+        <View ref={footerMeasureRef} collapsable={false}>
+          <View style={styles.footer}>
           {peerIsTyping ? (
             <View style={styles.typingRow} accessibilityLiveRegion="polite">
               <Text style={styles.typingText}>{t("messages.thread.peerTyping")}</Text>
@@ -594,8 +624,11 @@ export default function MessageThreadPage() {
             </Pressable>
             <Pressable
               style={[styles.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}
-              disabled={(!draft.trim().length && !attachments.length) || sendMessage.isPending}
+              disabled={
+                !threadReady || (!draft.trim().length && !attachments.length) || sendMessage.isPending
+              }
               onPress={() => {
+                if (!threadReady) return;
                 stopTyping();
                 Keyboard.dismiss();
                 if (!isAtBottomRef.current) {
@@ -603,7 +636,7 @@ export default function MessageThreadPage() {
                 }
                 void sendMessage
                   .mutateAsync({
-                    threadId: params.threadId,
+                    threadId,
                     content: draft,
                     attachments: attachments.map((x) => ({
                       uri: x.uri,
@@ -627,6 +660,7 @@ export default function MessageThreadPage() {
                 <Ionicons name="paper-plane-outline" size={17} color={colors.onPrimary} />
               )}
             </Pressable>
+          </View>
           </View>
         </View>
       </Animated.View>

@@ -3,8 +3,14 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as VideoThumbnails from "expo-video-thumbnails";
 import { supabase } from "@/shared/api/supabase/client";
 import { bytesFromBase64 } from "@/shared/lib/bytesFromBase64";
+import { encodeBlurHashFromPickerAssetUri } from "@/shared/lib/encodeMediaBlurHash";
+import { POST_FEED_FILE } from "@/shared/lib/feed/feedMediaPregenStorage";
 import { messageVideoPosterStoragePath } from "@/entities/messages/lib/messageVideoPoster";
-import { prepareImageForStorageUpload, POST_STORAGE_MAX_LONG_EDGE } from "@/shared/lib/prepareImageForStorageUpload";
+import {
+  POST_FEED_PREGEN_MAX_LONG_EDGE,
+  POST_STORAGE_MAX_LONG_EDGE,
+  prepareImageForStorageUpload,
+} from "@/shared/lib/prepareImageForStorageUpload";
 import { buildStorageUploadOptions } from "@/shared/lib/storageUploadOptions";
 
 const STORIES_BUCKET = "stories";
@@ -12,6 +18,11 @@ const STORIES_BUCKET = "stories";
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|heic|avif)(\?|#|$)/i;
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm|mkv|avi)(\?|#|$)/i;
 const MESSAGE_VIDEO_POSTER_MAX_EDGE = 480;
+
+export type MessageAttachmentUploadResult = {
+  publicUrl: string;
+  blurhash: string | null;
+};
 
 function looksLikeRasterImage(uri: string, mime?: string | null): boolean {
   const m = mime?.trim().toLowerCase();
@@ -81,19 +92,40 @@ function looksLikeVideo(uri: string, mime?: string | null): boolean {
   return VIDEO_EXT.test(path);
 }
 
+async function uploadMessageFeedPregen(asset: ImagePickerAsset, primaryPath: string): Promise<void> {
+  try {
+    const prepared = await prepareImageForStorageUpload(asset, {
+      maxLongEdgePx: POST_FEED_PREGEN_MAX_LONG_EDGE,
+      format: "webp",
+    });
+    if (!prepared.bytes.byteLength) return;
+    const pregenPath = primaryPath.replace(/\.[^./]+$/i, POST_FEED_FILE);
+    const { error } = await supabase.storage.from(STORIES_BUCKET).upload(
+      pregenPath,
+      prepared.bytes,
+      buildStorageUploadOptions(prepared.contentType, "immutable"),
+    );
+    if (error) {
+      console.warn("[uploadMessageAttachment] feed pregen upload failed", error.message);
+    }
+  } catch (e) {
+    console.warn("[uploadMessageAttachment] feed pregen failed", e);
+  }
+}
+
 async function uploadVideoPosterFromLocalUri(
-  userId: string,
   localVideoUri: string,
   videoStoragePath: string,
-): Promise<void> {
+): Promise<string | null> {
   try {
     const thumb = await VideoThumbnails.getThumbnailAsync(localVideoUri, { time: 400, quality: 0.72 });
+    const blurhash = await encodeBlurHashFromPickerAssetUri(thumb.uri);
     const asset = { uri: thumb.uri, width: 0, height: 0 } as ImagePickerAsset;
     const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
       maxLongEdgePx: MESSAGE_VIDEO_POSTER_MAX_EDGE,
       format: "webp",
     });
-    if (!bytes.byteLength) return;
+    if (!bytes.byteLength) return blurhash;
     const posterPath = messageVideoPosterStoragePath(videoStoragePath, fileExtension);
     const { error } = await supabase.storage.from(STORIES_BUCKET).upload(
       posterPath,
@@ -103,8 +135,10 @@ async function uploadVideoPosterFromLocalUri(
     if (error) {
       console.warn("[uploadMessageAttachment] poster upload failed", error.message);
     }
+    return blurhash;
   } catch (e) {
     console.warn("[uploadMessageAttachment] poster generation failed", e);
+    return null;
   }
 }
 
@@ -131,10 +165,12 @@ export async function uploadMessageAttachmentIfLocal(
   userId: string,
   uri: string,
   meta?: { mimeType?: string | null; name?: string | null },
-): Promise<string> {
+): Promise<MessageAttachmentUploadResult> {
   const trimmed = uri.trim();
   if (!trimmed) throw new Error("Empty attachment URI");
-  if (isRemoteHttpUrl(trimmed)) return trimmed;
+  if (isRemoteHttpUrl(trimmed)) {
+    return { publicUrl: trimmed, blurhash: null };
+  }
 
   const mime = meta?.mimeType?.trim() || null;
   const name = meta?.name?.trim() || null;
@@ -143,6 +179,7 @@ export async function uploadMessageAttachmentIfLocal(
   if (treatAsImage) {
     try {
       const asset = { uri: trimmed, width: 0, height: 0 } as ImagePickerAsset;
+      const blurhash = await encodeBlurHashFromPickerAssetUri(trimmed);
       const { bytes, contentType, fileExtension } = await prepareImageForStorageUpload(asset, {
         maxLongEdgePx: POST_STORAGE_MAX_LONG_EDGE,
       });
@@ -153,7 +190,11 @@ export async function uploadMessageAttachmentIfLocal(
         buildStorageUploadOptions(contentType, "immutable"),
       );
       if (error) throw error;
-      return supabase.storage.from(STORIES_BUCKET).getPublicUrl(path).data.publicUrl;
+      await uploadMessageFeedPregen(asset, path);
+      return {
+        publicUrl: supabase.storage.from(STORIES_BUCKET).getPublicUrl(path).data.publicUrl,
+        blurhash,
+      };
     } catch {
       /* fall through to raw upload */
     }
@@ -172,9 +213,13 @@ export async function uploadMessageAttachmentIfLocal(
   );
   if (error) throw error;
 
+  let blurhash: string | null = null;
   if (looksLikeVideo(trimmed, mime)) {
-    await uploadVideoPosterFromLocalUri(userId, trimmed, path);
+    blurhash = await uploadVideoPosterFromLocalUri(trimmed, path);
   }
 
-  return supabase.storage.from(STORIES_BUCKET).getPublicUrl(path).data.publicUrl;
+  return {
+    publicUrl: supabase.storage.from(STORIES_BUCKET).getPublicUrl(path).data.publicUrl,
+    blurhash,
+  };
 }

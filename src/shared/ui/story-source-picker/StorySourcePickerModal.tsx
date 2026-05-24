@@ -11,9 +11,17 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onChoose: (source: StorySourceOption) => void;
+  title?: string;
+  subtitle?: string;
 };
 
-export function StorySourcePickerModal({ visible, onClose, onChoose }: Props) {
+export function StorySourcePickerModal({
+  visible,
+  onClose,
+  onChoose,
+  title = "Add story",
+  subtitle = "Choose where to pick media from for your story.",
+}: Props) {
   const { colors } = useAppTheme();
   const opacity = useSharedValue(0);
 
@@ -66,10 +74,8 @@ export function StorySourcePickerModal({ visible, onClose, onChoose }: Props) {
         <View style={[styles.overlay, { backgroundColor: "rgba(0,0,0,0.48)" }]}>
           <Pressable style={styles.outsideTapArea} onPress={onClose} />
           <View style={[styles.container, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <Text style={[styles.title, { color: colors.text }]}>Add story</Text>
-            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-              Choose where to pick media from for your story.
-            </Text>
+            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text>
             <View style={styles.options}>
               {options.map((option) => {
                 return (

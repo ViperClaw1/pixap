@@ -16,6 +16,7 @@ export type MessageBubble = {
   sender_id: string;
   content: string;
   attachments: string[];
+  attachment_blurhashes?: (string | null)[] | null;
   created_at: string;
   mine: boolean;
   sender_profile: MessageParticipantProfile | null;

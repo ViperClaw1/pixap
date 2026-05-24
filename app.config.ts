@@ -68,7 +68,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     adaptiveIcon: {
       backgroundColor: "#ffffff",
       foregroundImage: "./assets/android/adaptive-icon-foreground.png",
-      backgroundImage: "./assets/android/adaptive-icon-background.png",
     },
     intentFilters: [
       {
@@ -88,6 +87,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ],
   },
   plugins: [
+    [
+      "expo-build-properties",
+      {
+        android: {
+          enableProguardInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
+        },
+      },
+    ],
     [
       "expo-splash-screen",
       {
@@ -109,7 +117,23 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         },
       },
     ],
-    "expo-font",
+    [
+      "expo-font",
+      {
+        fonts: [
+          "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf",
+          "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/FontAwesome.ttf",
+          "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/FontAwesome6_Solid.ttf",
+          "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/FontAwesome6_Brands.ttf",
+          "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/FontAwesome6_Regular.ttf",
+          "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/FontAwesome5_Solid.ttf",
+          "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/FontAwesome5_Brands.ttf",
+          "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/FontAwesome5_Regular.ttf",
+          "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Fontisto.ttf",
+          "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Entypo.ttf",
+        ],
+      },
+    ],
     "expo-localization",
     "expo-apple-authentication",
     "expo-web-browser",

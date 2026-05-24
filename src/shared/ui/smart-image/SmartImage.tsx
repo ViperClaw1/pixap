@@ -3,7 +3,7 @@ import { Image, type ImageErrorEventData, type ImageProps, type ImageSource, typ
 import { getSupabaseStorageObjectFallbackUrl } from "@/shared/lib/imageUtils";
 import { recordStorageImageRequest } from "@/shared/lib/storageEgressMetrics";
 
-const FALLBACK = require("../../../../assets/android/adaptive-icon-background.png");
+const FALLBACK = require("../../../../assets/web/placeholder.png");
 const PREFETCH_CONCURRENCY = 4;
 const PREFETCH_HARD_CAP = 8;
 

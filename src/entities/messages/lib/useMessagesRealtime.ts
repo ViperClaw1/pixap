@@ -39,6 +39,7 @@ type MessagePayload = {
   sender_id: string;
   content: string;
   attachments: string[] | null;
+  attachment_blurhashes?: unknown;
   created_at: string;
 };
 

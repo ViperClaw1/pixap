@@ -12,6 +12,14 @@ import { findFirstHttpUrl, splitTextWithUrls } from "@/shared/lib/messageUrlSegm
 import { MessageUrlPreviewBlock } from "@/features/message-link-preview";
 import { detectAttachmentKind, MessageAttachmentBubble } from "@/features/message-attachments";
 
+function attachmentBlurhashAt(
+  blurhashes: (string | null)[] | null | undefined,
+  index: number,
+): string | undefined {
+  const hash = blurhashes?.[index];
+  return typeof hash === "string" && hash.trim().length > 0 ? hash : undefined;
+}
+
 type Props = {
   item: MessageBubble;
   groupedWithPrevious?: boolean;
@@ -244,7 +252,7 @@ function MessageThreadListItemComponent({
                 isMine ? s.bareMediaAttachmentsMine : s.bareMediaAttachmentsPeer,
               ]}
             >
-              {message.attachments.map((uri) => {
+              {message.attachments.map((uri, attachmentIndex) => {
                 const sticker = isStickerAssetUri(uri);
                 const boxStyle = sticker ? s.bubbleAttachmentSticker : s.bubbleAttachmentImage;
                 return (
@@ -258,6 +266,7 @@ function MessageThreadListItemComponent({
                       boxStyle={boxStyle}
                       placeholderStyle={s.bubbleAttachmentPlaceholder}
                       iconColor={colors.textMuted}
+                      blurhash={attachmentBlurhashAt(message.attachment_blurhashes, attachmentIndex)}
                     />
                   </Pressable>
                 );
@@ -287,7 +296,7 @@ function MessageThreadListItemComponent({
           <View style={isMine ? s.bubbleMediaShellMine : s.bubbleMediaShellPeer}>
             <View style={[s.bubbleRichMessageCard, isMine ? s.bubbleMine : s.bubblePeer]}>
               <View style={[s.bubbleAttachments, s.bubbleAttachmentsBleed]}>
-                {message.attachments.map((uri) => {
+                {message.attachments.map((uri, attachmentIndex) => {
                   const sticker = isStickerAssetUri(uri);
                   const kind = detectAttachmentKind(uri, null);
                   const singleBleed =
@@ -312,6 +321,7 @@ function MessageThreadListItemComponent({
                         placeholderStyle={s.bubbleAttachmentPlaceholder}
                         iconColor={colors.textMuted}
                         imageLayout={singleBleed ? "bleed" : "thumb"}
+                        blurhash={attachmentBlurhashAt(message.attachment_blurhashes, attachmentIndex)}
                       />
                     </Pressable>
                   );
@@ -354,7 +364,7 @@ function MessageThreadListItemComponent({
           <View style={[s.bubble, isMine ? s.bubbleMine : s.bubblePeer]}>
             {message.attachments.length ? (
               <View style={[s.bubbleAttachments, isMine ? s.bubbleAttachmentsMine : null]}>
-                {message.attachments.map((uri) => {
+                {message.attachments.map((uri, attachmentIndex) => {
                   const sticker = isStickerAssetUri(uri);
                   const boxStyle = sticker ? s.bubbleAttachmentSticker : s.bubbleAttachmentImage;
                   return (
@@ -368,6 +378,7 @@ function MessageThreadListItemComponent({
                         boxStyle={boxStyle}
                         placeholderStyle={s.bubbleAttachmentPlaceholder}
                         iconColor={colors.textMuted}
+                        blurhash={attachmentBlurhashAt(message.attachment_blurhashes, attachmentIndex)}
                       />
                     </Pressable>
                   );

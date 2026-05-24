@@ -16,9 +16,12 @@ import {
   sleep,
   unsplashDownloadUrl,
   toNodeBuffer,
+  withRetry,
 } from "./lib.mjs";
+import { uploadBusinessCardAllPregens } from "./pregen.mjs";
 
-const UPLOAD_DELAY_MS = 120;
+const UPLOAD_DELAY_MS = 280;
+const PHOTO_RETRY_COOLDOWN_MS = 900;
 const DOWNLOAD_TIMEOUT_MS = 45_000;
 const MIN_IMAGE_COUNT = 3;
 
@@ -44,15 +47,17 @@ async function fetchImageBytes(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal, redirect: "follow" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength < 8_000) throw new Error(`too small (${buf.byteLength} bytes)`);
-    const contentType = res.headers.get("content-type") ?? "image/jpeg";
-    return {
-      bytes: toNodeBuffer(buf),
-      contentType: contentType.split(";")[0].trim() || "image/jpeg",
-    };
+    return await withRetry(`download:${url.slice(0, 48)}`, async () => {
+      const res = await fetch(url, { signal: controller.signal, redirect: "follow" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const buf = await res.arrayBuffer();
+      if (buf.byteLength < 8_000) throw new Error(`too small (${buf.byteLength} bytes)`);
+      const contentType = res.headers.get("content-type") ?? "image/jpeg";
+      return {
+        bytes: toNodeBuffer(buf),
+        contentType: contentType.split(";")[0].trim() || "image/jpeg",
+      };
+    });
   } finally {
     clearTimeout(timer);
   }
@@ -114,15 +119,26 @@ async function uploadOneImage(supabase, storageFolder, imageIndex, payload) {
   const path = `${storageFolder}/${String(imageIndex + 1).padStart(2, "0")}.${ext}`;
   const body = toNodeBuffer(payload.bytes);
 
-  const { error } = await supabase.storage.from(BUSINESS_CARDS_BUCKET).upload(path, body, {
-    contentType: payload.contentType,
-    cacheControl: STORAGE_CACHE_CONTROL,
-    upsert: true,
+  await withRetry(`storage:${path}`, async () => {
+    const { error } = await supabase.storage.from(BUSINESS_CARDS_BUCKET).upload(path, body, {
+      contentType: payload.contentType,
+      cacheControl: STORAGE_CACHE_CONTROL,
+      upsert: true,
+    });
+    if (error) throw new Error(`storage upload ${path}: ${error.message}`);
   });
-  if (error) throw new Error(`storage upload ${path}: ${error.message}`);
 
   const { data } = supabase.storage.from(BUSINESS_CARDS_BUCKET).getPublicUrl(path);
   log("images", `Uploaded ${path} (${Math.round(body.byteLength / 1024)} KB)`);
+  try {
+    const pregenUrls = await uploadBusinessCardAllPregens(supabase, path, body);
+    const created = Object.keys(pregenUrls).filter((k) => pregenUrls[k]);
+    if (created.length > 0) {
+      log("images", `Uploaded pregen for ${path}: ${created.join(", ")}`);
+    }
+  } catch (err) {
+    log("images", `pregen skip ${path}: ${err.message}`);
+  }
   return data.publicUrl;
 }
 
@@ -184,13 +200,17 @@ async function uploadVenueImagesFromGoogleOnly(
     } catch (err) {
       failures.push(`${refHint}: ${err.message}`);
       log("images", `${label}: Google photo rejected (${err.message})`);
+      if (urls.length === 0 && failures.length >= 2) {
+        await sleep(PHOTO_RETRY_COOLDOWN_MS);
+      }
     }
   }
 
   if (urls.length < imageCount) {
+    const poiLabel = venue._googlePlace?.name?.trim() ?? venue.slug;
     log(
       "images",
-      `${venue.slug}: only ${urls.length}/${imageCount} unique Google photo(s) — images[] will be empty (${failures.slice(0, 3).join("; ")})`,
+      `${poiLabel}: only ${urls.length}/${imageCount} unique Google photo(s) — images[] will be empty (${failures.slice(0, 3).join("; ")})`,
     );
     return [];
   }

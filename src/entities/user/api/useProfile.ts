@@ -9,6 +9,7 @@ export interface Profile {
   last_name: string;
   email: string;
   avatar_url: string | null;
+  avatar_blurhash?: string | null;
   username: string | null;
   bio: string | null;
   followers: string[] | null;

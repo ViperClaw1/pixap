@@ -22,8 +22,13 @@ type InsertedMessageRow = {
   sender_id: string;
   content: string;
   attachments: string[] | null;
+  attachment_blurhashes?: unknown;
   created_at: string;
 };
+
+function isMissingAttachmentBlurhashesColumn(message: string): boolean {
+  return message.toLowerCase().includes("attachment_blurhashes");
+}
 
 function normalizeAttachment(att: SendMessageAttachmentInput): { uri: string; mimeType?: string | null; name?: string | null } {
   return typeof att === "string" ? { uri: att } : att;
@@ -67,26 +72,51 @@ export function useSendMessage() {
       const trimmed = content.trim();
       const rawAttachments = (attachments ?? []).map(normalizeAttachment).filter((a) => a.uri.trim().length > 0);
       const normalizedAttachments: string[] = [];
+      const attachmentBlurhashes: (string | null)[] = [];
       for (const att of rawAttachments) {
-        const url = await uploadMessageAttachmentIfLocal(user.id, att.uri, {
+        const uploaded = await uploadMessageAttachmentIfLocal(user.id, att.uri, {
           mimeType: att.mimeType,
           name: att.name,
         });
-        normalizedAttachments.push(url);
+        normalizedAttachments.push(uploaded.publicUrl);
+        attachmentBlurhashes.push(uploaded.blurhash);
       }
       if (!threadId || (!trimmed && !normalizedAttachments.length)) throw new Error("Message content or attachment is required");
 
-      const { data: inserted, error: insertError } = await supabase
+      const insertRow: Record<string, unknown> = {
+        thread_id: threadId,
+        sender_id: user.id,
+        content: trimmed || "[attachment]",
+        attachments: normalizedAttachments,
+      };
+      if (attachmentBlurhashes.some((h) => h)) {
+        insertRow.attachment_blurhashes = attachmentBlurhashes;
+      }
+
+      let inserted: InsertedMessageRow | null = null;
+      let insertError: { message: string } | null = null;
+
+      const insertWithBlur = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table is introduced by migration
         .from("messages" as any)
-        .insert({
-          thread_id: threadId,
-          sender_id: user.id,
-          content: trimmed || "[attachment]",
-          attachments: normalizedAttachments,
-        })
-        .select("id, thread_id, sender_id, content, attachments, created_at")
+        .insert(insertRow)
+        .select("id, thread_id, sender_id, content, attachments, attachment_blurhashes, created_at")
         .single();
+
+      if (insertWithBlur.error && isMissingAttachmentBlurhashesColumn(insertWithBlur.error.message)) {
+        const { attachment_blurhashes: _drop, ...legacyRow } = insertRow;
+        const legacyInsert = await supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .from("messages" as any)
+          .insert(legacyRow)
+          .select("id, thread_id, sender_id, content, attachments, created_at")
+          .single();
+        inserted = legacyInsert.data as InsertedMessageRow | null;
+        insertError = legacyInsert.error;
+      } else {
+        inserted = insertWithBlur.data as InsertedMessageRow | null;
+        insertError = insertWithBlur.error;
+      }
       if (insertError) throw insertError;
       if (!inserted) throw new Error("Message insert returned no row");
 

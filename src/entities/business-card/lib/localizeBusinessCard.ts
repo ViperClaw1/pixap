@@ -49,6 +49,7 @@ export const BUSINESS_CARD_LIST_SELECT = [
   "created_at",
   "latitude",
   "longitude",
+  "blurhashes",
   "category:categories(id, name)",
 ].join(", ");
 

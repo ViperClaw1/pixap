@@ -12,7 +12,7 @@ import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
-import { businessCardPlaceholderSource } from "@/shared/assets/placeImageFallback";
+import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { businessPlaceCardStaticStyles, businessPlaceCardThemeStyles } from "./businessPlaceCardStyles";
 
 const PLACE_CARD_IMAGE_TRANSITION_MS = 200;
@@ -70,16 +70,20 @@ function PlaceHeroImage({ place, variant, imageStyle }: PlaceHeroImageProps) {
     const layoutW = variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_W;
     const layoutH = variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_H;
     return getBusinessCardThumbUris(place, {
-      preferRaw: true,
       layoutPx: layoutW * targetDensity,
       layoutPxHeight: layoutH * targetDensity,
     });
   }, [place, primaryImageRaw, targetDensity, variant]);
 
+  const coverBlurhash =
+    typeof place.blurhashes?.[0] === "string" && place.blurhashes[0].trim().length > 0
+      ? place.blurhashes[0]
+      : undefined;
+
   if (!thumb.raw) {
     return (
       <SmartImage
-        uri={businessCardPlaceholderSource.uri}
+        bundledFallback={PLACE_IMAGE_FALLBACK}
         recyclingKey={`${place.id}-placeholder`}
         style={imageStyle}
         contentFit="cover"
@@ -93,7 +97,8 @@ function PlaceHeroImage({ place, variant, imageStyle }: PlaceHeroImageProps) {
       key={`${place.id}-${thumb.raw}`}
       uri={thumb.uri}
       fallbackUri={thumb.fallbackUri}
-      bundledFallback={businessCardPlaceholderSource}
+      blurhash={coverBlurhash}
+      bundledFallback={PLACE_IMAGE_FALLBACK}
       recyclingKey={thumb.raw}
       style={imageStyle}
       contentFit="cover"

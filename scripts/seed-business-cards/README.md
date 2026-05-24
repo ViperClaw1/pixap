@@ -126,6 +126,7 @@ Before seeding, the script loads existing `business_cards` for the target **city
 - Tracks `photo_reference`, image bytes fingerprint, and public URLs across the run + existing catalogue — no duplicate photos across venues.
 - If fewer than 3 unique Google photos are collected → **`images: []`** (no Unsplash/Picsum, no partial reuse).
 - `_googlePlace` is cleared between POI attempts so metadata from a previous venue never leaks.
+- **`name` / `description` / `name_*` / `description_*`** are generated from the matched Google POI + city + `--type` pool (not static Istanbul/Barcelona template text when `--count` exceeds template pool size).
 
 ### `--tags`
 

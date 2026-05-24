@@ -11,6 +11,21 @@ export const STORY_STORAGE_MAX_LONG_EDGE = 1024;
 /** Long edge for profile avatars (small on screen; enough for 2–3x DPR). */
 export const AVATAR_STORAGE_MAX_LONG_EDGE = 768;
 
+/** Long edge for business-card list thumbnails (`*_thumb.webp`, object/public — no render API). */
+export const BUSINESS_CARD_THUMB_MAX_LONG_EDGE = 256;
+
+/** PlaceDetail hero carousel (`*_hero.webp`). */
+export const BUSINESS_CARD_HERO_MAX_LONG_EDGE = 720;
+
+/** Fullscreen gallery (`*_gallery.webp`). */
+export const BUSINESS_CARD_GALLERY_MAX_LONG_EDGE = 1080;
+
+/** Feed post carousel (`*_feed.webp` in stories bucket). */
+export const POST_FEED_PREGEN_MAX_LONG_EDGE = 720;
+
+/** Story fullscreen viewer (`*_story.webp` in stories bucket). */
+export const STORY_DISPLAY_PREGEN_MAX_LONG_EDGE = 1080;
+
 /** Default lossy quality for WebP/JPEG before Storage upload (0–1). */
 export const STORAGE_IMAGE_QUALITY = 0.73;
 

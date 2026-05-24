@@ -11,7 +11,17 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "seed:business-cards": "node scripts/seed-business-cards/seed.mjs",
-    "seed:business-cards:dry": "node scripts/seed-business-cards/seed.mjs --dry-run"
+    "seed:business-cards:dry": "node scripts/seed-business-cards/seed.mjs --dry-run",
+    "backfill:business-card-blurhashes": "node scripts/backfill-business-card-blurhashes.mjs",
+    "backfill:business-card-blurhashes:dry": "node scripts/backfill-business-card-blurhashes.mjs --dry-run",
+    "backfill:feed-media-blurhashes": "node scripts/backfill-feed-media-blurhashes.mjs",
+    "backfill:feed-media-blurhashes:dry": "node scripts/backfill-feed-media-blurhashes.mjs --dry-run",
+    "backfill:business-card-thumbs": "node scripts/backfill-business-card-pregen.mjs --variants thumb",
+    "backfill:business-card-thumbs:dry": "node scripts/backfill-business-card-pregen.mjs --dry-run --variants thumb",
+    "backfill:business-card-pregen": "node scripts/backfill-business-card-pregen.mjs",
+    "backfill:business-card-pregen:dry": "node scripts/backfill-business-card-pregen.mjs --dry-run",
+    "backfill:stories-pregen": "node scripts/backfill-stories-pregen.mjs",
+    "backfill:stories-pregen:dry": "node scripts/backfill-stories-pregen.mjs --dry-run"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -28,6 +38,7 @@
     "expo": "~54.0.34",
     "expo-apple-authentication": "~8.0.7",
     "expo-blur": "~15.0.8",
+    "expo-build-properties": "~1.0.10",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.21",
@@ -60,7 +71,6 @@
     "react-native-maps": "1.20.1",
     "react-native-nitro-modules": "^0.35.5",
     "react-native-otp-entry": "^1.8.5",
-    "react-native-pager-view": "6.9.1",
     "react-native-reanimated": "~4.1.1",
     "react-native-reanimated-carousel": "^4.0.3",
     "react-native-safe-area-context": "~5.6.0",
@@ -80,6 +90,7 @@
     "eslint": "^10.3.0",
     "eslint-plugin-boundaries": "^6.0.2",
     "globals": "^17.6.0",
+    "sharp": "^0.34.5",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.59.1"
   },

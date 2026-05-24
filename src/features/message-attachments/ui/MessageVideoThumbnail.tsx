@@ -12,9 +12,10 @@ type Props = {
   videoUri: string;
   style?: StyleProp<ViewStyle>;
   iconColor: string;
+  blurhash?: string | null;
 };
 
-export function MessageVideoThumbnail({ videoUri, style, iconColor }: Props) {
+export function MessageVideoThumbnail({ videoUri, style, iconColor, blurhash }: Props) {
   const posterUrl = useMemo(() => getMessageVideoPosterPublicUrl(videoUri), [videoUri]);
   const optimizedPoster = useMemo(
     () => (posterUrl ? getOptimizedImageUrlPreset(posterUrl, "small", { quality: 72 }) || posterUrl : null),
@@ -57,6 +58,7 @@ export function MessageVideoThumbnail({ videoUri, style, iconColor }: Props) {
           style={StyleSheet.absoluteFillObject}
           contentFit="cover"
           recyclingKey={optimizedPoster}
+          blurhash={blurhash ?? undefined}
         />
         <View style={styles.playBadge} pointerEvents="none">
           <Ionicons name="play" size={22} color="#fff" />

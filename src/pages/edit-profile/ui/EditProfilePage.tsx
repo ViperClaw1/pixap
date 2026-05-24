@@ -40,6 +40,10 @@ import {
 } from "@/shared/ui/phone-input";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import {
+  StorySourcePickerModal,
+  type StorySourceOption,
+} from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 
 const KEYBOARD_GAP = 16;
 
@@ -95,6 +99,7 @@ function EditProfileScreenContent() {
   const [phoneValue, setPhoneValue] = useState<PhoneValue>(DEFAULT_PHONE_VALUE);
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [avatarUrl, setAvatarUrl] = useState<string>(profile?.avatar_url ?? ((user?.user_metadata?.avatar_url as string) ?? ""));
+  const [avatarBlurhash, setAvatarBlurhash] = useState<string | null>(profile?.avatar_blurhash ?? null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [firstError, setFirstError] = useState<string | null>(null);
@@ -102,6 +107,7 @@ function EditProfileScreenContent() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [phoneTouched, setPhoneTouched] = useState(false);
+  const [avatarSourcePickerVisible, setAvatarSourcePickerVisible] = useState(false);
 
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
@@ -116,6 +122,7 @@ function EditProfileScreenContent() {
     setPhoneValue(parseStoredPhone(profile.phone));
     setBio(profile.bio ?? "");
     setAvatarUrl(profile.avatar_url ?? ((user?.user_metadata?.avatar_url as string) ?? ""));
+    setAvatarBlurhash(profile.avatar_blurhash ?? null);
   }, [profile, user]);
 
   useEffect(() => {
@@ -131,50 +138,7 @@ function EditProfileScreenContent() {
   };
 
   const pickAvatar = () => {
-    appAlert(
-      "Choose avatar",
-      "Select where to pick your photo from.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Camera", onPress: () => void pickAvatarFromCamera() },
-        { text: "Gallery", onPress: () => void pickAvatarFromGallery() },
-      ],
-      "info",
-    );
-  };
-
-  const pickAvatarFromCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      appAlert("Permission needed", "Camera access is required to take a photo.", undefined, "alert");
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-      allowsEditing: true,
-      base64: false,
-    });
-    if (!result.canceled && result.assets[0]?.uri) {
-      await uploadAvatar(result.assets[0]);
-    }
-  };
-
-  const pickAvatarFromGallery = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      appAlert("Permission needed", "Storage access is required to choose a photo.", undefined, "alert");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-      allowsEditing: true,
-      base64: false,
-    });
-    if (!result.canceled && result.assets[0]?.uri) {
-      await uploadAvatar(result.assets[0]);
-    }
+    setAvatarSourcePickerVisible(true);
   };
 
   const uploadAvatar = async (asset: ImagePicker.ImagePickerAsset) => {
@@ -184,8 +148,9 @@ function EditProfileScreenContent() {
     }
     setUploadingAvatar(true);
     try {
-      const nextAvatarUrl = await uploadProfileAvatar.mutateAsync(asset);
+      const { avatarUrl: nextAvatarUrl, blurhash } = await uploadProfileAvatar.mutateAsync(asset);
       setAvatarUrl(nextAvatarUrl);
+      setAvatarBlurhash(blurhash);
       setAvatarError(null);
     } catch (error: unknown) {
       if (isAuthRequiredError(error)) {
@@ -197,6 +162,59 @@ function EditProfileScreenContent() {
     } finally {
       setUploadingAvatar(false);
     }
+  };
+
+  const pickAvatarFromCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        appAlert("Permission needed", "Camera access is required to take a photo.", undefined, "alert");
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        allowsEditing: true,
+        base64: false,
+      });
+      if (!result.canceled && result.assets[0]?.uri) {
+        await uploadAvatar(result.assets[0]);
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Could not open the camera.";
+      appAlert("Camera unavailable", message, undefined, "alert");
+    }
+  };
+
+  const pickAvatarFromGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        appAlert("Permission needed", "Storage access is required to choose a photo.", undefined, "alert");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        allowsEditing: true,
+        base64: false,
+      });
+      if (!result.canceled && result.assets[0]?.uri) {
+        await uploadAvatar(result.assets[0]);
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Could not open the photo library.";
+      appAlert("Gallery unavailable", message, undefined, "alert");
+    }
+  };
+
+  const onChooseAvatarSource = (source: StorySourceOption) => {
+    setAvatarSourcePickerVisible(false);
+    if (source === "camera") {
+      void pickAvatarFromCamera();
+      return;
+    }
+    void pickAvatarFromGallery();
   };
 
   const save = async () => {
@@ -285,6 +303,7 @@ function EditProfileScreenContent() {
             <UserAvatarImage
               uri={avatarUrl?.trim() || null}
               recyclingKey={avatarUrl || "edit-profile-avatar"}
+              blurhash={avatarBlurhash}
               style={styles.avatar}
               contentFit="cover"
               iconSize={48}
@@ -366,6 +385,13 @@ function EditProfileScreenContent() {
         </Pressable>
       </ScrollView>
       </Animated.View>
+      <StorySourcePickerModal
+        visible={avatarSourcePickerVisible}
+        onClose={() => setAvatarSourcePickerVisible(false)}
+        onChoose={onChooseAvatarSource}
+        title="Choose avatar"
+        subtitle="Select where to pick your photo from."
+      />
     </View>
   );
 }

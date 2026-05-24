@@ -19,6 +19,7 @@ type Props = {
   isFollowing: boolean;
   followedLabel: string;
   onOpenChat: () => void;
+  onPrefetchChat?: () => void;
   onToggleFollow: () => void;
 };
 
@@ -32,6 +33,7 @@ function MessagesPersonRowComponent({
   isFollowing,
   followedLabel,
   onOpenChat,
+  onPrefetchChat,
   onToggleFollow,
 }: Props) {
   const displayName = `${person.first_name?.trim() ?? ""} ${person.last_name?.trim() ?? ""}`.trim() || unknownLabel;
@@ -44,6 +46,7 @@ function MessagesPersonRowComponent({
           <Pressable
             style={[styles.swipeActionBtn, styles.swipeChatBtn, isCompact ? styles.swipeActionBtnCompact : null]}
             onPress={onOpenChat}
+            onPressIn={onPrefetchChat}
           >
             <Ionicons name="chatbubble-ellipses" size={actionIconSize} color={colors.onAccent} />
           </Pressable>
@@ -101,6 +104,7 @@ function MessagesPersonRowComponent({
           <Pressable
             style={[styles.iconActionBtn, styles.chatBtn, isCompact ? styles.iconActionBtnCompact : null]}
             onPress={onOpenChat}
+            onPressIn={onPrefetchChat}
           >
             <Ionicons name="chatbubble-ellipses" size={actionIconSize} color={colors.onAccent} />
           </Pressable>

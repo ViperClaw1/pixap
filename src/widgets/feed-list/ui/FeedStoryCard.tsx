@@ -7,9 +7,8 @@ import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import { ReactionBar } from "./ReactionBar";
 import { CommentPreview } from "./CommentPreview";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { feedMediaDeviceDpr } from "@/shared/lib/feedMediaUrls";
 import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
-import { getOptimizedImageUrlPreset } from "@/shared/lib/imagePresets";
+import { getFeedStoryPreviewImageUrl } from "@/shared/lib/feedMediaUrls";
 
 interface FeedStoryCardProps {
   story: FeedStoryItem;
@@ -43,10 +42,9 @@ function FeedStoryCardComponent({
     const last = story.profile?.last_name?.trim() ?? "";
     return `${first} ${last}`.trim() || "Unknown User";
   }, [story.profile?.first_name, story.profile?.last_name]);
-  const deviceDpr = feedMediaDeviceDpr();
   const coverImage = useMemo(
-    () => (story.media_url ? getOptimizedImageUrlPreset(story.media_url, "medium", { dpr: deviceDpr }) : ""),
-    [deviceDpr, story.media_url],
+    () => (story.media_url ? getFeedStoryPreviewImageUrl(story.media_url) : ""),
+    [story.media_url],
   );
   const avatarRaw = story.profile?.avatar_url?.trim() || "";
   const avatarUri = useMemo(

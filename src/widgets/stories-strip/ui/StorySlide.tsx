@@ -1,7 +1,6 @@
 import { memo, useMemo } from "react";
-import { PixelRatio } from "react-native";
 import type { StoryItem } from "@/shared/model/types/stories";
-import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
+import { getFeedStoryFullscreenImageUrl } from "@/shared/lib/feedMediaUrls";
 import { StoryMediaSlide } from "./StoryMediaSlide";
 
 interface StorySlideProps {
@@ -29,16 +28,9 @@ function parseStoryMediaUrl(raw?: string | null): string | null {
 
 function StorySlideComponent({ story, width, height }: StorySlideProps) {
   const mediaUrl = parseStoryMediaUrl(story.media_url);
-  const decodeSize = useMemo(() => {
-    const dpr = PixelRatio.get();
-    return {
-      w: quantizeDecodePx(Math.max(720, Math.round(width * dpr))),
-      h: quantizeDecodePx(Math.max(1200, Math.round(height * dpr))),
-    };
-  }, [width, height]);
   const optimizedMediaUrl = useMemo(
-    () => (mediaUrl ? getOptimizedImageUrl(mediaUrl, decodeSize.w, decodeSize.h, 78) : null),
-    [mediaUrl, decodeSize.w, decodeSize.h],
+    () => (mediaUrl ? getFeedStoryFullscreenImageUrl(mediaUrl) : null),
+    [mediaUrl],
   );
 
   return (

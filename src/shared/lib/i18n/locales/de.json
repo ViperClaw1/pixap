@@ -361,7 +361,44 @@
     "manageApple": "Im App Store verwalten",
     "manageGoogle": "In Google Play verwalten",
     "legal": "Abonnementbedingungen werden über Ihr Store-Konto verwaltet.",
-    "expoGoHint": "Käufe sind in Expo Go nicht verfügbar."
+    "expoGoHint": "Käufe sind in Expo Go nicht verfügbar.",
+    "tour": {
+      "rewatch": "So funktioniert PixAI",
+      "back": "Zurück",
+      "next": "Weiter",
+      "done": "Fertig",
+      "close": "Schließen",
+      "slides": {
+        "smartBookingCity": {
+          "title": "Stadt wählen",
+          "description": "Starten Sie Smart Booking mit der Stadtauswahl. PixAI findet Orte und freie Zeitfenster."
+        },
+        "smartBookingScope": {
+          "title": "Suchbereich festlegen",
+          "description": "Suchen Sie in der Nähe oder in der ganzen Stadt — PixAI passt sich an."
+        },
+        "smartBookingAssistant": {
+          "title": "Chat mit PixAI",
+          "description": "Beschreiben Sie Ihren Wunsch. Der Assistent findet passende Orte und schlägt Optionen vor."
+        },
+        "smartBookingSlots": {
+          "title": "Datum und Uhrzeit",
+          "description": "Wählen Sie im Kalender ein passendes Zeitfenster für Ihren Ort."
+        },
+        "smartBookingDetails": {
+          "title": "Buchungsdetails",
+          "description": "Prüfen Sie Anfrage, Gästezahl und Kontaktdaten vor dem Absenden."
+        },
+        "vibeMatchMood": {
+          "title": "Vibe-Matching",
+          "description": "Stimmung und Zeitplan wählen — Vibe Match erstellt einen Abend mit mehreren Stopps."
+        },
+        "vibeMatchRoute": {
+          "title": "Ganze Route buchen",
+          "description": "Fertige Route mit Live-Verfügbarkeit — alle Stopps mit einem Tipp buchen."
+        }
+      }
+    }
   },
   "postBoost": {
     "title": "Post im Feed boosten",

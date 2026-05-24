@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
   Alert,
   TextInput,
+  PixelRatio,
 } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
@@ -58,8 +59,21 @@ import {
 import { AnimatedHomeSparklesIcon, AnimatedHomeVibeIcon } from "@/shared/ui/animated-home-header-icons";
 import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
 import { DailyPicksHero } from "@/widgets/daily-picks-hero";
+import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
+import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCardDisplayUrl";
 
 const VIBE_TOOLBAR_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
+const FEATURED_THUMB_W = 200;
+const FEATURED_THUMB_H = 140;
+const RECOMMENDED_THUMB_SIZE = 96;
+
+function thumbUriForCard(place: BusinessCard, layoutW: number, layoutH: number): string | null {
+  const dpr = Math.min(2, PixelRatio.get());
+  return getBusinessCardThumbUris(place, {
+    layoutPx: layoutW * dpr,
+    layoutPxHeight: layoutH * dpr,
+  }).uri;
+}
 const VIBE_TOOLBAR_GRADIENT_DARK = ["#6d28d9", "#be185d", "#ea580c"] as const;
 
 type Nav = CompositeNavigationProp<
@@ -145,6 +159,23 @@ export default function HomeScreen() {
     () => recommended.slice(0, visibleRecommendedCount),
     [recommended, visibleRecommendedCount],
   );
+
+  useEffect(() => {
+    if (!featured.length) return;
+    const uris = featured
+      .slice(0, 8)
+      .map((p) => thumbUriForCard(p, FEATURED_THUMB_W, FEATURED_THUMB_H));
+    void preloadSmartImages(uris);
+  }, [featured]);
+
+  useEffect(() => {
+    if (!visibleRecommended.length) return;
+    const uris = visibleRecommended
+      .slice(0, 8)
+      .map((p) => thumbUriForCard(p, RECOMMENDED_THUMB_SIZE, RECOMMENDED_THUMB_SIZE));
+    void preloadSmartImages(uris);
+  }, [visibleRecommended]);
+
   const recommendedListExtraData = useMemo(
     () =>
       visibleRecommended
