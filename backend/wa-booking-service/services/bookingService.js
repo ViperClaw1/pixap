@@ -97,6 +97,14 @@ function resolveWaTemplate(baseName, locale) {
   return `${baseName}_${suffix}`;
 }
 
+/** WhatsApp template chain locale from venue phone — never from app UI language. */
+function bookingWaTemplateLocale(booking) {
+  if (booking?.template_locale === "ru" || booking?.template_locale === "en") {
+    return booking.template_locale;
+  }
+  return waTemplateLocaleFromOwnerPhone(booking?.owner_phone);
+}
+
 function formatWaBookingDate(isoDate, locale) {
   const raw = String(isoDate || "").trim();
   if (!raw || raw === "—") return raw;
@@ -212,6 +220,8 @@ function makeBookingSnapshot(booking) {
     status: booking.status,
     step: booking.step,
     interface_locale: booking.interface_locale,
+    template_locale: booking.template_locale ?? booking.interface_locale,
+    app_interface_locale: booking.app_interface_locale ?? null,
     is_free: booking.is_free,
     price: booking.price,
     payment_link: booking.payment_link,
@@ -372,8 +382,26 @@ async function syncCartOrLegacy(booking, supabasePatch, legacyPayload) {
 }
 
 async function sendLocaleTemplate(booking, baseName, variables = []) {
-  const templateId = resolveWaTemplate(baseName, booking.interface_locale);
-  const languageCode = waTemplateLanguageCodeForTemplate(templateId, booking.interface_locale);
+  const waLocale = bookingWaTemplateLocale(booking);
+  const templateId = resolveWaTemplate(baseName, waLocale);
+  const languageCode = waTemplateLanguageCodeForTemplate(templateId);
+  if (templateId.endsWith("_rus") && languageCode === "en") {
+    log("wa_template_language_mismatch", {
+      booking_id: booking.id,
+      template_id: templateId,
+      language_code: languageCode,
+      wa_locale: waLocale,
+      hint:
+        "Template name ends with _rus but language.code is en. If Meta approved this template under Russian, remove WHATSAPP_TEMPLATE_LANGUAGE_RU=en on Railway or set WHATSAPP_TEMPLATE_LANGUAGE_RU=ru.",
+    });
+  }
+  log("wa_template_send", {
+    booking_id: booking.id,
+    template_id: templateId,
+    language_code: languageCode,
+    wa_locale: waLocale,
+    app_interface_locale: booking.app_interface_locale ?? null,
+  });
   const result = await sendWhatsAppTemplate(booking.owner_phone, templateId, variables, languageCode);
   trackOutboundMessage(booking, result?.message_id, {
     template_id: templateId,
@@ -439,7 +467,9 @@ async function createBooking(payload) {
     customer_phone: optionalTrimString(payload, "customer_phone"),
     date,
     time,
+    template_locale: templateLocale,
     interface_locale: templateLocale,
+    app_interface_locale: normalizeInterfaceLocale(optionalTrimString(payload, "interface_locale")),
     status: "pending",
     step: "availability",
     is_free: null,
@@ -461,7 +491,7 @@ async function createBooking(payload) {
     owner_phone: ownerPhone,
     step: booking.step,
     template_locale: templateLocale,
-    app_interface_locale: optionalTrimString(payload, "interface_locale"),
+    app_interface_locale: booking.app_interface_locale,
   });
 
   await sendLocaleTemplate(booking, TEMPLATE_CHECK_IS_AVAILABLE, [
@@ -679,6 +709,14 @@ async function processDeliveryStatus(payload) {
             "A WHATSAPP_*_HEADER_IMAGE_URL is set but Meta cannot fetch it. Remove those env vars if the template uses a static header in Meta; or fix the URL to a direct public HTTPS JPG/PNG.",
         }
       : {}),
+    ...(status === "failed" &&
+    meta?.template_id?.endsWith("_rus") &&
+    /undeliverable/i.test(errorDetails)
+      ? {
+          hint:
+            "Russian template (_rus) failed to deliver. Check WHATSAPP_TEMPLATE_LANGUAGE_RU matches Meta (usually ru), WHATSAPP_HEADER_LOGO_URL is a public HTTPS image, and the owner number is on WhatsApp.",
+        }
+      : {}),
   });
 
   const isConfirmable =
@@ -769,6 +807,14 @@ function getDebugState() {
 }
 
 function getRuntimeTemplateConfig() {
+  const { waTemplateLanguageCodeForTemplate } = require("./whatsapp");
+  const sequence_with_language = {};
+  for (const [loc, ids] of Object.entries(TEMPLATE_FLOW_BY_LOCALE)) {
+    sequence_with_language[loc] = ids.map((template_id) => ({
+      template_id,
+      language_code: waTemplateLanguageCodeForTemplate(template_id),
+    }));
+  }
   return {
     bases: {
       check_is_available: TEMPLATE_CHECK_IS_AVAILABLE,
@@ -776,6 +822,12 @@ function getRuntimeTemplateConfig() {
       got_it: TEMPLATE_GOT_IT,
     },
     sequence_by_locale: TEMPLATE_FLOW_BY_LOCALE,
+    sequence_with_language,
+    env: {
+      WHATSAPP_TEMPLATE_LANGUAGE: (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim(),
+      WHATSAPP_TEMPLATE_LANGUAGE_EN: (process.env.WHATSAPP_TEMPLATE_LANGUAGE_EN || "").trim() || null,
+      WHATSAPP_TEMPLATE_LANGUAGE_RU: (process.env.WHATSAPP_TEMPLATE_LANGUAGE_RU || "").trim() || null,
+    },
   };
 }
 

@@ -39,6 +39,21 @@ const app = express();
 
 runParserSelfChecks();
 
+const waTemplateLanguageRu = (process.env.WHATSAPP_TEMPLATE_LANGUAGE_RU || "").trim();
+const waTemplateLanguageGlobal = (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim();
+if (waTemplateLanguageRu && waTemplateLanguageRu === waTemplateLanguageGlobal) {
+  console.warn(
+    JSON.stringify({
+      scope: "whatsapp",
+      action: "env_language_warning",
+      message:
+        "WHATSAPP_TEMPLATE_LANGUAGE_RU equals WHATSAPP_TEMPLATE_LANGUAGE — *_rus templates use the same language.code. For Russian Meta templates set WHATSAPP_TEMPLATE_LANGUAGE_RU=ru.",
+      value: waTemplateLanguageRu,
+      timestamp: new Date().toISOString(),
+    }),
+  );
+}
+
 app.use(express.json({ limit: "1mb" }));
 
 app.use((req, _res, next) => {
