@@ -385,16 +385,6 @@ async function sendLocaleTemplate(booking, baseName, variables = []) {
   const waLocale = bookingWaTemplateLocale(booking);
   const templateId = resolveWaTemplate(baseName, waLocale);
   const languageCode = waTemplateLanguageCodeForTemplate(templateId);
-  if (templateId.endsWith("_rus") && languageCode === "en") {
-    log("wa_template_language_mismatch", {
-      booking_id: booking.id,
-      template_id: templateId,
-      language_code: languageCode,
-      wa_locale: waLocale,
-      hint:
-        "Template name ends with _rus but language.code is en. If Meta approved this template under Russian, remove WHATSAPP_TEMPLATE_LANGUAGE_RU=en on Railway or set WHATSAPP_TEMPLATE_LANGUAGE_RU=ru.",
-    });
-  }
   log("wa_template_send", {
     booking_id: booking.id,
     template_id: templateId,
@@ -709,12 +699,10 @@ async function processDeliveryStatus(payload) {
             "A WHATSAPP_*_HEADER_IMAGE_URL is set but Meta cannot fetch it. Remove those env vars if the template uses a static header in Meta; or fix the URL to a direct public HTTPS JPG/PNG.",
         }
       : {}),
-    ...(status === "failed" &&
-    meta?.template_id?.endsWith("_rus") &&
-    /undeliverable/i.test(errorDetails)
+    ...(status === "failed" && /undeliverable/i.test(errorDetails)
       ? {
           hint:
-            "Russian template (_rus) failed to deliver. Check WHATSAPP_TEMPLATE_LANGUAGE_RU matches Meta (usually ru), WHATSAPP_HEADER_LOGO_URL is a public HTTPS image, and the owner number is on WhatsApp.",
+            "Meta accepted the template but did not deliver it. Confirm the owner number is on WhatsApp, template variables match Meta, and WHATSAPP_TEMPLATE_LANGUAGE matches the approved locale (en).",
         }
       : {}),
   });
@@ -824,7 +812,7 @@ function getRuntimeTemplateConfig() {
     sequence_by_locale: TEMPLATE_FLOW_BY_LOCALE,
     sequence_with_language,
     env: {
-      WHATSAPP_TEMPLATE_LANGUAGE: (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim(),
+      WHATSAPP_TEMPLATE_LANGUAGE: (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en").trim(),
       WHATSAPP_TEMPLATE_LANGUAGE_EN: (process.env.WHATSAPP_TEMPLATE_LANGUAGE_EN || "").trim() || null,
       WHATSAPP_TEMPLATE_LANGUAGE_RU: (process.env.WHATSAPP_TEMPLATE_LANGUAGE_RU || "").trim() || null,
     },
