@@ -75,6 +75,10 @@ Price replies from the owner are parsed with case-insensitive ISO codes (`USD`, 
 | `pricing_price_input` | (text prompt) | Price + currency in free text |
 | complete | `confirm_{eng\|rus}` | — |
 
+### `Message undeliverable` (delivery webhook `failed`)
+
+When Meta cannot deliver to the venue number (not on WhatsApp, invalid number, etc.), `wa-booking-service` writes clear lines to `wa_status_lines`, sets `wa_confirmable` to `false`, and stops the active conversation for that booking. The app shows these lines in Cart (orange) and disables Confirm.
+
 ### Meta error `#132001` — template name does not exist in the translation
 
 The API request uses **exact** `template.name` (e.g. `check_availability_rus`) and `template.language.code` (default `en` from `WHATSAPP_TEMPLATE_LANGUAGE`). Both must match what is **approved** in WhatsApp Manager for this WABA:

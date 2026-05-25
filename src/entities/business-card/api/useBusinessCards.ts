@@ -103,16 +103,11 @@ export const useAvailableCities = () => {
     queryKey: queryKeys.businessCards.availableCities,
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("business_cards")
-        .select("city")
-        .not("city", "is", null)
-        .order("city", { ascending: true })
-        .limit(500);
+      const { data, error } = await supabase.rpc("get_business_card_cities");
       if (error) throw error;
-      const unique = Array.from(
-        new Set((data ?? []).map((row) => row.city).filter((city): city is string => typeof city === "string" && city.trim().length > 0)),
-      );
+      const unique = (data ?? [])
+        .map((row) => (typeof row.city === "string" ? row.city.trim() : ""))
+        .filter((city) => city.length > 0);
       return [ALL_CITIES_OPTION, ...unique];
     },
   });

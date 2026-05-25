@@ -35,7 +35,8 @@ export const bookingsStaticStyles = StyleSheet.create({
   name: { fontWeight: "700", flexShrink: 1, fontSize: 15 },
   meta: { fontSize: 12, marginTop: 4 },
   priceFromVenue: { fontSize: 14, marginTop: 6, fontWeight: "700" },
-  badge: { marginTop: 8, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8, alignItems: "center" },
+  badge: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
   waitingBadge: {
     marginTop: 6,

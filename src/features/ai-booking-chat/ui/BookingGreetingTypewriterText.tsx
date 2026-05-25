@@ -1,5 +1,5 @@
 import type { StyleProp, TextStyle } from "react-native";
-import { BOOKING_ASSISTANT_GREETING } from "../model/constants";
+import { useTranslation } from "react-i18next";
 import { BookingTypewriterText } from "./BookingTypewriterText";
 
 type Props = {
@@ -12,5 +12,12 @@ type Props = {
  * Client-only typewriter for the canonical PixAI booking greeting (store still holds full text).
  */
 export function BookingGreetingTypewriterText({ textStyle, runOnceKey }: Props) {
-  return <BookingTypewriterText fullText={BOOKING_ASSISTANT_GREETING} textStyle={textStyle} runOnceKey={runOnceKey} />;
+  const { t } = useTranslation();
+  return (
+    <BookingTypewriterText
+      fullText={t("aiBooking.assistantGreeting")}
+      textStyle={textStyle}
+      runOnceKey={runOnceKey}
+    />
+  );
 }

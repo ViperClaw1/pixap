@@ -2,6 +2,10 @@ import { Fragment } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BookingChatMessage } from "../model/types";
+import {
+  getBookingAssistantGreetingText,
+  isPixBookingAssistantGreeting,
+} from "@/entities/pixai/lib/bookingAssistantCopy";
 import { useSequentialTypewriterReveal } from "../lib/useSequentialTypewriterReveal";
 import { useBookingInlineThreadStyles } from "./useBookingInlineThreadStyles";
 
@@ -15,8 +19,9 @@ export function BookingChainedOpeningAssistantPair({ variant, first, second }: P
   const { colors } = useAppTheme();
   const threadStyles = useBookingInlineThreadStyles();
   const chainKey = `${first.id}:${second.id}`;
+  const firstFullText = isPixBookingAssistantGreeting(first) ? getBookingAssistantGreetingText() : first.content;
   const { firstVisible, secondVisible, showSecondBubble } = useSequentialTypewriterReveal(
-    first.content,
+    firstFullText,
     second.content,
     chainKey,
   );

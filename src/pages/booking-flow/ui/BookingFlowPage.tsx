@@ -95,6 +95,7 @@ export default function BookingFlowPage() {
   const [visibleCalendarMonth, setVisibleCalendarMonth] = useState<Date>(() => firstOfMonthContaining(new Date()));
   const [selectedTime, setSelectedTime] = useState("");
   const [guests, setGuests] = useState(BOOKING_FLOW_DEFAULT_GUESTS);
+  const [confirming, setConfirming] = useState(false);
   const useMonotoneDarkBackground = isDark && (step === 0 || step === 2);
   const selectedDate = useMemo(() => fromYmd(selectedDateYmd), [selectedDateYmd]);
   const themed = useThemeStyles(({ colors: c, isDark: dark }) => bookingFlowThemedThemeStyles(c, dark));
@@ -138,6 +139,7 @@ export default function BookingFlowPage() {
   };
 
   const handleConfirm = async () => {
+    if (confirming) return;
     if (!canUseBookingCredits) {
       Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
       return;
@@ -163,6 +165,7 @@ export default function BookingFlowPage() {
       profileString(user?.user_metadata?.phone) ??
       profileString(user?.phone) ??
       null;
+    setConfirming(true);
     try {
       const price = Number(place.booking_price);
       await createBooking.mutateAsync({
@@ -172,7 +175,7 @@ export default function BookingFlowPage() {
         persons: guests,
         customer_name: customerName,
         customer_phone: customerPhone,
-        payment_status: price > 0 ? "pending" : "paid",
+        payment_status: "pending",
         status: "upcoming",
       });
       const createdCartItem = await createCartItem.mutateAsync({
@@ -192,16 +195,12 @@ export default function BookingFlowPage() {
           }
         });
       }
-      if (price > 0) {
-        appAlert(
-          "Draft created",
-          "Draft booking was added to Bookings. Venue check is started in background.",
-          undefined,
-          "success",
-        );
-      } else {
-        appAlert("Booking confirmed", "Your booking is now in Bookings.", undefined, "success");
-      }
+      appAlert(
+        "Draft created",
+        "Draft booking was added to Bookings. Venue check is started in background.",
+        undefined,
+        "success",
+      );
       navigation.getParent()?.dispatch(
         CommonActions.navigate({
           name: "Bookings",
@@ -218,6 +217,8 @@ export default function BookingFlowPage() {
         return;
       }
       Alert.alert("Failed to add to cart");
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -418,8 +419,17 @@ export default function BookingFlowPage() {
             <Text style={styles.primaryText}>Continue</Text>
           </Pressable>
         ) : (
-          <Pressable style={styles.primary} onPress={() => void handleConfirm()}>
-            <Text style={styles.primaryText}>Confirm booking</Text>
+          <Pressable
+            style={[styles.primary, confirming && { opacity: 0.55 }]}
+            disabled={confirming}
+            accessibilityState={{ disabled: confirming }}
+            onPress={() => void handleConfirm()}
+          >
+            {confirming ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryText}>Confirm booking</Text>
+            )}
           </Pressable>
         )}
       </View>

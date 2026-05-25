@@ -126,7 +126,7 @@ export function BookingInlineAssistantChat({
           }
           const item = row.item;
           const isUser = item.role === "user";
-          const greetingTw = !isUser && isPixBookingAssistantGreeting(item.content);
+          const greetingTw = !isUser && isPixBookingAssistantGreeting(item);
           return (
             <View key={item.id} style={isUser ? ts.bubbleWrapMine : ts.bubbleWrapPeer}>
               <View style={[ts.bubble, isUser ? ts.bubbleMine : ts.bubblePeer]}>

@@ -1,5 +1,6 @@
 import { View, Text } from "react-native";
 import type { PixAIMessage } from "@/entities/pixai";
+import { resolveBookingAssistantGreetingDisplay } from "@/entities/pixai/lib/bookingAssistantCopy";
 import type { AIBookingStyles } from "./aiBookingStyles";
 
 type Props = {
@@ -10,11 +11,14 @@ type Props = {
 export function AIBookingTranscript({ messages, styles: s }: Props) {
   return (
     <View style={s.semanticSection}>
-      {messages.map((m) => (
-        <View key={m.id} style={[s.bubble, m.role === "user" && s.bubbleUser]}>
-          <Text style={m.role === "user" ? s.bubbleUserText : s.bubbleText}>{m.content}</Text>
-        </View>
-      ))}
+      {messages.map((m) => {
+        const content = resolveBookingAssistantGreetingDisplay(m);
+        return (
+          <View key={m.id} style={[s.bubble, m.role === "user" && s.bubbleUser]}>
+            <Text style={m.role === "user" ? s.bubbleUserText : s.bubbleText}>{content}</Text>
+          </View>
+        );
+      })}
     </View>
   );
 }

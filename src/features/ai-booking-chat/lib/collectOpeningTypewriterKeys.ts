@@ -10,7 +10,7 @@ export function collectOpeningTypewriterKeysFromMessages(messages: BookingChatMe
       keys.push(`${row.first.id}:${row.second.id}`);
       continue;
     }
-    if (row.item.role === "assistant" && isPixBookingAssistantGreeting(row.item.content)) {
+    if (row.item.role === "assistant" && isPixBookingAssistantGreeting(row.item)) {
       keys.push(row.item.id);
     }
   }

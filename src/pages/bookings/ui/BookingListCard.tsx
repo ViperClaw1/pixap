@@ -5,7 +5,13 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { useCancelBooking, type Booking, type BookingDisplayStatus } from "@/entities/booking";
+import {
+  bookingListPriceParts,
+  isFreeBookingEntry,
+  useCancelBooking,
+  type Booking,
+  type BookingDisplayStatus,
+} from "@/entities/booking";
 import type { BookingsStackParamList } from "@/app/navigation/types";
 import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import {
@@ -38,6 +44,11 @@ function formatBookingDateTime(value: string): string {
   const minutes = String(date.getMinutes()).padStart(2, "0");
   return `${dd}.${mm}.${yyyy}, ${hh}:${minutes}`;
 }
+
+const ENTRY_BADGE = {
+  free: { bg: "#EDE9FE", fg: "#5B21B6" },
+  paid: { bg: "#FFEDD5", fg: "#C2410C" },
+} as const;
 
 function statusPalette(status: BookingDisplayStatus) {
   switch (status) {
@@ -76,6 +87,10 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
   const cancelBooking = useCancelBooking();
 
   const palette = statusPalette(item.displayStatus);
+  const isFreeEntry = isFreeBookingEntry(Number(item.cost), item.venueConfirmedPrice);
+  const showEntryUi = item.displayStatus !== "draft";
+  const listPrice = showEntryUi && !isFreeEntry ? bookingListPriceParts(Number(item.cost), item.venueConfirmedPrice) : null;
+  const entryPalette = isFreeEntry ? ENTRY_BADGE.free : ENTRY_BADGE.paid;
   const canCancel = item.displayStatus !== "cancelled" && item.displayStatus !== "completed";
   const canPay =
     (item.displayStatus === "confirmed" || item.displayStatus === "payment awaiting") &&
@@ -142,16 +157,13 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
           ) : null}
         </View>
         <Text style={styles.meta}>{formatBookingDateTime(item.date_time)}</Text>
-        {item.venueConfirmedPrice ? (
-          <Text style={styles.priceFromVenue}>{t("bookings.venuePrice", { price: item.venueConfirmedPrice })}</Text>
-        ) : null}
         {item.persons ? <Text style={styles.meta}>{t("bookings.persons", { count: item.persons })}</Text> : null}
         {item.comment ? <Text style={styles.meta}>{t("bookings.comment", { text: item.comment })}</Text> : null}
-        {item.displayStatus !== "draft" ? (
-          <Text style={styles.meta}>
-            {t("bookings.payment", {
-              state: item.payment_status === "pending" ? t("bookings.paymentPending") : t("bookings.paymentPaid"),
-            })}
+        {listPrice ? (
+          <Text style={styles.priceFromVenue}>
+            {listPrice.currency
+              ? t("bookings.listPrice", { amount: listPrice.amount, currency: listPrice.currency })
+              : t("bookings.listPrice", { amount: listPrice.amount, currency: "" }).trimEnd()}
           </Text>
         ) : null}
         {canPay ? (
@@ -170,8 +182,19 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
             <Text style={styles.waitingBadgeText}>{t("bookings.waitingForVenue")}</Text>
           </View>
         ) : null}
-        <View style={[styles.badge, { backgroundColor: palette.bg }]}>
-          <Text style={[styles.badgeText, { color: palette.fg }]}>{t(bookingFilterTranslationKey(item.displayStatus))}</Text>
+        <View style={styles.badgeRow}>
+          {showEntryUi ? (
+            <View style={[styles.badge, { backgroundColor: entryPalette.bg }]}>
+              <Text style={[styles.badgeText, { color: entryPalette.fg }]}>
+                {isFreeEntry ? t("bookings.freeEntry") : t("bookings.paidEntry")}
+              </Text>
+            </View>
+          ) : null}
+          <View style={[styles.badge, { backgroundColor: palette.bg }]}>
+            <Text style={[styles.badgeText, { color: palette.fg }]}>
+              {t(bookingFilterTranslationKey(item.displayStatus))}
+            </Text>
+          </View>
         </View>
       </View>
     </Pressable>

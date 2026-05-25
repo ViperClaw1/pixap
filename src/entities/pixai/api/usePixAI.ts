@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/shared/api/supabase/client";
@@ -8,6 +8,11 @@ import type { BusinessCard } from "@/entities/business-card";
 import { PIXAI_BUSINESS_CARD_SELECT, localizeBusinessCard } from "@/entities/business-card";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { invokePixaiOrchestrateWithAuth, logPixaiOrchestrateInvokeFailure } from "./invokePixaiOrchestrate";
+import {
+  getBookingAssistantGreetingText,
+  PIXAI_WELCOME_MESSAGE_ID,
+} from "@/entities/pixai/lib/bookingAssistantCopy";
+import { buildFlowUserSummary } from "../lib/buildFlowUserSummary";
 
 export type PixAIPlace = Pick<BusinessCard, "id" | "name" | "address" | "city" | "rating" | "booking_price" | "images">;
 
@@ -108,17 +113,6 @@ function parseVibeStops(raw: unknown): VibePlanStop[] {
   return out;
 }
 
-function buildFlowUserSummary(flow: PixAIFlowPayload): string {
-  const summaryParts = [
-    flow.city,
-    flow.isRestaurantTable ? "Restaurant table" : (flow.categoryName ?? "Service"),
-    flow.mode === "nearby" ? "Near me (5 miles)" : "All places in city",
-  ];
-  if (flow.comment?.trim()) summaryParts.push(`Comment: ${flow.comment.trim()}`);
-  return `Find: ${summaryParts.join(" | ")}`;
-}
-
-/** Same tone as the edge `buildAssistant` for successful searches (no “service unavailable” wording). */
 function buildAssistantFromFlow(flow: PixAIFlowPayload, placeCount: number): string {
   if (placeCount === 0) {
     return "I could not find matching places. Try changing city, category, or search scope.";
@@ -262,14 +256,20 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload, language
 export function usePixAI() {
   const { user } = useAuth();
   const { i18n } = useTranslation();
-  const [messages, setMessages] = useState<PixAIMessage[]>([
+  const [messages, setMessages] = useState<PixAIMessage[]>(() => [
     {
-      id: "welcome",
+      id: PIXAI_WELCOME_MESSAGE_ID,
       role: "assistant",
-      content:
-        "Hi, I am PixAI. Tell me what service you want and I will find places, suggest the best slot, and prepare your booking.",
+      content: getBookingAssistantGreetingText(),
     },
   ]);
+
+  useEffect(() => {
+    const greeting = getBookingAssistantGreetingText();
+    setMessages((prev) =>
+      prev.map((m) => (m.id === PIXAI_WELCOME_MESSAGE_ID ? { ...m, content: greeting } : m)),
+    );
+  }, [i18n.language]);
 
   const flowMutation = useMutation({
     mutationFn: async (flow: PixAIFlowPayload): Promise<FlowRunResult> => {

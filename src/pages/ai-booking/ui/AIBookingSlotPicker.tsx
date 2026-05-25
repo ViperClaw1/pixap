@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { PixAIPlace, PixAISlot } from "@/entities/pixai";
@@ -45,19 +46,20 @@ export function AIBookingSlotPicker({
   cartReservedSlotTimes,
   selectedSlot,
 }: Props) {
+  const { t, i18n } = useTranslation();
   const { colors } = useAppTheme();
 
   return (
     <View style={s.semanticSection}>
-      <Text style={s.label}>Step 5. Available slots</Text>
+      <Text style={s.label}>{t("aiBooking.step5Title")}</Text>
       <Text style={s.calendarHint} numberOfLines={2}>
-        Pick a date for {selectedPlace.name}, then choose a time.
+        {t("aiBooking.calendarHint", { name: selectedPlace.name })}
       </Text>
       <View style={s.calendarPanel}>
         <View style={s.calendarNav}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Previous month"
+            accessibilityLabel={t("bookingCommon.previousMonth")}
             disabled={!canGoPrevMonth}
             onPress={() =>
               setVisibleCalendarMonth((prev) => {
@@ -71,11 +73,11 @@ export function AIBookingSlotPicker({
             <Ionicons name="chevron-back" size={22} color={colors.text} />
           </Pressable>
           <Text style={s.calendarMonthTitle}>
-            {visibleCalendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+            {visibleCalendarMonth.toLocaleDateString(i18n.language, { month: "long", year: "numeric" })}
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Next month"
+            accessibilityLabel={t("bookingCommon.nextMonth")}
             disabled={!canGoNextMonth}
             onPress={() =>
               setVisibleCalendarMonth((prev) => {
@@ -133,18 +135,18 @@ export function AIBookingSlotPicker({
       </View>
 
       {!bookingDateYmd ? (
-        <Text style={s.calendarHint}>Select a date to load time slots.</Text>
+        <Text style={s.calendarHint}>{t("aiBooking.selectDateForSlots")}</Text>
       ) : slotsFetching ? (
         <ActivityIndicator style={{ marginTop: 16 }} color={colors.primary} />
       ) : slotsError ? (
         <View style={{ marginTop: 12, gap: 8 }}>
-          <Text style={s.helperText}>Could not load slots.</Text>
+          <Text style={s.helperText}>{t("aiBooking.couldNotLoadSlots")}</Text>
           <Pressable style={s.secondaryBtn} onPress={() => void refetchSlots()}>
-            <Text style={s.secondaryBtnText}>Retry</Text>
+            <Text style={s.secondaryBtnText}>{t("bookingCommon.retry")}</Text>
           </Pressable>
         </View>
       ) : slotsForDate.length === 0 ? (
-        <Text style={s.calendarHint}>No time slots for this date.</Text>
+        <Text style={s.calendarHint}>{t("aiBooking.noTimeSlotsForDate")}</Text>
       ) : (
         <View style={[s.slotGrid, { marginTop: 10 }]}>
           {slotsForDate.map((slot) => {

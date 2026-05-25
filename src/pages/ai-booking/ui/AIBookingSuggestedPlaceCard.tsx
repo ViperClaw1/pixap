@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { PixelRatio, Pressable, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { PixAIPlace } from "@/entities/pixai";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -28,6 +29,7 @@ type Props = {
 };
 
 function AIBookingSuggestedPlaceCardInner({ styles: s, place, selected, onSelect }: Props) {
+  const { t } = useTranslation();
   const { uri, fallbackUri } = placeThumbUris(place.images);
 
   return (
@@ -49,7 +51,8 @@ function AIBookingSuggestedPlaceCardInner({ styles: s, place, selected, onSelect
             {place.name}
           </Text>
           <Text style={s.placeMeta} numberOfLines={2}>
-            {place.city ?? "City not set"} • {place.address ?? "No address"} • {Number(place.rating).toFixed(1)}★
+            {place.city ?? t("bookingCommon.cityNotSet")} • {place.address ?? t("bookingCommon.noAddress")} •{" "}
+            {Number(place.rating).toFixed(1)}★
           </Text>
         </View>
       </View>

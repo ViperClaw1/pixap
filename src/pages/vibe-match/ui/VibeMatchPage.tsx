@@ -37,10 +37,11 @@ import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCr
 import { appAlert } from "@/shared/ui/app-popup";
 import { useProfile } from "@/entities/user";
 import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } from "@/entities/pixai";
+import { buildVibeRouteAssistantMessage } from "@/entities/pixai/lib/buildVibeRouteAssistantMessage";
 import { fetchAvailableSlotsForDay, useCreateBooking } from "@/entities/booking";
 import { useCreateCartItem } from "@/entities/cart";
 import { normalizeWaInterfaceLocale, startN8nWaBooking } from "@/entities/cart";
-import { i18n } from "@/shared/lib/i18n";
+import { i18n, PageI18nProvider } from "@/shared/lib/i18n";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import {
@@ -73,12 +74,17 @@ import {
 import { toYmd } from "@/shared/lib/bookingCalendar";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
-import { VIBE_OPTIONS } from "@/entities/user-preferences";
+import { VIBE_OPTIONS, type TaxonomyOption } from "@/entities/user-preferences";
 import { OnboardingChipGrid } from "@/shared/ui/onboarding/OnboardingChipGrid";
 import { devWarn } from "@/shared/lib/devLog";
 import Toast from "react-native-toast-message";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const VIBE_MATCH_MOOD_OPTIONS: TaxonomyOption[] = VIBE_OPTIONS.map((option) => ({
+  ...option,
+  labelPrefix: "vibeMatch.vibes",
+}));
 
 const SLOT_MATCH_MS = 45 * 60 * 1000;
 const PLAN_THUMB_SIZE = 56;
@@ -122,8 +128,8 @@ type BookRowResult = { stop: VibePlanStop; ok: true } | { stop: VibePlanStop; ok
 
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "VibeMatch">;
 
-export default function VibeMatchPage() {
-  const { t } = useTranslation();
+function VibeMatchPageContent() {
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
   const keyboardRootStyle = useAnimatedStyle(
@@ -181,6 +187,11 @@ export default function VibeMatchPage() {
   const [lastBookResults, setLastBookResults] = useState<BookRowResult[] | null>(null);
   const [bookingAction, setBookingAction] = useState<VibeBookingAction | null>(null);
   const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>([]);
+  const [lastVibeContext, setLastVibeContext] = useState<{
+    mood: string;
+    timeline: PixAIVibeTimeline;
+    city: string;
+  } | null>(null);
   const selectionSeededForPlanRef = useRef("");
   const bookingBusy = bookingAction !== null;
 
@@ -190,6 +201,17 @@ export default function VibeMatchPage() {
     () => plan.map((s) => `${s.venue_id}:${s.time_slot}`).join("|"),
     [plan],
   );
+
+  const conciergeMessage = useMemo(() => {
+    if (!lastVibeContext || !vibeResult) return "";
+    return buildVibeRouteAssistantMessage(
+      {
+        ...lastVibeContext,
+        stopCount: plan.length,
+      },
+      t,
+    );
+  }, [lastVibeContext, vibeResult, plan.length, t, i18n.language]);
 
   const concreteCities = useMemo(
     () => availableCities.filter((c) => c !== ALL_CITIES_OPTION),
@@ -327,7 +349,7 @@ export default function VibeMatchPage() {
   }, []);
 
   const resolveMoodPayload = useCallback(() => {
-    const labels = selectedMoods.map((id) => t(id, { keyPrefix: "onboarding.vibes" }));
+    const labels = selectedMoods.map((id) => t(id, { keyPrefix: "vibeMatch.vibes" }));
     const notes = mood.trim();
     if (notes) labels.push(notes);
     return labels.join(", ");
@@ -336,16 +358,17 @@ export default function VibeMatchPage() {
   const onGenerate = useCallback(async () => {
     const m = resolveMoodPayload();
     if (!m) {
-      Alert.alert("Mood", t("vibeMatch.moodRequired"));
+      Alert.alert(t("vibeMatch.moodAlertTitle"), t("vibeMatch.moodRequired"));
       return;
     }
     const cityTrim = city.trim();
     if (!cityTrim) {
-      Alert.alert("City", "Choose a city for your route.");
+      Alert.alert(t("vibeMatch.cityLabel"), t("vibeMatch.cityRequiredMessage"));
       return;
     }
     setLastBookResults(null);
     setSelectedVenueIds([]);
+    setLastVibeContext({ mood: m, timeline, city: cityTrim });
     try {
       await runVibePlan({ mood: m, timeline, city: cityTrim, limit: 5 });
     } catch {
@@ -353,28 +376,34 @@ export default function VibeMatchPage() {
     }
   }, [city, resolveMoodPayload, runVibePlan, t, timeline]);
 
+  const onClearPlan = useCallback(() => {
+    resetVibePlan();
+    setLastVibeContext(null);
+  }, [resetVibePlan]);
+
   const onRetryGenerate = useCallback(() => {
     void onGenerate();
   }, [onGenerate]);
 
   const validateForm = useCallback(() => {
     const p = Number(persons);
-    if (!Number.isFinite(p) || p < 1) return "Invalid party size.";
-    if (!customerName.trim()) return "Name is required.";
-    if (validatePhoneValue(customerPhone) !== null) return "Please enter a valid phone number.";
-    if (!EMAIL_REGEX.test(customerEmail.trim())) return "Invalid email.";
+    if (!Number.isFinite(p) || p < 1) return t("bookingCommon.invalidPartySize");
+    if (!customerName.trim()) return t("bookingCommon.nameRequired");
+    if (validatePhoneValue(customerPhone) !== null) return t("bookingCommon.invalidPhone");
+    if (!EMAIL_REGEX.test(customerEmail.trim())) return t("bookingCommon.invalidEmail");
     return null;
-  }, [customerEmail, customerName, customerPhone, persons]);
+  }, [customerEmail, customerName, customerPhone, persons, t]);
 
   const runBookStops = useCallback(
     async (stops: VibePlanStop[], action: VibeBookingAction) => {
+      if (bookingAction !== null) return;
       const err = validateForm();
       if (err) {
-        Alert.alert("Form", err);
+        Alert.alert(t("vibeMatch.formAlertTitle"), err);
         return;
       }
       if (!isProfileComplete(profile)) {
-        Alert.alert("Profile incomplete", "Please, fill out all your profile data before booking.");
+        Alert.alert(t("bookingCommon.profileIncompleteTitle"), t("bookingCommon.profileIncompleteMessage"));
         navigation.getParent()?.dispatch(
           CommonActions.navigate({
             name: "Profile",
@@ -399,7 +428,7 @@ export default function VibeMatchPage() {
           const meta = stopAvailability[i];
           const dateTime = meta?.dateTime;
           if (!dateTime) {
-            results.push({ stop, ok: false, message: "No available slot near suggested time." });
+            results.push({ stop, ok: false, message: t("vibeMatch.noSlotNearTime") });
             continue;
           }
           const price = Number(stop.booking_price ?? 0);
@@ -413,7 +442,7 @@ export default function VibeMatchPage() {
               customer_phone: phoneToSave,
               customer_email: customerEmail.trim(),
               comment: comment.trim() || null,
-              payment_status: price > 0 ? "pending" : "paid",
+              payment_status: "pending",
               status: "upcoming",
             });
             const createdCartItem = await createCartItem.mutateAsync({
@@ -450,24 +479,19 @@ export default function VibeMatchPage() {
         const failed = results.filter((r) => !r.ok);
         const okc = results.filter((r) => r.ok).length;
         if (failed.length === 0) {
-          const anyPaid = stops.some((s) => Number(s.booking_price ?? 0) > 0);
-          if (anyPaid) {
-            appAlert(
-              "Draft created",
-              "Draft booking was added to Bookings. Venue check is started in background.",
-              undefined,
-              "success",
-            );
-          } else {
-            appAlert("Booking confirmed", `${okc} booking(s) are now in Bookings.`, undefined, "success");
-          }
+          appAlert(
+            t("bookingCommon.draftCreatedTitle"),
+            t("bookingCommon.draftCreatedMessage"),
+            undefined,
+            "success",
+          );
         } else if (okc > 0) {
           Alert.alert(
-            "Partial booking",
-            `${okc} added to Bookings, ${failed.length} failed. You can retry failed stops below.`,
+            t("vibeMatch.partialBookingTitle"),
+            t("vibeMatch.partialBookingMessage", { okCount: okc, failedCount: failed.length }),
           );
         } else {
-          Alert.alert("Booking failed", "No reservations were created. Check messages below and try again.");
+          Alert.alert(t("vibeMatch.bookingFailedTitle"), t("vibeMatch.bookingFailedMessage"));
         }
         if (okc > 0) {
           navigation.getParent()?.dispatch(
@@ -498,6 +522,8 @@ export default function VibeMatchPage() {
       showInsufficientCreditsToast,
       stopAvailability,
       validateForm,
+      bookingAction,
+      t,
     ],
   );
 
@@ -508,15 +534,12 @@ export default function VibeMatchPage() {
         return;
       }
       if (!allBookable) {
-        Alert.alert(
-          "Availability",
-          "Every stop needs a free slot near the suggested time. Wait for slots to load or adjust the plan.",
-        );
+        Alert.alert(t("vibeMatch.availabilityTitle"), t("vibeMatch.availabilityMessage"));
       }
       return;
     }
     await runBookStops(plan, "all");
-  }, [allBookable, bookAllEnabled, canBookFullRoute, plan, runBookStops, showInsufficientCreditsToast]);
+  }, [allBookable, bookAllEnabled, canBookFullRoute, plan, runBookStops, showInsufficientCreditsToast, t]);
 
   const onPartialBook = useCallback(async () => {
     if (!partialBookEnabled || selectedBookableStops.length === 0) return;
@@ -550,20 +573,20 @@ export default function VibeMatchPage() {
     <Animated.View style={[styles.root, keyboardRootStyle]} {...androidSwipeBackPanHandlers}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.topRow}>
-          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back">
+          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel={t("bookingCommon.goBack")}>
             <Ionicons name="chevron-back" size={22} color={colors.text} />
           </Pressable>
-          <Text style={styles.title}>PixAI Vibe Match</Text>
+          <Text style={styles.title}>{t("vibeMatch.title")}</Text>
         </View>
         <BookingCreditsBadge
           balance={balance}
           isIntroActive={isIntroActive}
           introPeriodEndsAt={introPeriodEndsAt}
         />
-        <Text style={styles.subtitle}>Mood + evening flow → one-tap multi-stop cart.</Text>
+        <Text style={styles.subtitle}>{t("vibeMatch.subtitle")}</Text>
 
         <View style={styles.section}>
-          <Text style={styles.label}>City</Text>
+          <Text style={styles.label}>{t("vibeMatch.cityLabel")}</Text>
           <Pressable
             onPress={() => {
               setCitySearchQuery("");
@@ -572,11 +595,11 @@ export default function VibeMatchPage() {
             style={[styles.input, { justifyContent: "center" }]}
           >
             <Text style={{ color: city.trim() ? colors.text : colors.textMuted }}>
-              {city.trim() || "Select city"}
+              {city.trim() || t("bookingCommon.selectCity")}
             </Text>
           </Pressable>
-          <Text style={styles.label}>Mood</Text>
-          <OnboardingChipGrid options={VIBE_OPTIONS} selected={selectedMoods} onToggle={toggleMood} />
+          <Text style={styles.label}>{t("vibeMatch.moodLabel")}</Text>
+          <OnboardingChipGrid options={VIBE_MATCH_MOOD_OPTIONS} selected={selectedMoods} onToggle={toggleMood} />
           <TextInput
             style={styles.input}
             placeholder={t("vibeMatch.moodNotesPlaceholder")}
@@ -584,15 +607,17 @@ export default function VibeMatchPage() {
             value={mood}
             onChangeText={setMood}
           />
-          <Text style={styles.label}>Timeline</Text>
+          <Text style={styles.label}>{t("vibeMatch.timelineLabel")}</Text>
           <View style={styles.timelineRow}>
-            {(["evening", "night", "late_night"] as const).map((t) => (
+            {(["evening", "night", "late_night"] as const).map((timelineKey) => (
               <Pressable
-                key={t}
-                onPress={() => setTimeline(t)}
-                style={[styles.chip, timeline === t && styles.chipOn]}
+                key={timelineKey}
+                onPress={() => setTimeline(timelineKey)}
+                style={[styles.chip, timeline === timelineKey && styles.chipOn]}
               >
-                <Text style={styles.chipText}>{t.replace("_", " ")}</Text>
+                <Text style={styles.chipText}>
+                  {t(`vibeMatch.timeline.${timelineKey === "late_night" ? "lateNight" : timelineKey}`)}
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -604,14 +629,14 @@ export default function VibeMatchPage() {
             {isVibeLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={primaryPressableTextStyle}>Generate plan</Text>
+              <Text style={primaryPressableTextStyle}>{t("vibeMatch.generatePlan")}</Text>
             )}
           </Pressable>
           {vibeError ? (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{errMsg || "Could not generate plan."}</Text>
+              <Text style={styles.errorText}>{errMsg || t("vibeMatch.couldNotGeneratePlan")}</Text>
               <Pressable onPress={onRetryGenerate} style={{ marginTop: 8 }}>
-                <Text style={{ color: colors.primary, fontWeight: "700" }}>Retry</Text>
+                <Text style={{ color: colors.primary, fontWeight: "700" }}>{t("bookingCommon.retry")}</Text>
               </Pressable>
             </View>
           ) : null}
@@ -619,13 +644,13 @@ export default function VibeMatchPage() {
 
         {vibeResult && !isVibeLoading ? (
           <View style={styles.section}>
-            <Text style={styles.label}>Concierge</Text>
-            <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{vibeResult.assistant}</Text>
+            <Text style={styles.label}>{t("vibeMatch.conciergeLabel")}</Text>
+            <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{conciergeMessage}</Text>
           </View>
         ) : null}
 
         {vibeResult && plan.length === 0 && !isVibeLoading ? (
-          <Text style={styles.emptyText}>No venues matched. Try another mood or city.</Text>
+          <Text style={styles.emptyText}>{t("vibeMatch.noVenuesMatched")}</Text>
         ) : null}
 
         {plan.length > 0 ? (
@@ -635,7 +660,7 @@ export default function VibeMatchPage() {
                 <Text style={styles.selectionWarningText}>{t("vibeMatch.chooseAtLeastOnePlace")}</Text>
               </View>
             ) : null}
-            <Text style={styles.label}>Your route</Text>
+            <Text style={styles.label}>{t("vibeMatch.yourRoute")}</Text>
             {plan.map((stop, i) => {
               const meta = stopAvailability[i];
               const warn = meta && !meta.loading && !meta.error && !meta.bookable;
@@ -657,7 +682,10 @@ export default function VibeMatchPage() {
                       <View style={styles.planRowHeader}>
                         <View style={styles.planRowHeaderMain}>
                           <Text style={styles.planTime}>
-                            {new Date(stop.time_slot).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
+                            {new Date(stop.time_slot).toLocaleString(i18n.language, {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })}
                           </Text>
                           <Text style={styles.planName}>{stop.name}</Text>
                         </View>
@@ -666,7 +694,9 @@ export default function VibeMatchPage() {
                             accessibilityRole="checkbox"
                             accessibilityState={{ checked, disabled: !bookable }}
                             accessibilityLabel={
-                              checked ? `Deselect ${stop.name} for booking` : `Select ${stop.name} for booking`
+                              checked
+                                ? t("vibeMatch.deselectVenueA11y", { name: stop.name })
+                                : t("vibeMatch.selectVenueA11y", { name: stop.name })
                             }
                             disabled={!bookable}
                             onPress={() => toggleVenueSelection(stop.venue_id, bookable)}
@@ -684,12 +714,12 @@ export default function VibeMatchPage() {
                       <View style={[styles.statusPill, meta?.bookable ? styles.statusOk : styles.statusBad]}>
                         <Text style={[styles.statusText, { color: colors.text }]}>
                           {meta?.loading
-                            ? "Checking slots…"
+                            ? t("vibeMatch.checkingSlots")
                             : meta?.error
-                              ? "Slot check failed"
+                              ? t("vibeMatch.slotCheckFailed")
                               : meta?.bookable
-                                ? "Slot available"
-                                : "No nearby free slot"}
+                                ? t("vibeMatch.slotAvailable")
+                                : t("vibeMatch.noNearbyFreeSlot")}
                         </Text>
                       </View>
                     </View>
@@ -702,10 +732,10 @@ export default function VibeMatchPage() {
 
         {plan.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.label}>Guest details (cart)</Text>
+            <Text style={styles.label}>{t("vibeMatch.guestDetails")}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Party size"
+              placeholder={t("bookingCommon.partySize")}
               placeholderTextColor={colors.textMuted}
               keyboardType="number-pad"
               value={persons}
@@ -713,7 +743,7 @@ export default function VibeMatchPage() {
             />
             <TextInput
               style={styles.input}
-              placeholder="Full name"
+              placeholder={t("bookingCommon.fullName")}
               placeholderTextColor={colors.textMuted}
               value={customerName}
               onChangeText={setCustomerName}
@@ -725,7 +755,7 @@ export default function VibeMatchPage() {
             />
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              placeholder={t("bookingCommon.email")}
               placeholderTextColor={colors.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -734,7 +764,7 @@ export default function VibeMatchPage() {
             />
             <TextInput
               style={[styles.input, { minHeight: 72 }]}
-              placeholder="Comment (optional)"
+              placeholder={t("bookingCommon.commentOptional")}
               placeholderTextColor={colors.textMuted}
               multiline
               value={comment}
@@ -749,13 +779,15 @@ export default function VibeMatchPage() {
               disabled={!bookAllEnabled || bookingBusy}
               onPress={() => void onBookAll()}
               accessibilityLabel={
-                isSingleStopRoute ? "Book this stop with a free slot" : "Book all stops with a free slot"
+                isSingleStopRoute ? t("vibeMatch.bookStopA11y") : t("vibeMatch.bookAllStopsA11y")
               }
             >
               {bookingAction === "all" ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={primaryPressableTextStyle}>{isSingleStopRoute ? "Book" : "Book all"}</Text>
+                <Text style={primaryPressableTextStyle}>
+                  {isSingleStopRoute ? t("vibeMatch.book") : t("vibeMatch.bookAll")}
+                </Text>
               )}
             </Pressable>
             {!isSingleStopRoute ? (
@@ -767,14 +799,15 @@ export default function VibeMatchPage() {
                 ]}
                 disabled={!partialBookEnabled || bookingBusy}
                 onPress={() => void onPartialBook()}
-                accessibilityLabel="Book selected stops that have a free slot"
+                accessibilityLabel={t("vibeMatch.bookSelectedStopsA11y")}
               >
                 {bookingAction === "partial" ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={primaryPressableTextStyle}>
-                    Partial book
-                    {partialBookEnabled ? ` (${selectedBookableStops.length})` : ""}
+                    {partialBookEnabled
+                      ? t("vibeMatch.partialBookCount", { count: selectedBookableStops.length })
+                      : t("vibeMatch.partialBook")}
                   </Text>
                 )}
               </Pressable>
@@ -786,14 +819,16 @@ export default function VibeMatchPage() {
                 style={{ alignItems: "center", paddingVertical: 8, flexDirection: "row", justifyContent: "center", gap: 8 }}
               >
                 {bookingAction === "retry" ? <ActivityIndicator color={colors.primary} /> : null}
-                <Text style={{ color: colors.primary, fontWeight: "700" }}>Retry failed ({failedStops.length})</Text>
+                <Text style={{ color: colors.primary, fontWeight: "700" }}>
+                  {t("vibeMatch.retryFailed", { count: failedStops.length })}
+                </Text>
               </Pressable>
             ) : null}
             {lastBookResults ? (
               <View style={{ gap: 6 }}>
                 {lastBookResults.map((r, idx) => (
                   <Text key={idx} style={{ color: r.ok ? colors.textMuted : "#c45c26", fontSize: 12 }}>
-                    {r.stop.name}: {r.ok ? "added to Bookings" : r.message}
+                    {r.stop.name}: {r.ok ? t("vibeMatch.addedToBookings") : r.message}
                   </Text>
                 ))}
               </View>
@@ -801,8 +836,8 @@ export default function VibeMatchPage() {
           </View>
         ) : null}
 
-        <Pressable onPress={() => resetVibePlan()} style={{ alignItems: "center" }}>
-          <Text style={{ color: colors.textMuted, fontSize: 13 }}>Clear plan</Text>
+        <Pressable onPress={onClearPlan} style={{ alignItems: "center" }}>
+          <Text style={{ color: colors.textMuted, fontSize: 13 }}>{t("vibeMatch.clearPlan")}</Text>
         </Pressable>
       </ScrollView>
 
@@ -812,7 +847,7 @@ export default function VibeMatchPage() {
           setCitySearchQuery("");
           setCityPickerVisible(false);
         }}
-        title="City"
+        title={t("vibeMatch.cityLabel")}
         maxHeightFraction={0.72}
       >
         <View style={styles.citySearchBox}>
@@ -820,7 +855,7 @@ export default function VibeMatchPage() {
           <TextInput
             value={citySearchQuery}
             onChangeText={setCitySearchQuery}
-            placeholder="Search city or country"
+            placeholder={t("bookingCommon.searchCityOrCountry")}
             placeholderTextColor={colors.textMuted}
             style={styles.citySearchInput}
             autoCorrect={false}
@@ -845,7 +880,7 @@ export default function VibeMatchPage() {
                 }}
               >
                 <Text style={styles.pickerRowText}>{c}</Text>
-                {city.trim() === c ? <Text style={styles.pickerCheck}>Selected</Text> : null}
+                {city.trim() === c ? <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text> : null}
               </Pressable>
             ))}
           </View>
@@ -853,10 +888,18 @@ export default function VibeMatchPage() {
 
         {filteredCityGroups.length === 0 ? (
           <View style={styles.cityPickerEmpty}>
-            <Text style={styles.cityPickerEmptyText}>No cities match your search</Text>
+            <Text style={styles.cityPickerEmptyText}>{t("bookingCommon.noCitiesMatch")}</Text>
           </View>
         ) : null}
       </BottomSheetPickerModal>
     </Animated.View>
+  );
+}
+
+export default function VibeMatchPage() {
+  return (
+    <PageI18nProvider>
+      <VibeMatchPageContent />
+    </PageI18nProvider>
   );
 }
