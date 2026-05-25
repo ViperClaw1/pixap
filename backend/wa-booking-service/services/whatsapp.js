@@ -1,6 +1,6 @@
 const WA_GRAPH_BASE = (process.env.WHATSAPP_GRAPH_BASE_URL || "https://graph.facebook.com").replace(/\/$/, "");
 const WA_GRAPH_VERSION = (process.env.WHATSAPP_GRAPH_VERSION || "v22.0").trim();
-const WA_TEMPLATE_LANGUAGE = (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US").trim();
+const WA_TEMPLATE_LANGUAGE = (process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en").trim();
 
 const {
   templateUsesDynamicImageHeader,
@@ -10,30 +10,31 @@ const {
   FLOW_TEMPLATE_IDS,
 } = require("./whatsappHeaderImage");
 
+/** Meta `language.code` shared by all flow templates unless overridden per suffix. */
+function defaultWaTemplateLanguage() {
+  return WA_TEMPLATE_LANGUAGE || "en";
+}
+
 function waTemplateLanguageCode(interfaceLocale) {
+  const fallback = defaultWaTemplateLanguage();
   if (interfaceLocale === "ru") {
-    return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_RU || "ru").trim() || "ru";
+    return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_RU || fallback).trim() || fallback;
   }
-  return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_EN || process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en")
-    .trim() || "en";
+  return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_EN || fallback).trim() || fallback;
 }
 
 /**
  * Meta `language.code` for an approved template name.
- * Derived only from the `_rus` / `_eng` suffix (not app UI locale).
+ * `_rus` / `_eng` select the template name only; language defaults to WHATSAPP_TEMPLATE_LANGUAGE (en).
  */
 function waTemplateLanguageCodeForTemplate(templateId) {
   const id = String(templateId || "").trim().toLowerCase();
+  const fallback = defaultWaTemplateLanguage();
   if (id.endsWith("_rus")) {
-    return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_RU || "ru").trim() || "ru";
+    return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_RU || fallback).trim() || fallback;
   }
   if (id.endsWith("_eng")) {
-    return (
-      process.env.WHATSAPP_TEMPLATE_LANGUAGE_EN ||
-      process.env.WHATSAPP_TEMPLATE_LANGUAGE ||
-      "en"
-    )
-      .trim() || "en";
+    return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_EN || fallback).trim() || fallback;
   }
   throw new Error(
     `Cannot resolve Meta language.code for template "${templateId}" (expected name ending with _rus or _eng)`,
