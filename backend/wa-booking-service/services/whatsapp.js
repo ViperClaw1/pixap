@@ -18,6 +18,23 @@ function waTemplateLanguageCode(interfaceLocale) {
     .trim() || "en";
 }
 
+/** Meta `language.code` must match the locale the template was approved under (suffix `_rus` / `_eng`). */
+function waTemplateLanguageCodeForTemplate(templateId, interfaceLocale) {
+  const id = String(templateId || "").trim();
+  if (id.endsWith("_rus")) {
+    return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_RU || "ru").trim() || "ru";
+  }
+  if (id.endsWith("_eng")) {
+    return (
+      process.env.WHATSAPP_TEMPLATE_LANGUAGE_EN ||
+      process.env.WHATSAPP_TEMPLATE_LANGUAGE ||
+      "en"
+    )
+      .trim() || "en";
+  }
+  return waTemplateLanguageCode(interfaceLocale);
+}
+
 function requireEnv(name) {
   const value = (process.env[name] || "").trim();
   if (!value) throw new Error(`Missing required env var: ${name}`);
@@ -268,6 +285,7 @@ module.exports = {
   resolveTemplateHeaderImageUrl,
   validateHeaderImageUrl,
   waTemplateLanguageCode,
+  waTemplateLanguageCodeForTemplate,
   templateUsesDynamicImageHeader,
   FLOW_TEMPLATE_IDS,
 };

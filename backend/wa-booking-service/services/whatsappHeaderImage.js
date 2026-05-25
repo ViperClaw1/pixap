@@ -5,6 +5,13 @@
 
 /** Full Meta template names used in the booking conversation flow. */
 const FLOW_TEMPLATE_IDS = new Set([
+  "check_availability_eng",
+  "check_availability_rus",
+  "check_price_eng",
+  "check_price_rus",
+  "confirm_eng",
+  "confirm_rus",
+  // legacy aliases (header env / migration)
   "check_is_available_en",
   "check_is_available_ru",
   "chech_free_or_set_price_en",
@@ -92,6 +99,12 @@ function resolveTemplateHeaderImageUrl(templateId) {
 
   const legacyByName = {
     check_availability: readEnv("WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL"),
+    check_availability_eng: readEnv("WHATSAPP_CHECK_AVAILABILITY_ENG_HEADER_IMAGE_URL"),
+    check_availability_rus: readEnv("WHATSAPP_CHECK_AVAILABILITY_RUS_HEADER_IMAGE_URL"),
+    check_price_eng: readEnv("WHATSAPP_CHECK_PRICE_ENG_HEADER_IMAGE_URL"),
+    check_price_rus: readEnv("WHATSAPP_CHECK_PRICE_RUS_HEADER_IMAGE_URL"),
+    confirm_eng: readEnv("WHATSAPP_CONFIRM_ENG_HEADER_IMAGE_URL"),
+    confirm_rus: readEnv("WHATSAPP_CONFIRM_RUS_HEADER_IMAGE_URL"),
     check_is_available_en: readEnv("WHATSAPP_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL"),
     check_is_available_ru: readEnv("WHATSAPP_CHECK_IS_AVAILABLE_RU_HEADER_IMAGE_URL"),
     chech_free_or_set_price_en:
@@ -109,7 +122,10 @@ function resolveTemplateHeaderImageUrl(templateId) {
   if (legacy) return normalizeMediaUrlForWhatsApp(legacy);
 
   const availabilityLegacy = readEnv("WHATSAPP_CHECK_AVAILABILITY_HEADER_IMAGE_URL");
-  if (availabilityLegacy && templateName.startsWith("check_is_available_")) {
+  if (
+    availabilityLegacy &&
+    (templateName.startsWith("check_availability_") || templateName.startsWith("check_is_available_"))
+  ) {
     return normalizeMediaUrlForWhatsApp(availabilityLegacy);
   }
 

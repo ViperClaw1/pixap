@@ -36,8 +36,10 @@ Service listens on **port 8787** by default (avoids **8081**, which Expo Metro u
 - `WHATSAPP_ACCESS_TOKEN` (**required** to send outbound messages): permanent/system user token with `whatsapp_business_messaging`.
 - `WHATSAPP_GRAPH_VERSION` (optional): default `v22.0`.
 - `WHATSAPP_GRAPH_BASE_URL` (optional): default `https://graph.facebook.com`.
-- `WHATSAPP_TEMPLATE_LANGUAGE` (optional): default `en_US`.
-- **`WHATSAPP_HEADER_LOGO_URL`** (**required** for the default flow): one **public HTTPS** JPG/PNG used as the dynamic header image for **all** flow templates (`check_is_available_*`, `chech_free_or_set_price_*`, `got_it_*`). Same logo in Meta for each template → one env var is enough.
+- `WHATSAPP_TEMPLATE_LANGUAGE` (optional): default `en_US` — used for `*_eng` templates when `WHATSAPP_TEMPLATE_LANGUAGE_EN` is unset.
+- `WHATSAPP_TEMPLATE_LANGUAGE_EN` (optional): Meta `language.code` for `*_eng` templates (e.g. `en`, `en_US`).
+- `WHATSAPP_TEMPLATE_LANGUAGE_RU` (optional): Meta `language.code` for `*_rus` templates (default `ru`).
+- **`WHATSAPP_HEADER_LOGO_URL`** (**required** for the default flow): one **public HTTPS** JPG/PNG used as the dynamic header image for **all** flow templates (`check_availability_*`, `check_price_*`, `confirm_*`). Same logo in Meta for each template → one env var is enough.
 - Per-template overrides (optional): `WHATSAPP_TEMPLATE_<TEMPLATE_NAME>_HEADER_IMAGE_URL`, e.g. `WHATSAPP_TEMPLATE_GOT_IT_EN_HEADER_IMAGE_URL`, or legacy `WHATSAPP_CHECK_IS_AVAILABLE_EN_HEADER_IMAGE_URL`, `WHATSAPP_GOT_IT_RU_HEADER_IMAGE_URL`, etc.
 - **Supabase Storage:** URL must be **`.../storage/v1/object/public/<bucket>/<path>`** (bucket public). Private `/object/<bucket>/...` URLs are auto-rewritten to `/object/public/...` when possible; signed URLs cannot be fixed — use public path or another CDN.
 - **`WHATSAPP_FLOW_TEMPLATES_STATIC_HEADER=1`**: only if **every** flow template uses a **static** header in Meta (no dynamic image) — then header URLs are optional again.
@@ -58,10 +60,10 @@ Service listens on **port 8787** by default (avoids **8081**, which Expo Metro u
 
 ## Conversation state machine
 
-Template chain (`_ru` / `_en`) is chosen from **`owner_phone`** (`business_cards.contact_whatsapp`), **not** the app UI language:
+Template chain (`_rus` / `_eng`) is chosen from **`owner_phone`** (`business_cards.contact_whatsapp`), **not** the app UI language:
 
-- **`+7…` or `+37…`** (also digits starting with `7` / `37`) → `check_is_available_ru` → `chech_free_or_set_price_ru` → `got_it_ru`
-- **All other numbers** → `check_is_available_en` → `chech_free_or_set_price_en` → `got_it_en`
+- **`+7…` or `+37…`** (also digits starting with `7` / `37`) → `check_availability_rus` → `check_price_rus` → `confirm_rus`
+- **All other numbers** → `check_availability_eng` → `check_price_eng` → `confirm_eng`
 
 `interface_locale` in the POST body from Supabase is logged as `app_interface_locale` only; it does not affect templates.
 
@@ -69,10 +71,20 @@ Price replies from the owner are parsed with case-insensitive ISO codes (`USD`, 
 
 | Step | Outbound template | Owner reply |
 |------|-------------------|-------------|
-| `availability` | `check_is_available_{en\|ru}` | Quick reply: available / not available |
-| `pricing` | `chech_free_or_set_price_{en\|ru}` | Free / send price |
+| `availability` | `check_availability_{eng\|rus}` | Quick reply: available / not available |
+| `pricing` | `check_price_{eng\|rus}` | Free / send price |
 | `pricing_price_input` | (text prompt) | Price + currency in free text |
-| complete | `got_it_{en\|ru}` | — |
+| complete | `confirm_{eng\|rus}` | — |
+
+### Meta error `#132001` — template name does not exist in the translation
+
+The API request uses **exact** `template.name` (e.g. `check_availability_rus`) and `template.language.code` (e.g. `ru` from `WHATSAPP_TEMPLATE_LANGUAGE_RU`). Both must match what is **approved** in WhatsApp Manager for this WABA:
+
+1. Template **name** in Meta equals the full string (`check_availability_rus`, not `check_is_available_ru`).
+2. Template **language** in Meta matches the Railway env (`ru` vs `en` / `en_US`). If a template was submitted under English in Meta, set `WHATSAPP_TEMPLATE_LANGUAGE_RU=en` (or the code shown in the template details).
+3. Status is **Approved** (not Draft / Rejected).
+
+Until new templates are approved, old names will keep failing with the new code, and new names will fail if only old templates exist in Meta.
 
 `GET /health` returns `flow_templates.sequence_by_locale`, `shared_header_logo_url`, resolved URL per template, and `header_image_checks`.
 
