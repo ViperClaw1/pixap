@@ -18,9 +18,12 @@ function waTemplateLanguageCode(interfaceLocale) {
     .trim() || "en";
 }
 
-/** Meta `language.code` must match the locale the template was approved under (suffix `_rus` / `_eng`). */
-function waTemplateLanguageCodeForTemplate(templateId, interfaceLocale) {
-  const id = String(templateId || "").trim();
+/**
+ * Meta `language.code` for an approved template name.
+ * Derived only from the `_rus` / `_eng` suffix (not app UI locale).
+ */
+function waTemplateLanguageCodeForTemplate(templateId) {
+  const id = String(templateId || "").trim().toLowerCase();
   if (id.endsWith("_rus")) {
     return (process.env.WHATSAPP_TEMPLATE_LANGUAGE_RU || "ru").trim() || "ru";
   }
@@ -32,7 +35,9 @@ function waTemplateLanguageCodeForTemplate(templateId, interfaceLocale) {
     )
       .trim() || "en";
   }
-  return waTemplateLanguageCode(interfaceLocale);
+  throw new Error(
+    `Cannot resolve Meta language.code for template "${templateId}" (expected name ending with _rus or _eng)`,
+  );
 }
 
 function requireEnv(name) {
