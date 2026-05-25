@@ -3,7 +3,11 @@ const {
   parseFreeOrPriceReply,
   parsePriceAndCurrency,
 } = require("./parser");
-const { sendWhatsAppMessage, sendWhatsAppTemplate, waTemplateLanguageCode } = require("./whatsapp");
+const {
+  sendWhatsAppMessage,
+  sendWhatsAppTemplate,
+  waTemplateLanguageCodeForTemplate,
+} = require("./whatsapp");
 const { waTemplateLocaleFromOwnerPhone } = require("./waTemplateLocale");
 
 const APP_CALLBACK_URL = process.env.APP_CALLBACK_URL || "https://example.com/api/update-booking";
@@ -369,7 +373,7 @@ async function syncCartOrLegacy(booking, supabasePatch, legacyPayload) {
 
 async function sendLocaleTemplate(booking, baseName, variables = []) {
   const templateId = resolveWaTemplate(baseName, booking.interface_locale);
-  const languageCode = waTemplateLanguageCode(booking.interface_locale);
+  const languageCode = waTemplateLanguageCodeForTemplate(templateId, booking.interface_locale);
   const result = await sendWhatsAppTemplate(booking.owner_phone, templateId, variables, languageCode);
   trackOutboundMessage(booking, result?.message_id, {
     template_id: templateId,
