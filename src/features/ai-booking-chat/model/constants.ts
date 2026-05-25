@@ -1,7 +1,10 @@
-/** Opening line for the booking assistant tab (Pix AI). */
-export const BOOKING_ASSISTANT_GREETING =
-  "Hi, I am PixAI. Tell me what service you want and I will find places, suggest the best slot, and prepare your booking.";
-
-export function isPixBookingAssistantGreeting(content: string): boolean {
-  return content === BOOKING_ASSISTANT_GREETING;
-}
+export {
+  BOOKING_ASSISTANT_GREETING_ID_PREFIX,
+  createBookingAssistantGreetingMessageId,
+  getBookingAssistantGreetingText,
+  isPixBookingAssistantGreeting,
+  LEGACY_BOOKING_ASSISTANT_GREETING_EN,
+  LEGACY_BOOKING_ASSISTANT_GREETING_EN as BOOKING_ASSISTANT_GREETING,
+  PIXAI_WELCOME_MESSAGE_ID,
+  resolveBookingAssistantGreetingDisplay,
+} from "@/entities/pixai/lib/bookingAssistantCopy";

@@ -56,15 +56,10 @@ function roundRating(value) {
   return Math.round(value * 10) / 10;
 }
 
-function roundPrice(value) {
-  return Math.round(value * 100) / 100;
-}
-
 function buildInsertRow(venue, rng, images, usedNames) {
   const ratingJitter = (rng() - 0.5) * 0.4;
-  const priceJitter = (rng() - 0.4) * 0.25;
   const rating = roundRating(Math.min(5, Math.max(3.5, venue.ratingBase + ratingJitter)));
-  const booking_price = roundPrice(Math.max(12, venue.bookingPriceBase * (1 + priceJitter)));
+  const booking_price = 0;
 
   return {
     ...buildVenueLocalizedFields(venue, {

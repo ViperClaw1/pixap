@@ -198,6 +198,38 @@ function trackOutboundMessage(booking, messageId, meta = {}) {
   });
 }
 
+function isWaMessageUndeliverable(details) {
+  const d = String(details || "").toLowerCase();
+  return (
+    /undeliverable/i.test(d) ||
+    /not a valid whatsapp/i.test(d) ||
+    /not registered on whatsapp/i.test(d) ||
+    /recipient.*not.*whatsapp/i.test(d) ||
+    /invalid.*whatsapp.*user/i.test(d) ||
+    /131026/.test(d)
+  );
+}
+
+function bookingUserLocale(booking) {
+  return booking?.app_interface_locale === "ru" ? "ru" : "en";
+}
+
+/** User-facing lines when venue WhatsApp number cannot receive messages. */
+function waOwnerUnreachableStatusLines(locale, ownerPhone) {
+  const ru = locale === "ru";
+  const phoneHint = ownerPhone ? ` (${ownerPhone})` : "";
+  if (ru) {
+    return [
+      "Не удалось связаться с заведением в WhatsApp.",
+      `Номер${phoneHint} не зарегистрирован в WhatsApp или недоступен. Обновите contact_whatsapp в карточке заведения и попробуйте снова.`,
+    ];
+  }
+  return [
+    "Could not reach the venue on WhatsApp.",
+    `The number${phoneHint} is not on WhatsApp or cannot receive messages. Update the venue contact_whatsapp and try again.`,
+  ];
+}
+
 function deliveryStatusLine(status, details, locale) {
   const s = String(status || "").toLowerCase();
   const ru = locale === "ru";
@@ -205,6 +237,9 @@ function deliveryStatusLine(status, details, locale) {
   if (s === "delivered") return ru ? "Сообщение WhatsApp доставлено владельцу." : "WhatsApp message delivered to venue.";
   if (s === "read") return ru ? "Владелец прочитал сообщение WhatsApp." : "Venue read the WhatsApp message.";
   if (s === "failed") {
+    if (isWaMessageUndeliverable(details)) {
+      return waOwnerUnreachableStatusLines(locale, null)[0];
+    }
     const prefix = ru ? "Ошибка доставки WhatsApp" : "WhatsApp delivery failed";
     return details ? `${prefix}: ${details}` : prefix;
   }
@@ -684,7 +719,19 @@ async function processDeliveryStatus(payload) {
         .join("; ")
     : "";
 
-  const line = deliveryStatusLine(status, errorDetails, booking.interface_locale);
+  const ownerUnreachable =
+    String(status).toLowerCase() === "failed" && isWaMessageUndeliverable(errorDetails);
+  const userLocale = bookingUserLocale(booking);
+  const statusLines = ownerUnreachable
+    ? waOwnerUnreachableStatusLines(userLocale, booking.owner_phone)
+    : [deliveryStatusLine(status, errorDetails, booking.template_locale || booking.interface_locale)];
+
+  if (ownerUnreachable) {
+    booking.status = "wa_unreachable";
+    booking.wa_owner_unreachable = true;
+    removeActiveBooking(booking.owner_phone, booking.id);
+  }
+
   booking.updated_at = new Date().toISOString();
   log("delivery_status_ingested", {
     booking_id: booking.id,
@@ -693,32 +740,39 @@ async function processDeliveryStatus(payload) {
     template_id: meta?.template_id ?? null,
     header_image_url: meta?.header_image_url ?? null,
     error_details: errorDetails || null,
+    owner_unreachable: ownerUnreachable,
     ...(status === "failed" && /media upload/i.test(errorDetails)
       ? {
           hint:
             "A WHATSAPP_*_HEADER_IMAGE_URL is set but Meta cannot fetch it. Remove those env vars if the template uses a static header in Meta; or fix the URL to a direct public HTTPS JPG/PNG.",
         }
       : {}),
-    ...(status === "failed" && /undeliverable/i.test(errorDetails)
+    ...(ownerUnreachable
       ? {
-          hint:
-            "Meta accepted the template but did not deliver it. Confirm the owner number is on WhatsApp, template variables match Meta, and WHATSAPP_TEMPLATE_LANGUAGE matches the approved locale (en).",
+          hint: "Venue WhatsApp number is not reachable (undeliverable). User notified via wa_status_lines.",
         }
       : {}),
   });
 
   const isConfirmable =
-    booking.status === "confirmed_free" || booking.status === "confirmed_priced";
+    !ownerUnreachable &&
+    (booking.status === "confirmed_free" || booking.status === "confirmed_priced");
 
   await syncCartOrLegacy(
     booking,
     {
-      status_lines: [line],
+      status_lines: statusLines,
       confirmable: isConfirmable,
       confirmed_price: booking.status === "confirmed_free" ? "0" : booking.price ?? undefined,
       payment_link: null,
     },
-    { booking_id: booking.id, status: booking.status, step: booking.step, delivery_status: status },
+    {
+      booking_id: booking.id,
+      status: booking.status,
+      step: booking.step,
+      delivery_status: status,
+      wa_owner_unreachable: ownerUnreachable,
+    },
   );
 
   return { ok: true, delivery_status: status, booking_id: booking.id };

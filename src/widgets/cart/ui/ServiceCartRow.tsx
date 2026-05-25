@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { View, Text, Pressable, Alert } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { useDeleteCartItem, parseWaStatusLines, type CartItem } from "@/entities/cart";
+import { useDeleteCartItem, isWaOwnerUnreachableLines, parseWaStatusLines, type CartItem } from "@/entities/cart";
 import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import type { CartScreenStyles } from "./cartStyles";
@@ -18,7 +18,8 @@ function ServiceCartRowInner({ item, stylesThemed, onConfirmBooking, onPayBookin
   const deleteCartItem = useDeleteCartItem();
   const [confirming, setConfirming] = useState(false);
   const statusLines = parseWaStatusLines(item.wa_status_lines);
-  const canConfirm = Boolean(item.wa_confirmable);
+  const ownerUnreachable = isWaOwnerUnreachableLines(statusLines);
+  const canConfirm = Boolean(item.wa_confirmable) && !ownerUnreachable;
   const paymentLink = item.wa_payment_link?.trim() || null;
   const canPay = canConfirm && Boolean(paymentLink);
   const hasVenueWa = Boolean(item.business_card?.contact_whatsapp?.trim());
@@ -58,7 +59,10 @@ function ServiceCartRowInner({ item, stylesThemed, onConfirmBooking, onPayBookin
         {statusLines.length > 0 ? (
           <View style={{ marginTop: 10, gap: 4 }}>
             {statusLines.map((line, idx) => (
-              <Text key={`${idx}-${line.slice(0, 24)}`} style={stylesThemed.waStatusLine}>
+              <Text
+                key={`${idx}-${line.slice(0, 24)}`}
+                style={[stylesThemed.waStatusLine, ownerUnreachable && { color: "#c45c26" }]}
+              >
                 {line}
               </Text>
             ))}

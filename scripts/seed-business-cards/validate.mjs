@@ -41,7 +41,7 @@ export function validateRow(row) {
   }
 
   const price = Number(row.booking_price);
-  if (Number.isNaN(price) || price <= 0) errors.push(`booking_price invalid: ${row.booking_price}`);
+  if (Number.isNaN(price) || price < 0) errors.push(`booking_price invalid: ${row.booking_price}`);
 
   for (const loc of LOCALES) {
     if (!row[`name_${loc}`]?.trim()) errors.push(`name_${loc} missing`);

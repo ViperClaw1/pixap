@@ -1,5 +1,6 @@
 import { useCallback, useState, type Ref } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 
@@ -21,6 +22,7 @@ export function BookingChatComposer({
   onInputFocus,
   onInputBlur,
 }: Props) {
+  const { t } = useTranslation();
   const { colors } = useAppTheme();
   const [text, setText] = useState("");
   const submit = useCallback(() => {
@@ -46,7 +48,7 @@ export function BookingChatComposer({
           color: colors.text,
           backgroundColor: colors.background,
         }}
-        placeholder="Ask about vibe, budget, music…"
+        placeholder={t("aiBooking.chatComposerPlaceholder")}
         placeholderTextColor={colors.textMuted}
         value={text}
         onChangeText={setText}
@@ -57,7 +59,7 @@ export function BookingChatComposer({
       />
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Send message"
+        accessibilityLabel={t("aiBooking.chatSendA11y")}
         onPress={submit}
         disabled={disabled || sending || text.trim().length === 0}
         style={{

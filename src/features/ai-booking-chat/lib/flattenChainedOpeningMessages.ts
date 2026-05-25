@@ -16,9 +16,9 @@ export function flattenChainedOpeningMessages(messages: BookingChatMessage[]): B
       a &&
       b &&
       a.role === "assistant" &&
-      isPixBookingAssistantGreeting(a.content) &&
+      isPixBookingAssistantGreeting(a) &&
       b.role === "assistant" &&
-      !isPixBookingAssistantGreeting(b.content)
+      !isPixBookingAssistantGreeting(b)
     ) {
       return [
         { kind: "chained_opening", first: a, second: b },

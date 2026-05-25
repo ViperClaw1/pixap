@@ -29,7 +29,8 @@ Or use the Supabase SQL editor / MCP `execute_sql` on project `ylcyktbppowabnxuw
 | `category_id` | FK → `public.categories` |
 | `city`, `address`, `location`, `latitude`, `longitude` | `location` = address + `(approx. lat, lng)` (same pattern as existing catalogue rows) |
 | `phone`, `contact_whatsapp` | E.164-style |
-| `rating`, `booking_price` | Deterministic jitter from seed `20260522` |
+| `rating` | Deterministic jitter from seed `20260522` |
+| `booking_price` | Always `0` (updated only after venue owner confirms booking cost) |
 | `images`, `image` | 3–6 public URLs in `business-cards` bucket |
 | `created_at` | DB default |
 

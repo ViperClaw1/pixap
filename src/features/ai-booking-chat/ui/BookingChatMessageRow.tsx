@@ -11,7 +11,7 @@ type Props = {
 export function BookingChatMessageRow({ item }: Props) {
   const { colors } = useAppTheme();
   const isUser = item.role === "user";
-  const showGreetingTypewriter = item.role === "assistant" && isPixBookingAssistantGreeting(item.content);
+  const showGreetingTypewriter = item.role === "assistant" && isPixBookingAssistantGreeting(item);
 
   return (
     <View style={[styles.wrap, isUser ? styles.wrapMine : styles.wrapPeer]}>

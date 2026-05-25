@@ -5,7 +5,10 @@ import {
   syncOpeningTypewriterRegistryFromTabs,
 } from "../lib/bookingOpeningTypewriterRegistry";
 import { buildAssistantReplyText } from "../lib/buildAssistantReplyText";
-import { BOOKING_ASSISTANT_GREETING } from "./constants";
+import {
+  createBookingAssistantGreetingMessageId,
+  getBookingAssistantGreetingText,
+} from "@/entities/pixai/lib/bookingAssistantCopy";
 import {
   bookingChatPersistStorage,
   BOOKING_CHAT_PERSIST_KEY,
@@ -41,7 +44,7 @@ function assistantMsg(id: string, content: string, createdAt: number): BookingCh
 function createTab(catalogRevision: number, title?: string): BookingChatTab {
   const id = newTabId();
   const now = Date.now();
-  const greeting = assistantMsg(`m-${now}`, BOOKING_ASSISTANT_GREETING, now);
+  const greeting = assistantMsg(createBookingAssistantGreetingMessageId(now), getBookingAssistantGreetingText(), now);
   return {
     id,
     title: title ?? "Chat",
@@ -135,7 +138,7 @@ export const useBookingChatStore = create<BookingChatStore>()(
           if (next === s.catalogRevision && s.tabs.length > 0) return s;
           const now = Date.now();
           const pair: BookingChatMessage[] = [
-            assistantMsg(`a-${now}-1`, BOOKING_ASSISTANT_GREETING, now),
+            assistantMsg(createBookingAssistantGreetingMessageId(`${now}-1`), getBookingAssistantGreetingText(), now),
             assistantMsg(`a-${now}-2`, resultsScanLine, now + 1),
           ];
 
@@ -173,7 +176,7 @@ export const useBookingChatStore = create<BookingChatStore>()(
                 recommendationView: emptyView(),
                 messages: isActive
                   ? pair
-                  : [assistantMsg(`a-${now}-g-${t.id}`, BOOKING_ASSISTANT_GREETING, now)],
+                  : [assistantMsg(createBookingAssistantGreetingMessageId(`g-${t.id}`), getBookingAssistantGreetingText(), now)],
                 updatedAt: now,
               };
             }),

@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { PixAIPlace } from "@/entities/pixai";
 import { PhoneInput, type PhoneValue } from "@/shared/ui/phone-input";
@@ -20,6 +21,7 @@ type Props = {
   summaryMessage: string;
   selectedPlace: PixAIPlace | null;
   onCreateDraft: () => void;
+  submitting?: boolean;
 };
 
 export function AIBookingCustomerForm({
@@ -29,13 +31,17 @@ export function AIBookingCustomerForm({
   summaryMessage,
   selectedPlace,
   onCreateDraft,
+  submitting = false,
 }: Props) {
+  const { t } = useTranslation();
   const { colors } = useAppTheme();
+  const isPaid = Number(selectedPlace?.booking_price ?? 0) > 0;
+  const submitLabel = isPaid ? t("aiBooking.createDraftBooking") : t("aiBooking.confirmBooking");
 
   return (
     <>
       <View style={s.semanticSection}>
-        <Text style={s.label}>Booking details</Text>
+        <Text style={s.label}>{t("aiBooking.bookingDetails")}</Text>
         <Text style={s.summaryText}>{summaryMessage}</Text>
       </View>
       <View style={s.semanticSection}>
@@ -45,14 +51,14 @@ export function AIBookingCustomerForm({
             keyboardType="number-pad"
             value={form.persons}
             onChangeText={(persons) => setForm((prev) => ({ ...prev, persons }))}
-            placeholder="Persons"
+            placeholder={t("bookingCommon.persons")}
             placeholderTextColor={colors.textMuted}
           />
           <TextInput
             style={[s.field, s.fieldOnCard]}
             value={form.customer_name}
             onChangeText={(customer_name) => setForm((prev) => ({ ...prev, customer_name }))}
-            placeholder="Full name"
+            placeholder={t("bookingCommon.fullName")}
             placeholderTextColor={colors.textMuted}
           />
           <PhoneInput
@@ -66,7 +72,7 @@ export function AIBookingCustomerForm({
             autoCapitalize="none"
             value={form.customer_email}
             onChangeText={(customer_email) => setForm((prev) => ({ ...prev, customer_email }))}
-            placeholder="Email"
+            placeholder={t("bookingCommon.email")}
             placeholderTextColor={colors.textMuted}
           />
           <TextInput
@@ -74,14 +80,21 @@ export function AIBookingCustomerForm({
             multiline
             value={form.comment}
             onChangeText={(comment) => setForm((prev) => ({ ...prev, comment }))}
-            placeholder="Optional comment"
+            placeholder={t("bookingCommon.optionalComment")}
             placeholderTextColor={colors.textMuted}
           />
         </View>
-        <Pressable style={s.primaryBtn} onPress={() => void onCreateDraft()}>
-          <Text style={s.primaryBtnText}>
-            {Number(selectedPlace?.booking_price ?? 0) > 0 ? "Create draft booking" : "Confirm booking"}
-          </Text>
+        <Pressable
+          style={[s.primaryBtn, submitting && { opacity: 0.55 }]}
+          disabled={submitting}
+          accessibilityState={{ disabled: submitting }}
+          onPress={() => void onCreateDraft()}
+        >
+          {submitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={s.primaryBtnText}>{submitLabel}</Text>
+          )}
         </Pressable>
       </View>
     </>

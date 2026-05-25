@@ -38,30 +38,47 @@ export function bookingScheduleLabel(dateTimeIso: string): "upcoming" | "complet
 
 export type BookingDisplayStatus = "draft" | "confirmed" | "cancelled" | "completed" | "payment awaiting";
 
-export function deriveBookingDisplayStatus(booking: Booking, linkedCartItem?: CartItem | null): BookingDisplayStatus {
-  if (booking.status === "expired") return "cancelled";
-  const venueStatusText = (Array.isArray(linkedCartItem?.wa_status_lines) ? linkedCartItem.wa_status_lines : [])
+function waVenueStatusText(linkedCartItem?: CartItem | null): string {
+  return (Array.isArray(linkedCartItem?.wa_status_lines) ? linkedCartItem.wa_status_lines : [])
     .filter((x): x is string => typeof x === "string")
     .join(" ")
     .toLowerCase();
-  if (
-    venueStatusText.includes("not available") ||
-    venueStatusText.includes("unavailable") ||
-    venueStatusText.includes("slot is not available") ||
-    venueStatusText.includes("недоступен") ||
-    venueStatusText.includes("отклон")
-  ) {
-    return "cancelled";
+}
+
+function isWaVenueUnavailable(linkedCartItem?: CartItem | null): boolean {
+  const text = waVenueStatusText(linkedCartItem);
+  return (
+    text.includes("not available") ||
+    text.includes("unavailable") ||
+    text.includes("slot is not available") ||
+    text.includes("недоступен") ||
+    text.includes("отклон")
+  );
+}
+
+function deriveWaLinkedDisplayStatus(linkedCartItem: CartItem): BookingDisplayStatus {
+  if ((linkedCartItem.wa_payment_link?.trim()?.length ?? 0) > 0) {
+    return "payment awaiting";
   }
+  if (linkedCartItem.wa_confirmable) {
+    return "confirmed";
+  }
+  return "draft";
+}
+
+export function deriveBookingDisplayStatus(booking: Booking, linkedCartItem?: CartItem | null): BookingDisplayStatus {
+  if (booking.status === "expired") return "cancelled";
+  if (isWaVenueUnavailable(linkedCartItem)) return "cancelled";
+
+  if (linkedCartItem?.status === "created") {
+    return deriveWaLinkedDisplayStatus(linkedCartItem);
+  }
+
   if (booking.payment_status === "pending") {
-    if ((linkedCartItem?.wa_payment_link?.trim()?.length ?? 0) > 0) {
-      return "payment awaiting";
-    }
-    if (linkedCartItem?.wa_confirmable) {
-      return "confirmed";
-    }
+    if (linkedCartItem) return deriveWaLinkedDisplayStatus(linkedCartItem);
     return "draft";
   }
+
   if (new Date(booking.date_time).getTime() < Date.now()) return "completed";
   return "confirmed";
 }

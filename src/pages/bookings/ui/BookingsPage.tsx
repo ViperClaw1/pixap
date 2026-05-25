@@ -19,6 +19,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import {
   useBookings,
   deriveBookingDisplayStatus,
+  linkCartItemForBooking,
   venueConfirmedPriceLabel,
   type BookingDisplayStatus,
 } from "@/entities/booking";
@@ -73,10 +74,9 @@ export default function BookingsScreen() {
   };
 
   const items = useMemo(() => {
-    const cartMap = new Map(cartItems.map((item) => [`${item.business_card_id}|${item.date_time}`, item]));
     return bookings
       .map((booking) => {
-        const linkedCartItem = cartMap.get(`${booking.business_card_id}|${booking.date_time}`);
+        const linkedCartItem = linkCartItemForBooking(booking, cartItems);
         return {
           ...booking,
           waPaymentLink: linkedCartItem?.wa_payment_link?.trim() || null,
@@ -89,9 +89,8 @@ export default function BookingsScreen() {
   }, [bookings, cartItems, filter]);
 
   const bookingStatuses = useMemo(() => {
-    const cartMap = new Map(cartItems.map((item) => [`${item.business_card_id}|${item.date_time}`, item]));
     return bookings.map((booking) => {
-      const linkedCartItem = cartMap.get(`${booking.business_card_id}|${booking.date_time}`);
+      const linkedCartItem = linkCartItemForBooking(booking, cartItems);
       return {
         id: booking.id,
         venueName: booking.business_card?.name ?? t("bookings.defaultVenueName"),

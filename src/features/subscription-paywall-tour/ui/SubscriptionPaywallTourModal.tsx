@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -14,7 +14,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { PAYWALL_TOUR_SLIDES, type PaywallTourSlide } from "../model/paywallTourSlides";
+import { getPaywallTourSlides, resolvePaywallTourLocale, type PaywallTourSlide } from "../model/paywallTourSlides";
 import { subscriptionPaywallTourStyles as styles } from "./subscriptionPaywallTourStyles";
 
 type Props = {
@@ -23,13 +23,15 @@ type Props = {
 };
 
 export function SubscriptionPaywallTourModal({ visible, onClose }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<PaywallTourSlide>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const tourLocale = resolvePaywallTourLocale(i18n.language);
+  const slides = useMemo(() => getPaywallTourSlides(i18n.language), [i18n.language]);
 
-  const slideCount = PAYWALL_TOUR_SLIDES.length;
+  const slideCount = slides.length;
 
   useEffect(() => {
     if (!visible) return;
@@ -37,11 +39,11 @@ export function SubscriptionPaywallTourModal({ visible, onClose }: Props) {
     requestAnimationFrame(() => {
       listRef.current?.scrollToIndex({ index: 0, animated: false });
     });
-  }, [visible]);
+  }, [visible, tourLocale]);
 
   const isFirstSlide = activeIndex === 0;
   const isLastSlide = activeIndex === slideCount - 1;
-  const activeSlide = PAYWALL_TOUR_SLIDES[activeIndex];
+  const activeSlide = slides[activeIndex];
 
   const scrollToIndex = useCallback(
     (index: number) => {
@@ -86,9 +88,10 @@ export function SubscriptionPaywallTourModal({ visible, onClose }: Props) {
         </View>
 
         <FlatList
+          key={tourLocale}
           ref={listRef}
-          data={PAYWALL_TOUR_SLIDES}
-          keyExtractor={(item) => item.id}
+          data={slides}
+          keyExtractor={(item) => `${tourLocale}-${item.id}`}
           horizontal
           pagingEnabled
           bounces={false}
@@ -108,7 +111,7 @@ export function SubscriptionPaywallTourModal({ visible, onClose }: Props) {
           <Text style={styles.description}>{t(activeSlide.descriptionKey)}</Text>
 
           <View style={styles.dots}>
-            {PAYWALL_TOUR_SLIDES.map((slide, index) => (
+            {slides.map((slide, index) => (
               <View
                 key={slide.id}
                 style={[
