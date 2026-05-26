@@ -86,6 +86,69 @@ export function removeThreadMessage(
   });
 }
 
+export function patchThreadMessageContent(
+  queryClient: QueryClient,
+  threadId: string,
+  userId: string | null,
+  messageId: string,
+  content: string,
+) {
+  setThreadMessagesCache(queryClient, threadId, userId, (prev) => {
+    if (!prev) return prev;
+    let changed = false;
+    const messages = prev.messages.map((m) => {
+      if (m.id !== messageId) return m;
+      if (m.content === content) return m;
+      changed = true;
+      return { ...m, content };
+    });
+    return changed ? { ...prev, messages } : prev;
+  });
+}
+
+/** `active` = user already has this reaction → toggle removes it. */
+export function patchThreadMessageReaction(
+  queryClient: QueryClient,
+  threadId: string,
+  userId: string | null,
+  messageId: string,
+  reaction: string,
+  active: boolean,
+) {
+  setThreadMessagesCache(queryClient, threadId, userId, (prev) => {
+    if (!prev) return prev;
+    let changed = false;
+    const messages = prev.messages.map((message) => {
+      if (message.id !== messageId) return message;
+
+      const reactions = [...message.reactions];
+      const index = reactions.findIndex((entry) => entry.reaction === reaction);
+
+      if (active) {
+        if (index === -1 || !reactions[index].mine) return message;
+        changed = true;
+        const entry = reactions[index];
+        if (entry.count <= 1) {
+          reactions.splice(index, 1);
+        } else {
+          reactions[index] = { ...entry, count: entry.count - 1, mine: false };
+        }
+      } else if (index === -1) {
+        changed = true;
+        reactions.push({ reaction, count: 1, mine: true });
+      } else {
+        const entry = reactions[index];
+        if (entry.mine) return message;
+        changed = true;
+        reactions[index] = { ...entry, count: entry.count + 1, mine: true };
+      }
+
+      return changed ? { ...message, reactions } : message;
+    });
+    return changed ? { ...prev, messages } : prev;
+  });
+}
+
 export function isOptimisticMessageId(messageId: string): boolean {
   return messageId.startsWith("optimistic-");
 }

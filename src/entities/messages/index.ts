@@ -8,6 +8,7 @@ export * from "./api/useThreadMessages";
 export * from "./api/useSendMessage";
 export * from "./api/useReactToMessage";
 export * from "./api/useDeleteMessage";
+export * from "./api/useEditMessage";
 export { findDirectThreadForPeer } from "./lib/findDirectThreadForPeer";
 export { findSupportThread } from "./lib/findSupportThread";
 export { findCustomerSupportTickets } from "./lib/findCustomerSupportTickets";
