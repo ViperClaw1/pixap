@@ -16,7 +16,8 @@ export function useRealtimeChannel(
   createChannel: CreateRealtimeChannel | null,
   options?: { scope?: RealtimeChannelScope; enabled?: boolean },
 ): boolean {
-  const [status, setStatus] = useState<RealtimeChannelStatus>("subscribed");
+  /** Start disconnected so polling fallback stays active until SUBSCRIBED is confirmed. */
+  const [status, setStatus] = useState<RealtimeChannelStatus>("connecting");
   const enabled = options?.enabled !== false;
   const scope = options?.scope ?? "other";
   const [, bumpReconnect] = useReducer((n: number) => n + 1, 0);

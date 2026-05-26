@@ -960,6 +960,15 @@ export type Database = {
           rating: number | null
         }[]
       },
+      get_stories_feed_page: {
+        Args: {
+          p_limit?: number
+          p_cursor_score?: number | null
+          p_cursor_created_at?: string | null
+          p_cursor_id?: string | null
+        }
+        Returns: Json
+      },
       get_venue_live_crowd: {
         Args: {
           p_venue_id: string

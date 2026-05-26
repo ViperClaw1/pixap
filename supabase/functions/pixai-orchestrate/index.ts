@@ -119,20 +119,71 @@ function isVibeTimeline(v: string): v is VibeTimeline {
   return v === "evening" || v === "night" || v === "late_night";
 }
 
-/** UTC anchor hour for vibe route spacing; if that moment already passed today, use tomorrow. */
-function timelineAnchorUtc(timeline: VibeTimeline): Date {
-  const hourStart = timeline === "evening" ? 17 : timeline === "night" ? 21 : 23;
-  const d = new Date();
-  d.setUTCMinutes(0, 0, 0);
-  d.setUTCHours(hourStart, 0, 0, 0);
-  if (d.getTime() <= Date.now()) {
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
-  return d;
+const VIBE_BOOKING_WINDOW_MIN_MS = 30 * 60_000;
+const VIBE_BOOKING_WINDOW_MAX_MS = 8 * 60 * 60_000;
+const VIBE_STOP_SPACING_MS = 90 * 60_000;
+
+function getVibeBookingWindow(nowMs = Date.now()) {
+  return {
+    startMs: nowMs + VIBE_BOOKING_WINDOW_MIN_MS,
+    endMs: nowMs + VIBE_BOOKING_WINDOW_MAX_MS,
+  };
+}
+
+function isTimeSlotInVibeBookingWindow(iso: string, nowMs = Date.now()): boolean {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return false;
+  const { startMs, endMs } = getVibeBookingWindow(nowMs);
+  return t >= startMs && t <= endMs;
+}
+
+/** First stop anchor inside [now+30m, now+8h]; later stops spaced 90m apart. */
+function timelineAnchorInBookingWindow(timeline: VibeTimeline, stopCount: number, nowMs = Date.now()): Date {
+  const { startMs, endMs } = getVibeBookingWindow(nowMs);
+  const windowSpan = endMs - startMs;
+  const routeSpan = Math.max(0, (stopCount - 1) * VIBE_STOP_SPACING_MS);
+  const maxAnchorOffset = Math.max(0, windowSpan - routeSpan);
+  const timelineRatio = timeline === "evening" ? 0 : timeline === "night" ? 0.5 : 1;
+  return new Date(startMs + maxAnchorOffset * timelineRatio);
 }
 
 function addMinutes(d: Date, m: number): Date {
   return new Date(d.getTime() + m * 60_000);
+}
+
+type VibePlanDraft = {
+  venue_id: string;
+  name: string;
+  time_slot: string;
+  vibe_score: number;
+  description: string;
+  booking_price: number;
+  is_restaurant_table: boolean;
+};
+
+function buildVibePlanFromRows(rows: RpcVibeRow[], timeline: VibeTimeline, stopLimit: number, nowMs = Date.now()): VibePlanDraft[] {
+  const anchor = timelineAnchorInBookingWindow(timeline, stopLimit, nowMs);
+  const plan: VibePlanDraft[] = [];
+  let stopIndex = 0;
+
+  for (const r of rows) {
+    if (plan.length >= stopLimit) break;
+    const timeSlot = addMinutes(anchor, stopIndex * (VIBE_STOP_SPACING_MS / 60_000));
+    if (!isTimeSlotInVibeBookingWindow(timeSlot.toISOString(), nowMs)) continue;
+
+    plan.push({
+      venue_id: String(r.venue_id),
+      name: String(r.name ?? ""),
+      time_slot: timeSlot.toISOString(),
+      vibe_score: Number(r.vibe_score ?? 0),
+      description: (r.description ?? "").slice(0, 280),
+      booking_price: Number(r.booking_price ?? 0),
+      is_restaurant_table: Boolean(r.is_restaurant_table),
+    });
+    stopIndex += 1;
+  }
+
+  return plan;
 }
 
 async function resolveVibeCity(supabase: SupabaseClient, vibe: VibeInput): Promise<string | null> {
@@ -165,11 +216,12 @@ async function handleVibe(supabase: SupabaseClient, vibe: VibeInput): Promise<Re
   }
 
   const stopLimit = Math.max(1, Math.min(vibe.limit ?? 5, 8));
+  const candidateLimit = Math.min(20, Math.max(stopLimit * 3, stopLimit));
   const { data, error } = await pixaiRpc(supabase, "search_by_vibe", {
     p_mood: mood,
     p_timeline: vibe.timeline,
     p_city: city,
-    p_limit: stopLimit,
+    p_limit: candidateLimit,
   });
 
   if (error) {
@@ -186,17 +238,7 @@ async function handleVibe(supabase: SupabaseClient, vibe: VibeInput): Promise<Re
   }
 
   const rows = (Array.isArray(data) ? data : []) as RpcVibeRow[];
-  const anchor = timelineAnchorUtc(vibe.timeline);
-
-  const plan = rows.map((r, i) => ({
-    venue_id: String(r.venue_id),
-    name: String(r.name ?? ""),
-    time_slot: addMinutes(anchor, i * 90).toISOString(),
-    vibe_score: Number(r.vibe_score ?? 0),
-    description: (r.description ?? "").slice(0, 280),
-    booking_price: Number(r.booking_price ?? 0),
-    is_restaurant_table: Boolean(r.is_restaurant_table),
-  }));
+  const plan = buildVibePlanFromRows(rows, vibe.timeline, stopLimit);
 
   const ids = plan.map((p) => p.venue_id);
   let cardById = new Map<string, Record<string, unknown>>();
@@ -223,8 +265,8 @@ async function handleVibe(supabase: SupabaseClient, vibe: VibeInput): Promise<Re
 
   const assistant =
     planEnriched.length === 0
-      ? `No venues matched that vibe in ${city} yet. Try a different mood or broaden your search.`
-      : `Here is a ${vibe.timeline.replace("_", " ")} route in ${city} for “${mood}” — ${planEnriched.length} stops with suggested times. Check live availability, then book in one tap.`;
+      ? `No venues matched that vibe in ${city} with suggested times in the next 8 hours. Try a different mood or timeline.`
+      : `Here is a ${vibe.timeline.replace("_", " ")} route in ${city} for “${mood}” — ${planEnriched.length} stops with suggested times in the next 8 hours. Check live availability, then book in one tap.`;
 
   return new Response(
     JSON.stringify({

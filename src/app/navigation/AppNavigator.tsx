@@ -15,11 +15,6 @@ import type {
 } from "./types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
-import HomeScreen from "@/pages/home";
-import MessagesScreen from "@/pages/messages";
-import MessageThreadScreen from "@/pages/message-thread";
-import BookingsScreen from "@/pages/bookings";
-import ProfileScreen from "@/pages/profile";
 import OAuthCallbackScreen from "@/pages/oauth-callback";
 import PrivacyPolicyScreen from "@/pages/privacy-policy";
 import NotFoundScreen from "@/pages/not-found";
@@ -46,7 +41,7 @@ const fullWidthSwipeBackOptions = {
 function HomeStackNavigator() {
   return (
     <HomeStack.Navigator initialRouteName="HomeMain" screenOptions={stackScreenOptions}>
-      <HomeStack.Screen name="HomeMain" component={HomeScreen} />
+      <HomeStack.Screen name="HomeMain" getComponent={() => require("@/pages/home").default} />
       <HomeStack.Screen name="SearchMain" getComponent={() => require("@/pages/search").default} options={fullWidthSwipeBackOptions} />
       <HomeStack.Screen
         name="DailyRecommendations"
@@ -71,8 +66,12 @@ function FeedStackNavigator() {
 function CartStackNavigator() {
   return (
     <CartStack.Navigator initialRouteName="CartMain" screenOptions={stackScreenOptions}>
-      <CartStack.Screen name="CartMain" component={MessagesScreen} />
-      <CartStack.Screen name="MessageThread" component={MessageThreadScreen} options={fullWidthSwipeBackOptions} />
+      <CartStack.Screen name="CartMain" getComponent={() => require("@/pages/messages").default} />
+      <CartStack.Screen
+        name="MessageThread"
+        getComponent={() => require("@/pages/message-thread").default}
+        options={fullWidthSwipeBackOptions}
+      />
       <CartStack.Screen name="PaymentSuccess" getComponent={() => require("@/pages/payment-success").default} />
       <CartStack.Screen name="PaymentCanceled" getComponent={() => require("@/pages/payment-canceled").default} />
     </CartStack.Navigator>
@@ -82,7 +81,7 @@ function CartStackNavigator() {
 function BookingsStackNavigator() {
   return (
     <BookingsStack.Navigator initialRouteName="BookingsMain" screenOptions={stackScreenOptions}>
-      <BookingsStack.Screen name="BookingsMain" component={BookingsScreen} />
+      <BookingsStack.Screen name="BookingsMain" getComponent={() => require("@/pages/bookings").default} />
       {renderBrowseFlowScreens(BookingsStack.Screen as BrowseFlowStackScreen)}
     </BookingsStack.Navigator>
   );
@@ -91,7 +90,7 @@ function BookingsStackNavigator() {
 function ProfileStackNavigator() {
   return (
     <ProfileStack.Navigator initialRouteName="ProfileMain" screenOptions={stackScreenOptions}>
-      <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} />
+      <ProfileStack.Screen name="ProfileMain" getComponent={() => require("@/pages/profile").default} />
       <ProfileStack.Screen name="MyPurchases" getComponent={() => require("@/pages/my-purchases").default} />
       <ProfileStack.Screen name="Auth" getComponent={() => require("@/pages/auth").default} />
       <ProfileStack.Screen name="AuthEmailSent" getComponent={() => require("@/pages/auth-email-sent").default} />

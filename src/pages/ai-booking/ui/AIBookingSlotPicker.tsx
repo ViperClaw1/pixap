@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { PixAIPlace, PixAISlot } from "@/entities/pixai";
 import { chunkCells, WEEKDAY_LABELS, type CalendarCell } from "@/shared/lib/bookingCalendar";
+import { BOOKING_SLOT_GRID_COLUMNS } from "@/entities/booking/lib/bookingSlots";
 import type { AIBookingStyles } from "./aiBookingStyles";
 
 type Props = {
@@ -149,24 +150,28 @@ export function AIBookingSlotPicker({
         <Text style={s.calendarHint}>{t("aiBooking.noTimeSlotsForDate")}</Text>
       ) : (
         <View style={[s.slotGrid, { marginTop: 10 }]}>
-          {slotsForDate.map((slot) => {
-            const inCart = cartReservedSlotTimes.has(new Date(slot.dateTimeIso).getTime());
-            const disabled = !slot.available || inCart;
-            return (
-              <Pressable
-                disabled={disabled}
-                key={slot.dateTimeIso}
-                onPress={() => setSelectedSlot(slot)}
-                style={[
-                  s.slotChip,
-                  selectedSlot?.dateTimeIso === slot.dateTimeIso && s.slotChipSelected,
-                  disabled && s.slotChipUnavailable,
-                ]}
-              >
-                <Text style={s.slotText}>{slot.label}</Text>
-              </Pressable>
-            );
-          })}
+          {chunkCells(slotsForDate, BOOKING_SLOT_GRID_COLUMNS).map((row, rowIdx) => (
+            <View key={`slot-row-${rowIdx}`} style={s.slotGridRow}>
+              {row.map((slot) => {
+                const inCart = cartReservedSlotTimes.has(new Date(slot.dateTimeIso).getTime());
+                const disabled = !slot.available || inCart;
+                return (
+                  <Pressable
+                    disabled={disabled}
+                    key={slot.dateTimeIso}
+                    onPress={() => setSelectedSlot(slot)}
+                    style={[
+                      s.slotChip,
+                      selectedSlot?.dateTimeIso === slot.dateTimeIso && s.slotChipSelected,
+                      disabled && s.slotChipUnavailable,
+                    ]}
+                  >
+                    <Text style={s.slotText}>{slot.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
         </View>
       )}
     </View>

@@ -358,6 +358,7 @@
     "noChatsFound": "Чаты не найдены.",
     "noUsersFound": "Пользователи не найдены.",
     "startChatTitle": "Начать чат",
+    "startChatSearchPlaceholder": "Поиск по имени или username",
     "deleteChatTitle": "Удалить чат",
     "deleteChatMessage": "Удалить чат с «{{name}}»?",
     "toastChatDeleted": "Чат удалён",

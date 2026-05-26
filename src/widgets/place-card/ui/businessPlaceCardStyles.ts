@@ -34,9 +34,9 @@ export const businessPlaceCardStaticStyles = StyleSheet.create({
     justifyContent: "center",
   },
   hBody: { flex: 1, minWidth: 0, justifyContent: "space-between", paddingVertical: 2 },
-  hTitle: { fontSize: 16, fontWeight: "600" },
-  hAddress: { fontSize: 12, marginTop: 4 },
-  hTagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
+  hTitle: { fontSize: 16, fontWeight: "600", lineHeight: 20 },
+  hAddress: { fontSize: 12, marginTop: 4, lineHeight: 16 },
+  hTagsRow: { flexDirection: "row", flexWrap: "nowrap", gap: 6, marginTop: 8, overflow: "hidden" },
   tagPill: {
     paddingHorizontal: 8,
     paddingVertical: 4,

@@ -20,7 +20,8 @@ const queryClient = new QueryClient({
       /** Короче глобальный gc: меньше «висячих» данных неактивных экранов в памяти. */
       gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
-      refetchOnReconnect: "always",
+      /** Social feeds rely on realtime + pull-to-refresh; reconnect refetch is expensive on mobile radio. */
+      refetchOnReconnect: false,
       retry: 1,
     },
   },

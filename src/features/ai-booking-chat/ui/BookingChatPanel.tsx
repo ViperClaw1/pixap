@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import {
   Keyboard,
   type KeyboardEvent,
@@ -57,15 +58,17 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
   const keyboardOffset = useSharedValue(0);
   const panStartY = useSharedValue(0);
 
-  const tabs = useBookingChatStore((s) => s.tabs);
+  const tabs = useBookingChatStore(useShallow((s) => s.tabs));
   const activeTabId = useBookingChatStore((s) => s.activeTabId);
   const isSending = useBookingChatStore((s) => s.isSending);
   const sendError = useBookingChatStore((s) => s.sendError);
 
-  const activeMessages = useMemo(() => {
-    const t = tabs.find((x) => x.id === activeTabId);
-    return t?.messages ?? [];
-  }, [tabs, activeTabId]);
+  const activeMessages = useBookingChatStore(
+    useShallow((s) => {
+      const t = s.tabs.find((x) => x.id === s.activeTabId);
+      return t?.messages ?? [];
+    }),
+  );
 
   const listRows = useMemo(() => flattenChainedOpeningMessages(activeMessages), [activeMessages]);
 

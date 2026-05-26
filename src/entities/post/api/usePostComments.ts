@@ -34,7 +34,7 @@ function selectStablePostComments(data: PostComment[]) {
 
 export const usePostComments = (postId: string) => {
   const queryClient = useQueryClient();
-  const [realtimeConnected, setRealtimeConnected] = useState(true);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   useEffect(() => {
     if (!postId) return;

@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
+import { clearStoriesFeedRealtimeDebounce } from "@/entities/story/lib/storyFeedRealtimeDebounce";
 
 /**
  * Вызывается при потере сессии (logout / истёкший токен): сбрасывает React Query
@@ -7,6 +8,7 @@ import { Image } from "expo-image";
  * Дисковый кэш expo-image не трогаем — очистка диска может быть долгой; при необходимости добавьте `clearDiskCache` точечно.
  */
 export async function clearSessionCaches(queryClient: QueryClient): Promise<void> {
+  clearStoriesFeedRealtimeDebounce();
   queryClient.clear();
   try {
     await Image.clearMemoryCache();

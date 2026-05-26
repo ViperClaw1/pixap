@@ -121,6 +121,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
   const { colors, isDark } = useAppTheme();
   const fetchGeneration = useRef(0);
   const requestControllerRef = useRef<AbortController | null>(null);
+  const closingViaSwipeRef = useRef(false);
   const swipeY = useSharedValue(0);
   const sheetScreenH = useSharedValue(screenH);
   const mapRef = useRef<MapView | null>(null);
@@ -162,9 +163,17 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
   );
 
   const onCloseAfterSwipe = useCallback(() => {
-    swipeY.value = 0;
+    closingViaSwipeRef.current = true;
     onClose();
-  }, [onClose, swipeY]);
+  }, [onClose]);
+
+  const handleClose = useCallback(() => {
+    closingViaSwipeRef.current = false;
+    onClose();
+  }, [onClose]);
+
+  const modalAnimationType =
+    Platform.OS === "ios" && closingViaSwipeRef.current && !visible ? "none" : "slide";
 
   const panGesture = useMemo(
     () =>
@@ -386,6 +395,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
       setDistanceText(null);
       return;
     }
+    closingViaSwipeRef.current = false;
     swipeY.value = 0;
     void loadRoute();
   }, [visible, loadRoute, swipeY]);
@@ -401,7 +411,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
 
   if (!apiKey) {
     return (
-      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
         <View style={styles.backdrop}>
           <View style={[styles.sheet, styles.sheetExpanded, styles.configBox]}>
             <Text style={styles.configTitle}>Maps not configured</Text>
@@ -410,7 +420,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
               Android, Maps SDK for iOS, Directions API, and Geocoding API. Rebuild the native app after adding
               the key.
             </Text>
-            <Pressable style={styles.closeBtn} onPress={onClose}>
+            <Pressable style={styles.closeBtn} onPress={handleClose}>
               <Text style={styles.closeText}>Close</Text>
             </Pressable>
           </View>
@@ -420,7 +430,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType={modalAnimationType} transparent onRequestClose={handleClose}>
       <View style={styles.backdrop}>
         <Animated.View style={[styles.sheet, styles.sheetExpanded, sheetSwipeStyle]}>
           <GestureDetector gesture={panGesture}>
@@ -432,7 +442,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
                 <Text style={styles.headerTitle} numberOfLines={1}>
                   {placeName}
                 </Text>
-                <Pressable style={styles.iconBtn} onPress={onClose} accessibilityLabel="Close">
+                <Pressable style={styles.iconBtn} onPress={handleClose} accessibilityLabel="Close">
                   <Ionicons name="close" size={22} color={colors.text} />
                 </Pressable>
               </View>
@@ -520,7 +530,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
               })}
             </View>
 
-            <Pressable style={styles.closeBtn} onPress={onClose}>
+            <Pressable style={styles.closeBtn} onPress={handleClose}>
               <Text style={styles.closeText}>Close</Text>
             </Pressable>
           </View>

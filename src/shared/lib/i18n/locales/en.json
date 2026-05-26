@@ -358,6 +358,7 @@
     "noChatsFound": "No chats found.",
     "noUsersFound": "No users found.",
     "startChatTitle": "Start chat",
+    "startChatSearchPlaceholder": "Search by name or username",
     "deleteChatTitle": "Delete chat",
     "deleteChatMessage": "Delete chat with \"{{name}}\"?",
     "toastChatDeleted": "Chat deleted",

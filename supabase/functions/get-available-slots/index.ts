@@ -3,10 +3,39 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 type Req = { business_id: string; date?: string };
 
-function toIso(date: Date, hour: number) {
-  const d = new Date(date);
-  d.setHours(hour, 0, 0, 0);
-  return d.toISOString();
+const BOOKING_SLOT_START_MINUTES = 9 * 60;
+const BOOKING_SLOT_END_MINUTES = 23 * 60 + 30;
+const BOOKING_SLOT_STEP_MINUTES = 30;
+const BOOKING_MIN_LEAD_MS = 30 * 60_000;
+
+function formatSlotLabel(totalMinutes: number): string {
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function buildSlotTimeLabels(): string[] {
+  const labels: string[] = [];
+  for (
+    let totalMinutes = BOOKING_SLOT_START_MINUTES;
+    totalMinutes <= BOOKING_SLOT_END_MINUTES;
+    totalMinutes += BOOKING_SLOT_STEP_MINUTES
+  ) {
+    labels.push(formatSlotLabel(totalMinutes));
+  }
+  return labels;
+}
+
+function slotDateFromDayAndMinutes(day: Date, totalMinutes: number): Date {
+  const d = new Date(day);
+  d.setHours(Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0);
+  return d;
+}
+
+function snapIsoToSlotMs(iso: string): number {
+  const t = new Date(iso).getTime();
+  const stepMs = BOOKING_SLOT_STEP_MINUTES * 60_000;
+  return Math.round(t / stepMs) * stepMs;
 }
 
 Deno.serve(async (req) => {
@@ -33,23 +62,31 @@ Deno.serve(async (req) => {
         ? createClient(url, serviceKey, { auth: { persistSession: false } })
         : userClient;
 
-    const hours = [10, 11, 12, 13, 14, 16, 17, 18];
+    const dayStart = new Date(day);
+    const dayEnd = new Date(day);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+
     const { data: bookings, error } = await db
       .from("bookings")
       .select("date_time")
       .eq("business_card_id", body.business_id)
       .eq("payment_status", "paid")
-      .gte("date_time", toIso(day, 0))
-      .lt("date_time", toIso(day, 23));
+      .gte("date_time", dayStart.toISOString())
+      .lt("date_time", dayEnd.toISOString());
     if (error) throw error;
 
-    const busy = new Set((bookings ?? []).map((b) => new Date(b.date_time).getHours()));
-    const slots = hours.map((hour) => {
-      const dateTimeIso = toIso(day, hour);
+    const busy = new Set((bookings ?? []).map((b) => snapIsoToSlotMs(String(b.date_time))));
+    const minStart = Date.now() + BOOKING_MIN_LEAD_MS;
+
+    const slots = buildSlotTimeLabels().map((label) => {
+      const [h, m] = label.split(":").map(Number);
+      const dt = slotDateFromDayAndMinutes(day, h * 60 + m);
+      const notBusy = !busy.has(dt.getTime());
+      const pastLead = dt.getTime() < minStart;
       return {
-        label: `${String(hour).padStart(2, "0")}:00`,
-        dateTimeIso,
-        available: !busy.has(hour),
+        label,
+        dateTimeIso: dt.toISOString(),
+        available: notBusy && !pastLead,
         isBest: false,
       };
     });

@@ -247,6 +247,7 @@
     "noChatsFound": "Keine Chats gefunden.",
     "noUsersFound": "Keine Nutzer gefunden.",
     "startChatTitle": "Chat starten",
+    "startChatSearchPlaceholder": "Nach Name oder Benutzername suchen",
     "deleteChatTitle": "Chat löschen",
     "deleteChatMessage": "Chat mit „{{name}}“ löschen?",
     "toastChatDeleted": "Chat gelöscht",

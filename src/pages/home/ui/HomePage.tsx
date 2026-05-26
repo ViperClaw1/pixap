@@ -234,12 +234,13 @@ export default function HomeScreen() {
   );
 
   const renderRecommendedRow = useCallback<ListRenderItem<BusinessCard>>(
-    ({ item }) => (
-      <View style={styles.recommendedGap}>
-        <BusinessPlaceCard key={item.id} place={item} variant="horizontal" />
-      </View>
-    ),
-    [styles.recommendedGap],
+    ({ item }) => <BusinessPlaceCard place={item} variant="horizontal" />,
+    [],
+  );
+
+  const renderRecommendedSeparator = useCallback(
+    () => <View style={styles.recommendedListSeparator} />,
+    [styles.recommendedListSeparator],
   );
 
   const openDailyRecommendations = useCallback(() => {
@@ -436,6 +437,7 @@ export default function HomeScreen() {
         keyExtractor={(p) => p.id}
         estimatedItemSize={RECOMMENDED_ITEM_ESTIMATED_SIZE}
         renderItem={renderRecommendedRow}
+        ItemSeparatorComponent={renderRecommendedSeparator}
         ListHeaderComponent={listHeader}
         ListFooterComponent={listFooter}
         contentContainerStyle={listContentStyle}

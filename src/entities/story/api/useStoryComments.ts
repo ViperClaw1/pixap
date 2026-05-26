@@ -81,7 +81,7 @@ function aggregateLikes(
 export const useStoryComments = (storyId: string) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [realtimeConnected, setRealtimeConnected] = useState(true);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   useEffect(() => {
     if (!storyId) return;

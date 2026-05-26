@@ -35,8 +35,6 @@ export const useReplyToComment = () => {
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.stories.comments(variables.storyId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.stories.feedPrefix });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.stories.strip });
     },
   });
 };

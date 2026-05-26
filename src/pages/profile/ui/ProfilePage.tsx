@@ -351,16 +351,15 @@ function ProfileScreenContent() {
     [isActive, navigation, openManageSubscription, openPrivacy, t, unreadNotifications],
   );
 
+  const showAdminDashboard = isProfileAdmin(profile?.account_role);
+  const trailingActions = actions.slice(1);
+
   if (!loading && !user) {
     return null;
   }
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView
-        style={[styles.root, isCompact ? styles.rootCompact : null]}
-        contentContainerStyle={{ paddingTop: 12, paddingBottom: Math.max(insets.bottom, 24) }}
-      >
       <AppHeader
         title={t("header.profile")}
         leftIcon="add"
@@ -372,6 +371,14 @@ function ProfileScreenContent() {
         onRightPress={toggleThemeMode}
         onNotificationsPress={() => setNotificationsOpen(true)}
       />
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={{
+          paddingTop: 12,
+          paddingBottom: Math.max(insets.bottom, 24),
+          paddingHorizontal: isCompact ? 12 : 16,
+        }}
+      >
       <View style={styles.card}>
         <View style={styles.profileRow}>
           <View style={styles.avatarWrap}>
@@ -552,10 +559,13 @@ function ProfileScreenContent() {
           linkIconStyle={styles.linkIcon}
           textMuted={colors.textMuted}
         />
-        {actions.slice(1).map((item, index) => (
+        {trailingActions.map((item, index) => (
           <Pressable
             key={item.key}
-            style={[linkRowStyle, index === actions.slice(1).length - 1 ? { borderBottomWidth: 0 } : null]}
+            style={[
+              linkRowStyle,
+              !showAdminDashboard && index === trailingActions.length - 1 ? { borderBottomWidth: 0 } : null,
+            ]}
             onPress={item.onPress}
           >
             <Ionicons name={item.icon} size={20} color={colors.textMuted} style={styles.linkIcon} />
@@ -568,14 +578,14 @@ function ProfileScreenContent() {
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
           </Pressable>
         ))}
+        {showAdminDashboard ? (
+          <Pressable style={[linkRowStyle, { borderBottomWidth: 0 }]} onPress={() => navigation.navigate("AdminDashboard")}>
+            <Ionicons name="stats-chart-outline" size={20} color={colors.textMuted} style={styles.linkIcon} />
+            <Text style={styles.linkText}>{t("profile.adminDashboard")}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
+          </Pressable>
+        ) : null}
       </View>
-      {isProfileAdmin(profile?.account_role) ? (
-        <Pressable style={[linkRowStyle, { marginTop: 10 }]} onPress={() => navigation.navigate("AdminDashboard")}>
-          <Ionicons name="stats-chart-outline" size={20} color={colors.textMuted} style={styles.linkIcon} />
-          <Text style={styles.linkText}>{t("profile.adminDashboard")}</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
-        </Pressable>
-      ) : null}
       {(role === "admin" || role === "partner") && (
         <Pressable style={[linkRowStyle, { marginTop: 10 }]} onPress={() => navigation.navigate("AdminImageUpload")}>
           <Text style={styles.linkText}>{t("profile.partnerUpload")}</Text>

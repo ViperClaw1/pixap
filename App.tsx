@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { InteractionManager, Text, View } from "react-native";
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
@@ -11,7 +11,6 @@ import { linking } from "@/app/navigation/linking";
 import { rootNavigationRef } from "@/app/navigation/rootNavigationRef";
 import { bootstrapI18n, hydrateI18nFromStorage } from "@/shared/lib/i18n";
 import { subscribeSupabaseAuthDeepLinks } from "@/app/navigation/subscribeSupabaseAuthDeepLinks";
-import PermissionsOnboardingScreen from "@/pages/permissions-onboarding";
 import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/shared/lib/permissionsStorage";
 import { supabaseConfigError } from "@/shared/api/supabase/client";
 import { logStartupDiagnostics } from "@/shared/lib/startupDiagnostics";
@@ -21,6 +20,11 @@ import { ensurePushNotificationHandler, setPushNotificationOpenHandler } from "@
 import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+function PermissionsOnboardingLazy({ onComplete }: { onComplete: () => void }) {
+  const Screen = useMemo(() => require("@/pages/permissions-onboarding").default, []);
+  return <Screen onComplete={onComplete} />;
+}
 
 if (__DEV__) {
   resetStartupTiming();
@@ -150,7 +154,7 @@ export default function App() {
           <Text style={{ color: "#ddd", textAlign: "center" }}>{bootError ?? supabaseConfigError}</Text>
         </View>
       ) : showPerms ? (
-        <PermissionsOnboardingScreen onComplete={() => void onPermsDone()} />
+        <PermissionsOnboardingLazy onComplete={() => void onPermsDone()} />
       ) : (
         <NavigationRoot />
       )}

@@ -37,6 +37,7 @@ import {
   BOOKING_FLOW_TIME_SLOTS,
   BOOKING_FLOW_TOTAL_STEPS,
 } from "../model/constants";
+import { BOOKING_SLOT_GRID_COLUMNS } from "@/entities/booking/lib/bookingSlots";
 
 import {
   CALENDAR_MONTHS_AHEAD,
@@ -324,16 +325,20 @@ export default function BookingFlowPage() {
               ))}
             </View>
             <View style={styles.timeGrid}>
-              {BOOKING_FLOW_TIME_SLOTS.map((t) => (
-                <Pressable
-                  key={t}
-                  style={[styles.timeCell, themedStyles.timeCell, selectedTime === t && styles.timeCellSel, selectedTime === t && themedStyles.timeCellSel]}
-                  onPress={() => setSelectedTime(t)}
-                >
-                  <Text style={[themedStyles.timeCellText, selectedTime === t && styles.timeCellTextSel, selectedTime === t && themedStyles.timeCellTextSel]}>
-                    {t}
-                  </Text>
-                </Pressable>
+              {chunkCells([...BOOKING_FLOW_TIME_SLOTS], BOOKING_SLOT_GRID_COLUMNS).map((row, rowIdx) => (
+                <View key={`time-row-${rowIdx}`} style={styles.timeGridRow}>
+                  {row.map((t) => (
+                    <Pressable
+                      key={t}
+                      style={[styles.timeCell, themedStyles.timeCell, selectedTime === t && styles.timeCellSel, selectedTime === t && themedStyles.timeCellSel]}
+                      onPress={() => setSelectedTime(t)}
+                    >
+                      <Text style={[themedStyles.timeCellText, selectedTime === t && styles.timeCellTextSel, selectedTime === t && themedStyles.timeCellTextSel]}>
+                        {t}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               ))}
             </View>
           </View>
@@ -496,9 +501,10 @@ const styles = StyleSheet.create({
   calendarCellToday: { borderStyle: "dashed", borderColor: "#d1d5db" },
   calendarCellSelected: { borderColor: "#111", backgroundColor: "#f3f4f6" },
   calendarCellPast: { opacity: 0.38 },
-  timeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 16 },
+  timeGrid: { marginTop: 16, gap: 8, width: "100%", alignSelf: "stretch" },
+  timeGridRow: { flexDirection: "row", gap: 8, width: "100%" },
   timeCell: {
-    width: "22%",
+    flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
     backgroundColor: "#f5f5f5",
