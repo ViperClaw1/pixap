@@ -10,9 +10,15 @@ import {
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type TextInput,
 } from "react-native";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -41,7 +47,10 @@ import { STICKER_URLS } from "../model/constants";
 import { peerFullName } from "../model/format";
 import { resolvePeerPresenceStatus } from "../model/peerPresenceStatus";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
-import { useFooterKeyboardLift, useKeyboardInset } from "@/shared/lib/keyboard";
+import {
+  MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX,
+  useMessageThreadKeyboardLift,
+} from "../lib/useMessageThreadKeyboardLift";
 import type { MessageThreadListRow } from "../model/types";
 import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
@@ -61,8 +70,6 @@ type MessageThreadNav = NativeStackNavigationProp<CartStackParamList, "MessageTh
 const SCROLL_AT_BOTTOM_THRESHOLD_PX = 48;
 const SCROLL_TO_BOTTOM_SHOW_THRESHOLD_PX = 500;
 const LOAD_OLDER_SCROLL_THRESHOLD_PX = 120;
-/** adjustResize уже поднимает контент; уменьшаем ручной paddingBottom футера на Android. */
-const MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX = 64;
 
 export default function MessageThreadPage() {
   const { t } = useTranslation();
@@ -77,6 +84,7 @@ export default function MessageThreadPage() {
   const stableBottomInset = stableBottomInsetRef.current;
   const listRef = useRef<FlashListRef<MessageThreadListRow>>(null);
   const footerMeasureRef = useRef<View>(null);
+  const composerInputRef = useRef<TextInput>(null);
   const isAtBottomRef = useRef(true);
   const scrollAfterSendRef = useRef(false);
   const pendingOpenScrollRef = useRef(true);
@@ -323,39 +331,46 @@ export default function MessageThreadPage() {
   );
 
   const styles = useMessageThreadStyles(insets.top, stableBottomInset);
-  const { lift: iosKeyboardLift, recalculate: recalculateIosKeyboardLift } = useFooterKeyboardLift(
-    () => footerMeasureRef.current,
-    { gap: 0, enabled: Platform.OS === "ios" },
-  );
-  const androidKeyboardInset = useKeyboardInset({
-    gap: 0,
-    tabBarHeight: 0,
-    ignoreWindowResize: true,
-    enabled: Platform.OS === "android",
-  });
+  const {
+    effectiveInset: keyboardLiftInset,
+    recalculateIosKeyboardLift,
+    beginPickerInteraction,
+    endPickerInteraction,
+    isComposerInteractionLocked,
+  } = useMessageThreadKeyboardLift(() => footerMeasureRef.current);
+
+  const refocusComposerInput = useCallback(() => {
+    composerInputRef.current?.focus();
+  }, []);
+
+  const handleComposerBlur = useCallback(() => {
+    if (!isComposerInteractionLocked()) return;
+    refocusComposerInput();
+  }, [isComposerInteractionLocked, refocusComposerInput]);
+
+  const handleFooterLayout = useCallback(() => {
+    if (Platform.OS !== "ios") return;
+    if (isComposerInteractionLocked()) return;
+    recalculateIosKeyboardLift();
+  }, [isComposerInteractionLocked, recalculateIosKeyboardLift]);
 
   const contentAnimatedStyle = useAnimatedStyle(() => {
+    const inset = keyboardLiftInset.value;
     if (Platform.OS === "ios") {
-      return { transform: [{ translateY: -iosKeyboardLift.value }] };
+      return { transform: [{ translateY: -inset }] };
     }
     return {
-      paddingBottom: Math.max(0, androidKeyboardInset.value - MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX),
+      paddingBottom: Math.max(0, inset - MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX),
     };
   });
 
   const listKeyboardSpacerStyle = useAnimatedStyle(() => ({
-    height: Platform.OS === "android" ? androidKeyboardInset.value : 0,
+    height: Platform.OS === "android" ? keyboardLiftInset.value : 0,
   }));
 
-  const scrollFabPositionStyle = useAnimatedStyle(() => {
-    const lift = Platform.OS === "android" ? androidKeyboardInset.value : 0;
-    return { bottom: 12 + lift };
-  });
-
-  useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    recalculateIosKeyboardLift();
-  }, [attachments.length, isStickerPanelOpen, peerIsTyping, recalculateIosKeyboardLift]);
+  const scrollFabPositionStyle = useAnimatedStyle(() => ({
+    bottom: 12 + keyboardLiftInset.value,
+  }));
 
   const mergeDrafts = useCallback((prev: MessageAttachmentDraft[], next: MessageAttachmentDraft[]) => {
     const seen = new Set(prev.map((p) => p.uri));
@@ -411,6 +426,57 @@ export default function MessageThreadPage() {
   const toggleStickerPanel = useCallback(() => {
     setStickerPanelOpen((prev) => !prev);
   }, []);
+
+  const handleStickerPressIn = useCallback(() => {
+    beginPickerInteraction();
+  }, [beginPickerInteraction]);
+
+  const handleStickerPress = useCallback(() => {
+    if (!isComposerInteractionLocked()) {
+      beginPickerInteraction();
+    }
+    toggleStickerPanel();
+    refocusComposerInput();
+    setTimeout(() => {
+      endPickerInteraction(refocusComposerInput);
+    }, 260);
+  }, [
+    beginPickerInteraction,
+    endPickerInteraction,
+    isComposerInteractionLocked,
+    refocusComposerInput,
+    toggleStickerPanel,
+  ]);
+
+  const handleAttachPressIn = useCallback(() => {
+    beginPickerInteraction();
+  }, [beginPickerInteraction]);
+
+  const handleAttachPress = useCallback(() => {
+    if (!isComposerInteractionLocked()) {
+      beginPickerInteraction();
+    }
+    void (async () => {
+      try {
+        await pickMedia();
+      } finally {
+        endPickerInteraction(refocusComposerInput);
+      }
+    })();
+  }, [beginPickerInteraction, endPickerInteraction, isComposerInteractionLocked, pickMedia, refocusComposerInput]);
+
+  const handleAttachLongPress = useCallback(() => {
+    if (!isComposerInteractionLocked()) {
+      beginPickerInteraction();
+    }
+    void (async () => {
+      try {
+        await pickDocument();
+      } finally {
+        endPickerInteraction(refocusComposerInput);
+      }
+    })();
+  }, [beginPickerInteraction, endPickerInteraction, isComposerInteractionLocked, pickDocument, refocusComposerInput]);
 
   const openAttachmentViewer = useCallback((uri: string, draftAttachment?: MessageAttachmentDraft | null) => {
     if (draftAttachment?.uri === uri) {
@@ -547,7 +613,7 @@ export default function MessageThreadPage() {
           </View>
         )}
 
-        <View ref={footerMeasureRef} collapsable={false}>
+        <View ref={footerMeasureRef} collapsable={false} onLayout={handleFooterLayout}>
           <View style={styles.footer}>
           {peerIsTyping ? (
             <View style={styles.typingRow} accessibilityLiveRegion="polite">
@@ -605,22 +671,33 @@ export default function MessageThreadPage() {
             <Pressable
               accessibilityHint="Long press to attach a file"
               style={styles.attachBtn}
-              onPress={() => void pickMedia()}
-              onLongPress={() => void pickDocument()}
+              onPressIn={handleAttachPressIn}
+              onPress={handleAttachPress}
+              onLongPress={handleAttachLongPress}
             >
-              <Ionicons name="attach-outline" size={18} color={colors.textMuted} />
+              <View style={styles.composerIconTouchTarget}>
+                <Ionicons name="attach-outline" size={18} color={colors.textMuted} />
+              </View>
             </Pressable>
             <View style={styles.inputWrap}>
               <RichTextarea
+                ref={composerInputRef}
                 value={draft}
                 onChangeText={setDraft}
+                onBlur={handleComposerBlur}
                 placeholder="Write a message..."
                 placeholderTextColor={colors.textMuted}
                 style={styles.input}
               />
             </View>
-            <Pressable style={styles.stickerBtn} onPress={toggleStickerPanel}>
-              <Ionicons name="happy-outline" size={18} color={colors.textMuted} />
+            <Pressable
+              style={styles.stickerBtn}
+              onPressIn={handleStickerPressIn}
+              onPress={handleStickerPress}
+            >
+              <View style={styles.composerIconTouchTarget}>
+                <Ionicons name="happy-outline" size={18} color={colors.textMuted} />
+              </View>
             </Pressable>
             <Pressable
               style={[styles.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}

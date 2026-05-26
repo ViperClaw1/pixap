@@ -153,6 +153,7 @@
   "home": {
     "searchPlaceholder": "Рестораны, салоны, события…",
     "categories": "Категории",
+    "categoryComingSoon": "Скоро",
     "featured": "Избранное",
     "seeAll": "Смотреть все",
     "recommended": "Рекомендуем",
@@ -195,7 +196,8 @@
     "entertainment": "Развлечения",
     "fitness": "Фитнес",
     "hotels": "Отели",
-    "events": "События"
+    "events": "События",
+    "tourism": "Туризм"
   },
   "bookingCommon": {
     "profileIncompleteTitle": "Профиль не заполнен",

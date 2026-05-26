@@ -153,6 +153,7 @@
   "home": {
     "searchPlaceholder": "Search restaurants, salons, events…",
     "categories": "Categories",
+    "categoryComingSoon": "Coming soon",
     "featured": "Featured",
     "seeAll": "See all",
     "recommended": "Recommended",
@@ -195,7 +196,8 @@
     "entertainment": "Entertainment",
     "fitness": "Fitness",
     "hotels": "Hotels",
-    "events": "Events"
+    "events": "Events",
+    "tourism": "Tourism"
   },
   "bookingCommon": {
     "profileIncompleteTitle": "Profile incomplete",

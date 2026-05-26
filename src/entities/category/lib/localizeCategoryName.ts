@@ -10,6 +10,7 @@ const CATEGORY_I18N_KEYS = new Set([
   "fitness",
   "hotels",
   "events",
+  "tourism",
 ]);
 
 function categoryNameToKey(name: string): string | null {

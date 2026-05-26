@@ -147,6 +147,12 @@ export const aiBookingStaticStyles = StyleSheet.create({
   primaryBtnDisabled: {
     opacity: 0.5,
   },
+  primaryBtnBusyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
   primaryBtnText: primaryPressableTextStyle,
   inlineValidationText: { fontSize: 12 },
   secondaryBtn: {

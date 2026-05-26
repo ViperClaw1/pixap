@@ -306,6 +306,12 @@ export const messageThreadStaticStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  composerIconTouchTarget: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   stickerBtn: {
     width: COMPOSER_HEIGHT,
     height: COMPOSER_HEIGHT,

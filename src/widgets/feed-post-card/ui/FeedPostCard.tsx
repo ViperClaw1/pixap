@@ -1,5 +1,7 @@
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type TextLayoutEvent } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
@@ -11,6 +13,8 @@ import { PostMediaCarousel } from "@/widgets/feed-post-carousel";
 import { CommentPreview } from "@/widgets/feed-list";
 import { PostBoostCrownBadge, PostBoostStarButton } from "@/features/post-boost";
 import type { FeedPostVm } from "@/pages/stories-feed/lib/feedPostHelpers";
+
+const FEED_MEDIA_DOUBLE_TAP_MAX_MS = 280;
 
 interface FeedPostCardProps {
   vm: FeedPostVm;
@@ -76,6 +80,19 @@ export const FeedPostCard = memo(function FeedPostCard({
     [isContentExpanded],
   );
 
+  const carouselDoubleTapGesture = useMemo(
+    () =>
+      Gesture.Tap()
+        .numberOfTaps(2)
+        .maxDuration(FEED_MEDIA_DOUBLE_TAP_MAX_MS)
+        .onEnd(() => {
+          runOnJS(onPress)();
+        }),
+    [onPress],
+  );
+
+  const hasCarousel = vm.postImages.length > 1;
+
   return (
     <View style={[styles.content, { backgroundColor: colors.background }]}>
       <View style={[styles.authorSection, { borderBottomColor: colors.border }]}>
@@ -130,17 +147,21 @@ export const FeedPostCard = memo(function FeedPostCard({
       </View>
 
       <View style={[styles.mediaFrame, { height: sliderHeight }]}>
-        <Pressable style={styles.mediaPressable} onPress={onPress}>
-          {vm.postImages.length > 1 ? (
-            <PostMediaCarousel
-              postId={item.id}
-              postImages={vm.postImages}
-              postImagesRaw={vm.postImagesRaw}
-              postSlideBlurhashes={vm.postSlideBlurhashes}
-              width={width}
-              sliderHeight={sliderHeight}
-            />
-          ) : (
+        {hasCarousel ? (
+          <GestureDetector gesture={carouselDoubleTapGesture}>
+            <View style={styles.mediaPressable}>
+              <PostMediaCarousel
+                postId={item.id}
+                postImages={vm.postImages}
+                postImagesRaw={vm.postImagesRaw}
+                postSlideBlurhashes={vm.postSlideBlurhashes}
+                width={width}
+                sliderHeight={sliderHeight}
+              />
+            </View>
+          </GestureDetector>
+        ) : (
+          <Pressable style={styles.mediaPressable} onPress={onPress}>
             <StoryMediaSlide
               optimizedUri={vm.postImages[0] ?? null}
               fallbackUri={vm.postImagesRaw[0] ?? null}
@@ -149,8 +170,8 @@ export const FeedPostCard = memo(function FeedPostCard({
               width={width}
               height={sliderHeight}
             />
-          )}
-        </Pressable>
+          </Pressable>
+        )}
         {isBoosted ? <PostBoostCrownBadge /> : null}
       </View>
 

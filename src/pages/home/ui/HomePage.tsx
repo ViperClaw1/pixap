@@ -26,7 +26,7 @@ import {
   matchesSearchTokens,
   type BusinessCard,
 } from "@/entities/business-card";
-import { useCategories, CategoryIcon, resolveCategoryIconSpec, type Category } from "@/entities/category";
+import { useCategories, CategoryIcon, resolveCategoryIconSpec, localizeCategoryName } from "@/entities/category";
 import { useUnreadCount } from "@/entities/notification";
 import {
   useDailyRecommendations,
@@ -56,6 +56,7 @@ import {
   RECOMMENDED_BATCH_SIZE,
   RECOMMENDED_ITEM_ESTIMATED_SIZE,
 } from "../model/constants";
+import { buildHomeCategoryList, type HomeCategoryListItem } from "../lib/buildHomeCategoryList";
 import { AnimatedHomeSparklesIcon, AnimatedHomeVibeIcon } from "@/shared/ui/animated-home-header-icons";
 import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
 import { DailyPicksHero } from "@/widgets/daily-picks-hero";
@@ -114,6 +115,7 @@ export default function HomeScreen() {
   const { data: featured = [], isLoading: lf } = useBusinessCards("featured", selectedCity);
   const { data: recommended = [], isLoading: lr } = useBusinessCards("recommended", selectedCity);
   const { data: categories = [], isLoading: lc } = useCategories();
+  const homeCategories = useMemo(() => buildHomeCategoryList(categories), [categories]);
   const { data: dailyRecommendations = [] } = useDailyRecommendations();
   const trackRecommendationEvent = useTrackRecommendationEvent();
   const trackRecommendationInteraction = useTrackRecommendationInteraction();
@@ -185,21 +187,41 @@ export default function HomeScreen() {
   );
   const canShowMoreRecommended = visibleRecommendedCount < recommended.length;
 
-  const renderCategoryRow = useCallback<ListRenderItem<Category>>(
+  const renderCategoryRow = useCallback<ListRenderItem<HomeCategoryListItem>>(
     ({ item }) => {
       const iconSpec = resolveCategoryIconSpec(item.name);
+      const label = localizeCategoryName(item.name, t);
       return (
-        <Pressable style={styles.pill} onPress={() => navigation.navigate("Category", { id: item.id })}>
+        <Pressable
+          style={[styles.pill, item.isComingSoon && styles.pillComingSoon]}
+          disabled={item.isComingSoon}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: item.isComingSoon }}
+          accessibilityLabel={
+            item.isComingSoon
+              ? `${label}, ${t("home.categoryComingSoon")}`
+              : label
+          }
+          onPress={() => {
+            if (item.isComingSoon) return;
+            navigation.navigate("Category", { id: item.id });
+          }}
+        >
           <View style={styles.pillContent}>
             <View style={styles.pillIconWrap}>
               <CategoryIcon spec={iconSpec} size={14} color={colors.primary} />
             </View>
-            <Text style={styles.pillText}>{item.name}</Text>
+            <Text style={styles.pillText}>{label}</Text>
+            {item.isComingSoon ? (
+              <View style={styles.categoryComingSoonBadge}>
+                <Text style={styles.categoryComingSoonBadgeText}>{t("home.categoryComingSoon")}</Text>
+              </View>
+            ) : null}
           </View>
         </Pressable>
       );
     },
-    [colors.primary, navigation, styles],
+    [colors.primary, navigation, styles, t],
   );
 
   const renderFeaturedRow = useCallback<ListRenderItem<BusinessCard>>(
@@ -331,7 +353,7 @@ export default function HomeScreen() {
           <FlashList
             horizontal
             style={styles.categoriesFlatList}
-            data={categories}
+            data={homeCategories}
             keyExtractor={(c) => c.id}
             estimatedItemSize={CATEGORY_PILL_ESTIMATED_WIDTH}
             showsHorizontalScrollIndicator={false}
@@ -364,6 +386,7 @@ export default function HomeScreen() {
     ),
     [
       categories,
+      homeCategories,
       colors,
       dailyRecommendations,
       featured,

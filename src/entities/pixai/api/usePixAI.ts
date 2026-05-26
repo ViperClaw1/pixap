@@ -253,6 +253,27 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload, language
   return places;
 }
 
+function keepWelcomeMessageOnly(prev: PixAIMessage[]): PixAIMessage[] {
+  return prev.filter((m) => m.id === PIXAI_WELCOME_MESSAGE_ID);
+}
+
+function buildFlowSearchTranscript(
+  flow: PixAIFlowPayload,
+  assistantContent: string,
+  toolResult: PixAIToolResult,
+): PixAIMessage[] {
+  const now = Date.now();
+  return [
+    { id: `u-${now}`, role: "user", content: buildFlowUserSummary(flow) },
+    {
+      id: `a-${now + 1}`,
+      role: "assistant",
+      content: assistantContent,
+      toolResult,
+    },
+  ];
+}
+
 export function usePixAI() {
   const { user } = useAuth();
   const { i18n } = useTranslation();
@@ -301,35 +322,26 @@ export function usePixAI() {
     },
     onSuccess: (payload, flow) => {
       setMessages((prev) => [
-        ...prev,
-        { id: `u-${Date.now()}`, role: "user", content: buildFlowUserSummary(flow) },
-        {
-          id: `a-${Date.now() + 1}`,
-          role: "assistant",
-          content: payload.assistant,
-          toolResult: {
-            places: payload.places,
-            slots: payload.slots,
-            draft: payload.draft,
-          },
-        },
+        ...keepWelcomeMessageOnly(prev),
+        ...buildFlowSearchTranscript(flow, payload.assistant, {
+          places: payload.places,
+          slots: payload.slots,
+          draft: payload.draft,
+        }),
       ]);
     },
     onError: async (error, flow) => {
       devWarn("[PixAI] search failed (edge and local DB returned no places):", error);
       setMessages((prev) => [
-        ...prev,
-        { id: `u-${Date.now()}`, role: "user", content: buildFlowUserSummary(flow) },
-        {
-          id: `a-${Date.now() + 1}`,
-          role: "assistant",
-          content:
-            "Something went wrong with the booking assistant and no matching places were found. Check your connection, try again, or adjust city and category.",
-          toolResult: {
+        ...keepWelcomeMessageOnly(prev),
+        ...buildFlowSearchTranscript(
+          flow,
+          "Something went wrong with the booking assistant and no matching places were found. Check your connection, try again, or adjust city and category.",
+          {
             places: [],
             slots: makeLocalSlots(),
           },
-        },
+        ),
       ]);
     },
   });
@@ -374,11 +386,16 @@ export function usePixAI() {
     vibeMutation.reset();
   }, [vibeMutation]);
 
+  const resetFlowSearchTranscript = useCallback(() => {
+    setMessages((prev) => keepWelcomeMessageOnly(prev));
+  }, []);
+
   return useMemo(
     () => ({
       messages,
       runFlow,
       isLoading: flowMutation.isPending,
+      resetFlowSearchTranscript,
       runVibePlan,
       isVibeLoading: vibeMutation.isPending,
       vibeResult: vibeMutation.data ?? null,
@@ -388,6 +405,7 @@ export function usePixAI() {
     [
       flowMutation.isPending,
       messages,
+      resetFlowSearchTranscript,
       resetVibePlan,
       runFlow,
       runVibePlan,

@@ -3,6 +3,7 @@ import { InteractionManager, StyleSheet, View } from "react-native";
 import Carousel, { type CarouselRenderItem } from "react-native-reanimated-carousel";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { StoryMediaSlide } from "@/widgets/stories-strip";
+import { configureFeedCarouselPanGesture } from "../lib/configureFeedCarouselPanGesture";
 
 const carouselStyles = StyleSheet.create({
   sliderDots: {
@@ -100,6 +101,7 @@ export const PostMediaCarousel = memo(function PostMediaCarousel({
         autoPlay
         autoPlayInterval={5000}
         scrollAnimationDuration={650}
+        onConfigurePanGesture={configureFeedCarouselPanGesture}
         onSnapToItem={setActiveIndex}
         renderItem={renderCarouselItem}
       />
