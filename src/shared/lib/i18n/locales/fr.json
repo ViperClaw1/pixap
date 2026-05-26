@@ -566,7 +566,9 @@
   "postBoost": {
     "title": "Booster le post dans le fil",
     "comingSoon": "Bientôt — meilleure visibilité dans la découverte.",
-    "enabledHint": "Promouvoir ce post dans le fil."
+    "enabledHint": "Promouvoir ce post dans le fil.",
+    "topLabel": "Top",
+    "topBadgeAccessibility": "Post boosté en tête du fil"
   },
   "dailyRecommendations": {
     "title": "Vos picks du jour",

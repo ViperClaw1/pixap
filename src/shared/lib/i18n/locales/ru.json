@@ -691,7 +691,9 @@
     "toastTitle": "Пост продвинут",
     "toastMessage": "Пост поднят на первое место в ленте.",
     "toastErrorTitle": "Не удалось продвинуть",
-    "toastError": "Попробуйте ещё раз."
+    "toastError": "Попробуйте ещё раз.",
+    "topLabel": "В топе",
+    "topBadgeAccessibility": "Продвинутый пост в топе ленты"
   },
   "dailyRecommendations": {
     "title": "Для вас на сегодня",

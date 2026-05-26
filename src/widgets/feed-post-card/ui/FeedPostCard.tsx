@@ -111,13 +111,16 @@ export const FeedPostCard = memo(function FeedPostCard({
             </View>
           )}
           <View style={styles.authorMeta}>
-            <View style={styles.authorNameRow}>
-              <Text style={[styles.authorName, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
-                {profileName(item.profile?.first_name, item.profile?.last_name)}
-              </Text>
-              {item.profile?.is_verified ? (
-                <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
-              ) : null}
+            <View style={styles.authorMetaHeader}>
+              <View style={styles.authorNameRow}>
+                <Text style={[styles.authorName, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
+                  {profileName(item.profile?.first_name, item.profile?.last_name)}
+                </Text>
+                {item.profile?.is_verified ? (
+                  <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
+                ) : null}
+              </View>
+              {isBoosted ? <PostBoostCrownBadge /> : null}
             </View>
             {geoFormattedAddress ? (
               <View style={styles.authorGeoRow}>
@@ -172,7 +175,6 @@ export const FeedPostCard = memo(function FeedPostCard({
             />
           </Pressable>
         )}
-        {isBoosted ? <PostBoostCrownBadge /> : null}
       </View>
 
       <View style={styles.actionsSection}>
@@ -284,7 +286,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   authorMeta: { flex: 1, minWidth: 0, gap: 4 },
-  authorNameRow: { flexDirection: "row", alignItems: "center", gap: 4, minWidth: 0 },
+  authorMetaHeader: { flexDirection: "row", alignItems: "flex-start", gap: 8, minWidth: 0 },
+  authorNameRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 4, minWidth: 0 },
   authorGeoRow: { flexDirection: "row", alignItems: "flex-start", gap: 4, marginTop: 2 },
   authorGeoIcon: { marginTop: 1 },
   authorGeo: {
