@@ -55,6 +55,7 @@ import { profileMentionTag } from "@/shared/lib/profileMentionTag";
 import {
   DOUBLE_TAP_DELAY_MS,
   FEED_APP_HEADER_BODY,
+  FEED_CAROUSEL_HEIGHT_BOOST,
   FEED_CAROUSEL_MAIN_BLOCK_MAX_RATIO,
   FEED_CAROUSEL_MIN_HEIGHT,
   FEED_CAROUSEL_VIEWPORT_RATIO,
@@ -130,7 +131,9 @@ export default function StoriesFeedScreen() {
   const sliderHeight = useMemo(() => {
     const fromViewport = Math.floor(height * FEED_CAROUSEL_VIEWPORT_RATIO);
     const maxFromMainBlock = Math.floor(feedMainBlockHeight * FEED_CAROUSEL_MAIN_BLOCK_MAX_RATIO);
-    return Math.max(FEED_CAROUSEL_MIN_HEIGHT, Math.min(fromViewport, maxFromMainBlock));
+    return (
+      Math.max(FEED_CAROUSEL_MIN_HEIGHT, Math.min(fromViewport, maxFromMainBlock)) + FEED_CAROUSEL_HEIGHT_BOOST
+    );
   }, [feedMainBlockHeight, height]);
 
   const focusedPostVms = useMemo<FeedPostVm[]>(
@@ -389,6 +392,7 @@ export default function StoriesFeedScreen() {
         getItemType={() => "feed-post"}
         contentContainerStyle={styles.feedContent}
         showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={Platform.OS === "android"}
         removeClippedSubviews
         initialNumToRender={4}
         maxToRenderPerBatch={6}

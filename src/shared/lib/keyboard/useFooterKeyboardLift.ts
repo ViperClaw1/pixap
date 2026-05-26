@@ -13,6 +13,10 @@ import { useSharedValue, type SharedValue } from "react-native-reanimated";
 export type FooterKeyboardLiftOptions = {
   gap?: number;
   enabled?: boolean;
+  /** While > 0, ignore transient keyboard hide frames (composer icon taps). */
+  holdDuringInteraction?: SharedValue<number>;
+  /** While > 0, keep lift while native picker is presented (photo library, etc.). */
+  holdDuringPicker?: SharedValue<number>;
 };
 
 export type FooterKeyboardLiftResult = {
@@ -25,7 +29,7 @@ export function useFooterKeyboardLift(
   getFooterAnchor: () => View | null,
   options: FooterKeyboardLiftOptions = {},
 ): FooterKeyboardLiftResult {
-  const { gap = 0, enabled = true } = options;
+  const { gap = 0, enabled = true, holdDuringInteraction, holdDuringPicker } = options;
   const lift = useSharedValue(0);
   const getFooterAnchorRef = useRef(getFooterAnchor);
   getFooterAnchorRef.current = getFooterAnchor;
@@ -43,7 +47,6 @@ export function useFooterKeyboardLift(
     (keyboardTop: number, deferLayout = false) => {
       const anchor = getFooterAnchorRef.current();
       if (!anchor || typeof anchor.measureInWindow !== "function") {
-        setLift(0);
         return;
       }
 
@@ -54,13 +57,21 @@ export function useFooterKeyboardLift(
       };
 
       if (deferLayout) {
-        requestAnimationFrame(runMeasure);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(runMeasure);
+        });
       } else {
         runMeasure();
       }
     },
     [gap, setLift],
   );
+
+  const shouldHoldLift = useCallback(() => {
+    if (holdDuringPicker && holdDuringPicker.value > 0) return true;
+    if (holdDuringInteraction && holdDuringInteraction.value > 0) return true;
+    return false;
+  }, [holdDuringInteraction, holdDuringPicker]);
 
   const recalculate = useCallback(() => {
     const keyboardTop = lastKeyboardTopRef.current;
@@ -81,6 +92,9 @@ export function useFooterKeyboardLift(
       const keyboardTop = event.endCoordinates.screenY ?? windowHeight - keyboardHeight;
 
       if (keyboardHeight < 1) {
+        if (shouldHoldLift()) {
+          return;
+        }
         lastKeyboardTopRef.current = null;
         setLift(0);
         return;
@@ -90,18 +104,20 @@ export function useFooterKeyboardLift(
       measureLift(keyboardTop, false);
     };
 
-    const onHide = () => {
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      if (shouldHoldLift()) {
+        return;
+      }
       lastKeyboardTopRef.current = null;
       setLift(0);
-    };
+    });
 
     const changeSub = Keyboard.addListener("keyboardWillChangeFrame", applyFrame);
-    const hideSub = Keyboard.addListener("keyboardWillHide", onHide);
     return () => {
       changeSub.remove();
       hideSub.remove();
     };
-  }, [enabled, measureLift, setLift]);
+  }, [enabled, measureLift, setLift, shouldHoldLift]);
 
   return { lift, recalculate };
 }

@@ -218,7 +218,7 @@ function AIBookingPageContent() {
       replace: (name: "SubscriptionPaywall", params?: { reason?: "no_credits" | "upgrade" }) => void;
     },
   });
-  const { messages, runFlow, isLoading } = usePixAI();
+  const { messages, runFlow, isLoading, resetFlowSearchTranscript } = usePixAI();
   const { data: profile } = useProfile();
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
   const { data: categories = [] } = useCategories();
@@ -251,6 +251,7 @@ function AIBookingPageContent() {
   });
   const [catalogRevision, setCatalogRevision] = useState(0);
   const [confirmingBooking, setConfirmingBooking] = useState(false);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
 
   const persistedCatalogRevision = useBookingChatStore((s) => s.catalogRevision);
   const persistedTabsCount = useBookingChatStore((s) => s.tabs.length);
@@ -466,18 +467,23 @@ function AIBookingPageContent() {
         : null;
 
   const onRequestNearbyPermission = async () => {
-    const permission = await Location.requestForegroundPermissionsAsync();
+    const existing = await Location.getForegroundPermissionsAsync();
+    const permission =
+      existing.status === "granted"
+        ? existing
+        : await Location.requestForegroundPermissionsAsync();
     if (permission.status !== "granted") {
       Alert.alert(t("aiBooking.locationRequiredTitle"), t("aiBooking.locationRequiredMessage"));
       return null;
     }
-    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
     const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     setLocationCoords(coords);
     return coords;
   };
 
   const onSearchPlaces = async () => {
+    if (isSearchingPlaces || isLoading) return;
     if (!ensureProfileComplete()) return;
     if (!selectedCity || selectedCity === ALL_CITIES_OPTION) {
       Alert.alert(t("bookingCommon.chooseCity"), t("bookingCommon.chooseCityMessage"));
@@ -488,10 +494,19 @@ function AIBookingPageContent() {
       return;
     }
 
+    setIsSearchingPlaces(true);
+    resetFlowSearchTranscript();
+    setSelectedPlace(null);
+    setSelectedSlot(null);
+    setBookingDateYmd(null);
+
     let coords = locationCoords;
     if (scope === "nearby" && !coords) {
       coords = await onRequestNearbyPermission();
-      if (!coords) return;
+      if (!coords) {
+        setIsSearchingPlaces(false);
+        return;
+      }
     }
 
     const payload: PixAIFlowPayload = {
@@ -542,8 +557,12 @@ function AIBookingPageContent() {
         return;
       }
       Alert.alert(t("bookingCommon.failed"), error instanceof Error ? error.message : t("aiBooking.searchFailed"));
+    } finally {
+      setIsSearchingPlaces(false);
     }
   };
+
+  const searchPlacesBusy = isSearchingPlaces || isLoading;
 
   const onSelectPlace = (place: PixAIPlace) => {
     setSelectedPlace(place);
@@ -791,10 +810,19 @@ function AIBookingPageContent() {
               <Text style={styles.optionChipText}>{allPlacesInMyCityLabel}</Text>
             </Pressable>
             <Text style={styles.helperText}>{t("aiBooking.nearbyHelper")}</Text>
-            <Pressable style={styles.primaryBtn} onPress={() => void onSearchPlaces()}>
-              <Text style={styles.primaryBtnText}>
-                {isLoading ? t("aiBooking.searching") : t("aiBooking.searchPlaces")}
-              </Text>
+            <Pressable
+              disabled={searchPlacesBusy}
+              style={[styles.primaryBtn, searchPlacesBusy && styles.primaryBtnDisabled]}
+              onPress={() => void onSearchPlaces()}
+            >
+              {searchPlacesBusy ? (
+                <View style={styles.primaryBtnBusyRow}>
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
+                  <Text style={styles.primaryBtnText}>{t("aiBooking.searching")}</Text>
+                </View>
+              ) : (
+                <Text style={styles.primaryBtnText}>{t("aiBooking.searchPlaces")}</Text>
+              )}
             </Pressable>
           </View>
         ) : null}

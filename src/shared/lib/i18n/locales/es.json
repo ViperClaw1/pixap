@@ -42,6 +42,7 @@
   "home": {
     "searchPlaceholder": "Buscar restaurantes, salones, eventos…",
     "categories": "Categorías",
+    "categoryComingSoon": "Próximamente",
     "featured": "Destacados",
     "seeAll": "Ver todo",
     "recommended": "Recomendados",
@@ -84,7 +85,8 @@
     "entertainment": "Entretenimiento",
     "fitness": "Fitness",
     "hotels": "Hoteles",
-    "events": "Eventos"
+    "events": "Eventos",
+    "tourism": "Turismo"
   },
   "bookingCommon": {
     "profileIncompleteTitle": "Perfil incompleto",
