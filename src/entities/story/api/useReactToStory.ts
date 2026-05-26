@@ -3,6 +3,10 @@ import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 import type { StoryReactionType } from "@/shared/model/types/stories";
+import {
+  patchStoryCommentInFeedCaches,
+  toggleStoryLikeInFeedCaches,
+} from "@/entities/story/lib/storyFeedCachePatch";
 import type { StoryComment } from "./useStoryComments";
 
 function patchCommentsLike(
@@ -121,6 +125,11 @@ export const useReactToStory = () => {
       return data;
     },
     onMutate: async (variables) => {
+      if (variables.storyId && !variables.commentId && !variables.replyId && variables.type === "like") {
+        toggleStoryLikeInFeedCaches(queryClient, variables.storyId);
+        return { storyLikeToggled: true as const, storyId: variables.storyId };
+      }
+
       if (!variables.storyId || (!variables.commentId && !variables.replyId)) return;
       const key = queryKeys.stories.commentsQuery(variables.storyId, user?.id);
       await queryClient.cancelQueries({ queryKey: key });
@@ -133,15 +142,16 @@ export const useReactToStory = () => {
       }
       return { previous, key };
     },
-    onError: (_error, _variables, context) => {
+    onError: (_error, variables, context) => {
+      if (context?.storyLikeToggled && variables.storyId) {
+        toggleStoryLikeInFeedCaches(queryClient, variables.storyId);
+      }
       if (context?.previous != null && context.key) {
         queryClient.setQueryData(context.key, context.previous);
       }
     },
     onSettled: (_result, _error, variables) => {
       if (variables.storyId) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.stories.feedPrefix });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.stories.strip });
         void queryClient.invalidateQueries({ queryKey: queryKeys.stories.reactions(variables.storyId) });
       }
       if (variables.commentId || variables.replyId) {

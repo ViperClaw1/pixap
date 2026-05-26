@@ -134,6 +134,19 @@ export default function StoryViewerScreen() {
     });
   }, [viewer.currentFlatIndex]);
 
+  const onScrollToIndexFailed = useCallback(
+    (info: { index: number; averageItemLength: number }) => {
+      flatListRef.current?.scrollToOffset({
+        offset: info.averageItemLength * info.index,
+        animated: false,
+      });
+      requestAnimationFrame(() => {
+        flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+      });
+    },
+    [],
+  );
+
   useEffect(() => {
     const next = parseStoryMediaUrl(viewer.flatStories[viewer.currentFlatIndex + 1]?.story.media_url);
     const nextGroup = parseStoryMediaUrl(params.groups[viewer.currentGroupIndex + 1]?.stories[0]?.media_url);
@@ -286,6 +299,7 @@ export default function StoryViewerScreen() {
               keyExtractor={(item) => item.key}
               getItemLayout={(_data, index) => ({ length: width, offset: width * index, index })}
               initialScrollIndex={viewer.currentFlatIndex}
+              onScrollToIndexFailed={onScrollToIndexFailed}
               renderItem={({ item }) => <StorySlide story={item.story} width={width} height={contentHeight} />}
               style={styles.slider}
               removeClippedSubviews

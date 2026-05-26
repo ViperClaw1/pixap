@@ -41,10 +41,10 @@ import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSh
 
 type Nav = NativeStackNavigationProp<BookingsStackParamList, "BookingsMain">;
 
-const filters: readonly BookingDisplayStatus[] = ["draft", "confirmed", "cancelled", "completed", "payment awaiting"];
+const filters: readonly BookingDisplayStatus[] = ["draft", "confirmed", "cancelled", "completed"];
 
 function bookingFilterTranslationKey(status: BookingDisplayStatus): string {
-  return status === "payment awaiting" ? "bookings.filter.paymentAwaiting" : `bookings.filter.${status}`;
+  return `bookings.filter.${status}`;
 }
 
 export default function BookingsScreen() {

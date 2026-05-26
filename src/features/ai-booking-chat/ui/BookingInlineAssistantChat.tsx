@@ -1,4 +1,5 @@
 import { useCallback, useMemo, type Ref } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Text, TextInput, View } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BookingChatContext, BookingChatMessage } from "../model/types";
@@ -32,7 +33,7 @@ export function BookingInlineAssistantChat({
 }: Props) {
   const { colors } = useAppTheme();
   const ts = useBookingInlineThreadStyles();
-  const tabs = useBookingChatStore((s) => s.tabs);
+  const tabs = useBookingChatStore(useShallow((s) => s.tabs));
   const activeTabId = useBookingChatStore((s) => s.activeTabId);
   const isSending = useBookingChatStore((s) => s.isSending);
   const sendError = useBookingChatStore((s) => s.sendError);
@@ -41,10 +42,12 @@ export function BookingInlineAssistantChat({
   const closeTab = useBookingChatStore((s) => s.closeTab);
   const setActiveTab = useBookingChatStore((s) => s.setActiveTab);
 
-  const activeMessages = useMemo(() => {
-    const t = tabs.find((x) => x.id === activeTabId);
-    return t?.messages ?? [];
-  }, [tabs, activeTabId]);
+  const activeMessages = useBookingChatStore(
+    useShallow((s) => {
+      const t = s.tabs.find((x) => x.id === s.activeTabId);
+      return t?.messages ?? [];
+    }),
+  );
 
   const placeLite = useMemo(
     () =>

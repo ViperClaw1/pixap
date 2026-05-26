@@ -38,6 +38,7 @@ import { devWarn } from "@/shared/lib/devLog";
 import { markMessagingPerfEnd, markMessagingPerfStart } from "@/shared/lib/messagingPerf";
 import { MessagesThreadRow } from "./MessagesThreadRow";
 import { MessagesPersonRow } from "./MessagesPersonRow";
+import { StartChatUserRow } from "./StartChatUserRow";
 
 const SKELETON_IDS = ["1", "2", "3"] as const;
 
@@ -62,11 +63,15 @@ export default function MessagesPage() {
   const viewerIsSupportStaff = isProfileAdmin(profile?.account_role);
   const [search, setSearch] = useState("");
   const [startChatModalOpen, setStartChatModalOpen] = useState(false);
+  const [startChatSearch, setStartChatSearch] = useState("");
   const [deletedThreadIds, setDeletedThreadIds] = useState<Set<string>>(new Set());
   const { threads, isPending: inboxPending } = useMessagesInbox(search);
   const { people, isPending: peoplePending } = usePeopleToFollow(search);
   const sectionsPending = inboxPending || peoplePending;
-  const { data: publicProfiles = [], isLoading: publicProfilesLoading } = usePublicProfiles("", startChatModalOpen);
+  const { data: publicProfiles = [], isLoading: publicProfilesLoading } = usePublicProfiles(
+    startChatSearch,
+    startChatModalOpen,
+  );
   const { followingSet } = useMyFollowing();
   const markThreadRead = useMarkThreadRead();
   const openOrCreateSupportThread = useOpenOrCreateSupportThread();
@@ -86,6 +91,16 @@ export default function MessagesPage() {
       markMessagingPerfEnd("inbox_open", `${threads.length} threads`);
     }
   }, [sectionsPending, threads.length]);
+
+  const startChatCandidates = useMemo(
+    () => publicProfiles.filter((profile) => profile.id !== user?.id),
+    [publicProfiles, user?.id],
+  );
+
+  const closeStartChatModal = useCallback(() => {
+    setStartChatModalOpen(false);
+    setStartChatSearch("");
+  }, []);
 
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
@@ -168,13 +183,13 @@ export default function MessagesPage() {
   const onOpenChat = useCallback(
     (person: FollowSuggestion) => {
       const existingThreadId = findDirectThreadForPeer(threads, person.id);
-      setStartChatModalOpen(false);
+      closeStartChatModal();
       navigateToThread(existingThreadId ?? "", person);
       if (!existingThreadId) {
         void prefetchDirectThread(queryClient, person.id, user?.id);
       }
     },
-    [navigateToThread, queryClient, threads, user?.id],
+    [closeStartChatModal, navigateToThread, queryClient, threads, user?.id],
   );
 
   const onPrefetchChat = useCallback(
@@ -288,14 +303,6 @@ export default function MessagesPage() {
   const listHeader = useMemo(
     () => (
       <>
-        <AppHeader
-          title={t("header.messages")}
-          leftIcon="add"
-          onLeftPress={() => setStartChatModalOpen(true)}
-          rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
-          onRightPress={toggleThemeMode}
-          notificationsEnabled
-        />
         {viewerIsSupportStaff ? (
           <SupportTicketsSection
             styles={styles}
@@ -333,7 +340,6 @@ export default function MessagesPage() {
       colors,
       customerSupportTickets,
       isCompact,
-      mode,
       openOrCreateSupportThread.isPending,
       openThread,
       peerTypingLabel,
@@ -469,8 +475,16 @@ export default function MessagesPage() {
 
   return (
     <View style={styles.root}>
+      <AppHeader
+        title={t("header.messages")}
+        leftIcon="add"
+        onLeftPress={() => setStartChatModalOpen(true)}
+        rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+        onRightPress={toggleThemeMode}
+        notificationsEnabled
+      />
       <FlashList
-        style={styles.root}
+        style={{ flex: 1 }}
         data={listRows}
         keyExtractor={keyExtractor}
         getItemType={getItemType}
@@ -487,24 +501,44 @@ export default function MessagesPage() {
         updateCellsBatchingPeriod={40}
       />
 
-      <BottomSheetPickerModal visible={startChatModalOpen} onClose={() => setStartChatModalOpen(false)} title={t("messages.startChatTitle")}>
+      <BottomSheetPickerModal
+        visible={startChatModalOpen}
+        onClose={closeStartChatModal}
+        title={t("messages.startChatTitle")}
+        maxHeightFraction={0.5}
+        minHeightFraction={0.5}
+        fitContent
+      >
         <View style={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>
+          <View style={[styles.searchWrap, { marginTop: 0 }]}>
+            <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+            <TextInput
+              value={startChatSearch}
+              onChangeText={setStartChatSearch}
+              placeholder={t("messages.startChatSearchPlaceholder")}
+              placeholderTextColor={colors.textMuted}
+              style={styles.searchInput}
+              autoCorrect={false}
+              autoCapitalize="none"
+              clearButtonMode="while-editing"
+            />
+          </View>
           {publicProfilesLoading ? (
             <Text style={styles.empty}>{t("common.loading")}</Text>
-          ) : publicProfiles.filter((profile) => profile.id !== user?.id).length ? (
-            publicProfiles
-              .filter((profile) => profile.id !== user?.id)
-              .map((item) => (
-                <Pressable
+          ) : startChatCandidates.length ? (
+            <View style={styles.startChatList}>
+              {startChatCandidates.map((item) => (
+                <StartChatUserRow
                   key={item.id}
-                  style={[styles.card, isCompact ? styles.cardCompact : null]}
+                  person={item}
+                  styles={styles}
+                  isCompact={isCompact}
+                  unknownLabel={unknownLabel}
                   onPress={() => onOpenChat(item)}
-                >
-                  <Text style={styles.title} numberOfLines={1}>
-                    {`${item.first_name?.trim() ?? ""} ${item.last_name?.trim() ?? ""}`.trim() || unknownLabel}
-                  </Text>
-                </Pressable>
-              ))
+                  onPressIn={() => onPrefetchChat(item)}
+                />
+              ))}
+            </View>
           ) : (
             <Text style={styles.empty}>{t("messages.noUsersFound")}</Text>
           )}

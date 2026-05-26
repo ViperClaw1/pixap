@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo } from "react";
-import { PixelRatio, View, Text, Pressable } from "react-native";
+import { PixelRatio, View, Text, Pressable, useWindowDimensions } from "react-native";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,6 +27,8 @@ type Props = {
 const IMAGE_HORIZONTAL = 96;
 const IMAGE_VERTICAL_W = 200;
 const IMAGE_VERTICAL_H = 140;
+/** Home recommended list: content padding + card padding + image + gap. */
+const HORIZONTAL_CARD_LAYOUT_CHROME = 14 * 2 + 12 * 2 + IMAGE_HORIZONTAL + 12;
 const TAG_HORIZONTAL_PADDING = 16;
 const TAG_BORDER_WIDTH = 2;
 const TAG_GAP = 6;
@@ -109,6 +111,7 @@ function PlaceHeroImage({ place, variant, imageStyle }: PlaceHeroImageProps) {
 
 function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const { width: windowWidth } = useWindowDimensions();
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const handleOpen = useCallback(() => {
@@ -141,6 +144,14 @@ function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
     () => pickTagsThatFitSingleRow(displayTags, IMAGE_VERTICAL_W - 4),
     [displayTags],
   );
+  const horizontalVisibleTags = useMemo(
+    () =>
+      pickTagsThatFitSingleRow(
+        displayTags,
+        Math.max(80, windowWidth - HORIZONTAL_CARD_LAYOUT_CHROME),
+      ),
+    [displayTags, windowWidth],
+  );
 
   if (variant === "horizontal") {
     return (
@@ -168,7 +179,7 @@ function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
             ) : null}
           </View>
           <View style={styles.hTagsRow}>
-            {displayTags.map((tag) => (
+            {horizontalVisibleTags.map((tag) => (
               <View key={tag} style={styles.tagPill}>
                 <Text style={styles.tagText} numberOfLines={1}>
                   {tag}

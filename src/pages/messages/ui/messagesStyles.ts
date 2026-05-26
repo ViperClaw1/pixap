@@ -266,6 +266,14 @@ export const messagesStaticStyles = StyleSheet.create({
           marginBottom: 8,
         },
 
+        startChatList: {
+          gap: 5,
+        },
+
+        startChatCard: {
+          marginBottom: 0,
+        },
+
         avatarCompact: {
           width: 40,
           height: 40,

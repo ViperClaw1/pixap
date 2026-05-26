@@ -213,10 +213,28 @@ const ArchiveMapStoryMarker = memo(function ArchiveMapStoryMarker({
   onPress,
 }: ArchiveStoryMarkerProps) {
   const coordinate = useMemo(() => ({ latitude, longitude }), [latitude, longitude]);
+  const [tracksViewChanges, setTracksViewChanges] = useState(Boolean(thumbUri));
+  const onThumbLoad = useCallback(() => {
+    setTracksViewChanges(false);
+  }, []);
+  useEffect(() => {
+    setTracksViewChanges(Boolean(thumbUri));
+  }, [thumbUri]);
   return (
-    <Marker coordinate={coordinate} identifier={`archive-s-${storyId}`} tracksViewChanges={false} onPress={onPress}>
+    <Marker
+      coordinate={coordinate}
+      identifier={`archive-s-${storyId}`}
+      tracksViewChanges={tracksViewChanges}
+      onPress={onPress}
+    >
       {thumbUri ? (
-        <SmartImage uri={thumbUri} style={thumbStyle} contentFit="cover" recyclingKey={thumbUri} />
+        <SmartImage
+          uri={thumbUri}
+          style={thumbStyle}
+          contentFit="cover"
+          recyclingKey={thumbUri}
+          onLoad={onThumbLoad}
+        />
       ) : (
         <View style={fallbackStyle} />
       )}
@@ -488,6 +506,25 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
     setMapRegion(region);
   }, []);
 
+  const debouncedMapRegionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onMapRegionCompleteDebounced = useCallback(
+    (region: Region) => {
+      if (debouncedMapRegionRef.current) clearTimeout(debouncedMapRegionRef.current);
+      debouncedMapRegionRef.current = setTimeout(() => {
+        debouncedMapRegionRef.current = null;
+        onMapRegionComplete(region);
+      }, 120);
+    },
+    [onMapRegionComplete],
+  );
+
+  useEffect(
+    () => () => {
+      if (debouncedMapRegionRef.current) clearTimeout(debouncedMapRegionRef.current);
+    },
+    [],
+  );
+
   const clustersForMap = useMemo(() => {
     if (!clusterIndex) return [] as MapClusterItem[];
     const region = mapRegion ?? initialMapRegion;
@@ -690,7 +727,7 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
           style={{ flex: 1 }}
           provider={mapProvider}
           initialRegion={initialMapRegion}
-          onRegionChangeComplete={onMapRegionComplete}
+          onRegionChangeComplete={onMapRegionCompleteDebounced}
         >
           {clustersForMap.map((f: MapClusterItem) => {
             const [lng, lat] = f.geometry.coordinates;

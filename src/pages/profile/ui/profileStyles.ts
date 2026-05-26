@@ -12,11 +12,6 @@ export const PROFILE_COMPACT_WIDTH = 400;
 export const profileStaticStyles = StyleSheet.create({
   root: {
     flex: 1,
-    paddingHorizontal: 16,
-  },
-
-  rootCompact: {
-    paddingHorizontal: 12,
   },
 
   createMenuBody: {

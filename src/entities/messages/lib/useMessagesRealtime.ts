@@ -55,7 +55,7 @@ type ReactionPayload = {
   reaction: string;
 };
 
-/** Inbox list: new messages + read-state changes across the user's threads. */
+/** Inbox list: scoped fan-out events for the signed-in user (see message_inbox_events). */
 export function useMessagesInboxRealtime(userId: string | undefined | null) {
   const queryClient = useQueryClient();
 
@@ -63,15 +63,12 @@ export function useMessagesInboxRealtime(userId: string | undefined | null) {
     const uid = userId!;
     return supabase
       .channel(`messages_inbox_${uid}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => {
-        scheduleInboxInvalidate(queryClient, uid);
-      })
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
-          table: "message_thread_participants",
+          table: "message_inbox_events",
           filter: `user_id=eq.${uid}`,
         },
         () => {

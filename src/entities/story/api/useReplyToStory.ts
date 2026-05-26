@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { feedCachesContainStory, patchStoryCommentInFeedCaches } from "@/entities/story/lib/storyFeedCachePatch";
 
 interface ReplyInput {
   storyId: string;
@@ -34,10 +35,22 @@ export const useReplyToStory = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.stories.comments(variables.storyId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.stories.feedPrefix });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.stories.strip });
+
+      if (variables.parentId) return;
+
+      const row = data as { id?: string; content?: string; created_at?: string };
+      if (!row?.id || !feedCachesContainStory(queryClient, variables.storyId)) return;
+
+      patchStoryCommentInFeedCaches(queryClient, variables.storyId, {
+        commentCountDelta: 1,
+        newComment: {
+          id: row.id,
+          content: String(row.content ?? variables.content),
+          created_at: String(row.created_at ?? new Date().toISOString()),
+        },
+      });
     },
   });
 };

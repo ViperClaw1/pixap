@@ -85,6 +85,7 @@ export default function PlaceDetailScreen() {
   const toggleFavorite = useToggleFavorite();
   const shareSheet = usePostShareSheet();
   const [directionsOpen, setDirectionsOpen] = useState(false);
+  const [isCalling, setIsCalling] = useState(false);
   const [storySourceModalVisible, setStorySourceModalVisible] = useState(false);
   const [shareStorySourceModalVisible, setShareStorySourceModalVisible] = useState(false);
   const storyUpload = useBatchStoryUpload(id);
@@ -190,14 +191,27 @@ export default function PlaceDetailScreen() {
     toggleFavorite.mutate({ businessCardId: place.id, isFavorite });
   };
 
-  const onCall = () => {
-    if (!place) return;
+  const onCall = useCallback(async () => {
+    if (!place || isCalling) return;
     if (!place.phone) {
       Alert.alert("Unavailable", "Phone number not available");
       return;
     }
-    void Linking.openURL(`tel:${place.phone}`);
-  };
+    setIsCalling(true);
+    try {
+      const url = `tel:${place.phone}`;
+      const canOpen = await Linking.canOpenURL(url);
+      if (!canOpen) {
+        Alert.alert("Unavailable", "Could not open phone dialer");
+        return;
+      }
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("Unavailable", "Could not start call");
+    } finally {
+      setIsCalling(false);
+    }
+  }, [isCalling, place]);
 
   const heroTop = Math.max(insets.top, 12);
   const bottomScrollPadding = Platform.OS === "ios" ? Math.max(insets.bottom, 24) : 20;
@@ -431,8 +445,17 @@ export default function PlaceDetailScreen() {
         <Text style={styles.addr}>📍 {place.address}</Text>
 
         <View style={styles.actions}>
-          <Pressable style={styles.secondaryBtn} onPress={onCall}>
-            <Text style={styles.secondaryBtnText}>Call</Text>
+          <Pressable
+            style={[styles.secondaryBtn, isCalling && { opacity: 0.65 }]}
+            onPress={() => void onCall()}
+            disabled={isCalling}
+            accessibilityState={{ disabled: isCalling, busy: isCalling }}
+          >
+            {isCalling ? (
+              <ActivityIndicator size="small" color={colors.text} />
+            ) : (
+              <Text style={styles.secondaryBtnText}>Call</Text>
+            )}
           </Pressable>
           <Pressable style={styles.secondaryBtn} onPress={() => setDirectionsOpen(true)}>
             <Text style={styles.secondaryBtnText}>Directions</Text>

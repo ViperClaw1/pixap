@@ -247,6 +247,7 @@
     "noChatsFound": "Aucune discussion trouvée.",
     "noUsersFound": "Aucun utilisateur trouvé.",
     "startChatTitle": "Démarrer une discussion",
+    "startChatSearchPlaceholder": "Rechercher par nom ou identifiant",
     "deleteChatTitle": "Supprimer la discussion",
     "deleteChatMessage": "Supprimer la discussion avec « {{name}} » ?",
     "toastChatDeleted": "Discussion supprimée",

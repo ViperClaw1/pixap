@@ -163,7 +163,7 @@ export const homePageStaticStyles = StyleSheet.create({
   },
   categoriesFlatList: { marginBottom: 12 },
   featuredCardWrap: { marginRight: 12 },
-  recommendedGap: { marginBottom: 12 },
+  recommendedListSeparator: { height: 12 },
   showMoreBtn: {
     marginTop: 4,
     marginBottom: 8,

@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   categoryRow: {
     flexDirection: "row",
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 8,
     borderRadius: 12,
     padding: 8,
     borderWidth: StyleSheet.hairlineWidth,

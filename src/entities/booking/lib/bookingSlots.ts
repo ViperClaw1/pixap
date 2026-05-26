@@ -1,10 +1,47 @@
 import type { PixAISlot } from "@/entities/pixai";
 
-/** Hourly grid (local) for RPC-backed availability; includes evening for vibe / dinner flows. */
-const SLOT_HOURS = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23] as const;
+/** Daily booking grid: 09:00–23:30 local time, 30-minute steps. */
+export const BOOKING_SLOT_START_MINUTES = 9 * 60;
+export const BOOKING_SLOT_END_MINUTES = 23 * 60 + 30;
+export const BOOKING_SLOT_STEP_MINUTES = 30;
+export const BOOKING_SLOT_GRID_COLUMNS = 4;
 
 /** Slots must start at least this far after "now" when the client builds the grid (same-day buffer). */
 export const BOOKING_MIN_LEAD_MS = 30 * 60 * 1000;
+
+function formatSlotLabel(totalMinutes: number): string {
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+export function buildBookingSlotTimeLabels(): string[] {
+  const labels: string[] = [];
+  for (
+    let totalMinutes = BOOKING_SLOT_START_MINUTES;
+    totalMinutes <= BOOKING_SLOT_END_MINUTES;
+    totalMinutes += BOOKING_SLOT_STEP_MINUTES
+  ) {
+    labels.push(formatSlotLabel(totalMinutes));
+  }
+  return labels;
+}
+
+/** HH:mm labels for static pickers (BookingFlow). */
+export const BOOKING_SLOT_TIME_LABELS = buildBookingSlotTimeLabels() as readonly string[];
+
+function slotDateFromYmdAndMinutes(ymd: string, totalMinutes: number): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return new Date(y, m - 1, d, hour, minute, 0, 0);
+}
+
+function snapIsoToSlotMs(iso: string): number {
+  const t = new Date(iso).getTime();
+  const stepMs = BOOKING_SLOT_STEP_MINUTES * 60_000;
+  return Math.round(t / stepMs) * stepMs;
+}
 
 /** Local calendar day [start, end) as ISO strings (matches AIBookingPage `toYmd`). */
 export function localDayBoundsIso(ymd: string): { start: string; endExclusive: string } {
@@ -18,15 +55,16 @@ export function localDayBoundsIso(ymd: string): { start: string; endExclusive: s
 }
 
 export function buildSlotsFromBookingTimes(ymd: string, bookingIsoTimes: string[]): PixAISlot[] {
-  const busy = new Set(bookingIsoTimes.map((iso) => new Date(iso).getHours()));
+  const busy = new Set(bookingIsoTimes.map(snapIsoToSlotMs));
   const minStart = Date.now() + BOOKING_MIN_LEAD_MS;
-  return SLOT_HOURS.map((hour) => {
-    const [y, m, d] = ymd.split("-").map(Number);
-    const dt = new Date(y, m - 1, d, hour, 0, 0, 0);
-    const notBusy = !busy.has(hour);
+
+  return buildBookingSlotTimeLabels().map((label) => {
+    const [h, m] = label.split(":").map(Number);
+    const dt = slotDateFromYmdAndMinutes(ymd, h * 60 + m);
+    const notBusy = !busy.has(dt.getTime());
     const pastLead = dt.getTime() < minStart;
     return {
-      label: `${String(hour).padStart(2, "0")}:00`,
+      label,
       dateTimeIso: dt.toISOString(),
       available: notBusy && !pastLead,
       isBest: false,

@@ -38,6 +38,10 @@ import { appAlert } from "@/shared/ui/app-popup";
 import { useProfile } from "@/entities/user";
 import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } from "@/entities/pixai";
 import { buildVibeRouteAssistantMessage } from "@/entities/pixai/lib/buildVibeRouteAssistantMessage";
+import {
+  normalizeVibePlanStops,
+  snapIsoToThirtyMinuteGrid,
+} from "@/entities/pixai/lib/vibeBookingWindow";
 import { fetchAvailableSlotsForDay, useCreateBooking } from "@/entities/booking";
 import { useCreateCartItem } from "@/entities/cart";
 import { normalizeWaInterfaceLocale, startN8nWaBooking } from "@/entities/cart";
@@ -86,7 +90,7 @@ const VIBE_MATCH_MOOD_OPTIONS: TaxonomyOption[] = VIBE_OPTIONS.map((option) => (
   labelPrefix: "vibeMatch.vibes",
 }));
 
-const SLOT_MATCH_MS = 45 * 60 * 1000;
+const SLOT_MATCH_MS = 15 * 60 * 1000;
 const PLAN_THUMB_SIZE = 56;
 
 function vibeStopThumbUris(images: string[] | undefined): { uri: string | null; fallbackUri: string | null } {
@@ -107,7 +111,7 @@ function scheduleN8nWaBookingStart(cartItemId: string, accessToken: string) {
 
 /** Closest available slot to proposed time within SLOT_MATCH_MS; otherwise null. */
 function resolveBookingDateTime(slots: PixAISlot[], proposedIso: string): string | null {
-  const t = new Date(proposedIso).getTime();
+  const t = new Date(snapIsoToThirtyMinuteGrid(proposedIso)).getTime();
   let best: PixAISlot | null = null;
   let bestDist = Infinity;
   for (const s of slots) {
@@ -195,7 +199,10 @@ function VibeMatchPageContent() {
   const selectionSeededForPlanRef = useRef("");
   const bookingBusy = bookingAction !== null;
 
-  const plan = vibeResult?.plan ?? [];
+  const plan = useMemo(
+    () => normalizeVibePlanStops(vibeResult?.plan ?? []),
+    [vibeResult?.plan],
+  );
   const isSingleStopRoute = plan.length === 1;
   const planSelectionKey = useMemo(
     () => plan.map((s) => `${s.venue_id}:${s.time_slot}`).join("|"),
@@ -348,7 +355,15 @@ function VibeMatchPageContent() {
     setSelectedMoods((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }, []);
 
-  const resolveMoodPayload = useCallback(() => {
+  /** Slug ids for search_by_vibe (calm, energetic, …) — not localized labels. */
+  const resolveMoodSlugs = useCallback(() => {
+    const parts = [...selectedMoods];
+    const notes = mood.trim();
+    if (notes) parts.push(notes);
+    return parts.join(",");
+  }, [mood, selectedMoods]);
+
+  const resolveMoodDisplay = useCallback(() => {
     const labels = selectedMoods.map((id) => t(id, { keyPrefix: "vibeMatch.vibes" }));
     const notes = mood.trim();
     if (notes) labels.push(notes);
@@ -356,8 +371,8 @@ function VibeMatchPageContent() {
   }, [mood, selectedMoods, t]);
 
   const onGenerate = useCallback(async () => {
-    const m = resolveMoodPayload();
-    if (!m) {
+    const moodSlugs = resolveMoodSlugs();
+    if (!moodSlugs) {
       Alert.alert(t("vibeMatch.moodAlertTitle"), t("vibeMatch.moodRequired"));
       return;
     }
@@ -368,13 +383,13 @@ function VibeMatchPageContent() {
     }
     setLastBookResults(null);
     setSelectedVenueIds([]);
-    setLastVibeContext({ mood: m, timeline, city: cityTrim });
+    setLastVibeContext({ mood: resolveMoodDisplay(), timeline, city: cityTrim });
     try {
-      await runVibePlan({ mood: m, timeline, city: cityTrim, limit: 5 });
+      await runVibePlan({ mood: moodSlugs, timeline, city: cityTrim, limit: 5 });
     } catch {
       /* surfaced via vibeError */
     }
-  }, [city, resolveMoodPayload, runVibePlan, t, timeline]);
+  }, [city, resolveMoodDisplay, resolveMoodSlugs, runVibePlan, t, timeline]);
 
   const onClearPlan = useCallback(() => {
     resetVibePlan();

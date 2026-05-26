@@ -4,18 +4,129 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { RealtimeConnectionManager } from "@/shared/realtime/connectionManager";
-import { clearStoriesFeedInteractedPlaceCache } from "./storiesFeedInteractedPlaceCache";
-
-function invalidateStoriesFeed(queryClient: QueryClient, userId: string) {
-  clearStoriesFeedInteractedPlaceCache(userId);
-  void queryClient.invalidateQueries({ queryKey: queryKeys.stories.feedPrefix });
-  void queryClient.invalidateQueries({ queryKey: queryKeys.stories.strip });
-}
+import {
+  feedCachesContainStory,
+  patchStoryCommentInFeedCaches,
+  patchStoryInAllFeedCaches,
+  patchStoryReactionInFeedCaches,
+  removeStoryFromFeedCaches,
+  removeStoryFromStripCache,
+  scheduleStoriesFeedInvalidate,
+} from "./storyFeedCachePatch";
+import {
+  parseStoryCommentRow,
+  parseStoryReactionRow,
+  parseStoryRow,
+} from "./parseStoryRealtimePayload";
 
 function invalidateStoryComments(queryClient: QueryClient, storyId: string | undefined) {
   if (storyId) {
     void queryClient.invalidateQueries({ queryKey: queryKeys.stories.comments(storyId) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.stories.commentsStoryPrefix });
+  }
+}
+
+function handleStoryTableChange(
+  queryClient: QueryClient,
+  eventType: string,
+  payload: { new: Record<string, unknown>; old: Record<string, unknown> },
+) {
+  const row = parseStoryRow(payload as Parameters<typeof parseStoryRow>[0]);
+  if (!row) return;
+
+  if (eventType === "DELETE") {
+    removeStoryFromFeedCaches(queryClient, row.id);
+    removeStoryFromStripCache(queryClient, row.id);
+    return;
+  }
+
+  if (eventType === "INSERT") {
+    scheduleStoriesFeedInvalidate(queryClient, "stories_insert");
+    return;
+  }
+
+  if (eventType === "UPDATE") {
+    const patched = patchStoryInAllFeedCaches(queryClient, row.id, (story) => ({
+      ...story,
+      content: row.content || story.content,
+      media_url: row.media_url ?? story.media_url,
+      created_at: row.created_at || story.created_at,
+    }));
+    if (!patched) scheduleStoriesFeedInvalidate(queryClient, "stories_update");
+  }
+}
+
+function handleStoryReactionChange(
+  queryClient: QueryClient,
+  userId: string,
+  eventType: string,
+  payload: { new: Record<string, unknown>; old: Record<string, unknown> },
+) {
+  const row = parseStoryReactionRow(payload as Parameters<typeof parseStoryReactionRow>[0]);
+  if (!row?.story_id || row.type !== "like") return;
+  if (!feedCachesContainStory(queryClient, row.story_id)) return;
+
+  if (eventType === "INSERT") {
+    patchStoryReactionInFeedCaches(queryClient, row.story_id, {
+      reactionCountDelta: 1,
+      viewerUserId: userId,
+      reactionUserId: row.user_id,
+      reactionType: "like",
+    });
+    return;
+  }
+
+  if (eventType === "DELETE") {
+    patchStoryReactionInFeedCaches(queryClient, row.story_id, {
+      reactionCountDelta: -1,
+      viewerUserId: userId,
+      reactionUserId: row.user_id,
+      reactionType: "like",
+      removed: true,
+    });
+    return;
+  }
+
+  if (eventType === "UPDATE") {
+    scheduleStoriesFeedInvalidate(queryClient, "story_reactions_update");
+  }
+}
+
+function handleStoryCommentChange(
+  queryClient: QueryClient,
+  eventType: string,
+  payload: { new: Record<string, unknown>; old: Record<string, unknown> },
+) {
+  const row = parseStoryCommentRow(payload as Parameters<typeof parseStoryCommentRow>[0]);
+  if (!row?.story_id) return;
+
+  invalidateStoryComments(queryClient, row.story_id);
+
+  if (row.parent_id) return;
+
+  if (!feedCachesContainStory(queryClient, row.story_id)) return;
+
+  if (eventType === "INSERT") {
+    patchStoryCommentInFeedCaches(queryClient, row.story_id, {
+      commentCountDelta: 1,
+      newComment: { id: row.id, content: row.content, created_at: row.created_at },
+    });
+    return;
+  }
+
+  if (eventType === "DELETE") {
+    patchStoryCommentInFeedCaches(queryClient, row.story_id, {
+      commentCountDelta: -1,
+      removedCommentId: row.id,
+    });
+    return;
+  }
+
+  if (eventType === "UPDATE") {
+    patchStoryCommentInFeedCaches(queryClient, row.story_id, {
+      commentCountDelta: 0,
+      newComment: { id: row.id, content: row.content, created_at: row.created_at },
+    });
   }
 }
 
@@ -38,31 +149,40 @@ function setSharedConnected(sub: SharedSubscription, connected: boolean) {
 }
 
 function buildStoriesFeedChannel(queryClient: QueryClient, userId: string) {
-  const onStoryCommentsChange = (payload: { new: Record<string, unknown>; old: Record<string, unknown> }) => {
-    const row = (payload.new?.story_id ? payload.new : payload.old) as { story_id?: string };
-    invalidateStoryComments(queryClient, typeof row.story_id === "string" ? row.story_id : undefined);
-    invalidateStoriesFeed(queryClient, userId);
-  };
-
   return supabase
     .channel(`stories_feed_${userId}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => {
-      invalidateStoriesFeed(queryClient, userId);
+    .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, (payload) => {
+      handleStoryTableChange(
+        queryClient,
+        payload.eventType,
+        payload as { new: Record<string, unknown>; old: Record<string, unknown> },
+      );
     })
-    .on("postgres_changes", { event: "*", schema: "public", table: "story_reactions" }, () => {
-      invalidateStoriesFeed(queryClient, userId);
+    .on("postgres_changes", { event: "*", schema: "public", table: "story_reactions" }, (payload) => {
+      handleStoryReactionChange(
+        queryClient,
+        userId,
+        payload.eventType,
+        payload as { new: Record<string, unknown>; old: Record<string, unknown> },
+      );
     })
-    .on("postgres_changes", { event: "*", schema: "public", table: "story_comments" }, onStoryCommentsChange);
+    .on("postgres_changes", { event: "*", schema: "public", table: "story_comments" }, (payload) => {
+      handleStoryCommentChange(
+        queryClient,
+        payload.eventType,
+        payload as { new: Record<string, unknown>; old: Record<string, unknown> },
+      );
+    });
 }
 
 /** Stories feed + strip: ref-counted channel per user via RealtimeConnectionManager. */
 export function useStoriesFeedRealtime(userId: string | null | undefined) {
   const queryClient = useQueryClient();
-  const [realtimeConnected, setRealtimeConnected] = useState(true);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   useEffect(() => {
     if (!userId) {
-      setRealtimeConnected(true);
+      setRealtimeConnected(false);
       return;
     }
 
@@ -73,7 +193,7 @@ export function useStoriesFeedRealtime(userId: string | null | undefined) {
       const manager = RealtimeConnectionManager.get();
       const entry: SharedSubscription = {
         refCount: 0,
-        connected: true,
+        connected: false,
         listeners: new Set(),
         release: () => {},
       };
