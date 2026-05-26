@@ -33,6 +33,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import {
   useDeleteMessage,
   useDebouncedMarkThreadRead,
+  useEditMessage,
   useMessageThreadTyping,
   useReactToMessage,
   useResolvedMessageThreadId,
@@ -101,6 +102,7 @@ export default function MessageThreadPage() {
   const [isStickerPanelOpen, setStickerPanelOpen] = useState(false);
   const [footerHeight, setFooterHeight] = useState(COMPOSER_HEIGHT + FOOTER_VERTICAL_PADDING * 2 + 1);
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{ id: string; originalContent: string } | null>(null);
   const { user } = useAuth();
   const { threadId, isResolvingThread, resolveError } = useResolvedMessageThreadId({
     threadId: params.threadId,
@@ -130,10 +132,12 @@ export default function MessageThreadPage() {
   const sendMessage = useSendMessage();
   const reactToMessage = useReactToMessage();
   const deleteMessage = useDeleteMessage();
+  const editMessage = useEditMessage();
 
   useEffect(() => {
     markMessagingPerfStart("thread_open");
     pendingOpenScrollRef.current = true;
+    setEditingMessage(null);
   }, [threadId]);
 
   useEffect(() => {
@@ -354,6 +358,53 @@ export default function MessageThreadPage() {
     composerInputRef.current?.focus();
   }, []);
 
+  const cancelEditingMessage = useCallback(() => {
+    setEditingMessage(null);
+    setDraft("");
+  }, []);
+
+  const startEditingMessage = useCallback(
+    (messageId: string, content: string) => {
+      setEditingMessage({ id: messageId, originalContent: content });
+      setDraft(content.trim());
+      setAttachments([]);
+      setStickerPanelOpen(false);
+      setReactionPickerMessageId(null);
+      refocusComposerInput();
+    },
+    [refocusComposerInput],
+  );
+
+  const saveEditedMessage = useCallback(() => {
+    if (!threadReady || !editingMessage) return;
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      Alert.alert("Message required", "Message text cannot be empty.");
+      return;
+    }
+    if (trimmed === editingMessage.originalContent.trim()) {
+      cancelEditingMessage();
+      return;
+    }
+    stopTyping();
+    void editMessage
+      .mutateAsync({
+        threadId,
+        messageId: editingMessage.id,
+        content: trimmed,
+      })
+      .then(() => {
+        cancelEditingMessage();
+      })
+      .catch((error) => {
+        Toast.show({
+          type: "error",
+          text1: "Edit failed",
+          text2: error instanceof Error ? error.message : "Please try again.",
+        });
+      });
+  }, [cancelEditingMessage, draft, editMessage, editingMessage, stopTyping, threadId, threadReady]);
+
   const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
     const nextHeight = event.nativeEvent.layout.height;
     setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
@@ -396,7 +447,7 @@ export default function MessageThreadPage() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ["images", "videos"],
       allowsEditing: false,
       allowsMultipleSelection: true,
       quality: 0.9,
@@ -469,6 +520,10 @@ export default function MessageThreadPage() {
     setReactionPickerMessageId((prev) => (prev === messageId ? null : messageId));
   }, []);
 
+  const onOpenReactionPicker = useCallback((messageId: string) => {
+    setReactionPickerMessageId(messageId);
+  }, []);
+
   const onCloseReactionPicker = useCallback(() => setReactionPickerMessageId(null), []);
 
   const onReact = useCallback(
@@ -502,7 +557,9 @@ export default function MessageThreadPage() {
         peerLastReadAt={peerLastReadAt}
         reactionPickerMessageId={reactionPickerMessageId}
         onToggleReactionPicker={onToggleReactionPicker}
+        onOpenReactionPicker={onOpenReactionPicker}
         onOpenDelete={openDeleteOptions}
+        onOpenEdit={startEditingMessage}
         onReact={onReact}
         onCloseReactionPicker={onCloseReactionPicker}
         onOpenSharedPlace={openSharedPlace}
@@ -516,12 +573,14 @@ export default function MessageThreadPage() {
       onCloseReactionPicker,
       onReact,
       onToggleReactionPicker,
+      onOpenReactionPicker,
       openAttachmentViewer,
       openDeleteOptions,
       openSharedPlace,
       openSharedStory,
       peerLastReadAt,
       reactionPickerMessageId,
+      startEditingMessage,
       styles,
     ],
   );
@@ -605,7 +664,20 @@ export default function MessageThreadPage() {
                 <Text style={styles.typingText}>{t("messages.thread.peerTyping")}</Text>
               </View>
             ) : null}
-            {isStickerPanelOpen ? (
+            {editingMessage ? (
+              <View style={styles.editingBar}>
+                <Text style={styles.editingBarText}>Editing message</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel editing"
+                  hitSlop={8}
+                  onPress={cancelEditingMessage}
+                >
+                  <Ionicons name="close" size={18} color={colors.textMuted} />
+                </Pressable>
+              </View>
+            ) : null}
+            {isStickerPanelOpen && !editingMessage ? (
               <View style={styles.stickerPanel}>
                 {COMMENT_STICKERS.map((sticker) => (
                   <Pressable
@@ -619,7 +691,7 @@ export default function MessageThreadPage() {
                 ))}
               </View>
             ) : null}
-            {attachments.length ? (
+            {attachments.length && !editingMessage ? (
               <View style={styles.attachmentStrip}>
                 {attachments.map((a) => {
                   const k = detectAttachmentKind(a.uri, a.mimeType);
@@ -650,69 +722,94 @@ export default function MessageThreadPage() {
               </View>
             ) : null}
             <View style={styles.composerRow}>
-              <Pressable
-                accessibilityHint="Long press to attach a file"
-                style={styles.attachBtn}
-                onPress={handleAttachPress}
-                onLongPress={handleAttachLongPress}
-              >
-                <View style={styles.composerIconTouchTarget}>
-                  <Ionicons name="attach-outline" size={18} color={colors.textMuted} />
-                </View>
-              </Pressable>
-              <View style={styles.inputWrap}>
+              {!editingMessage ? (
+                <Pressable
+                  accessibilityHint="Long press to attach a file"
+                  style={styles.attachBtn}
+                  onPress={handleAttachPress}
+                  onLongPress={handleAttachLongPress}
+                >
+                  <View style={styles.composerIconTouchTarget}>
+                    <Ionicons name="attach-outline" size={18} color={colors.textMuted} />
+                  </View>
+                </Pressable>
+              ) : null}
+              <View style={editingMessage ? styles.composerInputShell : styles.inputWrap}>
                 <RichTextarea
                   ref={composerInputRef}
                   value={draft}
                   onChangeText={setDraft}
-                  placeholder="Write a message..."
+                  placeholder={editingMessage ? "Edit message..." : "Write a message..."}
                   placeholderTextColor={colors.textMuted}
-                  style={styles.input}
+                  style={[styles.input, editingMessage ? styles.inputEditing : null]}
+                  editable={!editMessage.isPending}
                 />
+                {editingMessage ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Save edited message"
+                    style={[
+                      styles.composerSaveBtn,
+                      (!draft.trim() || editMessage.isPending) && styles.composerSaveBtnDisabled,
+                    ]}
+                    disabled={!draft.trim() || editMessage.isPending}
+                    onPress={saveEditedMessage}
+                  >
+                    {editMessage.isPending ? (
+                      <ActivityIndicator size="small" color={colors.onPrimary} />
+                    ) : (
+                      <Ionicons name="checkmark" size={18} color={colors.onPrimary} />
+                    )}
+                  </Pressable>
+                ) : null}
               </View>
-              <Pressable style={styles.stickerBtn} onPress={handleStickerPress}>
-                <View style={styles.composerIconTouchTarget}>
-                  <Ionicons name="happy-outline" size={18} color={colors.textMuted} />
-                </View>
-              </Pressable>
-              <Pressable
-                style={[styles.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}
-                disabled={
-                  !threadReady || (!draft.trim().length && !attachments.length) || sendMessage.isPending
-                }
-                onPress={() => {
-                  if (!threadReady) return;
-                  stopTyping();
-                  Keyboard.dismiss();
-                  if (!isAtBottomRef.current) {
-                    scrollAfterSendRef.current = true;
-                  }
-                  void sendMessage
-                    .mutateAsync({
-                      threadId,
-                      content: draft,
-                      attachments: attachments.map((x) => ({
-                        uri: x.uri,
-                        mimeType: x.mimeType,
-                        name: x.name,
-                      })),
-                    })
-                    .then(() => {
-                      setDraft("");
-                      setAttachments([]);
-                      setStickerPanelOpen(false);
-                    })
-                    .catch(() => {
-                      scrollAfterSendRef.current = false;
-                    });
-                }}
-              >
-                {sendMessage.isPending ? (
-                  <ActivityIndicator size="small" color={colors.onPrimary} />
-                ) : (
-                  <Ionicons name="paper-plane-outline" size={17} color={colors.onPrimary} />
-                )}
-              </Pressable>
+              {!editingMessage ? (
+                <>
+                  <Pressable style={styles.stickerBtn} onPress={handleStickerPress}>
+                    <View style={styles.composerIconTouchTarget}>
+                      <Ionicons name="happy-outline" size={18} color={colors.textMuted} />
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}
+                    disabled={
+                      !threadReady || (!draft.trim().length && !attachments.length) || sendMessage.isPending
+                    }
+                    onPress={() => {
+                      if (!threadReady) return;
+                      stopTyping();
+                      Keyboard.dismiss();
+                      if (!isAtBottomRef.current) {
+                        scrollAfterSendRef.current = true;
+                      }
+                      void sendMessage
+                        .mutateAsync({
+                          threadId,
+                          content: draft,
+                          attachments: attachments.map((x) => ({
+                            uri: x.uri,
+                            mimeType: x.mimeType,
+                            name: x.name,
+                          })),
+                        })
+                        .then(() => {
+                          setDraft("");
+                          setAttachments([]);
+                          setStickerPanelOpen(false);
+                        })
+                        .catch(() => {
+                          scrollAfterSendRef.current = false;
+                        });
+                    }}
+                  >
+                    {sendMessage.isPending ? (
+                      <ActivityIndicator size="small" color={colors.onPrimary} />
+                    ) : (
+                      <Ionicons name="paper-plane-outline" size={17} color={colors.onPrimary} />
+                    )}
+                  </Pressable>
+                </>
+              ) : null}
             </View>
           </View>
         </View>

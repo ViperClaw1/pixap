@@ -2,6 +2,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
+import {
+  getThreadMessagesCache,
+  removeThreadMessage,
+  setThreadMessagesCache,
+  type ThreadMessagesCache,
+} from "@/entities/messages/lib/messageCachePatch";
 
 type DeleteMode = "me" | "everyone";
 
@@ -31,9 +37,23 @@ export function useDeleteMessage() {
 
       return { threadId };
     },
+    onMutate: async (vars) => {
+      if (!user?.id) return;
+      await queryClient.cancelQueries({ queryKey: queryKeys.messages.threadPrefix(vars.threadId) });
+      const prev = getThreadMessagesCache(queryClient, vars.threadId, user.id);
+      removeThreadMessage(queryClient, vars.threadId, user.id, vars.messageId);
+      return { prev };
+    },
+    onError: (_err, vars, context) => {
+      if (!user?.id || !context?.prev) return;
+      setThreadMessagesCache(queryClient, vars.threadId, user.id, () => context.prev as ThreadMessagesCache);
+    },
     onSuccess: (_res, vars) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.threadPrefix(vars.threadId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.messages.inboxPrefix });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.messages.threadPrefix(vars.threadId),
+        refetchType: "none",
+      });
     },
   });
 }

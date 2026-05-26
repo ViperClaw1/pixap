@@ -2,13 +2,29 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
+import {
+  getThreadMessagesCache,
+  patchThreadMessageReaction,
+  setThreadMessagesCache,
+  type ThreadMessagesCache,
+} from "@/entities/messages/lib/messageCachePatch";
 
 export function useReactToMessage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ threadId, messageId, reaction, active }: { threadId: string; messageId: string; reaction: string; active: boolean }) => {
+    mutationFn: async ({
+      threadId,
+      messageId,
+      reaction,
+      active,
+    }: {
+      threadId: string;
+      messageId: string;
+      reaction: string;
+      active: boolean;
+    }) => {
       if (!user?.id) throw new Error("Authentication required");
       if (!messageId) throw new Error("Message is required");
 
@@ -35,10 +51,28 @@ export function useReactToMessage() {
 
       return { threadId };
     },
+    onMutate: async (vars) => {
+      if (!user?.id) return;
+      await queryClient.cancelQueries({ queryKey: queryKeys.messages.threadPrefix(vars.threadId) });
+      const prev = getThreadMessagesCache(queryClient, vars.threadId, user.id);
+      patchThreadMessageReaction(
+        queryClient,
+        vars.threadId,
+        user.id,
+        vars.messageId,
+        vars.reaction,
+        vars.active,
+      );
+      return { prev };
+    },
+    onError: (_err, vars, context) => {
+      if (!user?.id || !context?.prev) return;
+      setThreadMessagesCache(queryClient, vars.threadId, user.id, () => context.prev as ThreadMessagesCache);
+    },
     onSuccess: (_res, vars) => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.messages.threadPrefix(vars.threadId),
-        refetchType: "active",
+        refetchType: "none",
       });
     },
   });

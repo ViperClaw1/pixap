@@ -14,7 +14,9 @@ type Props = {
   peerLastReadAt: string | null | undefined;
   reactionPickerMessageId: string | null;
   onToggleReactionPicker: (messageId: string) => void;
+  onOpenReactionPicker: (messageId: string) => void;
   onOpenDelete: (messageId: string, isMine: boolean) => void;
+  onOpenEdit?: (messageId: string, content: string) => void;
   onReact: (messageId: string, reaction: string, active: boolean) => void;
   onCloseReactionPicker: () => void;
   onOpenSharedPlace: (placeId: string) => void;
@@ -30,7 +32,9 @@ function MessageThreadRowComponent({
   peerLastReadAt,
   reactionPickerMessageId,
   onToggleReactionPicker,
+  onOpenReactionPicker,
   onOpenDelete,
+  onOpenEdit,
   onReact,
   onCloseReactionPicker,
   onOpenSharedPlace,
@@ -55,7 +59,9 @@ function MessageThreadRowComponent({
       peerLastReadAt={peerLastReadAt}
       reactionPickerMessageId={reactionPickerMessageId}
       onToggleReactionPicker={onToggleReactionPicker}
+      onOpenReactionPicker={onOpenReactionPicker}
       onOpenDelete={onOpenDelete}
+      onOpenEdit={onOpenEdit}
       onReact={onReact}
       onCloseReactionPicker={onCloseReactionPicker}
       onOpenSharedPlace={onOpenSharedPlace}

@@ -321,6 +321,36 @@ export const messageThreadStaticStyles = StyleSheet.create({
     justifyContent: "center",
   },
   inputWrap: { flex: 1, minWidth: 0 },
+  composerInputShell: {
+    position: "relative",
+    flex: 1,
+    minWidth: 0,
+  },
+  editingBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  editingBarText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  composerSaveBtn: {
+    position: "absolute",
+    right: 6,
+    bottom: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  composerSaveBtnDisabled: {
+    opacity: 0.45,
+  },
   input: {
     minHeight: COMPOSER_HEIGHT,
     maxHeight: 120,
@@ -329,6 +359,9 @@ export const messageThreadStaticStyles = StyleSheet.create({
     fontSize: 15,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  inputEditing: {
+    paddingRight: 44,
   },
   sendBtn: {
     width: COMPOSER_HEIGHT,
@@ -446,6 +479,8 @@ export function messageThreadThemeStyles(
       backgroundColor: colors.background,
       color: colors.text,
     },
+    editingBarText: { color: colors.textMuted },
+    composerSaveBtn: { backgroundColor: colors.primary },
     sendBtn: { backgroundColor: colors.primary },
     scrollToBottomBtn: {
       backgroundColor: colors.card,

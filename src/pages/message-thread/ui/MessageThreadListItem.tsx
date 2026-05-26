@@ -1,11 +1,12 @@
-import { memo, useMemo } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 import { Linking, Pressable, Text, View, type StyleProp, type TextStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Swipeable } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, Swipeable } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import type { MessageBubble } from "@/entities/messages";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
-import { REACTION_SET, isStickerAssetUri } from "../model/constants";
+import { REACTION_SET, MESSAGE_DOUBLE_TAP_MAX_MS, isStickerAssetUri } from "../model/constants";
 import type { MessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { splitShareEntityContent } from "@/shared/lib/placeShareMessage";
 import { findFirstHttpUrl, splitTextWithUrls } from "@/shared/lib/messageUrlSegments";
@@ -29,7 +30,9 @@ type Props = {
   peerLastReadAt: string | null | undefined;
   reactionPickerMessageId: string | null;
   onToggleReactionPicker: (messageId: string) => void;
+  onOpenReactionPicker: (messageId: string) => void;
   onOpenDelete: (messageId: string, isMine: boolean) => void;
+  onOpenEdit?: (messageId: string, content: string) => void;
   onReact: (messageId: string, reaction: string, active: boolean) => void;
   onCloseReactionPicker: () => void;
   onOpenSharedPlace?: (placeId: string) => void;
@@ -42,6 +45,10 @@ function messageHasVisibleText(content: string | null | undefined): boolean {
   const t = content?.trim() ?? "";
   if (!t) return false;
   return t !== "[attachment]";
+}
+
+export function canEditMessage(message: MessageBubble): boolean {
+  return message.mine && messageHasVisibleText(message.content);
 }
 
 async function openExternalUrl(url: string) {
@@ -179,7 +186,9 @@ function MessageThreadListItemComponent({
   peerLastReadAt,
   reactionPickerMessageId,
   onToggleReactionPicker,
+  onOpenReactionPicker,
   onOpenDelete,
+  onOpenEdit,
   onReact,
   onCloseReactionPicker,
   onOpenSharedPlace,
@@ -187,6 +196,44 @@ function MessageThreadListItemComponent({
   onOpenAttachment,
   enableLinkPreview = true,
 }: Props) {
+  const swipeableRef = useRef<Swipeable>(null);
+  const closeSwipeActions = useCallback(() => {
+    swipeableRef.current?.close();
+  }, []);
+
+  const handleOpenReactionPicker = useCallback(() => {
+    closeSwipeActions();
+    onToggleReactionPicker(message.id);
+  }, [closeSwipeActions, message.id, onToggleReactionPicker]);
+
+  const handleOpenReactionPickerFromMessage = useCallback(() => {
+    closeSwipeActions();
+    onOpenReactionPicker(message.id);
+  }, [closeSwipeActions, message.id, onOpenReactionPicker]);
+
+  const messageDoubleTapGesture = useMemo(
+    () =>
+      Gesture.Tap()
+        .numberOfTaps(2)
+        .maxDuration(MESSAGE_DOUBLE_TAP_MAX_MS)
+        .onEnd(() => {
+          runOnJS(handleOpenReactionPickerFromMessage)();
+        }),
+    [handleOpenReactionPickerFromMessage],
+  );
+
+  const handlePickReaction = useCallback(
+    (reaction: string) => {
+      const active = message.reactions.some((x) => x.reaction === reaction && x.mine);
+      closeSwipeActions();
+      requestAnimationFrame(() => {
+        onReact(message.id, reaction, active);
+        onCloseReactionPicker();
+      });
+    },
+    [closeSwipeActions, message.id, message.reactions, onCloseReactionPicker, onReact],
+  );
+
   const isMine = message.mine;
   const isReadByPeer =
     isMine && !!peerLastReadAt && new Date(message.created_at).getTime() <= new Date(peerLastReadAt).getTime();
@@ -206,6 +253,7 @@ function MessageThreadListItemComponent({
 
   return (
     <Swipeable
+      ref={swipeableRef}
       overshootLeft={false}
       overshootRight={false}
       renderLeftActions={
@@ -214,7 +262,7 @@ function MessageThreadListItemComponent({
           : () => (
               <View style={s.swipeActionWrap}>
                 <View style={s.swipeActionRow}>
-                  <Pressable style={s.swipeActionBtn} onPress={() => onToggleReactionPicker(message.id)}>
+                  <Pressable style={s.swipeActionBtn} onPress={handleOpenReactionPicker}>
                     <Ionicons name="happy-outline" size={16} color={colors.textMuted} />
                   </Pressable>
                 </View>
@@ -226,9 +274,20 @@ function MessageThreadListItemComponent({
           ? () => (
               <View style={s.swipeActionWrap}>
                 <View style={s.swipeActionRow}>
-                  <Pressable style={s.swipeActionBtn} onPress={() => onToggleReactionPicker(message.id)}>
+                  <Pressable style={s.swipeActionBtn} onPress={handleOpenReactionPicker}>
                     <Ionicons name="happy-outline" size={16} color={colors.textMuted} />
                   </Pressable>
+                  {canEditMessage(message) && onOpenEdit ? (
+                    <Pressable
+                      style={s.swipeActionBtn}
+                      onPress={() => {
+                        closeSwipeActions();
+                        onOpenEdit(message.id, message.content);
+                      }}
+                    >
+                      <Ionicons name="create-outline" size={16} color={colors.textMuted} />
+                    </Pressable>
+                  ) : null}
                   <Pressable style={s.swipeActionBtn} onPress={() => onOpenDelete(message.id, isMine)}>
                     <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
                   </Pressable>
@@ -244,6 +303,8 @@ function MessageThreadListItemComponent({
           groupedWithPrevious ? s.bubbleGroupedWithPrevious : null,
         ]}
       >
+        <GestureDetector gesture={messageDoubleTapGesture}>
+          <View>
         {bareMediaOnly ? (
           <>
             <View
@@ -422,6 +483,8 @@ function MessageThreadListItemComponent({
             ) : null}
           </View>
         )}
+          </View>
+        </GestureDetector>
         {message.reactions.length ? (
           <View style={s.reactionRow}>
             {message.reactions.map((reaction) => (
@@ -443,11 +506,7 @@ function MessageThreadListItemComponent({
               <Pressable
                 key={`${message.id}-picker-${reaction}`}
                 style={s.pickerBtn}
-                onPress={() => {
-                  const active = message.reactions.some((x) => x.reaction === reaction && x.mine);
-                  void onReact(message.id, reaction, active);
-                  onCloseReactionPicker();
-                }}
+                onPress={() => handlePickReaction(reaction)}
               >
                 <Text>{reaction}</Text>
               </Pressable>
