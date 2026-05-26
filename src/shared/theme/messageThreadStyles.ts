@@ -359,7 +359,6 @@ export function messageThreadThemeStyles(
     peerAvatar: { backgroundColor: colors.surface },
     listContent: {
       paddingTop: 12,
-      paddingBottom: Math.max(stableBottomInset, 12) + 12,
     },
     contentBelowHeader: {
       marginTop: messageThreadHeaderHeight(insetsTop),

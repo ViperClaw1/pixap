@@ -25,12 +25,16 @@ export function BookingChatComposer({
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const [text, setText] = useState("");
+  const trimmedText = text.trim();
+  const hasText = trimmedText.length > 0;
+  const showPrimaryButton = !disabled && (hasText || sending);
+  const sendIconColor = showPrimaryButton ? colors.onPrimary : colors.textMuted;
   const submit = useCallback(() => {
-    const t = text.trim();
+    const t = trimmedText;
     if (!t || disabled || sending) return;
     setText("");
     onSend(t);
-  }, [text, disabled, sending, onSend]);
+  }, [trimmedText, disabled, sending, onSend]);
 
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, paddingTop: 6 }}>
@@ -61,20 +65,20 @@ export function BookingChatComposer({
         accessibilityRole="button"
         accessibilityLabel={t("aiBooking.chatSendA11y")}
         onPress={submit}
-        disabled={disabled || sending || text.trim().length === 0}
+        disabled={disabled || sending || !hasText}
         style={{
           width: 44,
           height: 44,
           borderRadius: 22,
-          backgroundColor: disabled || sending || text.trim().length === 0 ? colors.border : colors.primary,
+          backgroundColor: showPrimaryButton ? colors.primary : colors.border,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
         {sending ? (
-          <ActivityIndicator color={colors.onPrimary} size="small" />
+          <ActivityIndicator color={sendIconColor} size="small" />
         ) : (
-          <Ionicons name="send" size={20} color={colors.onPrimary} />
+          <Ionicons name="send" size={20} color={sendIconColor} />
         )}
       </Pressable>
     </View>

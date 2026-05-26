@@ -1,27 +1,39 @@
-import { StyleSheet, View } from "react-native";
-import { FontAwesome6 } from "@expo/vector-icons";
+import { StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
-const CROWN_COLOR = "#F5B301";
-const BADGE_BG = "rgba(0,0,0,0.45)";
+const BOOST_STAR_COLOR = "#F5B301";
+const BADGE_BG = "rgba(245, 179, 1, 0.12)";
+const BADGE_BORDER = "rgba(245, 179, 1, 0.35)";
 
 export function PostBoostCrownBadge() {
+  const { t } = useTranslation();
+
   return (
-    <View style={[styles.badge, { backgroundColor: BADGE_BG }]} accessibilityLabel="Boosted post">
-      <FontAwesome6 name="crown" size={16} color={CROWN_COLOR} />
+    <View
+      style={[styles.badge, { backgroundColor: BADGE_BG, borderColor: BADGE_BORDER }]}
+      accessibilityLabel={t("postBoost.topBadgeAccessibility")}
+    >
+      <Ionicons name="star" size={12} color={BOOST_STAR_COLOR} />
+      <Text style={[styles.label, { color: BOOST_STAR_COLOR }]}>{t("postBoost.topLabel")}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   badge: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    zIndex: 4,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    flexShrink: 0,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
 });

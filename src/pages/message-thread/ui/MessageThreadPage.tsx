@@ -8,6 +8,7 @@ import {
   Pressable,
   Text,
   View,
+  type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type TextInput,
@@ -24,6 +25,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
@@ -43,14 +45,17 @@ import type { CartStackParamList } from "@/app/navigation/types";
 import Toast from "react-native-toast-message";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { STICKER_URLS } from "../model/constants";
+import { KeyboardStickyView, useKeyboardInset } from "@/shared/lib/keyboard";
+import {
+  COMPOSER_HEIGHT,
+  FOOTER_VERTICAL_PADDING,
+  MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX,
+  MESSAGE_THREAD_KEYBOARD_GAP,
+} from "@/shared/lib/messageThreadLayout";
+import { COMMENT_STICKERS } from "@/shared/constants/commentStickers";
 import { peerFullName } from "../model/format";
 import { resolvePeerPresenceStatus } from "../model/peerPresenceStatus";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
-import {
-  MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX,
-  useMessageThreadKeyboardLift,
-} from "../lib/useMessageThreadKeyboardLift";
 import type { MessageThreadListRow } from "../model/types";
 import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
@@ -83,7 +88,6 @@ export default function MessageThreadPage() {
   }
   const stableBottomInset = stableBottomInsetRef.current;
   const listRef = useRef<FlashListRef<MessageThreadListRow>>(null);
-  const footerMeasureRef = useRef<View>(null);
   const composerInputRef = useRef<TextInput>(null);
   const isAtBottomRef = useRef(true);
   const scrollAfterSendRef = useRef(false);
@@ -95,6 +99,7 @@ export default function MessageThreadPage() {
   const [attachments, setAttachments] = useState<MessageAttachmentDraft[]>([]);
   const [attachmentViewer, setAttachmentViewer] = useState<MessageAttachmentDraft | null>(null);
   const [isStickerPanelOpen, setStickerPanelOpen] = useState(false);
+  const [footerHeight, setFooterHeight] = useState(COMPOSER_HEIGHT + FOOTER_VERTICAL_PADDING * 2 + 1);
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
   const { user } = useAuth();
   const { threadId, isResolvingThread, resolveError } = useResolvedMessageThreadId({
@@ -331,46 +336,45 @@ export default function MessageThreadPage() {
   );
 
   const styles = useMessageThreadStyles(insets.top, stableBottomInset);
-  const {
-    effectiveInset: keyboardLiftInset,
-    recalculateIosKeyboardLift,
-    beginPickerInteraction,
-    endPickerInteraction,
-    isComposerInteractionLocked,
-  } = useMessageThreadKeyboardLift(() => footerMeasureRef.current);
+  const tabBarHeight = useBottomTabBarHeight();
+  const androidKeyboardTrim =
+    Platform.OS === "android" ? MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX : 0;
+  const keyboardInsetOptions = useMemo(
+    () => ({
+      gap: MESSAGE_THREAD_KEYBOARD_GAP,
+      tabBarHeight: Platform.OS === "android" ? 0 : tabBarHeight,
+      bottomInset: stableBottomInset,
+      ignoreWindowResize: Platform.OS === "android",
+    }),
+    [stableBottomInset, tabBarHeight],
+  );
+  const keyboardInset = useKeyboardInset(keyboardInsetOptions);
 
   const refocusComposerInput = useCallback(() => {
     composerInputRef.current?.focus();
   }, []);
 
-  const handleComposerBlur = useCallback(() => {
-    if (!isComposerInteractionLocked()) return;
-    refocusComposerInput();
-  }, [isComposerInteractionLocked, refocusComposerInput]);
+  const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = event.nativeEvent.layout.height;
+    setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+  }, []);
 
-  const handleFooterLayout = useCallback(() => {
-    if (Platform.OS !== "ios") return;
-    if (isComposerInteractionLocked()) return;
-    recalculateIosKeyboardLift();
-  }, [isComposerInteractionLocked, recalculateIosKeyboardLift]);
+  const listKeyboardSpacerStyle = useAnimatedStyle(
+    () => ({
+      height:
+        Platform.OS === "android"
+          ? Math.max(0, keyboardInset.value - androidKeyboardTrim)
+          : keyboardInset.value,
+    }),
+    [androidKeyboardTrim, keyboardInset],
+  );
 
-  const contentAnimatedStyle = useAnimatedStyle(() => {
-    const inset = keyboardLiftInset.value;
-    if (Platform.OS === "ios") {
-      return { transform: [{ translateY: -inset }] };
-    }
-    return {
-      paddingBottom: Math.max(0, inset - MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX),
-    };
-  });
-
-  const listKeyboardSpacerStyle = useAnimatedStyle(() => ({
-    height: Platform.OS === "android" ? keyboardLiftInset.value : 0,
-  }));
-
-  const scrollFabPositionStyle = useAnimatedStyle(() => ({
-    bottom: 12 + keyboardLiftInset.value,
-  }));
+  const scrollFabPositionStyle = useAnimatedStyle(
+    () => ({
+      bottom: 12 + footerHeight + keyboardInset.value,
+    }),
+    [footerHeight, keyboardInset],
+  );
 
   const mergeDrafts = useCallback((prev: MessageAttachmentDraft[], next: MessageAttachmentDraft[]) => {
     const seen = new Set(prev.map((p) => p.uri));
@@ -385,6 +389,7 @@ export default function MessageThreadPage() {
   }, []);
 
   const pickMedia = async () => {
+    Keyboard.dismiss();
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert("Permission required", "Allow photo access to add attachments.");
@@ -410,6 +415,7 @@ export default function MessageThreadPage() {
   };
 
   const pickDocument = async () => {
+    Keyboard.dismiss();
     const result = await DocumentPicker.getDocumentAsync({
       copyToCacheDirectory: true,
       multiple: true,
@@ -423,60 +429,33 @@ export default function MessageThreadPage() {
     setAttachments((prev) => mergeDrafts(prev, next));
   };
 
+  const appendStickerToDraft = useCallback((emoji: string) => {
+    setDraft((prev) => `${prev}${emoji}`);
+    refocusComposerInput();
+  }, [refocusComposerInput]);
+
   const toggleStickerPanel = useCallback(() => {
     setStickerPanelOpen((prev) => !prev);
   }, []);
 
-  const handleStickerPressIn = useCallback(() => {
-    beginPickerInteraction();
-  }, [beginPickerInteraction]);
-
   const handleStickerPress = useCallback(() => {
-    if (!isComposerInteractionLocked()) {
-      beginPickerInteraction();
-    }
     toggleStickerPanel();
     refocusComposerInput();
-    setTimeout(() => {
-      endPickerInteraction(refocusComposerInput);
-    }, 260);
-  }, [
-    beginPickerInteraction,
-    endPickerInteraction,
-    isComposerInteractionLocked,
-    refocusComposerInput,
-    toggleStickerPanel,
-  ]);
-
-  const handleAttachPressIn = useCallback(() => {
-    beginPickerInteraction();
-  }, [beginPickerInteraction]);
+  }, [refocusComposerInput, toggleStickerPanel]);
 
   const handleAttachPress = useCallback(() => {
-    if (!isComposerInteractionLocked()) {
-      beginPickerInteraction();
-    }
     void (async () => {
-      try {
-        await pickMedia();
-      } finally {
-        endPickerInteraction(refocusComposerInput);
-      }
+      await pickMedia();
+      refocusComposerInput();
     })();
-  }, [beginPickerInteraction, endPickerInteraction, isComposerInteractionLocked, pickMedia, refocusComposerInput]);
+  }, [pickMedia, refocusComposerInput]);
 
   const handleAttachLongPress = useCallback(() => {
-    if (!isComposerInteractionLocked()) {
-      beginPickerInteraction();
-    }
     void (async () => {
-      try {
-        await pickDocument();
-      } finally {
-        endPickerInteraction(refocusComposerInput);
-      }
+      await pickDocument();
+      refocusComposerInput();
     })();
-  }, [beginPickerInteraction, endPickerInteraction, isComposerInteractionLocked, pickDocument, refocusComposerInput]);
+  }, [pickDocument, refocusComposerInput]);
 
   const openAttachmentViewer = useCallback((uri: string, draftAttachment?: MessageAttachmentDraft | null) => {
     if (draftAttachment?.uri === uri) {
@@ -560,7 +539,7 @@ export default function MessageThreadPage() {
         onBack={leaveThread}
       />
 
-      <Animated.View style={[styles.content, styles.contentBelowHeader, contentAnimatedStyle]}>
+      <View style={[styles.content, styles.contentBelowHeader]}>
         {awaitingInitialMessages ? (
           <MessageThreadSkeleton styles={styles} />
         ) : (
@@ -578,7 +557,11 @@ export default function MessageThreadPage() {
               keyExtractor={keyExtractor}
               getItemType={getItemType}
               estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageBubble}
-              contentContainerStyle={[styles.listContent, rows.length === 0 && styles.listContentEmpty]}
+              contentContainerStyle={[
+                styles.listContent,
+                { paddingBottom: footerHeight + 12 },
+                rows.length === 0 && styles.listContentEmpty,
+              ]}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
               onScroll={handleListScroll}
@@ -612,135 +595,128 @@ export default function MessageThreadPage() {
             </Animated.View>
           </View>
         )}
+      </View>
 
-        <View ref={footerMeasureRef} collapsable={false} onLayout={handleFooterLayout}>
+      <KeyboardStickyView {...keyboardInsetOptions} insetTrim={androidKeyboardTrim}>
+        <View onLayout={handleFooterLayout}>
           <View style={styles.footer}>
-          {peerIsTyping ? (
-            <View style={styles.typingRow} accessibilityLiveRegion="polite">
-              <Text style={styles.typingText}>{t("messages.thread.peerTyping")}</Text>
-            </View>
-          ) : null}
-          {isStickerPanelOpen ? (
-            <View style={styles.stickerPanel}>
-              {STICKER_URLS.map((stickerUri) => (
-                <Pressable
-                  key={stickerUri}
-                  style={styles.stickerChip}
-                  onPress={() =>
-                    setAttachments((prev) =>
-                      mergeDrafts(prev, [{ uri: stickerUri, mimeType: "image/png", name: "sticker.png" }]),
-                    )
-                  }
-                >
-                  <SmartImage uri={stickerUri} style={styles.stickerImage} contentFit="contain" />
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-          {attachments.length ? (
-            <View style={styles.attachmentStrip}>
-              {attachments.map((a) => {
-                const k = detectAttachmentKind(a.uri, a.mimeType);
-                return (
-                  <View key={a.uri} style={styles.attachmentThumbWrap}>
-                    <Pressable onPress={() => openAttachmentViewer(a.uri, a)}>
-                      {k === "image" ? (
-                        <SmartImage uri={a.uri} style={styles.attachmentThumb} contentFit="cover" />
-                      ) : (
-                        <View style={[styles.attachmentThumb, styles.attachmentThumbPlaceholder]}>
-                          <Ionicons
-                            name={k === "video" ? "videocam-outline" : "document-text-outline"}
-                            size={22}
-                            color={colors.textMuted}
-                          />
-                        </View>
-                      )}
-                    </Pressable>
-                    <Pressable
-                      style={styles.attachmentRemove}
-                      onPress={() => setAttachments((prev) => prev.filter((item) => item.uri !== a.uri))}
-                    >
-                      <Ionicons name="close" size={12} color={colors.textMuted} />
-                    </Pressable>
-                  </View>
-                );
-              })}
-            </View>
-          ) : null}
-          <View style={styles.composerRow}>
-            <Pressable
-              accessibilityHint="Long press to attach a file"
-              style={styles.attachBtn}
-              onPressIn={handleAttachPressIn}
-              onPress={handleAttachPress}
-              onLongPress={handleAttachLongPress}
-            >
-              <View style={styles.composerIconTouchTarget}>
-                <Ionicons name="attach-outline" size={18} color={colors.textMuted} />
+            {peerIsTyping ? (
+              <View style={styles.typingRow} accessibilityLiveRegion="polite">
+                <Text style={styles.typingText}>{t("messages.thread.peerTyping")}</Text>
               </View>
-            </Pressable>
-            <View style={styles.inputWrap}>
-              <RichTextarea
-                ref={composerInputRef}
-                value={draft}
-                onChangeText={setDraft}
-                onBlur={handleComposerBlur}
-                placeholder="Write a message..."
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
-              />
-            </View>
-            <Pressable
-              style={styles.stickerBtn}
-              onPressIn={handleStickerPressIn}
-              onPress={handleStickerPress}
-            >
-              <View style={styles.composerIconTouchTarget}>
-                <Ionicons name="happy-outline" size={18} color={colors.textMuted} />
+            ) : null}
+            {isStickerPanelOpen ? (
+              <View style={styles.stickerPanel}>
+                {COMMENT_STICKERS.map((sticker) => (
+                  <Pressable
+                    key={sticker.id}
+                    style={styles.stickerChip}
+                    accessibilityLabel={sticker.emoji}
+                    onPress={() => appendStickerToDraft(sticker.emoji)}
+                  >
+                    <SmartImage uri={sticker.imageUrl} style={styles.stickerImage} contentFit="contain" />
+                  </Pressable>
+                ))}
               </View>
-            </Pressable>
-            <Pressable
-              style={[styles.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}
-              disabled={
-                !threadReady || (!draft.trim().length && !attachments.length) || sendMessage.isPending
-              }
-              onPress={() => {
-                if (!threadReady) return;
-                stopTyping();
-                Keyboard.dismiss();
-                if (!isAtBottomRef.current) {
-                  scrollAfterSendRef.current = true;
+            ) : null}
+            {attachments.length ? (
+              <View style={styles.attachmentStrip}>
+                {attachments.map((a) => {
+                  const k = detectAttachmentKind(a.uri, a.mimeType);
+                  return (
+                    <View key={a.uri} style={styles.attachmentThumbWrap}>
+                      <Pressable onPress={() => openAttachmentViewer(a.uri, a)}>
+                        {k === "image" ? (
+                          <SmartImage uri={a.uri} style={styles.attachmentThumb} contentFit="cover" />
+                        ) : (
+                          <View style={[styles.attachmentThumb, styles.attachmentThumbPlaceholder]}>
+                            <Ionicons
+                              name={k === "video" ? "videocam-outline" : "document-text-outline"}
+                              size={22}
+                              color={colors.textMuted}
+                            />
+                          </View>
+                        )}
+                      </Pressable>
+                      <Pressable
+                        style={styles.attachmentRemove}
+                        onPress={() => setAttachments((prev) => prev.filter((item) => item.uri !== a.uri))}
+                      >
+                        <Ionicons name="close" size={12} color={colors.textMuted} />
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+            <View style={styles.composerRow}>
+              <Pressable
+                accessibilityHint="Long press to attach a file"
+                style={styles.attachBtn}
+                onPress={handleAttachPress}
+                onLongPress={handleAttachLongPress}
+              >
+                <View style={styles.composerIconTouchTarget}>
+                  <Ionicons name="attach-outline" size={18} color={colors.textMuted} />
+                </View>
+              </Pressable>
+              <View style={styles.inputWrap}>
+                <RichTextarea
+                  ref={composerInputRef}
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder="Write a message..."
+                  placeholderTextColor={colors.textMuted}
+                  style={styles.input}
+                />
+              </View>
+              <Pressable style={styles.stickerBtn} onPress={handleStickerPress}>
+                <View style={styles.composerIconTouchTarget}>
+                  <Ionicons name="happy-outline" size={18} color={colors.textMuted} />
+                </View>
+              </Pressable>
+              <Pressable
+                style={[styles.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}
+                disabled={
+                  !threadReady || (!draft.trim().length && !attachments.length) || sendMessage.isPending
                 }
-                void sendMessage
-                  .mutateAsync({
-                    threadId,
-                    content: draft,
-                    attachments: attachments.map((x) => ({
-                      uri: x.uri,
-                      mimeType: x.mimeType,
-                      name: x.name,
-                    })),
-                  })
-                  .then(() => {
-                    setDraft("");
-                    setAttachments([]);
-                    setStickerPanelOpen(false);
-                  })
-                  .catch(() => {
-                    scrollAfterSendRef.current = false;
-                  });
-              }}
-            >
-              {sendMessage.isPending ? (
-                <ActivityIndicator size="small" color={colors.onPrimary} />
-              ) : (
-                <Ionicons name="paper-plane-outline" size={17} color={colors.onPrimary} />
-              )}
-            </Pressable>
-          </View>
+                onPress={() => {
+                  if (!threadReady) return;
+                  stopTyping();
+                  Keyboard.dismiss();
+                  if (!isAtBottomRef.current) {
+                    scrollAfterSendRef.current = true;
+                  }
+                  void sendMessage
+                    .mutateAsync({
+                      threadId,
+                      content: draft,
+                      attachments: attachments.map((x) => ({
+                        uri: x.uri,
+                        mimeType: x.mimeType,
+                        name: x.name,
+                      })),
+                    })
+                    .then(() => {
+                      setDraft("");
+                      setAttachments([]);
+                      setStickerPanelOpen(false);
+                    })
+                    .catch(() => {
+                      scrollAfterSendRef.current = false;
+                    });
+                }}
+              >
+                {sendMessage.isPending ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <Ionicons name="paper-plane-outline" size={17} color={colors.onPrimary} />
+                )}
+              </Pressable>
+            </View>
           </View>
         </View>
-      </Animated.View>
+      </KeyboardStickyView>
 
       <AttachmentViewerModal
         visible={attachmentViewer != null}

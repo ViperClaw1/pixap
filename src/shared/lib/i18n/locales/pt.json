@@ -566,7 +566,9 @@
   "postBoost": {
     "title": "Impulsionar post no feed",
     "comingSoon": "Em breve — posts com mais destaque na descoberta.",
-    "enabledHint": "Promover este post no feed."
+    "enabledHint": "Promover este post no feed.",
+    "topLabel": "Top",
+    "topBadgeAccessibility": "Post impulsionado no topo do feed"
   },
   "dailyRecommendations": {
     "title": "Sugestões do dia",

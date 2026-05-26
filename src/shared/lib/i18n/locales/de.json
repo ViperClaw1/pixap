@@ -566,7 +566,9 @@
   "postBoost": {
     "title": "Post im Feed boosten",
     "comingSoon": "Demnächst — höhere Sichtbarkeit in der Entdeckung.",
-    "enabledHint": "Diesen Post im Feed bewerben."
+    "enabledHint": "Diesen Post im Feed bewerben.",
+    "topLabel": "Top",
+    "topBadgeAccessibility": "Post im Feed-Top platziert"
   },
   "dailyRecommendations": {
     "title": "Heute Abend für dich",

@@ -691,7 +691,9 @@
     "toastTitle": "Post boosted",
     "toastMessage": "Your post is now at the top of the feed.",
     "toastErrorTitle": "Could not boost post",
-    "toastError": "Please try again."
+    "toastError": "Please try again.",
+    "topLabel": "Top",
+    "topBadgeAccessibility": "Boosted post in feed top"
   },
   "dailyRecommendations": {
     "title": "Tonight for You",
