@@ -4,7 +4,6 @@ import {
   FlatList,
   InteractionManager,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -135,20 +134,18 @@ export default function StoryViewerScreen() {
   }, []);
 
   const androidKeyboardInset = useKeyboardInset({
-    gap: COMPOSER_ANDROID_KEYBOARD_GAP,
+    gap: 0,
     ignoreWindowResize: true,
     enabled: Platform.OS === "android",
+    native: false,
     onKeyboardChange: (_keyboardTop, keyboardHeight) => {
       setKeyboardOpen(keyboardHeight > 0);
     },
   });
 
-  const androidBottomLiftStyle = useAnimatedStyle(
-    () => ({
-      transform: [{ translateY: -androidKeyboardInset.value }],
-    }),
-    [androidKeyboardInset],
-  );
+  const androidBottomLiftStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -androidKeyboardInset.value }],
+  }));
 
   const { goToNextStory, goToPreviousStory, goToNextGroup, goToPreviousGroup, setPaused } = viewer;
   const goNext = useCallback(() => {
@@ -499,17 +496,7 @@ export default function StoryViewerScreen() {
       style={[styles.root, { backgroundColor: "rgba(0,0,0,0.45)" }]}
       edges={["top"]}
     >
-      {Platform.OS === "ios" ? (
-        <KeyboardAvoidingView
-          style={styles.root}
-          behavior="padding"
-          keyboardVerticalOffset={Math.max(insets.top, 8)}
-        >
-          {storySurface}
-        </KeyboardAvoidingView>
-      ) : (
-        <View style={styles.root}>{storySurface}</View>
-      )}
+      <View style={styles.root}>{storySurface}</View>
 
       <StoryDiscussionGlassSheet
         visible={discussionOpen}

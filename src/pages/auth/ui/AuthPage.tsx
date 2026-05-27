@@ -38,7 +38,7 @@ WebBrowser.maybeCompleteAuthSession();
 type Mode = "login" | "signup" | "forgot";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Auth">;
-const KEYBOARD_GAP = Platform.OS === "android" ? 48 : 24;
+const KEYBOARD_GAP = 16;
 const PASSWORD_RULE_SUCCESS_COLOR = "#22c55e";
 
 export default function AuthScreen() {
@@ -92,7 +92,6 @@ export default function AuthScreen() {
       if (value === prev) return;
       runOnJS(setKeyboardOverlapPad)(value);
     },
-    [keyboardExtraInset],
   );
 
   const themed = useThemeStyles(({ colors: c }) => authThemeStyles(c));

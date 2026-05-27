@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type LayoutChangeEvent,
   type TextInput,
   type ViewStyle,
 } from "react-native";
@@ -43,10 +44,7 @@ import {
 import { QUICK_EMOJI } from "@/shared/lib/discussionQuickEmoji";
 import { AppPopupModal, appAlert } from "@/shared/ui/app-popup";
 import { DiscussionCommentSkeletonList } from "@/shared/ui/discussion-skeleton";
-import {
-  DISCUSSION_ANDROID_FOOTER_PADDING,
-  useDiscussionPanelFooterKeyboard,
-} from "@/shared/lib/keyboard";
+import { DISCUSSION_ANDROID_FOOTER_PADDING, KeyboardStickyView, useKeyboardInset } from "@/shared/lib/keyboard";
 import { DiscussionShowMoreButton } from "@/shared/ui/discussion-show-more/DiscussionShowMoreButton";
 import {
   getVisibleDiscussionComments,
@@ -72,6 +70,8 @@ export type PostDiscussionPanelInnerProps = {
   onClose?: () => void;
   /** When false, pagination/scroll reset waits until the sheet opens again. Defaults to true. */
   isActive?: boolean;
+  /** screen = full page (adjustResize); overlay = modal / glass sheet. */
+  keyboardHost?: "screen" | "overlay";
 };
 
 export function PostDiscussionPanelInner({
@@ -85,12 +85,13 @@ export function PostDiscussionPanelInner({
   onListContentSizeChange,
   onClose,
   isActive = true,
+  keyboardHost = "screen",
 }: PostDiscussionPanelInnerProps) {
   const palette = discussionPalette ?? discussionPaletteDark;
   const footerBackgroundColor = footerBackgroundOverride ?? palette.footerBg;
   const footerBorderColor = footerBorderOverride ?? palette.footerBorder;
   const insets = useSafeAreaInsets();
-  const { RootOuter, androidRootLiftStyle } = useDiscussionPanelFooterKeyboard(isActive);
+  const [footerHeight, setFooterHeight] = useState(120);
   const { user } = useAuth();
   const composerInputRef = useRef<TextInput>(null);
   const composerBlurResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -107,6 +108,13 @@ export function PostDiscussionPanelInner({
 
   const footerPaddingBottom =
     Platform.OS === "android" ? DISCUSSION_ANDROID_FOOTER_PADDING : Math.max(16, insets.bottom + 10);
+
+  const footerKeyboardInset = useKeyboardInset({
+    gap: 0,
+    enabled: isActive,
+    ignoreWindowResize: keyboardHost === "overlay",
+    bottomInset: 0,
+  });
 
   const { data: comments = [], isLoading: commentsLoading } = usePostComments(postId);
   const { data: myProfile } = useProfile();
@@ -470,13 +478,19 @@ export function PostDiscussionPanelInner({
     [palette.textMuted],
   );
 
+  const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = event.nativeEvent.layout.height;
+    setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+  }, []);
+
   const listContentContainerStyle = useMemo(
     () => [
       styles.listContent,
       listContentStyleProp,
+      { paddingBottom: footerHeight },
       !commentsLoading && sorted.length === 0 && styles.listContentEmpty,
     ],
-    [commentsLoading, listContentStyleProp, sorted.length],
+    [commentsLoading, footerHeight, listContentStyleProp, sorted.length],
   );
 
   const handleSkeletonLayout = useCallback(
@@ -487,7 +501,7 @@ export function PostDiscussionPanelInner({
   );
 
   return (
-    <RootOuter style={[styles.flex, androidRootLiftStyle]}>
+    <View style={styles.flex}>
       {onClose ? (
         <View style={styles.panelHeader}>
           <Text style={[styles.panelHeaderTitle, { color: palette.text }]}>Comments</Text>
@@ -541,16 +555,17 @@ export function PostDiscussionPanelInner({
         />
       )}
 
-      <View
-        style={[
-          styles.footer,
-          {
-            backgroundColor: footerBackgroundColor,
-            borderTopColor: footerBorderColor,
-            paddingBottom: footerPaddingBottom,
-          },
-        ]}
-      >
+      <KeyboardStickyView gap={0} inset={footerKeyboardInset} onLayout={handleFooterLayout}>
+        <View
+          style={[
+            styles.footer,
+            {
+              backgroundColor: footerBackgroundColor,
+              borderTopColor: footerBorderColor,
+              paddingBottom: footerPaddingBottom,
+            },
+          ]}
+        >
         {editingComment ? (
           <View style={styles.contextBar}>
             <Text style={[styles.contextBarText, { color: palette.textMuted }]}>Editing comment</Text>
@@ -685,7 +700,8 @@ export function PostDiscussionPanelInner({
             )}
           </View>
         </View>
-      </View>
+        </View>
+      </KeyboardStickyView>
 
       <Modal
         visible={deleteTargetId !== null}
@@ -706,7 +722,7 @@ export function PostDiscussionPanelInner({
           ]}
         />
       </Modal>
-    </RootOuter>
+    </View>
   );
 }
 

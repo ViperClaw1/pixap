@@ -346,8 +346,8 @@ export default function MessageThreadPage() {
   const keyboardInsetOptions = useMemo(
     () => ({
       gap: MESSAGE_THREAD_KEYBOARD_GAP,
-      tabBarHeight: Platform.OS === "android" ? 0 : tabBarHeight,
-      bottomInset: stableBottomInset,
+      tabBarHeight: 0,
+      bottomInset: 0,
       ignoreWindowResize: Platform.OS === "android",
     }),
     [stableBottomInset, tabBarHeight],
@@ -410,22 +410,21 @@ export default function MessageThreadPage() {
     setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
   }, []);
 
-  const listKeyboardSpacerStyle = useAnimatedStyle(
-    () => ({
-      height:
-        Platform.OS === "android"
-          ? Math.max(0, keyboardInset.value - androidKeyboardTrim)
-          : keyboardInset.value,
-    }),
-    [androidKeyboardTrim, keyboardInset],
-  );
+  const listKeyboardSpacerStyle = useAnimatedStyle(() => ({
+    height:
+      Platform.OS === "android"
+        ? Math.max(0, keyboardInset.value - androidKeyboardTrim)
+        : keyboardInset.value,
+  }));
 
-  const scrollFabPositionStyle = useAnimatedStyle(
-    () => ({
-      bottom: 12 + footerHeight + keyboardInset.value,
-    }),
-    [footerHeight, keyboardInset],
-  );
+  const footerHeightShared = useSharedValue(footerHeight);
+  useEffect(() => {
+    footerHeightShared.value = footerHeight;
+  }, [footerHeight, footerHeightShared]);
+
+  const scrollFabPositionStyle = useAnimatedStyle(() => ({
+    bottom: 12 + footerHeightShared.value + keyboardInset.value,
+  }));
 
   const mergeDrafts = useCallback((prev: MessageAttachmentDraft[], next: MessageAttachmentDraft[]) => {
     const seen = new Set(prev.map((p) => p.uri));
@@ -656,7 +655,7 @@ export default function MessageThreadPage() {
         )}
       </View>
 
-      <KeyboardStickyView {...keyboardInsetOptions} insetTrim={androidKeyboardTrim}>
+      <KeyboardStickyView {...keyboardInsetOptions} inset={keyboardInset} insetTrim={androidKeyboardTrim}>
         <View onLayout={handleFooterLayout}>
           <View style={styles.footer}>
             {peerIsTyping ? (

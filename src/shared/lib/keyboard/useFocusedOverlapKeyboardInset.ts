@@ -1,12 +1,12 @@
 /**
  * Дополнительный padding снизу только если нижний край сфокусированного
- * TextInput пересекается с клавиатурой (плюс gap). Анимация — Reanimated (`withTiming`).
+ * TextInput пересекается с клавиатурой (плюс gap).
  */
 
 import { useCallback, useEffect, useRef } from "react";
 import type { ElementRef } from "react";
 import { Dimensions, Keyboard, Platform, TextInput } from "react-native";
-import { Easing, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
+import { useSharedValue, type SharedValue } from "react-native-reanimated";
 
 export interface UseFocusedOverlapKeyboardInsetOptions {
   gap: number;
@@ -30,11 +30,20 @@ export function useFocusedOverlapKeyboardInset({
 }: UseFocusedOverlapKeyboardInsetOptions): FocusedOverlapKeyboardInsetResult {
   const extraInset = useSharedValue(0);
   const getFocusedInputRef = useRef(getFocusedInput);
-  getFocusedInputRef.current = getFocusedInput;
-  const onKeyboardFrameRef = useRef(onKeyboardFrame ?? null);
-  onKeyboardFrameRef.current = onKeyboardFrame ?? null;
-  const onKeyboardChangeRef = useRef(onKeyboardChange ?? null);
-  onKeyboardChangeRef.current = onKeyboardChange ?? null;
+  const onKeyboardFrameRef = useRef(onKeyboardFrame);
+  const onKeyboardChangeRef = useRef(onKeyboardChange);
+
+  useEffect(() => {
+    getFocusedInputRef.current = getFocusedInput;
+  }, [getFocusedInput]);
+
+  useEffect(() => {
+    onKeyboardFrameRef.current = onKeyboardFrame;
+  }, [onKeyboardFrame]);
+
+  useEffect(() => {
+    onKeyboardChangeRef.current = onKeyboardChange;
+  }, [onKeyboardChange]);
 
   const lastFrameRef = useRef<{
     keyboardTop: number;
@@ -58,27 +67,20 @@ export function useFocusedOverlapKeyboardInset({
     [gap],
   );
 
-  const animateTo = useCallback(
-    (overlap: number, duration?: number, options?: { animate?: boolean }) => {
+  const applyOverlap = useCallback(
+    (overlap: number, keyboardTop: number, rawOverlap: number) => {
       if (!enabled) return;
       lastAppliedOverlapRef.current = overlap;
-      if (Platform.OS === "ios" && options?.animate === false) {
-        extraInset.value = overlap;
-        return;
-      }
-      extraInset.value = withTiming(overlap, {
-        duration: duration ?? 250,
-        easing: Easing.out(Easing.cubic),
-      });
+      extraInset.value = overlap;
+      onKeyboardChangeRef.current?.(keyboardTop, rawOverlap);
     },
     [enabled, extraInset],
   );
 
   const applyMeasuredInset = useCallback(
-    (keyboardTop: number, rawOverlap: number, duration?: number, animate = true) => {
+    (keyboardTop: number, rawOverlap: number) => {
       const finish = (overlap: number) => {
-        animateTo(overlap, duration, { animate });
-        onKeyboardChangeRef.current?.(keyboardTop, rawOverlap);
+        applyOverlap(overlap, keyboardTop, rawOverlap);
       };
 
       const runMeasure = () => measureOverlap(keyboardTop, finish);
@@ -91,21 +93,24 @@ export function useFocusedOverlapKeyboardInset({
         runMeasure();
       }
     },
-    [animateTo, measureOverlap],
+    [applyOverlap, measureOverlap],
   );
 
   const recalculate = useCallback(() => {
     const last = lastFrameRef.current;
     if (!last || last.rawOverlap <= 1) return;
     measureOverlap(last.keyboardTop, (measuredOverlap) => {
-      // measureInWindow includes the current translateY lift, so overlap reads ~0 once lifted.
-      // Reconstruct the natural (un-lifted) overlap before applying a new inset.
       const correctedOverlap = measuredOverlap + lastAppliedOverlapRef.current;
-      animateTo(correctedOverlap, last.duration ?? 200);
+      applyOverlap(correctedOverlap, last.keyboardTop, last.rawOverlap);
     });
-  }, [animateTo, measureOverlap]);
+  }, [applyOverlap, measureOverlap]);
 
   useEffect(() => {
+    if (!enabled) {
+      extraInset.value = 0;
+      return undefined;
+    }
+
     const windowHeight = () => Dimensions.get("window").height;
 
     const handleShow = (event: {
@@ -120,8 +125,7 @@ export function useFocusedOverlapKeyboardInset({
       if (h < 1 || rawOverlap < 1) {
         lastFrameRef.current = null;
         onKeyboardFrameRef.current?.(wh, 0);
-        animateTo(0, event.duration);
-        onKeyboardChangeRef.current?.(wh, 0);
+        applyOverlap(0, wh, 0);
         return;
       }
 
@@ -131,16 +135,15 @@ export function useFocusedOverlapKeyboardInset({
         duration: event.duration,
       };
       onKeyboardFrameRef.current?.(keyboardTop, rawOverlap);
-      applyMeasuredInset(keyboardTop, rawOverlap, event.duration);
+      applyMeasuredInset(keyboardTop, rawOverlap);
     };
 
-    const handleHide = (event?: { duration?: number }) => {
+    const handleHide = () => {
       lastFrameRef.current = null;
       lastAppliedOverlapRef.current = 0;
       const wh = windowHeight();
       onKeyboardFrameRef.current?.(wh, 0);
-      animateTo(0, event?.duration);
-      onKeyboardChangeRef.current?.(wh, 0);
+      applyOverlap(0, wh, 0);
     };
 
     if (Platform.OS === "ios") {
@@ -164,7 +167,7 @@ export function useFocusedOverlapKeyboardInset({
           duration: event.duration,
         };
         onKeyboardFrameRef.current?.(keyboardTop, rawOverlap);
-        applyMeasuredInset(keyboardTop, rawOverlap, event.duration, false);
+        applyMeasuredInset(keyboardTop, rawOverlap);
       });
 
       return () => {
@@ -179,7 +182,7 @@ export function useFocusedOverlapKeyboardInset({
       showSub.remove();
       hideSub.remove();
     };
-  }, [animateTo, applyMeasuredInset, extraInset]);
+  }, [applyMeasuredInset, applyOverlap, enabled, extraInset]);
 
   return { extraInset, recalculate };
 }

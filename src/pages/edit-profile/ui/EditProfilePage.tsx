@@ -86,7 +86,7 @@ function EditProfileScreenContent() {
       return { transform: [{ translateY: -keyboardInsetAnim.value }] };
     }
     return { paddingBottom: keyboardInsetAnim.value };
-  }, [isIos, keyboardInsetAnim]);
+  });
 
   const update = useUpdateProfile();
   const uploadProfileAvatar = useUploadProfileAvatar();

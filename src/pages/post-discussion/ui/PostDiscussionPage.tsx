@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,7 +14,6 @@ type DiscussionRoute = RouteProp<BrowseFlowParamList, "PostDiscussion">;
 type DiscussionNav = NativeStackNavigationProp<BrowseFlowParamList, "PostDiscussion">;
 
 export default function PostDiscussionPage() {
-  const insets = useSafeAreaInsets();
   const { isDark } = useAppTheme();
   const navigation = useNavigation<DiscussionNav>();
   const { params } = useRoute<DiscussionRoute>();
@@ -54,17 +53,7 @@ export default function PostDiscussionPage() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.screenBg }]} edges={["top"]}>
-      {Platform.OS === "ios" ? (
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior="padding"
-          keyboardVerticalOffset={Math.max(insets.top, 8)}
-        >
-          {content}
-        </KeyboardAvoidingView>
-      ) : (
-        <View style={styles.flex}>{content}</View>
-      )}
+      <View style={styles.flex}>{content}</View>
     </SafeAreaView>
   );
 }

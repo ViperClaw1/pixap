@@ -3,24 +3,23 @@ import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "./useKeyboardInset";
 
 export const DISCUSSION_ANDROID_FOOTER_PADDING = 8;
-const ANDROID_KEYBOARD_GAP = 8;
 
-/** Android: lift list + footer above keyboard (navigation modal + RN Modal). iOS: no-op. */
+/**
+ * @deprecated Prefer `KeyboardStickyView` on the discussion footer.
+ * Kept for callers that still lift the whole panel root on Android.
+ */
 export function useDiscussionPanelFooterKeyboard(isActive = true) {
   const useAndroidLift = Platform.OS === "android";
 
   const keyboardInset = useKeyboardInset({
     enabled: useAndroidLift && isActive,
-    gap: ANDROID_KEYBOARD_GAP,
+    gap: 0,
     ignoreWindowResize: true,
   });
 
-  const androidRootLiftStyle = useAnimatedStyle(
-    () => ({
-      paddingBottom: keyboardInset.value,
-    }),
-    [keyboardInset],
-  );
+  const androidRootLiftStyle = useAnimatedStyle(() => ({
+    paddingBottom: keyboardInset.value,
+  }));
 
   return {
     RootOuter: useAndroidLift ? Animated.View : View,

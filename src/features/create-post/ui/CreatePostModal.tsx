@@ -141,10 +141,11 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                   </View>
 
                   {!c.selectedGeocode && c.postAddressDraft.trim().length >= 2 && c.mapsApiKey ? (
-                    <View
+                    <Animated.View
                       style={[
                         s.postAddressSuggestionsBox,
-                        { borderColor: colors.border, backgroundColor: colors.card, maxHeight: c.postAddressSuggestionsMaxHeight },
+                        { borderColor: colors.border, backgroundColor: colors.card },
+                        c.postAddressSuggestionsBoxStyle,
                       ]}
                     >
                       {c.addressGeocodeLoading && c.geocodeSuggestions.length === 0 ? (
@@ -155,7 +156,7 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                         <Text style={[s.postAddressSuggestionsEmpty, { color: colors.textMuted }]}>No matching addresses</Text>
                       ) : (
                         <ScrollView
-                          style={[s.postAddressSuggestionsScroll, { maxHeight: c.postAddressSuggestionsMaxHeight }]}
+                          style={s.postAddressSuggestionsScroll}
                           keyboardShouldPersistTaps="handled"
                           nestedScrollEnabled
                           showsVerticalScrollIndicator
@@ -176,7 +177,7 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                           ))}
                         </ScrollView>
                       )}
-                    </View>
+                    </Animated.View>
                   ) : null}
                 </View>
 

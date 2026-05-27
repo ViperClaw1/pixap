@@ -28,16 +28,13 @@ export default function ResetPasswordScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { updatePassword } = useAuth();
-  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
-  const scrollContentStyle = useAnimatedStyle(
-    () => ({
-      flexGrow: 1,
-      justifyContent: "center",
-      paddingTop: Math.max(insets.top, 24),
-      paddingBottom: Math.max(insets.bottom, 24) + keyboardInset.value,
-    }),
-    [insets.top, insets.bottom, keyboardInset],
-  );
+  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom, gap: 16 });
+  const scrollContentStyle = useAnimatedStyle(() => ({
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingTop: Math.max(insets.top, 24),
+    paddingBottom: Math.max(insets.bottom, 24) + keyboardInset.value,
+  }));
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);

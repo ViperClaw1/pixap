@@ -39,12 +39,9 @@ export default function AddStoryFromPostPage() {
       setKeyboardOpen(keyboardHeight > 0);
     },
   });
-  const bottomAreaKeyboardStyle = useAnimatedStyle(
-    () => ({
-      transform: [{ translateY: -keyboardInsetAnim.value }],
-    }),
-    [keyboardInsetAnim],
-  );
+  const bottomAreaKeyboardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -keyboardInsetAnim.value }],
+  }));
   const [captionFocused, setCaptionFocused] = useState(false);
   const [index, setIndex] = useState(0);
   const safeImages = useMemo(() => params.postImages.filter((item) => item.trim().length > 0), [params.postImages]);

@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type LayoutChangeEvent,
   type TextInput,
   type ViewStyle,
 } from "react-native";
@@ -35,10 +36,7 @@ import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import { QUICK_EMOJI } from "@/shared/lib/discussionQuickEmoji";
 import { AppPopupModal, appAlert } from "@/shared/ui/app-popup";
-import {
-  DISCUSSION_ANDROID_FOOTER_PADDING,
-  useDiscussionPanelFooterKeyboard,
-} from "@/shared/lib/keyboard";
+import { DISCUSSION_ANDROID_FOOTER_PADDING, KeyboardStickyView, useKeyboardInset } from "@/shared/lib/keyboard";
 import { DiscussionCommentSkeletonList } from "@/shared/ui/discussion-skeleton";
 import { DiscussionShowMoreButton } from "@/shared/ui/discussion-show-more/DiscussionShowMoreButton";
 import {
@@ -78,6 +76,11 @@ export type StoryDiscussionPanelInnerProps = {
   onClose?: () => void;
   /** When false, pagination/scroll reset waits until the sheet opens again. Defaults to true. */
   isActive?: boolean;
+  /**
+   * screen — полноэкранная страница (adjustResize, без двойного подъёма).
+   * overlay — glass sheet / модал.
+   */
+  keyboardHost?: "screen" | "overlay";
 };
 
 export function StoryDiscussionPanelInner({
@@ -91,12 +94,13 @@ export function StoryDiscussionPanelInner({
   onListContentSizeChange,
   onClose,
   isActive = true,
+  keyboardHost = "screen",
 }: StoryDiscussionPanelInnerProps) {
   const palette = discussionPalette ?? discussionPaletteDark;
   const footerBackgroundColor = footerBackgroundOverride ?? palette.footerBg;
   const footerBorderColor = footerBorderOverride ?? palette.footerBorder;
   const insets = useSafeAreaInsets();
-  const { RootOuter, androidRootLiftStyle } = useDiscussionPanelFooterKeyboard(isActive);
+  const [footerHeight, setFooterHeight] = useState(120);
   const { user } = useAuth();
   const composerInputRef = useRef<TextInput>(null);
   const composerBlurResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -113,6 +117,13 @@ export function StoryDiscussionPanelInner({
 
   const footerPaddingBottom =
     Platform.OS === "android" ? DISCUSSION_ANDROID_FOOTER_PADDING : Math.max(16, insets.bottom + 10);
+
+  const footerKeyboardInset = useKeyboardInset({
+    gap: 0,
+    enabled: isActive,
+    ignoreWindowResize: keyboardHost === "overlay",
+    bottomInset: 0,
+  });
 
   const { data: comments = [], isLoading: commentsLoading } = useStoryComments(storyId);
   const { data: myProfile } = useProfile();
@@ -477,13 +488,19 @@ export function StoryDiscussionPanelInner({
     [palette.textMuted],
   );
 
+  const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = event.nativeEvent.layout.height;
+    setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+  }, []);
+
   const listContentContainerStyle = useMemo(
     () => [
       styles.listContent,
       listContentStyleProp,
+      { paddingBottom: footerHeight },
       !commentsLoading && sorted.length === 0 && styles.listContentEmpty,
     ],
-    [commentsLoading, listContentStyleProp, sorted.length],
+    [commentsLoading, footerHeight, listContentStyleProp, sorted.length],
   );
 
   const handleSkeletonLayout = useCallback(
@@ -494,7 +511,7 @@ export function StoryDiscussionPanelInner({
   );
 
   return (
-    <RootOuter style={[styles.flex, androidRootLiftStyle]}>
+    <View style={styles.flex}>
       {onClose ? (
         <View style={styles.panelHeader}>
           <Text style={[styles.panelHeaderTitle, { color: palette.text }]}>Comments</Text>
@@ -548,16 +565,21 @@ export function StoryDiscussionPanelInner({
         />
       )}
 
-      <View
-        style={[
-          styles.footer,
-          {
-            backgroundColor: footerBackgroundColor,
-            borderTopColor: footerBorderColor,
-            paddingBottom: footerPaddingBottom,
-          },
-        ]}
+      <KeyboardStickyView
+        gap={0}
+        inset={footerKeyboardInset}
+        onLayout={handleFooterLayout}
       >
+        <View
+          style={[
+            styles.footer,
+            {
+              backgroundColor: footerBackgroundColor,
+              borderTopColor: footerBorderColor,
+              paddingBottom: footerPaddingBottom,
+            },
+          ]}
+        >
         {editingComment ? (
           <View style={styles.contextBar}>
             <Text style={[styles.contextBarText, { color: palette.textMuted }]}>Editing comment</Text>
@@ -692,7 +714,8 @@ export function StoryDiscussionPanelInner({
             )}
           </View>
         </View>
-      </View>
+        </View>
+      </KeyboardStickyView>
 
       <Modal
         visible={deleteTarget !== null}
@@ -713,7 +736,7 @@ export function StoryDiscussionPanelInner({
           ]}
         />
       </Modal>
-    </RootOuter>
+    </View>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   useNavigation,
   useRoute,
@@ -20,7 +20,6 @@ type DiscussionRoute = RouteProp<BrowseFlowParamList, "StoryDiscussion">;
 type DiscussionNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryDiscussion">;
 
 export default function StoryDiscussionPage() {
-  const insets = useSafeAreaInsets();
   const { isDark } = useAppTheme();
   const navigation = useNavigation<DiscussionNav>();
   const { params } = useRoute<DiscussionRoute>();
@@ -60,17 +59,7 @@ export default function StoryDiscussionPage() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: palette.screenBg }]} edges={["top"]}>
-      {Platform.OS === "ios" ? (
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior="padding"
-          keyboardVerticalOffset={Math.max(insets.top, 8)}
-        >
-          {content}
-        </KeyboardAvoidingView>
-      ) : (
-        <View style={styles.flex}>{content}</View>
-      )}
+      <View style={styles.flex}>{content}</View>
     </SafeAreaView>
   );
 }

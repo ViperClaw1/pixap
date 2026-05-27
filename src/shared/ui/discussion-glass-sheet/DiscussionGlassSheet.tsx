@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -214,22 +213,12 @@ export function DiscussionGlassSheet({ visible, navigation, onDismiss, children 
     [animateCloseThenDismiss, onRequireAuth],
   );
 
-  const sheetChrome =
-    Platform.OS === "ios" ? (
-      <KeyboardAvoidingView
-        style={styles.keyboardArea}
-        behavior="padding"
-        keyboardVerticalOffset={0}
-      >
-        <GestureDetector gesture={panGesture}>{sheetGrabber}</GestureDetector>
-        <View style={styles.innerClip}>{children(panelProps)}</View>
-      </KeyboardAvoidingView>
-    ) : (
-      <View style={styles.keyboardArea}>
-        {sheetGrabber}
-        <View style={styles.innerClip}>{children(panelProps)}</View>
-      </View>
-    );
+  const sheetChrome = (
+    <View style={styles.keyboardArea}>
+      <GestureDetector gesture={panGesture}>{sheetGrabber}</GestureDetector>
+      <View style={styles.innerClip}>{children(panelProps)}</View>
+    </View>
+  );
 
   const modalBody = (
     <View style={styles.root}>

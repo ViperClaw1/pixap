@@ -3,17 +3,16 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -34,6 +33,11 @@ type ComposerNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryComposer
 
 export default function StoryComposerScreen() {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom, gap: 16 });
+  const scrollContentStyle = useAnimatedStyle(() => ({
+    paddingBottom: 24 + keyboardInset.value,
+  }));
   const navigation = useNavigation<ComposerNav>();
   const { params } = useRoute<ComposerRoute>();
   const { user } = useAuth();
@@ -137,16 +141,12 @@ export default function StoryComposerScreen() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        style={styles.root}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <ScrollView
-            style={styles.root}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-          >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <Animated.ScrollView
+          style={styles.root}
+          contentContainerStyle={[styles.scrollContent, scrollContentStyle]}
+          keyboardShouldPersistTaps="handled"
+        >
             <View style={styles.header}>
               <Pressable onPress={() => navigation.goBack()}>
                 <Text style={[styles.backText, { color: colors.text }]}>Back</Text>
@@ -240,9 +240,8 @@ export default function StoryComposerScreen() {
                 </Text>
               </Pressable>
             </View>
-          </ScrollView>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
+        </Animated.ScrollView>
+      </TouchableWithoutFeedback>
       <StorySourcePickerModal
         visible={storySourceModalVisible}
         onClose={() => setStorySourceModalVisible(false)}
