@@ -1,36 +1,43 @@
 /**
- * KeyboardStickyView — враппер для sticky-footer (composer, кнопки).
- * `paddingBottom` анимируется через Reanimated (`useKeyboardInset`).
+ * KeyboardStickyView — sticky-footer (composer, кнопки).
+ * Поднимает футер через `translateY` (без relayout на каждом кадре).
  */
 
 import React from "react";
-import { StyleSheet } from "react-native";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { StyleSheet, type LayoutChangeEvent } from "react-native";
+import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useKeyboardInset, type KeyboardInsetOptions } from "./useKeyboardInset";
 
 interface KeyboardStickyViewProps extends KeyboardInsetOptions {
   children: React.ReactNode;
   style?: object;
+  onLayout?: (e: LayoutChangeEvent) => void;
   /** Subtract from computed inset (e.g. Android adjustResize trim). */
   insetTrim?: number;
+  /** Reuse inset from parent — avoids duplicate `useAnimatedKeyboard` subscriptions. */
+  inset?: SharedValue<number>;
 }
 
 export function KeyboardStickyView({
   children,
   style,
+  onLayout,
   insetTrim = 0,
+  inset: insetProp,
   ...insetOptions
 }: KeyboardStickyViewProps) {
-  const keyboardInset = useKeyboardInset(insetOptions);
+  const ownedInset = useKeyboardInset(insetProp ? { enabled: false } : insetOptions);
+  const keyboardInset = insetProp ?? ownedInset;
 
-  const animatedStyle = useAnimatedStyle(
-    () => ({
-      paddingBottom: Math.max(0, keyboardInset.value - insetTrim),
-    }),
-    [insetTrim, keyboardInset],
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -Math.max(0, keyboardInset.value - insetTrim) }],
+  }));
+
+  return (
+    <Animated.View style={[styles.container, style, animatedStyle]} onLayout={onLayout}>
+      {children}
+    </Animated.View>
   );
-
-  return <Animated.View style={[styles.container, style, animatedStyle]}>{children}</Animated.View>;
 }
 
 const styles = StyleSheet.create({

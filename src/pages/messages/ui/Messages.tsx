@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Platform, Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { FlashList } from "@shopify/flash-list";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused, useNavigation } from "@react-navigation/native";
@@ -289,6 +291,14 @@ export default function MessagesPage() {
 
   const tabBarHeight = useBottomTabBarHeight();
   const styles = useMessagesStyles(insets.bottom);
+  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom, gap: 0 });
+  const listKeyboardFooterStyle = useAnimatedStyle(() => ({
+    height: keyboardInset.value,
+  }));
+  const listKeyboardFooter = useCallback(
+    () => <Animated.View style={listKeyboardFooterStyle} />,
+    [listKeyboardFooterStyle],
+  );
 
   const listContentStyle = useMemo(
     () => [
@@ -490,6 +500,7 @@ export default function MessagesPage() {
         getItemType={getItemType}
         estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageRow}
         ListHeaderComponent={listHeader}
+        ListFooterComponent={listKeyboardFooter}
         ListEmptyComponent={listEmpty}
         renderItem={renderItem}
         contentContainerStyle={listContentStyle}

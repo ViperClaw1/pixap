@@ -4,7 +4,7 @@ export const FOOTER_VERTICAL_PADDING = 16;
 /** Android adjustResize: trim footer lift so composer is not over-shifted. */
 export const MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX = 48;
 /** Extra lift above the keyboard for composer + list scroll room. */
-export const MESSAGE_THREAD_KEYBOARD_GAP = 32;
+export const MESSAGE_THREAD_KEYBOARD_GAP = 0;
 
 /** Body height of the fixed thread header (avatar row + bottom padding). */
 export const MESSAGE_THREAD_HEADER_BODY_PX = 62;

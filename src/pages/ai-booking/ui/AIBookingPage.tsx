@@ -7,10 +7,9 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  ScrollView,
-  Keyboard,
-  type KeyboardEvent,
 } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { CommonActions, useFocusEffect, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
@@ -74,11 +73,7 @@ import {
 } from "@/features/ai-booking-chat";
 import { devWarn } from "@/shared/lib/devLog";
 import { appAlert } from "@/shared/ui/app-popup";
-import {
-  AI_BOOKING_COMPOSER_KEYBOARD_MARGIN,
-  AI_BOOKING_DEFAULT_COMMENT_INPUT_HEIGHT,
-  AI_BOOKING_DEFAULT_PERSONS,
-} from "../model/constants";
+import { AI_BOOKING_DEFAULT_COMMENT_INPUT_HEIGHT, AI_BOOKING_DEFAULT_PERSONS } from "../model/constants";
 
 const DEFAULT_BOOKING_REC_VIEW: BookingRecommendationView = {
   rerankedPlaceIds: [],
@@ -107,79 +102,21 @@ const validationSchema = {
 
 function AIBookingPageContent() {
   const insets = useSafeAreaInsets();
-  const bookingComposerScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const bookingComposerFocusedRef = useRef(false);
-  const bookingScrollRef = useRef<ScrollView>(null);
-  const bookingScrollYRef = useRef(0);
-  const bookingScrollLayoutRef = useRef({ viewH: 0, contentH: 0 });
+  const stableBottomInsetRef = useRef(insets.bottom);
+  if (insets.bottom > stableBottomInsetRef.current) {
+    stableBottomInsetRef.current = insets.bottom;
+  }
+  const stableBottomInset = stableBottomInsetRef.current;
+  const bookingScrollRef = useRef<Animated.ScrollView>(null);
   const bookingComposerInputRef = useRef<TextInput>(null);
-  const keyboardTopScreenRef = useRef<number | null>(null);
-
-  const scrollBookingContentToUncoverComposer = useCallback(() => {
-    if (!bookingComposerFocusedRef.current) return;
-    const keyboardTop = keyboardTopScreenRef.current;
-    if (keyboardTop == null) return;
-    const input = bookingComposerInputRef.current;
-    if (!input) return;
-    const margin = AI_BOOKING_COMPOSER_KEYBOARD_MARGIN;
-    input.measureInWindow((_x, y, _w, h) => {
-      const bottom = y + h;
-      const overlap = bottom - (keyboardTop - margin);
-      if (overlap <= 0) return;
-      const { viewH, contentH } = bookingScrollLayoutRef.current;
-      const maxY = Math.max(0, contentH - viewH);
-      const nextY = Math.min(maxY, bookingScrollYRef.current + overlap);
-      if (nextY <= bookingScrollYRef.current + 0.5) return;
-      bookingScrollRef.current?.scrollTo({ y: nextY, animated: true });
-    });
-  }, []);
-
-  useEffect(() => {
-    const showEvt = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const onShow = (e: KeyboardEvent) => {
-      const { height, screenY } = e.endCoordinates;
-      if (!height || height < 1) {
-        keyboardTopScreenRef.current = null;
-        return;
-      }
-      keyboardTopScreenRef.current = screenY;
-      scrollBookingContentToUncoverComposer();
-    };
-    const onHide = () => {
-      keyboardTopScreenRef.current = null;
-    };
-    const subShow = Keyboard.addListener(showEvt, onShow);
-    const subHide = Keyboard.addListener(hideEvt, onHide);
-    return () => {
-      subShow.remove();
-      subHide.remove();
-    };
-  }, [scrollBookingContentToUncoverComposer]);
-
-  const onBookingComposerInputFocus = useCallback(() => {
-    bookingComposerFocusedRef.current = true;
-    const prev = bookingComposerScrollTimeoutRef.current;
-    if (prev != null) clearTimeout(prev);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        scrollBookingContentToUncoverComposer();
-      });
-    });
-    bookingComposerScrollTimeoutRef.current = setTimeout(() => {
-      bookingComposerScrollTimeoutRef.current = null;
-      scrollBookingContentToUncoverComposer();
-    }, 280);
-  }, [scrollBookingContentToUncoverComposer]);
-
-  const onBookingComposerInputBlur = useCallback(() => {
-    bookingComposerFocusedRef.current = false;
-    const pending = bookingComposerScrollTimeoutRef.current;
-    if (pending != null) {
-      clearTimeout(pending);
-      bookingComposerScrollTimeoutRef.current = null;
-    }
-  }, []);
+  const keyboardInset = useKeyboardInset({
+    bottomInset: stableBottomInset,
+    gap: 16,
+    ignoreWindowResize: false,
+  });
+  const bookingScrollAnimatedStyle = useAnimatedStyle(() => ({
+    paddingBottom: keyboardInset.value,
+  }));
 
   useFocusEffect(
     useCallback(() => {
@@ -689,28 +626,12 @@ function AIBookingPageContent() {
 
   return (
     <View style={styles.root} {...androidSwipeBackPanHandlers}>
-      <ScrollView
+      <Animated.ScrollView
         ref={bookingScrollRef}
         style={styles.root}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, bookingScrollAnimatedStyle]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-        scrollEventThrottle={16}
-        onScroll={(e) => {
-          bookingScrollYRef.current = e.nativeEvent.contentOffset.y;
-        }}
-        onLayout={(e) => {
-          bookingScrollLayoutRef.current = {
-            ...bookingScrollLayoutRef.current,
-            viewH: e.nativeEvent.layout.height,
-          };
-        }}
-        onContentSizeChange={(_w, h) => {
-          bookingScrollLayoutRef.current = {
-            ...bookingScrollLayoutRef.current,
-            contentH: h,
-          };
-        }}
       >
         <View style={styles.semanticSection}>
           <View style={styles.topRow}>
@@ -840,8 +761,6 @@ function AIBookingPageContent() {
               bookingContext={bookingChatContext}
               places={placeOptions}
               composerInputRef={bookingComposerInputRef}
-              onComposerInputFocus={onBookingComposerInputFocus}
-              onComposerInputBlur={onBookingComposerInputBlur}
             />
           </View>
         ) : null}
@@ -890,7 +809,7 @@ function AIBookingPageContent() {
             submitting={confirmingBooking}
           />
         ) : null}
-      </ScrollView>
+      </Animated.ScrollView>
 
       <View style={styles.footer}>
         <View style={styles.row}>

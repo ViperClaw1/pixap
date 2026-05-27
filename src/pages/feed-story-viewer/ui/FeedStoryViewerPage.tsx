@@ -51,7 +51,7 @@ const COMPOSER_GAP_REF_WIDTH_PX = 390;
 /** Matches `styles.bottomComposer.paddingTop` — keep in sync when keyboard is closed on Android. */
 const COMPOSER_FOOTER_PADDING_ANDROID = 12;
 /** iOS: `keyboardWillChangeFrame` already tracks overlap tightly; small negative gap fine-tunes position. */
-const COMPOSER_KEYBOARD_GAP_AT_REF_IOS = -30;
+const COMPOSER_KEYBOARD_GAP_AT_REF_IOS = 0;
 /** Clears input bottom + footer `paddingBottom` above the keyboard (matches top padding). */
 const COMPOSER_ANDROID_KEYBOARD_GAP = COMPOSER_FOOTER_PADDING_ANDROID + 35;
 const DOUBLE_TAP_MS = 260;
@@ -209,7 +209,7 @@ export default function FeedStoryViewerPage() {
     return {
       transform: [{ translateY: -lift }],
     };
-  }, [androidComposerLift, keyboardInsetAnim]);
+  });
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);

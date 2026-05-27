@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
+import { View, Text, TextInput, Pressable } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
@@ -114,12 +116,18 @@ export default function SearchScreen() {
   const themed = useThemeStyles(({ colors: c, isDark: dark }) => searchThemeStyles(c, dark));
   const styles = useMemo(() => mergeStaticAndThemed(searchStaticStyles, themed), [themed]);
 
-  const listContentPadding = useMemo(
+  const keyboardInset = useKeyboardInset({
+    bottomInset: Math.max(insets.bottom, 16),
+    gap: 0,
+  });
+  const listContentPaddingStyle = useAnimatedStyle(() => ({
+    paddingBottom: keyboardInset.value,
+  }));
+  const listContentStaticStyle = useMemo(
     () => ({
       flexGrow: showEmptyState ? 1 : undefined,
-      paddingBottom: 100 + insets.bottom,
     }),
-    [insets.bottom, showEmptyState],
+    [showEmptyState],
   );
 
   const handleQueryChange = useCallback((text: string) => {
@@ -188,14 +196,17 @@ export default function SearchScreen() {
 
       {isLoading ? (
         <ShimmerProvider active>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={listContentPadding}>
+          <Animated.ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[listContentStaticStyle, listContentPaddingStyle]}
+          >
             <PlaceRowSkeletonList variant="search" />
-          </ScrollView>
+          </Animated.ScrollView>
         </ShimmerProvider>
       ) : (
-        <ScrollView
+        <Animated.ScrollView
           style={styles.list}
-          contentContainerStyle={listContentPadding}
+          contentContainerStyle={[listContentStaticStyle, listContentPaddingStyle]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
@@ -210,7 +221,7 @@ export default function SearchScreen() {
             ))
           )}
           {!showEmptyState ? listFooter : null}
-        </ScrollView>
+        </Animated.ScrollView>
       )}
       </View>
     </View>

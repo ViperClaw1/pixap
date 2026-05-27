@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Keyboard, Platform } from "react-native";
+import { Alert, Platform } from "react-native";
 import { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import Toast from "react-native-toast-message";
@@ -58,20 +59,24 @@ export function useCreatePostComposer(
   const [addressGeocodeLoading, setAddressGeocodeLoading] = useState(false);
   const [selectedGeocode, setSelectedGeocode] = useState<GeocodeSearchResultItem | null>(null);
   const [selectedGooglePlaceId, setSelectedGooglePlaceId] = useState<string | null>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [postAddressFieldBottomY, setPostAddressFieldBottomY] = useState(0);
+  const postAddressFieldBottomY = useSharedValue(0);
 
   const postAddressFieldRef = useRef<import("react-native").View | null>(null);
   const createStepFade = useSharedValue(1);
+  const keyboardInset = useKeyboardInset({
+    gap: 0,
+    enabled: visible && step === "post",
+    ignoreWindowResize: true,
+  });
   const isAddressSuggestionsOpen = !selectedGeocode && postAddressDraft.trim().length >= 2 && Boolean(mapsApiKey);
 
   const measurePostAddressFieldBottom = useCallback(() => {
     requestAnimationFrame(() => {
       postAddressFieldRef.current?.measureInWindow((_x, y, _w, h) => {
-        setPostAddressFieldBottomY(y + h + 6);
+        postAddressFieldBottomY.value = y + h + 6;
       });
     });
-  }, []);
+  }, [postAddressFieldBottomY]);
 
   const resetComposer = useCallback(() => {
     setStep("menu");
@@ -105,37 +110,25 @@ export function useCreatePostComposer(
     createStepFade.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
   }, [visible, step, createStepFade]);
 
-  const createStepFadeStyle = useAnimatedStyle(
-    () => ({
-      opacity: createStepFade.value,
-    }),
-    [createStepFade],
-  );
-
-  useEffect(() => {
-    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
-      setKeyboardHeight(event.endCoordinates?.height ?? 0);
-    });
-    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
-      setKeyboardHeight(0);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
+  const createStepFadeStyle = useAnimatedStyle(() => ({
+    opacity: createStepFade.value,
+  }));
 
   useEffect(() => {
     if (!visible || step !== "post") return;
     measurePostAddressFieldBottom();
-  }, [visible, step, keyboardHeight, measurePostAddressFieldBottom, postAddressDraft, selectedGeocode]);
+  }, [visible, step, measurePostAddressFieldBottom, postAddressDraft, selectedGeocode]);
 
-  const postAddressSuggestionsMaxHeight = useMemo(() => {
+  const postAddressSuggestionsBoxStyle = useAnimatedStyle(() => {
+    const keyboardHeight = keyboardInset.value;
     const keyboardTop = windowHeight - keyboardHeight;
-    const availableBottom = keyboardHeight > 0 ? keyboardTop - POST_ADDRESS_SUGGESTIONS_KEYBOARD_GAP : windowHeight - 8;
-    const availableHeight = availableBottom - postAddressFieldBottomY;
-    return Math.max(POST_ADDRESS_SUGGESTIONS_MIN_HEIGHT, Math.floor(availableHeight));
-  }, [keyboardHeight, postAddressFieldBottomY, windowHeight]);
+    const availableBottom =
+      keyboardHeight > 0 ? keyboardTop - POST_ADDRESS_SUGGESTIONS_KEYBOARD_GAP : windowHeight - 8;
+    const availableHeight = availableBottom - postAddressFieldBottomY.value;
+    return {
+      maxHeight: Math.max(POST_ADDRESS_SUGGESTIONS_MIN_HEIGHT, Math.floor(availableHeight)),
+    };
+  });
 
   const matchedPlacesForAddress = useMemo(
     () =>
@@ -386,7 +379,7 @@ export function useCreatePostComposer(
     selectedGeocode,
     postAddressFieldRef,
     measurePostAddressFieldBottom,
-    postAddressSuggestionsMaxHeight,
+    postAddressSuggestionsBoxStyle,
     matchedPlacesForAddress,
     matchedPlaceCarouselVm,
     placeImageHeight: POST_PLACE_IMAGE_HEIGHT,
