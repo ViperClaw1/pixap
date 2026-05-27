@@ -1,7 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
-import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
+import {
+  mutateOptimisticStoryReplyCreate,
+  rollbackOptimisticStoryComment,
+  settleOptimisticStoryComment,
+} from "@/entities/story/lib/storyCommentCachePatch";
 
 interface ReplyToCommentInput {
   storyId: string;
@@ -33,8 +37,13 @@ export const useReplyToComment = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_data, variables) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.stories.comments(variables.storyId) });
-    },
+    onMutate: (variables) =>
+      mutateOptimisticStoryReplyCreate(queryClient, user?.id, {
+        storyId: variables.storyId,
+        commentId: variables.commentId,
+        content: variables.content,
+      }),
+    onError: (_error, _variables, context) => rollbackOptimisticStoryComment(queryClient, context),
+    onSettled: (_data, _error, variables) => settleOptimisticStoryComment(queryClient, variables.storyId),
   });
 };

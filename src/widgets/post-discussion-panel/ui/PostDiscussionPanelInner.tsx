@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -30,6 +31,7 @@ import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
+import { profileDisplayName } from "@/shared/lib/profileDisplayName";
 import { profileMentionTag } from "@/shared/lib/profileMentionTag";
 import { discussionPaletteDark, type DiscussionUiPalette } from "@/shared/theme/discussionPalette";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
@@ -38,7 +40,20 @@ import {
   type ReplyComposerTarget,
 } from "./PostDiscussionCommentThread";
 
-import { QUICK_EMOJI } from "../model/quickEmoji";
+import { QUICK_EMOJI } from "@/shared/lib/discussionQuickEmoji";
+import { AppPopupModal, appAlert } from "@/shared/ui/app-popup";
+import { DiscussionCommentSkeletonList } from "@/shared/ui/discussion-skeleton";
+import {
+  DISCUSSION_ANDROID_FOOTER_PADDING,
+  useDiscussionPanelFooterKeyboard,
+} from "@/shared/lib/keyboard";
+import { DiscussionShowMoreButton } from "@/shared/ui/discussion-show-more/DiscussionShowMoreButton";
+import {
+  getVisibleDiscussionComments,
+  hasHiddenDiscussionComments,
+} from "@/shared/lib/discussionPagination";
+import { useDiscussionPagination } from "@/shared/lib/useDiscussionPagination";
+import { useDiscussionListScroll } from "@/shared/lib/useDiscussionListScroll";
 
 type EditingCommentTarget = {
   commentId: string;
@@ -55,6 +70,8 @@ export type PostDiscussionPanelInnerProps = {
   showEmojiRow?: boolean;
   onListContentSizeChange?: (width: number, height: number) => void;
   onClose?: () => void;
+  /** When false, pagination/scroll reset waits until the sheet opens again. Defaults to true. */
+  isActive?: boolean;
 };
 
 export function PostDiscussionPanelInner({
@@ -67,29 +84,31 @@ export function PostDiscussionPanelInner({
   showEmojiRow = true,
   onListContentSizeChange,
   onClose,
+  isActive = true,
 }: PostDiscussionPanelInnerProps) {
   const palette = discussionPalette ?? discussionPaletteDark;
   const footerBackgroundColor = footerBackgroundOverride ?? palette.footerBg;
   const footerBorderColor = footerBorderOverride ?? palette.footerBorder;
   const insets = useSafeAreaInsets();
+  const { RootOuter, androidRootLiftStyle } = useDiscussionPanelFooterKeyboard(isActive);
   const { user } = useAuth();
   const composerInputRef = useRef<TextInput>(null);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const composerBlurResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressComposerBlurResetRef = useRef(false);
 
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
+  useEffect(
+    () => () => {
+      if (composerBlurResetTimeoutRef.current) {
+        clearTimeout(composerBlurResetTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   const footerPaddingBottom =
-    Platform.OS === "android" ? (keyboardVisible ? 4 : 8) : Math.max(16, insets.bottom + 10);
+    Platform.OS === "android" ? DISCUSSION_ANDROID_FOOTER_PADDING : Math.max(16, insets.bottom + 10);
 
-  const { data: comments = [] } = usePostComments(postId);
+  const { data: comments = [], isLoading: commentsLoading } = usePostComments(postId);
   const { data: myProfile } = useProfile();
   const createCommentMutation = useCreatePostComment();
   const replyThreadMutation = useReplyToPostComment();
@@ -99,26 +118,113 @@ export function PostDiscussionPanelInner({
 
   const [mainDraft, setMainDraft] = useState("");
   const [replyTarget, setReplyTarget] = useState<ReplyComposerTarget | null>(null);
-  const [inlineReplyText, setInlineReplyText] = useState("");
+  const replyTargetRef = useRef<ReplyComposerTarget | null>(null);
+  replyTargetRef.current = replyTarget;
   const [editingComment, setEditingComment] = useState<EditingCommentTarget | null>(null);
-
-  useEffect(() => {
-    if (replyTarget) {
-      setInlineReplyText(`${replyTarget.mentionTag} `);
-    } else {
-      setInlineReplyText("");
-    }
-  }, [replyTarget]);
+  const editingCommentRef = useRef<EditingCommentTarget | null>(null);
+  editingCommentRef.current = editingComment;
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const sorted = useMemo(
     () => [...comments].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
     [comments],
   );
 
+  const {
+    visibleCommentCount,
+    replyVisibleCounts,
+    getReplyVisibleCount,
+    showMoreComments,
+    showMoreReplies,
+  } = useDiscussionPagination({ entityId: postId, isActive });
+
+  const visibleComments = useMemo(
+    () => getVisibleDiscussionComments(sorted, visibleCommentCount),
+    [sorted, visibleCommentCount],
+  );
+
+  const showMoreCommentsButton = hasHiddenDiscussionComments(sorted.length, visibleCommentCount);
+
+  const { listRef, scrollToIndex, scrollToBottom } = useDiscussionListScroll<PostComment>({
+    entityId: postId,
+    isActive,
+    isLoading: commentsLoading,
+    itemCount: visibleComments.length,
+  });
+
   const totalCommentCount = useMemo(
     () => sorted.reduce((acc, c) => acc + 1 + c.replies.length, 0),
     [sorted],
   );
+
+  const clearPendingReplyBlurReset = useCallback(() => {
+    if (composerBlurResetTimeoutRef.current) {
+      clearTimeout(composerBlurResetTimeoutRef.current);
+      composerBlurResetTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resetReplyComposer = useCallback(() => {
+    clearPendingReplyBlurReset();
+    suppressComposerBlurResetRef.current = false;
+    replyTargetRef.current = null;
+    setReplyTarget(null);
+    setMainDraft("");
+    composerInputRef.current?.blur();
+    Keyboard.dismiss();
+  }, [clearPendingReplyBlurReset]);
+
+  const cancelReply = useCallback(() => {
+    resetReplyComposer();
+  }, [resetReplyComposer]);
+
+  const resetEditingComposer = useCallback(() => {
+    clearPendingReplyBlurReset();
+    suppressComposerBlurResetRef.current = false;
+    editingCommentRef.current = null;
+    setEditingComment(null);
+    setMainDraft("");
+    composerInputRef.current?.blur();
+    Keyboard.dismiss();
+  }, [clearPendingReplyBlurReset]);
+
+  const cancelEditingComment = useCallback(() => {
+    resetEditingComposer();
+  }, [resetEditingComposer]);
+
+  const startReply = useCallback(
+    (target: ReplyComposerTarget) => {
+      clearPendingReplyBlurReset();
+      suppressComposerBlurResetRef.current = false;
+      if (editingCommentRef.current) {
+        editingCommentRef.current = null;
+        setEditingComment(null);
+      }
+      setReplyTarget(target);
+      setMainDraft(`${target.mentionTag} `);
+      requestAnimationFrame(() => composerInputRef.current?.focus());
+    },
+    [clearPendingReplyBlurReset],
+  );
+
+  const handleComposerBlur = useCallback(() => {
+    if (!replyTargetRef.current && !editingCommentRef.current) return;
+    clearPendingReplyBlurReset();
+    composerBlurResetTimeoutRef.current = setTimeout(() => {
+      composerBlurResetTimeoutRef.current = null;
+      if (suppressComposerBlurResetRef.current) {
+        suppressComposerBlurResetRef.current = false;
+        return;
+      }
+      if (replyTargetRef.current) {
+        cancelReply();
+        return;
+      }
+      if (editingCommentRef.current) {
+        cancelEditingComment();
+      }
+    }, 100);
+  }, [cancelEditingComment, cancelReply, clearPendingReplyBlurReset]);
 
   const submitMainComment = useCallback(async () => {
     const text = mainDraft.trim();
@@ -126,31 +232,46 @@ export function PostDiscussionPanelInner({
     setMainDraft("");
     try {
       await createCommentMutation.mutateAsync({ postId, content: text });
+      requestAnimationFrame(() => scrollToBottom(true));
     } catch (error) {
       setMainDraft(text);
       if (isAuthRequiredError(error)) onRequireAuth();
     }
-  }, [createCommentMutation, mainDraft, onRequireAuth, postId]);
+  }, [createCommentMutation, mainDraft, onRequireAuth, postId, scrollToBottom]);
 
-  const submitInlineReply = useCallback(async () => {
-    const text = inlineReplyText.trim();
+  const submitThreadReply = useCallback(async () => {
+    const text = mainDraft.trim();
     const target = replyTarget;
     if (!text || !target || replyThreadMutation.isPending) return;
     const parentCommentId = target.rootCommentId;
-    setReplyTarget(null);
-    setInlineReplyText("");
+    resetReplyComposer();
     try {
       await replyThreadMutation.mutateAsync({
         postId,
         parentCommentId,
         content: text,
       });
+      requestAnimationFrame(() => scrollToBottom(true));
     } catch (error) {
       setReplyTarget(target);
-      setInlineReplyText(text);
+      replyTargetRef.current = target;
+      setMainDraft(text);
       if (isAuthRequiredError(error)) onRequireAuth();
     }
-  }, [inlineReplyText, onRequireAuth, postId, replyTarget, replyThreadMutation]);
+  }, [mainDraft, onRequireAuth, postId, replyTarget, replyThreadMutation, resetReplyComposer, scrollToBottom]);
+
+  const handleShowMoreComments = useCallback(() => {
+    showMoreComments(sorted.length);
+    requestAnimationFrame(() => scrollToIndex(0, true));
+  }, [showMoreComments, scrollToIndex, sorted.length]);
+
+  const handleShowMoreReplies = useCallback(
+    (commentId: string, totalReplies: number, commentIndex: number) => {
+      showMoreReplies(commentId, totalReplies);
+      requestAnimationFrame(() => scrollToIndex(commentIndex, true));
+    },
+    [showMoreReplies, scrollToIndex],
+  );
 
   const toggleLikeComment = useCallback(
     async (comment: PostComment) => {
@@ -174,20 +295,17 @@ export function PostDiscussionPanelInner({
     [onRequireAuth, postId, reactMutation],
   );
 
-  const cancelEditingComment = useCallback(() => {
-    setEditingComment(null);
-    setMainDraft("");
-  }, []);
-
   const startEditingComment = useCallback(
     (commentId: string, content: string) => {
+      clearPendingReplyBlurReset();
+      suppressComposerBlurResetRef.current = false;
+      replyTargetRef.current = null;
       setReplyTarget(null);
-      setInlineReplyText("");
       setEditingComment({ commentId, originalContent: content });
       setMainDraft(content.trim());
       requestAnimationFrame(() => composerInputRef.current?.focus());
     },
-    [],
+    [clearPendingReplyBlurReset],
   );
 
   const refocusComposerInput = useCallback(() => {
@@ -196,6 +314,7 @@ export function PostDiscussionPanelInner({
 
   const appendEmojiToDraft = useCallback(
     (emoji: string) => {
+      suppressComposerBlurResetRef.current = true;
       setMainDraft((prev) => `${prev}${emoji}`);
       refocusComposerInput();
     },
@@ -231,42 +350,43 @@ export function PostDiscussionPanelInner({
       });
   }, [cancelEditingComment, editingComment, mainDraft, onRequireAuth, postId, updateCommentMutation]);
 
-  const confirmDeleteComment = useCallback(
-    (commentId: string) => {
-      Alert.alert("Delete comment?", "This cannot be undone.", [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            if (editingComment?.commentId === commentId) {
-              cancelEditingComment();
-            }
-            if (replyTarget) {
-              setReplyTarget(null);
-            }
-            void deleteCommentMutation
-              .mutateAsync({ postId, commentId })
-              .catch((error) => {
-                if (isAuthRequiredError(error)) {
-                  onRequireAuth();
-                  return;
-                }
-                Alert.alert("Delete failed", error instanceof Error ? error.message : "Please try again.");
-              });
-          },
-        },
-      ]);
-    },
-    [
-      cancelEditingComment,
-      deleteCommentMutation,
-      editingComment?.commentId,
-      onRequireAuth,
-      postId,
-      replyTarget,
-    ],
-  );
+  const dismissDeletePopup = useCallback(() => {
+    setDeleteTargetId(null);
+  }, []);
+
+  const requestDeleteComment = useCallback((commentId: string) => {
+    setDeleteTargetId(commentId);
+  }, []);
+
+  const executeDeleteComment = useCallback(() => {
+    if (!deleteTargetId) return;
+    const commentId = deleteTargetId;
+
+    if (editingComment?.commentId === commentId) {
+      cancelEditingComment();
+    }
+    if (replyTarget) {
+      setReplyTarget(null);
+    }
+
+    void deleteCommentMutation
+      .mutateAsync({ postId, commentId })
+      .catch((error) => {
+        if (isAuthRequiredError(error)) {
+          onRequireAuth();
+          return;
+        }
+        appAlert("Delete failed", error instanceof Error ? error.message : "Please try again.", undefined, "alert");
+      });
+  }, [
+    cancelEditingComment,
+    deleteCommentMutation,
+    deleteTargetId,
+    editingComment?.commentId,
+    onRequireAuth,
+    postId,
+    replyTarget,
+  ]);
 
   const myAvatarRaw = myProfile?.avatar_url?.trim() || null;
   const myAvatarUri = getAvatarDisplayUrl(myAvatarRaw, { layoutPx: 32 });
@@ -274,49 +394,40 @@ export function PostDiscussionPanelInner({
     `${myProfile?.first_name?.trim() ?? ""} ${myProfile?.last_name?.trim() ?? ""}`.trim() || "Me";
 
   const renderItem = useCallback(
-    ({ item }: { item: PostComment }) => (
+    ({ item, index }: { item: PostComment; index: number }) => (
       <PostDiscussionCommentThread
         palette={palette}
         comment={item}
         currentUserId={user?.id}
-        replyTarget={replyTarget}
-        inlineValue={inlineReplyText}
-        inlineSubmitting={replyThreadMutation.isPending}
-        onChangeInline={setInlineReplyText}
-        onSubmitInline={() => void submitInlineReply()}
-        onCloseInline={() => setReplyTarget(null)}
+        visibleReplyCount={getReplyVisibleCount(item.id)}
+        onShowMoreReplies={() => handleShowMoreReplies(item.id, item.replies.length, index)}
         onOpenReplyToComment={() => {
-          if (editingComment) cancelEditingComment();
-          setReplyTarget({
-            anchorKey: `c-${item.id}`,
+          startReply({
             rootCommentId: item.id,
             mentionTag: profileMentionTag(item.profile),
+            replyingToLabel: profileDisplayName(item.profile),
           });
         }}
         onOpenReplyToReply={(reply) => {
-          if (editingComment) cancelEditingComment();
-          setReplyTarget({
-            anchorKey: `r-${reply.id}`,
+          startReply({
             rootCommentId: item.id,
             mentionTag: profileMentionTag(reply.profile),
+            replyingToLabel: profileDisplayName(reply.profile),
           });
         }}
         onToggleLikeComment={() => void toggleLikeComment(item)}
         onToggleLikeReply={(reply) => void toggleLikeReply(reply)}
         onEditComment={startEditingComment}
-        onDeleteComment={confirmDeleteComment}
+        onDeleteComment={requestDeleteComment}
       />
     ),
     [
-      cancelEditingComment,
-      confirmDeleteComment,
-      editingComment,
-      inlineReplyText,
+      getReplyVisibleCount,
+      handleShowMoreReplies,
       palette,
-      replyTarget,
-      replyThreadMutation.isPending,
+      requestDeleteComment,
       startEditingComment,
-      submitInlineReply,
+      startReply,
       toggleLikeComment,
       toggleLikeReply,
       user?.id,
@@ -325,14 +436,29 @@ export function PostDiscussionPanelInner({
 
   const listHeader = useMemo(
     () => (
-      <View style={styles.countHeader}>
-        <Text style={[styles.countLabel, { color: palette.text }]}>
-          {totalCommentCount === 1 ? "1 comment" : `${totalCommentCount} comments`}
-        </Text>
-        <Text style={[styles.subLabel, { color: palette.textMuted }]}>Top comments</Text>
+      <View>
+        {showMoreCommentsButton ? (
+          <DiscussionShowMoreButton
+            label="Show more comments"
+            onPress={handleShowMoreComments}
+            palette={palette}
+            style={styles.showMoreComments}
+          />
+        ) : null}
+        <View style={styles.countHeader}>
+          <Text style={[styles.countLabel, { color: palette.text }]}>
+            {totalCommentCount === 1 ? "1 comment" : `${totalCommentCount} comments`}
+          </Text>
+          <Text style={[styles.subLabel, { color: palette.textMuted }]}>Top comments</Text>
+        </View>
       </View>
     ),
-    [palette.text, palette.textMuted, totalCommentCount],
+    [
+      handleShowMoreComments,
+      palette,
+      showMoreCommentsButton,
+      totalCommentCount,
+    ],
   );
 
   const listEmptyComponent = useMemo(
@@ -345,12 +471,23 @@ export function PostDiscussionPanelInner({
   );
 
   const listContentContainerStyle = useMemo(
-    () => [styles.listContent, listContentStyleProp, sorted.length === 0 && styles.listContentEmpty],
-    [listContentStyleProp, sorted.length],
+    () => [
+      styles.listContent,
+      listContentStyleProp,
+      !commentsLoading && sorted.length === 0 && styles.listContentEmpty,
+    ],
+    [commentsLoading, listContentStyleProp, sorted.length],
+  );
+
+  const handleSkeletonLayout = useCallback(
+    (width: number, height: number) => {
+      onListContentSizeChange?.(width, height);
+    },
+    [onListContentSizeChange],
   );
 
   return (
-    <View style={styles.flex}>
+    <RootOuter style={[styles.flex, androidRootLiftStyle]}>
       {onClose ? (
         <View style={styles.panelHeader}>
           <Text style={[styles.panelHeaderTitle, { color: palette.text }]}>Comments</Text>
@@ -365,34 +502,44 @@ export function PostDiscussionPanelInner({
           </Pressable>
         </View>
       ) : null}
-      <FlashList
-        data={sorted}
-        keyExtractor={(item) => item.id}
-        estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.storyComment}
-        renderItem={renderItem}
-        ListHeaderComponent={listHeader}
-        extraData={[
-          replyTarget,
-          inlineReplyText,
-          editingComment,
-          replyThreadMutation.isPending,
-          reactMutation.isPending,
-          updateCommentMutation.isPending,
-          sorted,
-          palette,
-          user?.id,
-        ]}
-        contentContainerStyle={listContentContainerStyle}
-        keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={listEmptyComponent}
-        style={styles.list}
-        onContentSizeChange={(w, h) => onListContentSizeChange?.(w, h)}
-        removeClippedSubviews={Platform.OS !== "android"}
-        initialNumToRender={8}
-        maxToRenderPerBatch={10}
-        windowSize={8}
-        updateCellsBatchingPeriod={40}
-      />
+      {commentsLoading ? (
+        <View style={styles.list}>
+          <DiscussionCommentSkeletonList onLayout={handleSkeletonLayout} />
+        </View>
+      ) : (
+        <FlashList
+          ref={listRef}
+          data={visibleComments}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.storyComment}
+          renderItem={renderItem}
+          ListHeaderComponent={listHeader}
+          extraData={[
+            replyTarget,
+            editingComment,
+            replyThreadMutation.isPending,
+            reactMutation.isPending,
+            updateCommentMutation.isPending,
+            visibleComments,
+            visibleCommentCount,
+            replyVisibleCounts,
+            palette,
+            user?.id,
+          ]}
+          contentContainerStyle={listContentContainerStyle}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          onScrollBeginDrag={() => Keyboard.dismiss()}
+          ListEmptyComponent={listEmptyComponent}
+          style={styles.list}
+          onContentSizeChange={(w, h) => onListContentSizeChange?.(w, h)}
+          removeClippedSubviews={Platform.OS !== "android"}
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={8}
+          updateCellsBatchingPeriod={40}
+        />
+      )}
 
       <View
         style={[
@@ -405,13 +552,27 @@ export function PostDiscussionPanelInner({
         ]}
       >
         {editingComment ? (
-          <View style={styles.editingBar}>
-            <Text style={[styles.editingBarText, { color: palette.textMuted }]}>Editing comment</Text>
+          <View style={styles.contextBar}>
+            <Text style={[styles.contextBarText, { color: palette.textMuted }]}>Editing comment</Text>
             <Pressable
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="Cancel editing"
               onPress={cancelEditingComment}
+            >
+              <Ionicons name="close" size={18} color={palette.textMuted} />
+            </Pressable>
+          </View>
+        ) : replyTarget ? (
+          <View style={styles.contextBar}>
+            <Text style={[styles.contextBarText, { color: palette.textMuted }]}>
+              Replying to {replyTarget.replyingToLabel}
+            </Text>
+            <Pressable
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel reply"
+              onPress={cancelReply}
             >
               <Ionicons name="close" size={18} color={palette.textMuted} />
             </Pressable>
@@ -455,11 +616,18 @@ export function PostDiscussionPanelInner({
               ref={composerInputRef}
               value={mainDraft}
               onChangeText={setMainDraft}
-              placeholder={editingComment ? "Edit comment..." : "Join the conversation..."}
+              onBlur={handleComposerBlur}
+              placeholder={
+                editingComment ? "Edit comment..." : replyTarget ? "Add a reply..." : "Join the conversation..."
+              }
               placeholderTextColor={palette.textMuted}
               textAlignVertical="center"
               editable={
-                editingComment ? !updateCommentMutation.isPending : !createCommentMutation.isPending
+                editingComment
+                  ? !updateCommentMutation.isPending
+                  : replyTarget
+                    ? !replyThreadMutation.isPending
+                    : !createCommentMutation.isPending
               }
               style={[
                 styles.footerInput,
@@ -477,6 +645,9 @@ export function PostDiscussionPanelInner({
                   (!mainDraft.trim() || updateCommentMutation.isPending) && styles.footerSaveBtnDisabled,
                 ]}
                 disabled={!mainDraft.trim() || updateCommentMutation.isPending}
+                onPressIn={() => {
+                  suppressComposerBlurResetRef.current = true;
+                }}
                 onPress={saveEditedComment}
               >
                 {updateCommentMutation.isPending ? (
@@ -490,14 +661,22 @@ export function PostDiscussionPanelInner({
                 style={[
                   styles.footerSendCircle,
                   { backgroundColor: palette.sendAccent },
-                  (!mainDraft.trim() || createCommentMutation.isPending) && styles.footerSendCircleDisabled,
+                  (!mainDraft.trim() ||
+                    (replyTarget ? replyThreadMutation.isPending : createCommentMutation.isPending)) &&
+                    styles.footerSendCircleDisabled,
                 ]}
-                disabled={!mainDraft.trim() || createCommentMutation.isPending}
-                onPress={() => void submitMainComment()}
+                disabled={
+                  !mainDraft.trim() ||
+                  (replyTarget ? replyThreadMutation.isPending : createCommentMutation.isPending)
+                }
+                onPressIn={() => {
+                  suppressComposerBlurResetRef.current = true;
+                }}
+                onPress={() => void (replyTarget ? submitThreadReply() : submitMainComment())}
                 accessibilityRole="button"
-                accessibilityLabel="Send comment"
+                accessibilityLabel={replyTarget ? "Send reply" : "Send comment"}
               >
-                {createCommentMutation.isPending ? (
+                {(replyTarget ? replyThreadMutation.isPending : createCommentMutation.isPending) ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
@@ -507,7 +686,27 @@ export function PostDiscussionPanelInner({
           </View>
         </View>
       </View>
-    </View>
+
+      <Modal
+        visible={deleteTargetId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissDeletePopup}
+      >
+        <AppPopupModal
+          embedded
+          visible={deleteTargetId !== null}
+          variant="alert"
+          title="Delete comment?"
+          message="This cannot be undone."
+          onClose={dismissDeletePopup}
+          buttons={[
+            { text: "Cancel", style: "cancel" },
+            { text: "Delete", style: "destructive", onPress: executeDeleteComment },
+          ]}
+        />
+      </Modal>
+    </RootOuter>
   );
 }
 
@@ -556,6 +755,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 4,
   },
+  showMoreComments: {
+    marginBottom: 4,
+  },
   countLabel: {
     fontSize: 17,
     fontWeight: "800",
@@ -591,13 +793,13 @@ const styles = StyleSheet.create({
   emojiText: {
     fontSize: 24,
   },
-  editingBar: {
+  contextBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 8,
   },
-  editingBarText: {
+  contextBarText: {
     flex: 1,
     fontSize: 12,
     fontWeight: "600",

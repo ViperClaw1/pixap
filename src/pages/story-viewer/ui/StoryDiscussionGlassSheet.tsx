@@ -19,6 +19,7 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
       {(panelProps) => (
         <StoryDiscussionPanelInner
           storyId={storyId}
+          isActive={visible}
           onRequireAuth={panelProps.onRequireAuth}
           onClose={panelProps.onClose}
           discussionPalette={discussionPaletteDark}

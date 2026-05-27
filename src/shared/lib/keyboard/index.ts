@@ -8,3 +8,7 @@ export type {
 export { KeyboardStickyView } from "./KeyboardStickyView";
 export { useFooterKeyboardLift } from "./useFooterKeyboardLift";
 export type { FooterKeyboardLiftOptions, FooterKeyboardLiftResult } from "./useFooterKeyboardLift";
+export {
+  useDiscussionPanelFooterKeyboard,
+  DISCUSSION_ANDROID_FOOTER_PADDING,
+} from "./useDiscussionPanelFooterKeyboard";

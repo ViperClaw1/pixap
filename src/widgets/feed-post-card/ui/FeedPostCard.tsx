@@ -120,7 +120,28 @@ export const FeedPostCard = memo(function FeedPostCard({
                   <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
                 ) : null}
               </View>
-              {isBoosted ? <PostBoostCrownBadge /> : null}
+              {isBoosted ? (
+                <View style={styles.authorBadgesRow}>
+                  {item.user_id !== currentUserId ? (
+                    <Pressable
+                      style={[
+                        styles.compactBadge,
+                        {
+                          borderColor: isFollowing ? colors.accent : colors.border,
+                          backgroundColor: isFollowing ? colors.accentSurface : colors.background,
+                        },
+                      ]}
+                      onPress={onToggleFollow}
+                      disabled={followPending}
+                    >
+                      <Text style={[styles.compactBadgeText, { color: isFollowing ? colors.accent : colors.text }]}>
+                        {isFollowing ? "Following" : "Follow"}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  <PostBoostCrownBadge />
+                </View>
+              ) : null}
             </View>
             {geoFormattedAddress ? (
               <View style={styles.authorGeoRow}>
@@ -130,7 +151,7 @@ export const FeedPostCard = memo(function FeedPostCard({
             ) : null}
           </View>
         </View>
-        {item.user_id !== currentUserId ? (
+        {item.user_id !== currentUserId && !isBoosted ? (
           <Pressable
             style={[
               styles.followBtn,
@@ -286,7 +307,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   authorMeta: { flex: 1, minWidth: 0, gap: 4 },
-  authorMetaHeader: { flexDirection: "row", alignItems: "flex-start", gap: 8, minWidth: 0 },
+  authorMetaHeader: { flexDirection: "row", alignItems: "center", gap: 8, minWidth: 0 },
+  authorBadgesRow: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 },
   authorNameRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 4, minWidth: 0 },
   authorGeoRow: { flexDirection: "row", alignItems: "flex-start", gap: 4, marginTop: 2 },
   authorGeoIcon: { marginTop: 1 },
@@ -300,6 +322,20 @@ const styles = StyleSheet.create({
   avatarPlaceholder: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   avatarImage: { width: 36, height: 36, borderRadius: 18 },
   authorName: { flexShrink: 1, fontSize: 15, fontWeight: "700" },
+  compactBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    flexShrink: 0,
+  },
+  compactBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
   followBtn: {
     flexShrink: 0,
     minWidth: 86,

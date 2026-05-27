@@ -93,6 +93,11 @@ export function useKeyboardInset(options: KeyboardInsetOptions = {}): SharedValu
   const baselineWindowHeightRef = useRef(Dimensions.get("window").height);
 
   useEffect(() => {
+    if (!enabled) {
+      keyboardInset.value = 0;
+      return undefined;
+    }
+
     const fallbackMs = Platform.OS === "android" ? 280 : 250;
 
     const setInsetAnimated = (toValue: number, duration: number) => {
@@ -162,12 +167,34 @@ export function useKeyboardInset(options: KeyboardInsetOptions = {}): SharedValu
       };
     }
 
+    baselineWindowHeightRef.current = Dimensions.get("window").height;
+
     const showSub = Keyboard.addListener("keyboardDidShow", onAndroidShow);
     const hideSub = Keyboard.addListener("keyboardDidHide", onAndroidHide);
+
+    const applyAndroidWindowResize = ({ window }: { window: { height: number } }) => {
+      if (!enabled || !ignoreWindowResize) return;
+      const baseline = baselineWindowHeightRef.current;
+      const rawOverlap = Math.max(0, baseline - window.height);
+      if (rawOverlap <= 48) {
+        if (rawOverlap === 0) {
+          keyboardInset.value = 0;
+          baselineWindowHeightRef.current = window.height;
+          onKeyboardChangeRef.current?.(window.height, 0);
+        }
+        return;
+      }
+      const inset = Math.max(0, rawOverlap - tabBarHeight - bottomInset + gap);
+      keyboardInset.value = inset;
+      onKeyboardChangeRef.current?.(window.height, rawOverlap);
+    };
+
+    const dimSub = ignoreWindowResize ? Dimensions.addEventListener("change", applyAndroidWindowResize) : null;
 
     return () => {
       showSub.remove();
       hideSub.remove();
+      dimSub?.remove();
     };
   }, [bottomInset, enabled, gap, ignoreWindowResize, keyboardInset, tabBarHeight]);
 

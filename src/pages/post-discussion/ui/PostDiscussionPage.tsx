@@ -25,36 +25,46 @@ export default function PostDiscussionPage() {
     navigateToAuthScreen(navigation);
   }, [navigation]);
 
-  return (
-    <SafeAreaView style={[styles.root, { backgroundColor: palette.screenBg }]} edges={["top"]}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Math.max(insets.top, 8)}
-      >
-        <View style={[styles.sheetTop, { backgroundColor: palette.screenBg }]}>
-          <View style={[styles.dragHandle, { backgroundColor: palette.grabber }]} />
-          <View style={styles.headerRow}>
-            <View style={styles.headerSide} />
-            <Text style={[styles.headerTitle, { color: palette.text }]}>Comments</Text>
-            <View style={styles.headerSide}>
-              <Pressable
-                hitSlop={8}
-                style={styles.headerIconBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-                onPress={() => navigation.goBack()}
-              >
-                <Ionicons name="close" size={24} color={palette.text} />
-              </Pressable>
-            </View>
+  const content = (
+    <>
+      <View style={[styles.sheetTop, { backgroundColor: palette.screenBg }]}>
+        <View style={[styles.dragHandle, { backgroundColor: palette.grabber }]} />
+        <View style={styles.headerRow}>
+          <View style={styles.headerSide} />
+          <Text style={[styles.headerTitle, { color: palette.text }]}>Comments</Text>
+          <View style={styles.headerSide}>
+            <Pressable
+              hitSlop={8}
+              style={styles.headerIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="close" size={24} color={palette.text} />
+            </Pressable>
           </View>
         </View>
+      </View>
 
-        <View style={styles.panelWrap}>
-          <PostDiscussionPanelInner postId={params.postId} onRequireAuth={onRequireAuth} discussionPalette={palette} />
-        </View>
-      </KeyboardAvoidingView>
+      <View style={styles.panelWrap}>
+        <PostDiscussionPanelInner postId={params.postId} onRequireAuth={onRequireAuth} discussionPalette={palette} />
+      </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={[styles.root, { backgroundColor: palette.screenBg }]} edges={["top"]}>
+      {Platform.OS === "ios" ? (
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior="padding"
+          keyboardVerticalOffset={Math.max(insets.top, 8)}
+        >
+          {content}
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={styles.flex}>{content}</View>
+      )}
     </SafeAreaView>
   );
 }

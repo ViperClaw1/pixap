@@ -1,22 +1,53 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type TextInput,
+  type ViewStyle,
+} from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@/app/providers/AuthProvider";
 import {
+  useDeleteStoryComment,
   useReactToStory,
   useReplyToComment,
   useReplyToStory,
   useStoryComments,
+  useUpdateStoryComment,
   type StoryComment,
   type StoryReply,
 } from "@/entities/story";
+import type { StoryDiscussionItemKind } from "@/entities/story/lib/storyCommentCachePatch";
 import { useProfile } from "@/entities/user";
 import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
-import { profileMentionTag } from "../lib/storyDiscussionMention";
+import { QUICK_EMOJI } from "@/shared/lib/discussionQuickEmoji";
+import { AppPopupModal, appAlert } from "@/shared/ui/app-popup";
+import {
+  DISCUSSION_ANDROID_FOOTER_PADDING,
+  useDiscussionPanelFooterKeyboard,
+} from "@/shared/lib/keyboard";
+import { DiscussionCommentSkeletonList } from "@/shared/ui/discussion-skeleton";
+import { DiscussionShowMoreButton } from "@/shared/ui/discussion-show-more/DiscussionShowMoreButton";
+import {
+  getVisibleDiscussionComments,
+  hasHiddenDiscussionComments,
+} from "@/shared/lib/discussionPagination";
+import { useDiscussionPagination } from "@/shared/lib/useDiscussionPagination";
+import { useDiscussionListScroll } from "@/shared/lib/useDiscussionListScroll";
+import { profileDisplayName, profileMentionTag } from "../lib/storyDiscussionMention";
 import {
   StoryDiscussionCommentThread,
   type ReplyComposerTarget,
@@ -24,22 +55,29 @@ import {
 import { discussionPaletteDark, type DiscussionUiPalette } from "@/shared/theme/discussionPalette";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 
-const QUICK_EMOJI = ["❤️", "🙌", "🔥", "👏", "😢", "😍", "😮", "😂"];
+type EditingCommentTarget = {
+  itemId: string;
+  kind: StoryDiscussionItemKind;
+  originalContent: string;
+};
+
+type DeleteCommentTarget = {
+  itemId: string;
+  kind: StoryDiscussionItemKind;
+};
 
 export type StoryDiscussionPanelInnerProps = {
   storyId: string;
   onRequireAuth: () => void;
-  /** Text / list / footer colors; glass sheet passes dark palette and overrides footer alpha */
   discussionPalette?: DiscussionUiPalette;
-  /** Page = solid #121212; glass sheet = translucent */
   footerBackgroundColor?: string;
   footerBorderColor?: string;
   listContentStyle?: ViewStyle;
   showEmojiRow?: boolean;
-  /** Allows parent sheets to size themselves from list scroll height */
   onListContentSizeChange?: (width: number, height: number) => void;
-  /** Shows a header with title + close control (e.g. glass sheet). */
   onClose?: () => void;
+  /** When false, pagination/scroll reset waits until the sheet opens again. Defaults to true. */
+  isActive?: boolean;
 };
 
 export function StoryDiscussionPanelInner({
@@ -48,83 +86,198 @@ export function StoryDiscussionPanelInner({
   discussionPalette,
   footerBackgroundColor: footerBackgroundOverride,
   footerBorderColor: footerBorderOverride,
-  listContentStyle,
+  listContentStyle: listContentStyleProp,
   showEmojiRow = true,
   onListContentSizeChange,
   onClose,
+  isActive = true,
 }: StoryDiscussionPanelInnerProps) {
   const palette = discussionPalette ?? discussionPaletteDark;
   const footerBackgroundColor = footerBackgroundOverride ?? palette.footerBg;
   const footerBorderColor = footerBorderOverride ?? palette.footerBorder;
   const insets = useSafeAreaInsets();
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const { RootOuter, androidRootLiftStyle } = useDiscussionPanelFooterKeyboard(isActive);
+  const { user } = useAuth();
+  const composerInputRef = useRef<TextInput>(null);
+  const composerBlurResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressComposerBlurResetRef = useRef(false);
 
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
+  useEffect(
+    () => () => {
+      if (composerBlurResetTimeoutRef.current) {
+        clearTimeout(composerBlurResetTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   const footerPaddingBottom =
-    Platform.OS === "android" ? (keyboardVisible ? 4 : 8) : Math.max(16, insets.bottom + 10);
+    Platform.OS === "android" ? DISCUSSION_ANDROID_FOOTER_PADDING : Math.max(16, insets.bottom + 10);
 
-  const { data: comments = [] } = useStoryComments(storyId);
+  const { data: comments = [], isLoading: commentsLoading } = useStoryComments(storyId);
   const { data: myProfile } = useProfile();
   const replyMutation = useReplyToStory();
   const replyThreadMutation = useReplyToComment();
   const reactMutation = useReactToStory();
+  const updateCommentMutation = useUpdateStoryComment();
+  const deleteCommentMutation = useDeleteStoryComment();
 
   const [mainDraft, setMainDraft] = useState("");
   const [replyTarget, setReplyTarget] = useState<ReplyComposerTarget | null>(null);
-  const [inlineReplyText, setInlineReplyText] = useState("");
-
-  useEffect(() => {
-    if (replyTarget) {
-      setInlineReplyText(`${replyTarget.mentionTag} `);
-    } else {
-      setInlineReplyText("");
-    }
-  }, [replyTarget]);
+  const replyTargetRef = useRef<ReplyComposerTarget | null>(null);
+  replyTargetRef.current = replyTarget;
+  const [editingComment, setEditingComment] = useState<EditingCommentTarget | null>(null);
+  const editingCommentRef = useRef<EditingCommentTarget | null>(null);
+  editingCommentRef.current = editingComment;
+  const [deleteTarget, setDeleteTarget] = useState<DeleteCommentTarget | null>(null);
 
   const sorted = useMemo(
     () => [...comments].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
     [comments],
   );
 
+  const {
+    visibleCommentCount,
+    replyVisibleCounts,
+    getReplyVisibleCount,
+    showMoreComments,
+    showMoreReplies,
+  } = useDiscussionPagination({ entityId: storyId, isActive });
+
+  const visibleComments = useMemo(
+    () => getVisibleDiscussionComments(sorted, visibleCommentCount),
+    [sorted, visibleCommentCount],
+  );
+
+  const showMoreCommentsButton = hasHiddenDiscussionComments(sorted.length, visibleCommentCount);
+
+  const { listRef, scrollToIndex, scrollToBottom } = useDiscussionListScroll<StoryComment>({
+    entityId: storyId,
+    isActive,
+    isLoading: commentsLoading,
+    itemCount: visibleComments.length,
+  });
+
   const totalCommentCount = useMemo(
     () => sorted.reduce((acc, c) => acc + 1 + c.replies.length, 0),
     [sorted],
   );
 
+  const clearPendingReplyBlurReset = useCallback(() => {
+    if (composerBlurResetTimeoutRef.current) {
+      clearTimeout(composerBlurResetTimeoutRef.current);
+      composerBlurResetTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resetReplyComposer = useCallback(() => {
+    clearPendingReplyBlurReset();
+    suppressComposerBlurResetRef.current = false;
+    replyTargetRef.current = null;
+    setReplyTarget(null);
+    setMainDraft("");
+    composerInputRef.current?.blur();
+    Keyboard.dismiss();
+  }, [clearPendingReplyBlurReset]);
+
+  const cancelReply = useCallback(() => {
+    resetReplyComposer();
+  }, [resetReplyComposer]);
+
+  const resetEditingComposer = useCallback(() => {
+    clearPendingReplyBlurReset();
+    suppressComposerBlurResetRef.current = false;
+    editingCommentRef.current = null;
+    setEditingComment(null);
+    setMainDraft("");
+    composerInputRef.current?.blur();
+    Keyboard.dismiss();
+  }, [clearPendingReplyBlurReset]);
+
+  const cancelEditingComment = useCallback(() => {
+    resetEditingComposer();
+  }, [resetEditingComposer]);
+
+  const startReply = useCallback(
+    (target: ReplyComposerTarget) => {
+      clearPendingReplyBlurReset();
+      suppressComposerBlurResetRef.current = false;
+      if (editingCommentRef.current) {
+        editingCommentRef.current = null;
+        setEditingComment(null);
+      }
+      setReplyTarget(target);
+      setMainDraft(`${target.mentionTag} `);
+      requestAnimationFrame(() => composerInputRef.current?.focus());
+    },
+    [clearPendingReplyBlurReset],
+  );
+
+  const handleComposerBlur = useCallback(() => {
+    if (!replyTargetRef.current && !editingCommentRef.current) return;
+    clearPendingReplyBlurReset();
+    composerBlurResetTimeoutRef.current = setTimeout(() => {
+      composerBlurResetTimeoutRef.current = null;
+      if (suppressComposerBlurResetRef.current) {
+        suppressComposerBlurResetRef.current = false;
+        return;
+      }
+      if (replyTargetRef.current) {
+        cancelReply();
+        return;
+      }
+      if (editingCommentRef.current) {
+        cancelEditingComment();
+      }
+    }, 100);
+  }, [cancelEditingComment, cancelReply, clearPendingReplyBlurReset]);
+
   const submitMainComment = useCallback(async () => {
     const text = mainDraft.trim();
     if (!text || replyMutation.isPending) return;
+    setMainDraft("");
     try {
       await replyMutation.mutateAsync({ storyId, content: text });
-      setMainDraft("");
+      requestAnimationFrame(() => scrollToBottom(true));
     } catch (error) {
+      setMainDraft(text);
       if (isAuthRequiredError(error)) onRequireAuth();
     }
-  }, [mainDraft, onRequireAuth, replyMutation, storyId]);
+  }, [mainDraft, onRequireAuth, replyMutation, scrollToBottom, storyId]);
 
-  const submitInlineReply = useCallback(async () => {
-    const text = inlineReplyText.trim();
-    if (!text || !replyTarget || replyThreadMutation.isPending) return;
+  const submitThreadReply = useCallback(async () => {
+    const text = mainDraft.trim();
+    const target = replyTarget;
+    if (!text || !target || replyThreadMutation.isPending) return;
+    const commentId = target.rootCommentId;
+    resetReplyComposer();
     try {
       await replyThreadMutation.mutateAsync({
         storyId,
-        commentId: replyTarget.rootCommentId,
+        commentId,
         content: text,
       });
-      setReplyTarget(null);
+      requestAnimationFrame(() => scrollToBottom(true));
     } catch (error) {
+      setReplyTarget(target);
+      replyTargetRef.current = target;
+      setMainDraft(text);
       if (isAuthRequiredError(error)) onRequireAuth();
     }
-  }, [inlineReplyText, onRequireAuth, replyTarget, replyThreadMutation, storyId]);
+  }, [mainDraft, onRequireAuth, replyTarget, replyThreadMutation, resetReplyComposer, scrollToBottom, storyId]);
+
+  const handleShowMoreComments = useCallback(() => {
+    showMoreComments(sorted.length);
+    requestAnimationFrame(() => scrollToIndex(0, true));
+  }, [showMoreComments, scrollToIndex, sorted.length]);
+
+  const handleShowMoreReplies = useCallback(
+    (commentId: string, totalReplies: number, commentIndex: number) => {
+      showMoreReplies(commentId, totalReplies);
+      requestAnimationFrame(() => scrollToIndex(commentIndex, true));
+    },
+    [showMoreReplies, scrollToIndex],
+  );
 
   const toggleLikeComment = useCallback(
     async (comment: StoryComment) => {
@@ -148,65 +301,200 @@ export function StoryDiscussionPanelInner({
     [onRequireAuth, reactMutation, storyId],
   );
 
+  const startEditingComment = useCallback(
+    (itemId: string, content: string, kind: StoryDiscussionItemKind) => {
+      clearPendingReplyBlurReset();
+      suppressComposerBlurResetRef.current = false;
+      replyTargetRef.current = null;
+      setReplyTarget(null);
+      setEditingComment({ itemId, kind, originalContent: content });
+      setMainDraft(content.trim());
+      requestAnimationFrame(() => composerInputRef.current?.focus());
+    },
+    [clearPendingReplyBlurReset],
+  );
+
+  const refocusComposerInput = useCallback(() => {
+    requestAnimationFrame(() => composerInputRef.current?.focus());
+  }, []);
+
+  const appendEmojiToDraft = useCallback(
+    (emoji: string) => {
+      suppressComposerBlurResetRef.current = true;
+      setMainDraft((prev) => `${prev}${emoji}`);
+      refocusComposerInput();
+    },
+    [refocusComposerInput],
+  );
+
+  const saveEditedComment = useCallback(() => {
+    if (!editingComment) return;
+    const trimmed = mainDraft.trim();
+    if (!trimmed) {
+      Alert.alert("Comment required", "Comment text cannot be empty.");
+      return;
+    }
+    if (trimmed === editingComment.originalContent.trim()) {
+      cancelEditingComment();
+      return;
+    }
+    void updateCommentMutation
+      .mutateAsync({
+        storyId,
+        itemId: editingComment.itemId,
+        kind: editingComment.kind,
+        content: trimmed,
+      })
+      .then(() => {
+        cancelEditingComment();
+      })
+      .catch((error) => {
+        if (isAuthRequiredError(error)) {
+          onRequireAuth();
+          return;
+        }
+        Alert.alert("Edit failed", error instanceof Error ? error.message : "Please try again.");
+      });
+  }, [cancelEditingComment, editingComment, mainDraft, onRequireAuth, storyId, updateCommentMutation]);
+
+  const dismissDeletePopup = useCallback(() => {
+    setDeleteTarget(null);
+  }, []);
+
+  const requestDeleteComment = useCallback((itemId: string, kind: StoryDiscussionItemKind) => {
+    setDeleteTarget({ itemId, kind });
+  }, []);
+
+  const executeDeleteComment = useCallback(() => {
+    if (!deleteTarget) return;
+    const { itemId, kind } = deleteTarget;
+
+    if (editingComment?.itemId === itemId) {
+      cancelEditingComment();
+    }
+    if (replyTarget) {
+      setReplyTarget(null);
+    }
+
+    void deleteCommentMutation
+      .mutateAsync({ storyId, itemId, kind })
+      .catch((error) => {
+        if (isAuthRequiredError(error)) {
+          onRequireAuth();
+          return;
+        }
+        appAlert("Delete failed", error instanceof Error ? error.message : "Please try again.", undefined, "alert");
+      });
+  }, [
+    cancelEditingComment,
+    deleteCommentMutation,
+    deleteTarget,
+    editingComment?.itemId,
+    onRequireAuth,
+    replyTarget,
+    storyId,
+  ]);
+
   const myAvatarRaw = myProfile?.avatar_url?.trim() || null;
   const myAvatarUri = getAvatarDisplayUrl(myAvatarRaw, { layoutPx: 32 });
   const myLabel =
     `${myProfile?.first_name?.trim() ?? ""} ${myProfile?.last_name?.trim() ?? ""}`.trim() || "Me";
 
   const renderItem = useCallback(
-    ({ item }: { item: StoryComment }) => (
+    ({ item, index }: { item: StoryComment; index: number }) => (
       <StoryDiscussionCommentThread
         palette={palette}
         comment={item}
-        replyTarget={replyTarget}
-        inlineValue={inlineReplyText}
-        inlineSubmitting={replyThreadMutation.isPending}
-        onChangeInline={setInlineReplyText}
-        onSubmitInline={() => void submitInlineReply()}
-        onCloseInline={() => setReplyTarget(null)}
+        currentUserId={user?.id}
+        visibleReplyCount={getReplyVisibleCount(item.id)}
+        onShowMoreReplies={() => handleShowMoreReplies(item.id, item.replies.length, index)}
         onOpenReplyToComment={() => {
-          setReplyTarget({
-            anchorKey: `c-${item.id}`,
+          startReply({
             rootCommentId: item.id,
             mentionTag: profileMentionTag(item.profile),
+            replyingToLabel: profileDisplayName(item.profile),
           });
         }}
         onOpenReplyToReply={(reply) => {
-          setReplyTarget({
-            anchorKey: `r-${reply.id}`,
+          startReply({
             rootCommentId: item.id,
             mentionTag: profileMentionTag(reply.profile),
+            replyingToLabel: profileDisplayName(reply.profile),
           });
         }}
         onToggleLikeComment={() => void toggleLikeComment(item)}
         onToggleLikeReply={(reply) => void toggleLikeReply(reply)}
+        onEditComment={startEditingComment}
+        onDeleteComment={requestDeleteComment}
       />
     ),
     [
-      inlineReplyText,
+      getReplyVisibleCount,
+      handleShowMoreReplies,
       palette,
-      replyTarget,
-      replyThreadMutation.isPending,
-      submitInlineReply,
+      requestDeleteComment,
+      startEditingComment,
+      startReply,
       toggleLikeComment,
       toggleLikeReply,
+      user?.id,
     ],
   );
 
   const listHeader = useMemo(
     () => (
-      <View style={styles.countHeader}>
-        <Text style={[styles.countLabel, { color: palette.text }]}>
-          {totalCommentCount === 1 ? "1 comment" : `${totalCommentCount} comments`}
-        </Text>
-        <Text style={[styles.subLabel, { color: palette.textMuted }]}>Top comments</Text>
+      <View>
+        {showMoreCommentsButton ? (
+          <DiscussionShowMoreButton
+            label="Show more comments"
+            onPress={handleShowMoreComments}
+            palette={palette}
+            style={styles.showMoreComments}
+          />
+        ) : null}
+        <View style={styles.countHeader}>
+          <Text style={[styles.countLabel, { color: palette.text }]}>
+            {totalCommentCount === 1 ? "1 comment" : `${totalCommentCount} comments`}
+          </Text>
+          <Text style={[styles.subLabel, { color: palette.textMuted }]}>Top comments</Text>
+        </View>
       </View>
     ),
-    [palette.text, palette.textMuted, totalCommentCount],
+    [
+      handleShowMoreComments,
+      palette,
+      showMoreCommentsButton,
+      totalCommentCount,
+    ],
+  );
+
+  const listEmptyComponent = useMemo(
+    () => (
+      <View style={styles.emptyWrap}>
+        <Text style={[styles.empty, { color: palette.textMuted }]}>No comments yet. Be the first to reply.</Text>
+      </View>
+    ),
+    [palette.textMuted],
+  );
+
+  const listContentContainerStyle = useMemo(
+    () => [
+      styles.listContent,
+      listContentStyleProp,
+      !commentsLoading && sorted.length === 0 && styles.listContentEmpty,
+    ],
+    [commentsLoading, listContentStyleProp, sorted.length],
+  );
+
+  const handleSkeletonLayout = useCallback(
+    (width: number, height: number) => {
+      onListContentSizeChange?.(width, height);
+    },
+    [onListContentSizeChange],
   );
 
   return (
-    <View style={styles.flex}>
+    <RootOuter style={[styles.flex, androidRootLiftStyle]}>
       {onClose ? (
         <View style={styles.panelHeader}>
           <Text style={[styles.panelHeaderTitle, { color: palette.text }]}>Comments</Text>
@@ -221,26 +509,44 @@ export function StoryDiscussionPanelInner({
           </Pressable>
         </View>
       ) : null}
-      <FlashList
-        data={sorted}
-        keyExtractor={(item) => item.id}
-        estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.storyComment}
-        renderItem={renderItem}
-        ListHeaderComponent={listHeader}
-        extraData={[replyTarget, inlineReplyText, replyThreadMutation.isPending, reactMutation.isPending, sorted, palette]}
-        contentContainerStyle={[styles.listContent, listContentStyle]}
-        keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={
-          <Text style={[styles.empty, { color: palette.textMuted }]}>No comments yet. Be the first to reply.</Text>
-        }
-        style={styles.list}
-        onContentSizeChange={(w, h) => onListContentSizeChange?.(w, h)}
-        removeClippedSubviews={Platform.OS !== "android"}
-        initialNumToRender={8}
-        maxToRenderPerBatch={10}
-        windowSize={8}
-        updateCellsBatchingPeriod={40}
-      />
+      {commentsLoading ? (
+        <View style={styles.list}>
+          <DiscussionCommentSkeletonList onLayout={handleSkeletonLayout} />
+        </View>
+      ) : (
+        <FlashList
+          ref={listRef}
+          data={visibleComments}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.storyComment}
+          renderItem={renderItem}
+          ListHeaderComponent={listHeader}
+          extraData={[
+            replyTarget,
+            editingComment,
+            replyThreadMutation.isPending,
+            reactMutation.isPending,
+            updateCommentMutation.isPending,
+            visibleComments,
+            visibleCommentCount,
+            replyVisibleCounts,
+            palette,
+            user?.id,
+          ]}
+          contentContainerStyle={listContentContainerStyle}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          onScrollBeginDrag={() => Keyboard.dismiss()}
+          ListEmptyComponent={listEmptyComponent}
+          style={styles.list}
+          onContentSizeChange={(w, h) => onListContentSizeChange?.(w, h)}
+          removeClippedSubviews={Platform.OS !== "android"}
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={8}
+          updateCellsBatchingPeriod={40}
+        />
+      )}
 
       <View
         style={[
@@ -252,10 +558,44 @@ export function StoryDiscussionPanelInner({
           },
         ]}
       >
+        {editingComment ? (
+          <View style={styles.contextBar}>
+            <Text style={[styles.contextBarText, { color: palette.textMuted }]}>Editing comment</Text>
+            <Pressable
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel editing"
+              onPress={cancelEditingComment}
+            >
+              <Ionicons name="close" size={18} color={palette.textMuted} />
+            </Pressable>
+          </View>
+        ) : replyTarget ? (
+          <View style={styles.contextBar}>
+            <Text style={[styles.contextBarText, { color: palette.textMuted }]}>
+              Replying to {replyTarget.replyingToLabel}
+            </Text>
+            <Pressable
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel reply"
+              onPress={cancelReply}
+            >
+              <Ionicons name="close" size={18} color={palette.textMuted} />
+            </Pressable>
+          </View>
+        ) : null}
+
         {showEmojiRow ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emojiRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
+            contentContainerStyle={styles.emojiRow}
+          >
             {QUICK_EMOJI.map((em) => (
-              <Pressable key={em} hitSlop={4} style={styles.emojiChip} onPress={() => setMainDraft((s) => s + em)}>
+              <Pressable key={em} hitSlop={4} style={styles.emojiChip} onPress={() => appendEmojiToDraft(em)}>
                 <Text style={styles.emojiText}>{em}</Text>
               </Pressable>
             ))}
@@ -280,35 +620,100 @@ export function StoryDiscussionPanelInner({
           )}
           <View style={styles.footerInputWrap}>
             <RichTextarea
+              ref={composerInputRef}
               value={mainDraft}
               onChangeText={setMainDraft}
-              placeholder="Join the conversation..."
+              onBlur={handleComposerBlur}
+              placeholder={
+                editingComment ? "Edit comment..." : replyTarget ? "Add a reply..." : "Join the conversation..."
+              }
               placeholderTextColor={palette.textMuted}
               textAlignVertical="center"
-              editable={!replyMutation.isPending}
-              style={[styles.footerInput, { backgroundColor: palette.inputBg, color: palette.text }]}
-            />
-            <Pressable
+              editable={
+                editingComment
+                  ? !updateCommentMutation.isPending
+                  : replyTarget
+                    ? !replyThreadMutation.isPending
+                    : !replyMutation.isPending
+              }
               style={[
-                styles.footerSendCircle,
-                { backgroundColor: palette.sendAccent },
-                (!mainDraft.trim() || replyMutation.isPending) && styles.footerSendCircleDisabled,
+                styles.footerInput,
+                editingComment ? styles.footerInputEditing : null,
+                { backgroundColor: palette.inputBg, color: palette.text },
               ]}
-              disabled={!mainDraft.trim() || replyMutation.isPending}
-              onPress={() => void submitMainComment()}
-              accessibilityRole="button"
-              accessibilityLabel="Send comment"
-            >
-              {replyMutation.isPending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
-              )}
-            </Pressable>
+            />
+            {editingComment ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Save edited comment"
+                style={[
+                  styles.footerSaveBtn,
+                  { backgroundColor: palette.sendAccent },
+                  (!mainDraft.trim() || updateCommentMutation.isPending) && styles.footerSaveBtnDisabled,
+                ]}
+                disabled={!mainDraft.trim() || updateCommentMutation.isPending}
+                onPressIn={() => {
+                  suppressComposerBlurResetRef.current = true;
+                }}
+                onPress={saveEditedComment}
+              >
+                {updateCommentMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                )}
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[
+                  styles.footerSendCircle,
+                  { backgroundColor: palette.sendAccent },
+                  (!mainDraft.trim() ||
+                    (replyTarget ? replyThreadMutation.isPending : replyMutation.isPending)) &&
+                    styles.footerSendCircleDisabled,
+                ]}
+                disabled={
+                  !mainDraft.trim() ||
+                  (replyTarget ? replyThreadMutation.isPending : replyMutation.isPending)
+                }
+                onPressIn={() => {
+                  suppressComposerBlurResetRef.current = true;
+                }}
+                onPress={() => void (replyTarget ? submitThreadReply() : submitMainComment())}
+                accessibilityRole="button"
+                accessibilityLabel={replyTarget ? "Send reply" : "Send comment"}
+              >
+                {(replyTarget ? replyThreadMutation.isPending : replyMutation.isPending) ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
+                )}
+              </Pressable>
+            )}
           </View>
         </View>
       </View>
-    </View>
+
+      <Modal
+        visible={deleteTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissDeletePopup}
+      >
+        <AppPopupModal
+          embedded
+          visible={deleteTarget !== null}
+          variant="alert"
+          title="Delete comment?"
+          message="This cannot be undone."
+          onClose={dismissDeletePopup}
+          buttons={[
+            { text: "Cancel", style: "cancel" },
+            { text: "Delete", style: "destructive", onPress: executeDeleteComment },
+          ]}
+        />
+      </Modal>
+    </RootOuter>
   );
 }
 
@@ -350,9 +755,15 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 8,
   },
+  listContentEmpty: {
+    flexGrow: 1,
+  },
   countHeader: {
     paddingBottom: 12,
     gap: 4,
+  },
+  showMoreComments: {
+    marginBottom: 4,
   },
   countLabel: {
     fontSize: 17,
@@ -365,8 +776,13 @@ const styles = StyleSheet.create({
   empty: {
     fontSize: 14,
     textAlign: "center",
-    marginTop: 20,
     paddingHorizontal: 12,
+  },
+  emptyWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 180,
   },
   footer: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -383,6 +799,18 @@ const styles = StyleSheet.create({
   },
   emojiText: {
     fontSize: 24,
+  },
+  contextBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  contextBarText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 8,
   },
   footerInputRow: {
     flexDirection: "row",
@@ -420,6 +848,22 @@ const styles = StyleSheet.create({
     paddingRight: 52,
     paddingVertical: 10,
     fontSize: 14,
+  },
+  footerInputEditing: {
+    paddingRight: 52,
+  },
+  footerSaveBtn: {
+    position: "absolute",
+    right: 6,
+    bottom: 7,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  footerSaveBtnDisabled: {
+    opacity: 0.45,
   },
   footerSendCircle: {
     position: "absolute",

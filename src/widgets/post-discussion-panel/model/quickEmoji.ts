@@ -1,1 +1,1 @@
-export const QUICK_EMOJI = ["❤️", "🙌", "🔥", "👏", "😢", "😍", "😮", "😂"] as const;
+export { QUICK_EMOJI } from "@/shared/lib/discussionQuickEmoji";

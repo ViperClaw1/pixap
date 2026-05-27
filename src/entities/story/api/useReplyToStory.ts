@@ -3,6 +3,11 @@ import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { feedCachesContainStory, patchStoryCommentInFeedCaches } from "@/entities/story/lib/storyFeedCachePatch";
+import {
+  mutateOptimisticStoryTopCommentCreate,
+  rollbackOptimisticStoryComment,
+  settleOptimisticStoryComment,
+} from "@/entities/story/lib/storyCommentCachePatch";
 
 interface ReplyInput {
   storyId: string;
@@ -35,16 +40,22 @@ export const useReplyToStory = () => {
       if (error) throw error;
       return data;
     },
+    onMutate: (variables) => {
+      if (variables.parentId) return undefined;
+      return mutateOptimisticStoryTopCommentCreate(queryClient, user?.id, {
+        storyId: variables.storyId,
+        content: variables.content,
+      });
+    },
+    onError: (_error, _variables, context) => rollbackOptimisticStoryComment(queryClient, context),
     onSuccess: (data, variables) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.stories.comments(variables.storyId) });
-
       if (variables.parentId) return;
 
       const row = data as { id?: string; content?: string; created_at?: string };
       if (!row?.id || !feedCachesContainStory(queryClient, variables.storyId)) return;
 
       patchStoryCommentInFeedCaches(queryClient, variables.storyId, {
-        commentCountDelta: 1,
+        commentCountDelta: 0,
         newComment: {
           id: row.id,
           content: String(row.content ?? variables.content),
@@ -52,5 +63,6 @@ export const useReplyToStory = () => {
         },
       });
     },
+    onSettled: (_data, _error, variables) => settleOptimisticStoryComment(queryClient, variables.storyId),
   });
 };

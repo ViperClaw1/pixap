@@ -18,13 +18,15 @@ export const useDeletePostComment = () => {
     mutationFn: async ({ postId, commentId }: DeletePostCommentInput) => {
       if (!user?.id) throw new Error("Authentication required");
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("post_comments" as any)
         .delete()
         .eq("id", commentId)
         .eq("user_id", user.id)
-        .eq("post_id", postId);
+        .eq("post_id", postId)
+        .select("id");
       if (error) throw error;
+      if (!data?.length) throw new Error("Could not delete comment");
     },
     onMutate: async (variables) => {
       const key = queryKeys.posts.comments(variables.postId);

@@ -214,16 +214,22 @@ export function DiscussionGlassSheet({ visible, navigation, onDismiss, children 
     [animateCloseThenDismiss, onRequireAuth],
   );
 
-  const sheetChrome = (
-    <KeyboardAvoidingView
-      style={styles.keyboardArea}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={0}
-    >
-      {Platform.OS === "ios" ? <GestureDetector gesture={panGesture}>{sheetGrabber}</GestureDetector> : sheetGrabber}
-      <View style={styles.innerClip}>{children(panelProps)}</View>
-    </KeyboardAvoidingView>
-  );
+  const sheetChrome =
+    Platform.OS === "ios" ? (
+      <KeyboardAvoidingView
+        style={styles.keyboardArea}
+        behavior="padding"
+        keyboardVerticalOffset={0}
+      >
+        <GestureDetector gesture={panGesture}>{sheetGrabber}</GestureDetector>
+        <View style={styles.innerClip}>{children(panelProps)}</View>
+      </KeyboardAvoidingView>
+    ) : (
+      <View style={styles.keyboardArea}>
+        {sheetGrabber}
+        <View style={styles.innerClip}>{children(panelProps)}</View>
+      </View>
+    );
 
   const modalBody = (
     <View style={styles.root}>
