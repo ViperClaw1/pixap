@@ -1,7 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
-import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
+import {
+  mutateOptimisticPostCommentCreate,
+  rollbackOptimisticPostCommentCreate,
+  settleOptimisticPostCommentCreate,
+} from "@/entities/post/lib/postCommentCachePatch";
 
 interface ReplyToPostCommentInput {
   postId: string;
@@ -32,9 +36,13 @@ export const useReplyToPostComment = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_data, variables) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.posts.comments(variables.postId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.posts.feedPrefix });
-    },
+    onMutate: (variables) =>
+      mutateOptimisticPostCommentCreate(queryClient, user?.id, {
+        postId: variables.postId,
+        content: variables.content,
+        parentCommentId: variables.parentCommentId,
+      }),
+    onError: (_error, _variables, context) => rollbackOptimisticPostCommentCreate(queryClient, context),
+    onSettled: (_data, _error, variables) => settleOptimisticPostCommentCreate(queryClient, variables.postId),
   });
 };

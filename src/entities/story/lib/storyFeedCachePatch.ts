@@ -1,7 +1,7 @@
 import type { QueryClient, InfiniteData } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { FeedStoryItem, StoriesFeedPage } from "../api/fetchStoriesFeedPage";
-import type { StoryProfile, StoryReactionType } from "@/shared/model/types/stories";
+import type { StoryGroup, StoryItem, StoryProfile, StoryReactionType } from "@/shared/model/types/stories";
 import { parseMediaBlurhashesColumn } from "@/shared/lib/parseMediaBlurhashesColumn";
 import { listHasId } from "@/shared/realtime/dedupe";
 import { debouncedStoriesFeedInvalidate } from "./storyFeedRealtimeDebounce";
@@ -153,7 +153,14 @@ export function prependStoryToFeedCaches(queryClient: QueryClient, story: FeedSt
   });
 
   for (const [key, data] of queries) {
-    if (!data?.pages?.length) continue;
+    if (!data?.pages?.length) {
+      queryClient.setQueryData<InfiniteData<StoriesFeedPage>>(key, {
+        pages: [{ stories: [story], hasMore: false, nextCursor: null }],
+        pageParams: [null],
+      });
+      touched = true;
+      continue;
+    }
     if (listHasId(data.pages[0]?.stories, story.id)) continue;
 
     touched = true;
@@ -171,7 +178,10 @@ export function prependStoryToFeedCaches(queryClient: QueryClient, story: FeedSt
 export function prependStoryToStripCache(queryClient: QueryClient, item: StoryStripItem): void {
   const key = queryKeys.stories.strip;
   const current = queryClient.getQueryData<StoryStripItem[]>(key);
-  if (!current) return;
+  if (!current) {
+    queryClient.setQueryData<StoryStripItem[]>(key, [item]);
+    return;
+  }
   if (listHasId(current, item.id)) return;
   queryClient.setQueryData<StoryStripItem[]>(key, [item, ...current]);
 }
@@ -254,4 +264,68 @@ export function buildStripStoryFromCreate(params: {
     media_blurhashes: parseMediaBlurhashesColumn(params.media_blurhashes),
     profile: params.profile,
   };
+}
+
+function stripItemToStoryItem(item: StoryStripItem): StoryItem {
+  return {
+    id: item.id,
+    user_id: item.user_id,
+    place_id: null,
+    content: "",
+    media_url: item.media_url,
+    media_blurhashes: item.media_blurhashes,
+    created_at: item.created_at,
+    reaction_count: 0,
+    comment_count: 0,
+    my_reaction: null,
+    profile: item.profile,
+  };
+}
+
+/** Feed RPC rows + strip preview bubbles — strip may lead feed cache right after upload. */
+export function buildStoryGroupsFromFeedAndStrip(
+  feedStories: FeedStoryItem[],
+  stripItems: StoryStripItem[],
+): StoryGroup[] {
+  const grouped = new Map<string, StoryGroup>();
+
+  for (const story of feedStories) {
+    const existing = grouped.get(story.user_id);
+    if (existing) {
+      if (!existing.stories.some((row) => row.id === story.id)) {
+        existing.stories.push(story);
+      }
+      continue;
+    }
+    grouped.set(story.user_id, {
+      user_id: story.user_id,
+      profile: story.profile,
+      stories: [story],
+    });
+  }
+
+  for (const stripItem of stripItems) {
+    if (feedStories.some((story) => story.id === stripItem.id)) continue;
+    const story = stripItemToStoryItem(stripItem);
+    const existing = grouped.get(stripItem.user_id);
+    if (existing) {
+      if (!existing.stories.some((row) => row.id === story.id)) {
+        existing.stories.push(story);
+      }
+      continue;
+    }
+    grouped.set(stripItem.user_id, {
+      user_id: stripItem.user_id,
+      profile: stripItem.profile,
+      stories: [story],
+    });
+  }
+
+  for (const group of grouped.values()) {
+    group.stories.sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+  }
+
+  return Array.from(grouped.values());
 }

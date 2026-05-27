@@ -81,6 +81,16 @@ export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
         }}
       />
       <Screen
+        name="PostDiscussion"
+        getComponent={() => require("@/pages/post-discussion").default}
+        options={{
+          presentation: "modal",
+          animation: "slide_from_bottom",
+          headerShown: false,
+          freezeOnBlur: false,
+        }}
+      />
+      <Screen
         name="Category"
         getComponent={() => require("@/pages/category").default}
         options={fullWidthSwipeBackOptions}

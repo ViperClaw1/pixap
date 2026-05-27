@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
+import { useAuth } from "@/app/providers/AuthProvider";
 import type { PostProfile } from "@/shared/model/types/posts";
 import { REALTIME_POLL_MS } from "@/shared/realtime/realtimePolling";
 
@@ -13,6 +14,8 @@ export interface PostReply {
   content: string;
   created_at: string;
   profile: PostProfile | null;
+  like_count: number;
+  liked_by_me: boolean;
 }
 
 export interface PostComment {
@@ -24,6 +27,25 @@ export interface PostComment {
   created_at: string;
   profile: PostProfile | null;
   replies: PostReply[];
+  like_count: number;
+  liked_by_me: boolean;
+}
+
+function aggregateCommentLikes(
+  rows: { comment_id: string | null; user_id: string }[],
+  userId: string | undefined,
+  commentIds: string[],
+) {
+  const likes = new Map<string, { count: number; me: boolean }>();
+  for (const id of commentIds) likes.set(id, { count: 0, me: false });
+  for (const row of rows) {
+    if (!row.comment_id) continue;
+    const slot = likes.get(row.comment_id);
+    if (!slot) continue;
+    slot.count += 1;
+    if (userId && row.user_id === userId) slot.me = true;
+  }
+  return likes;
 }
 
 const EMPTY_POST_COMMENTS: PostComment[] = [];
@@ -34,6 +56,7 @@ function selectStablePostComments(data: PostComment[]) {
 
 export const usePostComments = (postId: string) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   useEffect(() => {
@@ -81,22 +104,48 @@ export const usePostComments = (postId: string) => {
       );
 
       const comments = allComments.filter((item) => !item.parent_id);
-      const replies = allComments.filter((item): item is Omit<PostReply, "profile"> => !!item.parent_id);
+      const replies = allComments.filter((item): item is Omit<PostReply, "profile" | "like_count" | "liked_by_me"> => !!item.parent_id);
+      const allCommentIds = allComments.map((item) => item.id);
+      let commentLikes = aggregateCommentLikes([], user?.id, allCommentIds);
+
+      if (allCommentIds.length) {
+        const { data: reactionRows, error: reactionsError } = await supabase
+          .from("post_reactions" as any)
+          .select("comment_id, user_id, type")
+          .eq("type", "like")
+          .not("comment_id", "is", null)
+          .in("comment_id", allCommentIds);
+        if (reactionsError) throw reactionsError;
+        commentLikes = aggregateCommentLikes(
+          (reactionRows ?? []) as { comment_id: string | null; user_id: string }[],
+          user?.id,
+          allCommentIds,
+        );
+      }
+
       const repliesByCommentId = new Map<string, PostReply[]>();
       for (const reply of replies) {
+        const rl = commentLikes.get(reply.id) ?? { count: 0, me: false };
         if (!repliesByCommentId.has(reply.parent_id)) repliesByCommentId.set(reply.parent_id, []);
         repliesByCommentId.get(reply.parent_id)!.push({
           ...reply,
           profile: profiles.get(reply.user_id) ?? null,
+          like_count: rl.count,
+          liked_by_me: rl.me,
         });
       }
 
-      return comments.map((comment) => ({
-        ...comment,
-        parent_id: null,
-        profile: profiles.get(comment.user_id) ?? null,
-        replies: repliesByCommentId.get(comment.id) ?? [],
-      })) as PostComment[];
+      return comments.map((comment) => {
+        const cl = commentLikes.get(comment.id) ?? { count: 0, me: false };
+        return {
+          ...comment,
+          parent_id: null,
+          profile: profiles.get(comment.user_id) ?? null,
+          replies: repliesByCommentId.get(comment.id) ?? [],
+          like_count: cl.count,
+          liked_by_me: cl.me,
+        };
+      }) as PostComment[];
     },
     enabled: !!postId,
     refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.postComments,

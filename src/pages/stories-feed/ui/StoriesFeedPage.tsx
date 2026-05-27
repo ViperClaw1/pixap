@@ -19,15 +19,15 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { useStoriesFeed, useStoriesStrip } from "@/entities/story";
-import { usePostComments, usePostsFeed, useReactToPost } from "@/entities/post";
+import { useStoriesFeed, useStoriesStrip, buildStoryGroupsFromFeedAndStrip } from "@/entities/story";
+import { usePostsFeed, useReactToPost } from "@/entities/post";
 import {
   PostBoostConfirmModal,
   useBoostPost,
   usePostBoostConfirm,
   usePostBoostFeature,
 } from "@/features/post-boost";
-import { useMyFollowing, useProfile, useToggleFollow } from "@/entities/user";
+import { useMyFollowing, useToggleFollow } from "@/entities/user";
 import { useBusinessCards } from "@/entities/business-card";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
@@ -35,7 +35,6 @@ import { getFeedPostCarouselImageUrls, getFeedStoryPreviewImageUrl } from "@/sha
 import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
 import { ShimmerSurface } from "@/shared/ui/shimmer/ShimmerSurface";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
-import { CommentsBottomSheet } from "@/shared/ui/comments-bottom-sheet/CommentsBottomSheet";
 import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomSheet";
 import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 import { profileDisplayName } from "@/shared/lib/profileDisplayName";
@@ -49,9 +48,6 @@ import { FeedPostCard } from "@/widgets/feed-post-card";
 import { usePostCommentComposer } from "@/pages/stories-feed/model/usePostCommentComposer";
 import { usePostLikes } from "@/pages/stories-feed/model/usePostLikes";
 import { useFollowOverrides } from "@/pages/stories-feed/model/useFollowOverrides";
-import Toast from "react-native-toast-message";
-import { useCreatePostComment, useDeletePostComment, useUpdatePostComment } from "@/entities/post";
-import { profileMentionTag } from "@/shared/lib/profileMentionTag";
 import {
   DOUBLE_TAP_DELAY_MS,
   FEED_APP_HEADER_BODY,
@@ -94,7 +90,6 @@ export default function StoriesFeedScreen() {
   } = useStoriesFeed();
   const { followingSet } = useMyFollowing();
   const toggleFollow = useToggleFollow();
-  const { data: myProfile } = useProfile();
   const { data: businessCards = [] } = useBusinessCards();
 
   // ─── Route params ────────────────────────────────────────────────────────
@@ -177,29 +172,16 @@ export default function StoriesFeedScreen() {
     onLoadMoreFeedStories();
   }, [onLoadMorePosts, onLoadMoreFeedStories]);
 
-  const storyGroups = useMemo<StoryGroup[]>(() => {
-    const grouped = new Map<string, StoryGroup>();
-    for (const story of feedStories) {
-      const existing = grouped.get(story.user_id);
-      if (existing) { existing.stories.push(story); }
-      else { grouped.set(story.user_id, { user_id: story.user_id, profile: story.profile, stories: [story] }); }
-    }
-    return Array.from(grouped.values());
-  }, [feedStories]);
+  const storyGroups = useMemo(
+    () => buildStoryGroupsFromFeedAndStrip(feedStories, storiesStrip),
+    [feedStories, storiesStrip],
+  );
 
   const createStoryPlaceId =
     focusedPosts.find((p) => p.place_id)?.place_id ??
     posts.find((p) => p.place_id)?.place_id ??
     businessCards[0]?.id ??
     null;
-
-  const currentUserAvatarUrl = useMemo(() => {
-    const metadataAvatar =
-      typeof user?.user_metadata === "object" && user?.user_metadata && "avatar_url" in user.user_metadata
-        ? String((user.user_metadata as Record<string, unknown>).avatar_url ?? "")
-        : "";
-    return profileAvatarDisplay(myProfile?.avatar_url) ?? profileAvatarDisplay(metadataAvatar);
-  }, [myProfile?.avatar_url, user?.user_metadata]);
 
   // ─── Feature hooks ───────────────────────────────────────────────────────
   const composer = useCreatePostComposer(businessCards, rootNavigation as NavigationProp<Record<string, object | undefined>>, height);
@@ -208,20 +190,6 @@ export default function StoriesFeedScreen() {
   const { likes, likeCount, togglePostLike } = usePostLikes(useReactToPost());
   const { followOverrides, onToggleFollowAuthor } = useFollowOverrides(followingSet, toggleFollow);
   const comments = usePostCommentComposer();
-  const createPostComment = useCreatePostComment();
-  const updatePostComment = useUpdatePostComment();
-  const deletePostComment = useDeletePostComment();
-  const { data: postComments = [], isLoading: isPostCommentsLoading } = usePostComments(comments.selectedPostId ?? "");
-  const isCommentsSheetLoading = Boolean(comments.selectedPostId) && isPostCommentsLoading;
-  const savingCommentId =
-    updatePostComment.isPending && updatePostComment.variables ? updatePostComment.variables.commentId : null;
-  const deletingCommentId =
-    deletePostComment.isPending && deletePostComment.variables ? deletePostComment.variables.commentId : null;
-
-  const selectedPost = useMemo(
-    () => focusedPosts.find((p) => p.id === comments.selectedPostId) ?? null,
-    [focusedPosts, comments.selectedPostId],
-  );
 
   // ─── Auth guard ──────────────────────────────────────────────────────────
   const redirectToAuth = useCallback(() => {
@@ -295,7 +263,7 @@ export default function StoriesFeedScreen() {
         followPending={toggleFollow.isPending}
         onPress={() => onPostCardPress(vm.post.id, vm.post.reaction_count)}
         onLike={() => togglePostLike(vm.post.id, vm.post.reaction_count, runAuthedAction)}
-        onOpenComments={() => runAuthedAction(() => comments.openComments(vm.post.id))}
+        onOpenComments={() => runAuthedAction(() => navigation.navigate("PostDiscussion", { postId: vm.post.id }))}
         onBookNow={() => runAuthedAction(() => navigation.navigate("BookingFlow", { id: vm.post.place_id! }))}
         onShare={() =>
           runAuthedAction(() =>
@@ -430,66 +398,6 @@ export default function StoriesFeedScreen() {
         }
       />
 
-      <CommentsBottomSheet
-        visible={comments.isCommentsModalVisible}
-        onClose={comments.closeComments}
-        comments={postComments}
-        isLoading={isCommentsSheetLoading}
-        hasSelectedPost={!!selectedPost}
-        expandedCommentIds={comments.expandedCommentIds}
-        replyTargetCommentId={comments.replyTargetCommentId}
-        commentInput={comments.commentInput}
-        canSendComment={comments.canSendComment(createPostComment.isPending)}
-        submittingComment={createPostComment.isPending}
-        currentUserId={user?.id}
-        currentUserAvatarUrl={currentUserAvatarUrl}
-        resolveAvatarUri={profileAvatarDisplay}
-        savingCommentId={savingCommentId}
-        deletingCommentId={deletingCommentId}
-        onToggleReplies={comments.toggleReplies}
-        onReplyPress={(commentId) =>
-          runAuthedAction(() => {
-            const parent = postComments.find((c) => c.id === commentId);
-            comments.startReply(commentId, profileMentionTag(parent?.profile));
-          })
-        }
-        onCancelReply={() => comments.cancelReply()}
-        onChangeCommentInput={comments.setCommentInput}
-        onSubmitComment={() => {
-          runAuthedAction(() => {
-            if (!comments.canSendComment(createPostComment.isPending) || !selectedPost) return;
-            void createPostComment.mutateAsync({
-              postId: selectedPost.id,
-              parentCommentId: comments.replyTargetCommentId,
-              content: comments.commentInput,
-            });
-            comments.cancelReply();
-          });
-        }}
-        onSaveCommentEdit={(commentId, content) => {
-          runAuthedAction(() => {
-            if (!selectedPost) return;
-            void updatePostComment.mutateAsync({
-              postId: selectedPost.id,
-              commentId,
-              content,
-            });
-          });
-        }}
-        onDeleteComment={(commentId) => {
-          runAuthedAction(() => {
-            if (!selectedPost) return;
-            if (comments.replyTargetCommentId === commentId) {
-              comments.cancelReply();
-            }
-            void deletePostComment.mutateAsync({
-              postId: selectedPost.id,
-              commentId,
-            });
-          });
-        }}
-      />
-
       <PostBoostConfirmModal
         visible={postBoostConfirm.confirmVisible}
         mode={postBoostConfirm.popupMode}
@@ -614,7 +522,10 @@ function StoriesStripHeader({
               key={`story-bubble-${story.id}`}
               style={styles.storyBubble}
               onPress={() => {
-                if (targetGroupIndex < 0) return;
+                if (targetGroupIndex < 0) {
+                  navigation.navigate("FeedStoryViewer", { storyId: story.id });
+                  return;
+                }
                 const group = storyGroups[targetGroupIndex];
                 const targetStoryIndex = Math.max(0, group.stories.findIndex((s) => s.id === story.id));
                 navigation.navigate("FeedStoryViewer", {

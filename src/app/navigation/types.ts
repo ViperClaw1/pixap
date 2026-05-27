@@ -5,6 +5,7 @@ import type {
   StoryDiscussionRouteParams,
   StoryViewerRouteParams,
 } from "@/shared/model/types/stories";
+import type { PostDiscussionRouteParams } from "@/shared/model/types/postDiscussion";
 
 /** Shared routes for browse/detail flows (mounted on Home + Feed stacks). */
 export type BrowseFlowParamList = {
@@ -16,6 +17,7 @@ export type BrowseFlowParamList = {
   StoryComposer: StoryComposerRouteParams;
   AddStoryFromPost: AddStoryFromPostRouteParams;
   StoryDiscussion: StoryDiscussionRouteParams;
+  PostDiscussion: PostDiscussionRouteParams;
   Category: { id: string };
   ShoppingItems: { id: string };
   BookingFlow: { id: string };

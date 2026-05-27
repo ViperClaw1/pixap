@@ -11,6 +11,7 @@ export * from "./api/useStoryViewer";
 export * from "./api/useStoryProgress";
 export * from "./api/useBatchCreateStoryFromPicker";
 export * from "./api/useAddStoryMediaFlow";
+export { buildStoryGroupsFromFeedAndStrip } from "./lib/storyFeedCachePatch";
 export {
   uploadStoryPickerAssets,
   uploadPostPickerAssets,
