@@ -5,12 +5,18 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { ElementRef } from "react";
-import { Dimensions, Keyboard, Platform, TextInput } from "react-native";
+import { Dimensions, Keyboard, Platform, TextInput, type View } from "react-native";
 import { useSharedValue, type SharedValue } from "react-native-reanimated";
+
+type MeasurableNode = {
+  measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void;
+};
 
 export interface UseFocusedOverlapKeyboardInsetOptions {
   gap: number;
   getFocusedInput: () => ElementRef<typeof TextInput> | null;
+  /** When set, measures this node (e.g. full composer footer) instead of the focused input box. */
+  getMeasureTarget?: () => ElementRef<typeof View> | ElementRef<typeof TextInput> | null;
   enabled?: boolean;
   onKeyboardFrame?: (keyboardTop: number, keyboardHeight: number) => void;
   onKeyboardChange?: (keyboardTop: number, keyboardHeight: number) => void;
@@ -24,18 +30,24 @@ export interface FocusedOverlapKeyboardInsetResult {
 export function useFocusedOverlapKeyboardInset({
   gap,
   getFocusedInput,
+  getMeasureTarget,
   enabled = true,
   onKeyboardFrame,
   onKeyboardChange,
 }: UseFocusedOverlapKeyboardInsetOptions): FocusedOverlapKeyboardInsetResult {
   const extraInset = useSharedValue(0);
   const getFocusedInputRef = useRef(getFocusedInput);
+  const getMeasureTargetRef = useRef(getMeasureTarget);
   const onKeyboardFrameRef = useRef(onKeyboardFrame);
   const onKeyboardChangeRef = useRef(onKeyboardChange);
 
   useEffect(() => {
     getFocusedInputRef.current = getFocusedInput;
   }, [getFocusedInput]);
+
+  useEffect(() => {
+    getMeasureTargetRef.current = getMeasureTarget;
+  }, [getMeasureTarget]);
 
   useEffect(() => {
     onKeyboardFrameRef.current = onKeyboardFrame;
@@ -54,12 +66,12 @@ export function useFocusedOverlapKeyboardInset({
 
   const measureOverlap = useCallback(
     (keyboardTop: number, onDone: (overlap: number) => void) => {
-      const input = getFocusedInputRef.current();
-      if (!input || typeof input.measureInWindow !== "function") {
+      const target = getMeasureTargetRef.current?.() ?? getFocusedInputRef.current();
+      if (!target || typeof (target as MeasurableNode).measureInWindow !== "function") {
         onDone(0);
         return;
       }
-      input.measureInWindow((_x, y, _w, h) => {
+      (target as MeasurableNode).measureInWindow((_x, y, _w, h) => {
         const overlap = Math.max(0, y + h + gap - keyboardTop);
         onDone(overlap);
       });

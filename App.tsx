@@ -16,7 +16,12 @@ import { supabaseConfigError } from "@/shared/api/supabase/client";
 import { logStartupDiagnostics } from "@/shared/lib/startupDiagnostics";
 import { useAppToastConfig } from "@/shared/ui/app-toast/createAppToastConfig";
 import { AppPopupHost } from "@/shared/ui/app-popup";
-import { ensurePushNotificationHandler, setPushNotificationOpenHandler } from "@/shared/lib/push/pushNotifications";
+import {
+  consumeInitialPushNotificationResponse,
+  ensurePushNotificationHandler,
+  setPushNotificationOpenHandler,
+} from "@/shared/lib/push/pushNotifications";
+import { handlePushNotificationOpen } from "@/shared/lib/push/handlePushNotificationOpen";
 import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -46,15 +51,7 @@ function NavigationRoot() {
   }, []);
 
   useEffect(() => {
-    setPushNotificationOpenHandler((data) => {
-      if (!rootNavigationRef.isReady()) return;
-      if (data.kind !== "daily_recommendation") return;
-      const date = typeof data.date === "string" ? data.date : undefined;
-      rootNavigationRef.navigate("Home", {
-        screen: "DailyRecommendations",
-        params: { date },
-      });
-    });
+    setPushNotificationOpenHandler(handlePushNotificationOpen);
     return () => setPushNotificationOpenHandler(null);
   }, []);
 
@@ -80,6 +77,7 @@ function NavigationRoot() {
         theme={navigationTheme}
         onReady={() => {
           markStartup("navigation_container_ready");
+          void consumeInitialPushNotificationResponse();
         }}
       >
         <AppNavigator />

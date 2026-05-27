@@ -11,27 +11,30 @@ const H_GAP = 12;
 const H_PADDING = 12;
 
 const CATEGORY_PILL_W = 88;
-const CATEGORY_PILL_H = 40;
-const CATEGORY_PILL_R = 20;
+const CATEGORY_PILL_H = 44;
+const CATEGORY_PILL_R = 999;
 
 const DEFAULT_FEATURED_COUNT = 3;
 const DEFAULT_RECOMMENDED_COUNT = 3;
 const DEFAULT_CATEGORY_PILLS = 6;
 
-type CategoryProps = { pillCount?: number };
+type CategoryProps = {
+  pillCount?: number;
+  /** Match `HOME_CATEGORY_PILL_HEIGHT` on Home categories row. */
+  pillHeight?: number;
+};
 type FeaturedProps = { cardCount?: number };
 type RecommendedProps = { cardWidth: number; cardCount?: number };
 
-function CategorySkeletonRowInner({ pillCount = DEFAULT_CATEGORY_PILLS }: CategoryProps) {
+function CategorySkeletonRowInner({ pillCount = DEFAULT_CATEGORY_PILLS, pillHeight = CATEGORY_PILL_H }: CategoryProps) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hContent}>
       {Array.from({ length: pillCount }).map((_, i) => (
         <View key={i} style={styles.pillWrap}>
           <ShimmerSurface
             width={CATEGORY_PILL_W}
-            height={CATEGORY_PILL_H}
+            height={pillHeight}
             borderRadius={CATEGORY_PILL_R}
-           
           />
         </View>
       ))}

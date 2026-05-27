@@ -96,6 +96,26 @@ function computeInsetFromOverlap(
   return Math.max(0, rawOverlap - tabBarHeight - bottomInset + gap);
 }
 
+/**
+ * iOS: `screenY` is in screen coordinates; in a native-stack sheet/card `window.height`
+ * is only the card — `windowHeight - keyboardTop` can ≈ full card height and over-lift sticky footers.
+ */
+function resolveIosKeyboardOverlap(
+  windowHeight: number,
+  keyboardTop: number,
+  keyboardHeight: number,
+): number {
+  if (keyboardHeight <= 0) return 0;
+
+  let overlap = Math.max(0, windowHeight - keyboardTop);
+
+  if (keyboardTop < windowHeight * 0.35 || overlap > keyboardHeight * 1.15) {
+    overlap = keyboardHeight;
+  }
+
+  return Math.min(overlap, keyboardHeight);
+}
+
 export function useKeyboardInset(options: KeyboardInsetOptions = {}): SharedValue<number> {
   const {
     tabBarHeight = 0,
@@ -244,7 +264,7 @@ export function useKeyboardInset(options: KeyboardInsetOptions = {}): SharedValu
               baselineWindowHeightRef.current,
               ignoreWindowResize,
             )
-          : Math.max(0, wh - keyboardTop);
+          : resolveIosKeyboardOverlap(wh, keyboardTop, keyboardHeight);
       const nextInset = computeInsetFromOverlap(rawOverlap, tabBarHeight, bottomInset, gap);
 
       if (!enabled) return;
