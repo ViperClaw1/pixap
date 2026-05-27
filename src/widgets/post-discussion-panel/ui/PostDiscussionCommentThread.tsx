@@ -7,34 +7,32 @@ import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import type { DiscussionUiPalette } from "@/shared/theme/discussionPalette";
 import { formatStoryDiscussionTime } from "@/shared/lib/formatRelativeTime";
 import { profileDisplayName } from "@/shared/lib/profileDisplayName";
-import { InlineReplyComposer } from "./InlineReplyComposer";
+import { isOptimisticDiscussionId } from "@/shared/lib/discussionOptimisticId";
+import { getVisibleDiscussionReplies, hasHiddenDiscussionReplies } from "@/shared/lib/discussionPagination";
+import { DiscussionShowMoreButton } from "@/shared/ui/discussion-show-more/DiscussionShowMoreButton";
 
 const AVATAR = 32;
 const ACTION_ICON_SIZE = 13;
 export const THREAD_INDENT = 42;
 
 export type ReplyComposerTarget = {
-  anchorKey: string;
   rootCommentId: string;
   mentionTag: string;
+  replyingToLabel: string;
 };
 
 type Props = {
   palette: DiscussionUiPalette;
   comment: PostComment;
   currentUserId?: string | null;
-  replyTarget: ReplyComposerTarget | null;
-  inlineValue: string;
-  inlineSubmitting: boolean;
-  onChangeInline: (text: string) => void;
-  onSubmitInline: () => void;
-  onCloseInline: () => void;
   onOpenReplyToComment: () => void;
   onOpenReplyToReply: (reply: PostReply) => void;
   onToggleLikeComment: () => void;
   onToggleLikeReply: (reply: PostReply) => void;
   onEditComment: (commentId: string, content: string) => void;
   onDeleteComment: (commentId: string) => void;
+  visibleReplyCount: number;
+  onShowMoreReplies: () => void;
 };
 
 function Avatar({ uri, label, palette }: { uri: string | null; label: string; palette: DiscussionUiPalette }) {
@@ -88,18 +86,20 @@ function ActionColumn({
             </Pressable>
           </>
         ) : null}
-        <Pressable hitSlop={8} style={styles.actionHit} onPress={onToggleLike} accessibilityLabel="Like comment">
-          <AnimatedLikeHeart
-            liked={liked}
-            size={ACTION_ICON_SIZE}
-            color={palette.text}
-            likedColor={palette.likeAccent}
-          />
-        </Pressable>
+        <View style={styles.likeCol}>
+          <Pressable hitSlop={8} style={styles.actionHit} onPress={onToggleLike} accessibilityLabel="Like comment">
+            <AnimatedLikeHeart
+              liked={liked}
+              size={ACTION_ICON_SIZE}
+              color={palette.text}
+              likedColor={palette.likeAccent}
+            />
+          </Pressable>
+          {likeCount > 0 ? (
+            <Text style={[styles.likeCount, { color: palette.textMuted }]}>{likeCount}</Text>
+          ) : null}
+        </View>
       </View>
-      {likeCount > 0 ? (
-        <Text style={[styles.likeCount, { color: palette.textMuted }]}>{likeCount}</Text>
-      ) : null}
     </View>
   );
 }
@@ -108,23 +108,21 @@ export function PostDiscussionCommentThread({
   palette,
   comment,
   currentUserId,
-  replyTarget,
-  inlineValue,
-  inlineSubmitting,
-  onChangeInline,
-  onSubmitInline,
-  onCloseInline,
   onOpenReplyToComment,
   onOpenReplyToReply,
   onToggleLikeComment,
   onToggleLikeReply,
   onEditComment,
   onDeleteComment,
+  visibleReplyCount,
+  onShowMoreReplies,
 }: Props) {
   const name = profileDisplayName(comment.profile);
   const time = formatStoryDiscussionTime(comment.created_at);
-  const showComposerAfterComment = replyTarget?.anchorKey === `c-${comment.id}`;
   const isCommentOwner = Boolean(currentUserId && comment.user_id === currentUserId);
+  const canReplyToComment = !isOptimisticDiscussionId(comment.id);
+  const visibleReplies = getVisibleDiscussionReplies(comment.replies, visibleReplyCount);
+  const showMoreReplies = hasHiddenDiscussionReplies(comment.replies.length, visibleReplyCount);
 
   return (
     <View style={styles.thread}>
@@ -136,9 +134,11 @@ export function PostDiscussionCommentThread({
             {time ? <Text style={[styles.timeInline, { color: palette.textMuted }]}> {time}</Text> : null}
           </Text>
           <Text style={[styles.body, { color: palette.text }]}>{comment.content}</Text>
-          <Pressable hitSlop={6} onPress={onOpenReplyToComment} style={styles.replyBtn}>
-            <Text style={[styles.replyLabel, { color: palette.textMuted }]}>Reply</Text>
-          </Pressable>
+          {canReplyToComment ? (
+            <Pressable hitSlop={6} onPress={onOpenReplyToComment} style={styles.replyBtn}>
+              <Text style={[styles.replyLabel, { color: palette.textMuted }]}>Reply</Text>
+            </Pressable>
+          ) : null}
         </View>
         <ActionColumn
           palette={palette}
@@ -151,23 +151,20 @@ export function PostDiscussionCommentThread({
         />
       </View>
 
-      {showComposerAfterComment ? (
-        <InlineReplyComposer
+      {showMoreReplies ? (
+        <DiscussionShowMoreButton
+          label="Show more replies"
+          onPress={onShowMoreReplies}
           palette={palette}
-          replyingToLabel={`Replying to ${profileDisplayName(comment.profile)}`}
-          value={inlineValue}
-          submitting={inlineSubmitting}
-          onChangeText={onChangeInline}
-          onSubmit={onSubmitInline}
-          onClose={onCloseInline}
+          style={styles.showMoreReplies}
         />
       ) : null}
 
-      {comment.replies.map((reply) => {
+      {visibleReplies.map((reply) => {
         const rName = profileDisplayName(reply.profile);
         const rTime = formatStoryDiscussionTime(reply.created_at);
-        const showComposerAfterReply = replyTarget?.anchorKey === `r-${reply.id}`;
         const isReplyOwner = Boolean(currentUserId && reply.user_id === currentUserId);
+        const canReplyToReply = !isOptimisticDiscussionId(reply.id);
 
         return (
           <View key={reply.id}>
@@ -179,9 +176,11 @@ export function PostDiscussionCommentThread({
                   {rTime ? <Text style={[styles.timeInline, { color: palette.textMuted }]}> {rTime}</Text> : null}
                 </Text>
                 <Text style={[styles.body, { color: palette.text }]}>{reply.content}</Text>
-                <Pressable hitSlop={6} onPress={() => onOpenReplyToReply(reply)} style={styles.replyBtn}>
-                  <Text style={[styles.replyLabel, { color: palette.textMuted }]}>Reply</Text>
-                </Pressable>
+                {canReplyToReply ? (
+                  <Pressable hitSlop={6} onPress={() => onOpenReplyToReply(reply)} style={styles.replyBtn}>
+                    <Text style={[styles.replyLabel, { color: palette.textMuted }]}>Reply</Text>
+                  </Pressable>
+                ) : null}
               </View>
               <ActionColumn
                 palette={palette}
@@ -193,19 +192,6 @@ export function PostDiscussionCommentThread({
                 onToggleLike={() => onToggleLikeReply(reply)}
               />
             </View>
-
-            {showComposerAfterReply ? (
-              <InlineReplyComposer
-                palette={palette}
-                replyingToLabel={`Replying to ${profileDisplayName(reply.profile)}`}
-                value={inlineValue}
-                submitting={inlineSubmitting}
-                onChangeText={onChangeInline}
-                onSubmit={onSubmitInline}
-                onClose={onCloseInline}
-                indentStyle={{ marginLeft: THREAD_INDENT }}
-              />
-            ) : null}
           </View>
         );
       })}
@@ -223,6 +209,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   replyRow: {
+    marginLeft: THREAD_INDENT,
+    marginTop: 8,
+  },
+  showMoreReplies: {
     marginLeft: THREAD_INDENT,
     marginTop: 8,
   },
@@ -279,8 +269,12 @@ const styles = StyleSheet.create({
   },
   actionIconsRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
+  },
+  likeCol: {
+    alignItems: "center",
+    minWidth: ACTION_ICON_SIZE + 4,
   },
   actionHit: {
     width: ACTION_ICON_SIZE + 4,

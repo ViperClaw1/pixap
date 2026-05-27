@@ -354,11 +354,25 @@ export default function FeedStoryViewerPage() {
   const onSubmitReply = useCallback(async () => {
     if (!activeStory) return;
     const content = inputValue.trim();
-    if (!content) return;
-    await replyMutation.mutateAsync({ storyId: activeStory.id, content });
+    if (!content || replyMutation.isPending) return;
+
+    const storyId = activeStory.id;
+    const placeId = activeStory.place_id;
     setInputValue("");
     Keyboard.dismiss();
-  }, [activeStory, inputValue, replyMutation]);
+    navigation.navigate("StoryDiscussion", { storyId, placeId });
+
+    try {
+      await replyMutation.mutateAsync({ storyId, content });
+    } catch (error) {
+      setInputValue(content);
+      if (isAuthRequiredError(error)) {
+        navigateToAuthScreen(navigation);
+        return;
+      }
+      Alert.alert("Failed", error instanceof Error ? error.message : "Could not send reply");
+    }
+  }, [activeStory, inputValue, navigation, replyMutation]);
 
   const onToggleLike = useCallback(async () => {
     if (!activeStory) return;

@@ -11,7 +11,9 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type TextInput,
 } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import {
   useNavigation,
   useRoute,
@@ -39,14 +41,18 @@ import { StorySlide } from "@/widgets/stories-strip";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
-import Toast from "react-native-toast-message";
 import { getFeedStoryFullscreenImageUrl } from "@/shared/lib/feedMediaUrls";
+import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { StoryDiscussionGlassSheet } from "./StoryDiscussionGlassSheet";
 
 type StoryViewerRoute = RouteProp<BrowseFlowParamList, "StoryViewer">;
 type StoryViewerNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryViewer">;
 
 const AUTO_ADVANCE_MS = 7000;
+/** Matches `igComposerRow` Android paddingBottom — keep in sync. */
+const COMPOSER_FOOTER_PADDING_ANDROID = 10;
+/** Lifts composer above keyboard on Android (footer padding + buffer). */
+const COMPOSER_ANDROID_KEYBOARD_GAP = COMPOSER_FOOTER_PADDING_ANDROID + 35;
 type FlatStoryRow = { story: StoryItem; groupIndex: number; storyIndex: number; key: string };
 
 function formatStoryTime(value: string) {
@@ -78,13 +84,18 @@ export default function StoryViewerScreen() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const flatListRef = useRef<FlatList<FlatStoryRow>>(null);
+  const composerInputRef = useRef<TextInput>(null);
+  const frozenLayoutHeightRef = useRef(height);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [discussionOpen, setDiscussionOpen] = useState(false);
   const [quickComment, setQuickComment] = useState("");
+  const viewerGroups = params.groups ?? [];
+  const viewerInitialGroupIndex = params.initialGroupIndex ?? 0;
+  const viewerInitialStoryIndex = params.initialStoryIndex ?? 0;
   const viewer = useStoryViewer({
-    groups: params.groups,
-    initialGroupIndex: params.initialGroupIndex,
-    initialStoryIndex: params.initialStoryIndex,
+    groups: viewerGroups,
+    initialGroupIndex: viewerInitialGroupIndex,
+    initialStoryIndex: viewerInitialStoryIndex,
   });
 
   const activeStory = viewer.activeStory;
@@ -107,6 +118,14 @@ export default function StoryViewerScreen() {
   }, []);
 
   useEffect(() => {
+    if (Platform.OS !== "android") return;
+    if (!keyboardOpen) {
+      frozenLayoutHeightRef.current = height;
+    }
+  }, [height, keyboardOpen]);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
     const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardOpen(true));
     const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardOpen(false));
     return () => {
@@ -114,6 +133,22 @@ export default function StoryViewerScreen() {
       hideSub.remove();
     };
   }, []);
+
+  const androidKeyboardInset = useKeyboardInset({
+    gap: COMPOSER_ANDROID_KEYBOARD_GAP,
+    ignoreWindowResize: true,
+    enabled: Platform.OS === "android",
+    onKeyboardChange: (_keyboardTop, keyboardHeight) => {
+      setKeyboardOpen(keyboardHeight > 0);
+    },
+  });
+
+  const androidBottomLiftStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ translateY: -androidKeyboardInset.value }],
+    }),
+    [androidKeyboardInset],
+  );
 
   const { goToNextStory, goToPreviousStory, goToNextGroup, goToPreviousGroup, setPaused } = viewer;
   const goNext = useCallback(() => {
@@ -149,12 +184,12 @@ export default function StoryViewerScreen() {
 
   useEffect(() => {
     const next = parseStoryMediaUrl(viewer.flatStories[viewer.currentFlatIndex + 1]?.story.media_url);
-    const nextGroup = parseStoryMediaUrl(params.groups[viewer.currentGroupIndex + 1]?.stories[0]?.media_url);
+    const nextGroup = parseStoryMediaUrl(viewerGroups[viewer.currentGroupIndex + 1]?.stories[0]?.media_url);
     const nextOptimized = getFeedStoryFullscreenImageUrl(next) || next;
     const nextGroupOptimized = getFeedStoryFullscreenImageUrl(nextGroup) || nextGroup;
     if (nextOptimized) void Image.prefetch(nextOptimized);
     if (nextGroupOptimized) void Image.prefetch(nextGroupOptimized);
-  }, [params.groups, viewer.currentFlatIndex, viewer.currentGroupIndex, viewer.flatStories]);
+  }, [viewerGroups, viewer.currentFlatIndex, viewer.currentGroupIndex, viewer.flatStories]);
 
   const closeViewerAndRouteToAuth = useCallback(() => {
     navigation.goBack();
@@ -188,12 +223,18 @@ export default function StoryViewerScreen() {
     if (!activeStory) return;
     const text = quickComment.trim();
     if (!text || replyMutation.isPending) return;
+
+    const storyId = activeStory.id;
+    setQuickComment("");
+    Keyboard.dismiss();
+    setDiscussionOpen(true);
+
     try {
-      await replyMutation.mutateAsync({ storyId: activeStory.id, content: text });
-      setQuickComment("");
-      Toast.show({ type: "success", text1: "Your comment was added" });
+      await replyMutation.mutateAsync({ storyId, content: text });
     } catch (error) {
+      setQuickComment(text);
       if (isAuthRequiredError(error)) {
+        setDiscussionOpen(false);
         closeViewerAndRouteToAuth();
         return;
       }
@@ -243,7 +284,9 @@ export default function StoryViewerScreen() {
     [longPressGesture, panGesture, tapGesture],
   );
 
-  const contentHeight = Math.max(220, height - insets.top - insets.bottom - 320);
+  const layoutHeight =
+    Platform.OS === "android" && keyboardOpen ? frozenLayoutHeightRef.current : height;
+  const contentHeight = Math.max(220, layoutHeight - insets.top - insets.bottom - 320);
   const rawAuthorAvatar = activeStory?.profile?.avatar_url ?? activeGroup?.profile?.avatar_url ?? null;
   const authorAvatarRaw =
     typeof rawAuthorAvatar === "string" && rawAuthorAvatar.trim().length > 0 ? rawAuthorAvatar.trim() : null;
@@ -269,156 +312,204 @@ export default function StoryViewerScreen() {
     );
   }
 
+  const storySurface = (
+    <GestureDetector gesture={composedGesture}>
+      <View
+        style={[
+          styles.gestureSurface,
+          {
+            backgroundColor: colors.background,
+            borderTopLeftRadius: 18,
+            borderTopRightRadius: 18,
+          },
+        ]}
+      >
+        <FlatList
+          ref={flatListRef}
+          horizontal
+          pagingEnabled
+          data={viewer.flatStories}
+          scrollEnabled={false}
+          keyExtractor={(item) => item.key}
+          getItemLayout={(_data, index) => ({ length: width, offset: width * index, index })}
+          initialScrollIndex={viewer.currentFlatIndex}
+          onScrollToIndexFailed={onScrollToIndexFailed}
+          renderItem={({ item }) => <StorySlide story={item.story} width={width} height={contentHeight} />}
+          style={styles.slider}
+          removeClippedSubviews
+          initialNumToRender={1}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+        />
+        <View style={styles.mediaOverlayTop}>
+          <View style={styles.sheetHandleWrap}>
+            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+          </View>
+          <View style={styles.progressWrap}>
+            <StoryProgressBar
+              count={activeGroup.stories.length}
+              currentIndex={viewer.currentStoryIndex}
+              progress={progress}
+            />
+          </View>
+        </View>
+
+        {Platform.OS === "android" ? (
+          <Animated.View
+            style={[
+              styles.bottomArea,
+              {
+                backgroundColor: colors.card,
+                paddingBottom: 0,
+                paddingTop: Math.max(38, Math.round(authorAvatarSize * 0.55)),
+              },
+              androidBottomLiftStyle,
+            ]}
+          >
+            {renderBottomAreaContent()}
+          </Animated.View>
+        ) : (
+          <View
+            style={[
+              styles.bottomArea,
+              {
+                backgroundColor: colors.card,
+                paddingBottom: 0,
+                paddingTop: Math.max(38, Math.round(authorAvatarSize * 0.55)),
+              },
+            ]}
+          >
+            {renderBottomAreaContent()}
+          </View>
+        )}
+      </View>
+    </GestureDetector>
+  );
+
+  function renderBottomAreaContent() {
+    return (
+      <>
+        <View
+          style={[
+            styles.authorAvatarWrap,
+            {
+              top: -authorAvatarRadius,
+              left: 16,
+              width: authorAvatarSize,
+              height: authorAvatarSize,
+              borderRadius: authorAvatarRadius,
+              borderColor: colors.card,
+              backgroundColor: colors.background,
+            },
+          ]}
+        >
+          {authorAvatarDisplay ? (
+            <SmartImage
+              uri={authorAvatarDisplay}
+              fallbackUri={authorAvatarRaw && authorAvatarRaw !== authorAvatarDisplay ? authorAvatarRaw : undefined}
+              recyclingKey={authorAvatarDisplay}
+              style={styles.authorAvatarImage}
+              contentFit="cover"
+              skipBundledPlaceholder
+            />
+          ) : (
+            <View style={styles.authorAvatarPlaceholder} pointerEvents="none">
+              <Ionicons
+                name="person-outline"
+                size={32}
+                color={colors.text}
+                style={Platform.OS === "android" ? ({ includeFontPadding: false } as const) : undefined}
+              />
+            </View>
+          )}
+        </View>
+        <View style={styles.authorMeta}>
+          <Text style={[styles.authorNameText, { color: colors.text }]}>
+            {(activeGroup.profile?.first_name ?? "User").trim()}
+          </Text>
+          <Text style={[styles.authorDateText, { color: colors.textMuted }]}>
+            {formatStoryTime(activeStory.created_at)}
+          </Text>
+        </View>
+        <Text style={[styles.postText, { color: "#000" }]} numberOfLines={6} ellipsizeMode="tail">
+          {activeStory.content}
+        </Text>
+        <View style={styles.igComposerFooter}>
+          <View
+            style={[
+              styles.igComposerRow,
+              {
+                paddingBottom: Math.max(
+                  COMPOSER_FOOTER_PADDING_ANDROID,
+                  Math.max(insets.bottom, Platform.OS === "android" ? 8 : 0),
+                ),
+              },
+            ]}
+          >
+            <View style={styles.igInputWrap}>
+              <RichTextarea
+                ref={composerInputRef}
+                value={quickComment}
+                onChangeText={setQuickComment}
+                placeholder="Send message..."
+                placeholderTextColor="rgba(255,255,255,0.45)"
+                textAlignVertical="center"
+                editable={!replyMutation.isPending}
+                onFocus={() => {
+                  if (Platform.OS === "android") {
+                    frozenLayoutHeightRef.current = height;
+                  }
+                }}
+                style={styles.igInput}
+              />
+            </View>
+            <View style={styles.igActions}>
+              <Pressable hitSlop={12} style={styles.igIconHit} onPress={() => void onReact("like")}>
+                <AnimatedLikeHeart
+                  liked={localReaction === "like"}
+                  size={26}
+                  color="#FFFFFF"
+                  likedColor="#F4212E"
+                />
+              </Pressable>
+              <Pressable hitSlop={12} style={styles.igIconHit} onPress={() => setDiscussionOpen(true)}>
+                <Ionicons name="chatbubble-outline" size={24} color="#FFFFFF" />
+              </Pressable>
+              <Pressable
+                hitSlop={12}
+                style={styles.igIconHit}
+                onPress={() => void submitQuickComment()}
+                disabled={!quickComment.trim() || replyMutation.isPending}
+              >
+                <Ionicons
+                  name="paper-plane-outline"
+                  size={25}
+                  color={quickComment.trim() && !replyMutation.isPending ? "#FFFFFF" : "rgba(255,255,255,0.35)"}
+                />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </>
+    );
+  }
+
   return (
     <SafeAreaView
       style={[styles.root, { backgroundColor: "rgba(0,0,0,0.45)" }]}
       edges={["top"]}
     >
-      <KeyboardAvoidingView
-        style={styles.root}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Math.max(insets.top, 8)}
-      >
-        <GestureDetector gesture={composedGesture}>
-          <View
-            style={[
-              styles.gestureSurface,
-              {
-                backgroundColor: colors.background,
-                borderTopLeftRadius: 18,
-                borderTopRightRadius: 18,
-              },
-            ]}
-          >
-            <FlatList
-              ref={flatListRef}
-              horizontal
-              pagingEnabled
-              data={viewer.flatStories}
-              scrollEnabled={false}
-              keyExtractor={(item) => item.key}
-              getItemLayout={(_data, index) => ({ length: width, offset: width * index, index })}
-              initialScrollIndex={viewer.currentFlatIndex}
-              onScrollToIndexFailed={onScrollToIndexFailed}
-              renderItem={({ item }) => <StorySlide story={item.story} width={width} height={contentHeight} />}
-              style={styles.slider}
-              removeClippedSubviews
-              initialNumToRender={1}
-              maxToRenderPerBatch={2}
-              windowSize={3}
-            />
-            <View style={styles.mediaOverlayTop}>
-              <View style={styles.sheetHandleWrap}>
-                <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-              </View>
-              <View style={styles.progressWrap}>
-                <StoryProgressBar
-                  count={activeGroup.stories.length}
-                  currentIndex={viewer.currentStoryIndex}
-                  progress={progress}
-                />
-              </View>
-            </View>
-
-            <View
-              style={[
-                styles.bottomArea,
-                {
-                  backgroundColor: colors.card,
-                  paddingBottom: 0,
-                  paddingTop: Math.max(38, Math.round(authorAvatarSize * 0.55)),
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.authorAvatarWrap,
-                  {
-                    top: -authorAvatarRadius,
-                    left: 16,
-                    width: authorAvatarSize,
-                    height: authorAvatarSize,
-                    borderRadius: authorAvatarRadius,
-                    borderColor: colors.card,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                {authorAvatarDisplay ? (
-                  <SmartImage
-                    uri={authorAvatarDisplay}
-                    fallbackUri={authorAvatarRaw && authorAvatarRaw !== authorAvatarDisplay ? authorAvatarRaw : undefined}
-                    recyclingKey={authorAvatarDisplay}
-                    style={styles.authorAvatarImage}
-                    contentFit="cover"
-                    skipBundledPlaceholder
-                  />
-                ) : (
-                  <View style={styles.authorAvatarPlaceholder} pointerEvents="none">
-                    <Ionicons
-                      name="person-outline"
-                      size={32}
-                      color={colors.text}
-                      style={Platform.OS === "android" ? ({ includeFontPadding: false } as const) : undefined}
-                    />
-                  </View>
-                )}
-              </View>
-              <View style={styles.authorMeta}>
-                <Text style={[styles.authorNameText, { color: colors.text }]}>
-                  {(activeGroup.profile?.first_name ?? "User").trim()}
-                </Text>
-                <Text style={[styles.authorDateText, { color: colors.textMuted }]}>
-                  {formatStoryTime(activeStory.created_at)}
-                </Text>
-              </View>
-              <Text style={[styles.postText, { color: "#000" }]} numberOfLines={6} ellipsizeMode="tail">
-                {activeStory.content}
-              </Text>
-              <View style={styles.igComposerFooter}>
-                <View style={[styles.igComposerRow, { paddingBottom: Math.max(10, Math.max(insets.bottom, Platform.OS === "android" ? 8 : 0)) }]}>
-                  <View style={styles.igInputWrap}>
-                    <RichTextarea
-                      value={quickComment}
-                      onChangeText={setQuickComment}
-                      placeholder="Send message..."
-                      placeholderTextColor="rgba(255,255,255,0.45)"
-                      textAlignVertical="center"
-                      editable={!replyMutation.isPending}
-                      style={styles.igInput}
-                    />
-                  </View>
-                  <View style={styles.igActions}>
-                    <Pressable hitSlop={12} style={styles.igIconHit} onPress={() => void onReact("like")}>
-                      <AnimatedLikeHeart
-                        liked={localReaction === "like"}
-                        size={26}
-                        color="#FFFFFF"
-                        likedColor="#F4212E"
-                      />
-                    </Pressable>
-                    <Pressable hitSlop={12} style={styles.igIconHit} onPress={() => setDiscussionOpen(true)}>
-                      <Ionicons name="chatbubble-outline" size={24} color="#FFFFFF" />
-                    </Pressable>
-                    <Pressable
-                      hitSlop={12}
-                      style={styles.igIconHit}
-                      onPress={() => void submitQuickComment()}
-                      disabled={!quickComment.trim() || replyMutation.isPending}
-                    >
-                      <Ionicons
-                        name="paper-plane-outline"
-                        size={25}
-                        color={quickComment.trim() && !replyMutation.isPending ? "#FFFFFF" : "rgba(255,255,255,0.35)"}
-                      />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
-        </GestureDetector>
-      </KeyboardAvoidingView>
+      {Platform.OS === "ios" ? (
+        <KeyboardAvoidingView
+          style={styles.root}
+          behavior="padding"
+          keyboardVerticalOffset={Math.max(insets.top, 8)}
+        >
+          {storySurface}
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={styles.root}>{storySurface}</View>
+      )}
 
       <StoryDiscussionGlassSheet
         visible={discussionOpen}

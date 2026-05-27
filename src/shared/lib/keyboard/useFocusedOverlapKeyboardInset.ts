@@ -41,6 +41,7 @@ export function useFocusedOverlapKeyboardInset({
     rawOverlap: number;
     duration?: number;
   } | null>(null);
+  const lastAppliedOverlapRef = useRef(0);
 
   const measureOverlap = useCallback(
     (keyboardTop: number, onDone: (overlap: number) => void) => {
@@ -60,6 +61,7 @@ export function useFocusedOverlapKeyboardInset({
   const animateTo = useCallback(
     (overlap: number, duration?: number, options?: { animate?: boolean }) => {
       if (!enabled) return;
+      lastAppliedOverlapRef.current = overlap;
       if (Platform.OS === "ios" && options?.animate === false) {
         extraInset.value = overlap;
         return;
@@ -95,8 +97,11 @@ export function useFocusedOverlapKeyboardInset({
   const recalculate = useCallback(() => {
     const last = lastFrameRef.current;
     if (!last || last.rawOverlap <= 1) return;
-    measureOverlap(last.keyboardTop, (overlap) => {
-      animateTo(overlap, last.duration ?? 200);
+    measureOverlap(last.keyboardTop, (measuredOverlap) => {
+      // measureInWindow includes the current translateY lift, so overlap reads ~0 once lifted.
+      // Reconstruct the natural (un-lifted) overlap before applying a new inset.
+      const correctedOverlap = measuredOverlap + lastAppliedOverlapRef.current;
+      animateTo(correctedOverlap, last.duration ?? 200);
     });
   }, [animateTo, measureOverlap]);
 
@@ -131,6 +136,7 @@ export function useFocusedOverlapKeyboardInset({
 
     const handleHide = (event?: { duration?: number }) => {
       lastFrameRef.current = null;
+      lastAppliedOverlapRef.current = 0;
       const wh = windowHeight();
       onKeyboardFrameRef.current?.(wh, 0);
       animateTo(0, event?.duration);
