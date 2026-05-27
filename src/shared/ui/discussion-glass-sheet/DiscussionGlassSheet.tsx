@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   Keyboard,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   View,

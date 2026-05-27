@@ -29,9 +29,9 @@ export function useAndroidFullSwipeBackPanHandlers(
 
     const panResponder = PanResponder.create({
       onMoveShouldSetPanResponderCapture: (_e, g) =>
-        g.dx > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.15,
+        g.dx > 5 && Math.abs(g.dx) > Math.abs(g.dy) * 1.1,
       onPanResponderRelease: (_e, g) => {
-        const swipeRight = g.dx > 48 && Math.abs(g.dx) > Math.abs(g.dy) * 1.05;
+        const swipeRight = g.dx > 36 && Math.abs(g.dx) > Math.abs(g.dy) * 1.05;
         if (!swipeRight) return;
         const nav = navRef.current;
         if (nav.canGoBack()) {

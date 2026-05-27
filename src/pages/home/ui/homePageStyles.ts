@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
+import { HOME_CATEGORY_PILL_HEIGHT } from "../model/constants";
 
 export const homePageStaticStyles = StyleSheet.create({
   root: { flex: 1 },
@@ -131,11 +132,13 @@ export const homePageStaticStyles = StyleSheet.create({
   sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   link: { fontSize: 12, fontWeight: "600" },
   pill: {
+    minHeight: HOME_CATEGORY_PILL_HEIGHT,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
     marginRight: 8,
     borderWidth: 1,
+    justifyContent: "center",
   },
   pillContent: { flexDirection: "row", alignItems: "center", gap: 8 },
   pillIconWrap: {

@@ -53,6 +53,7 @@ import { homePageStaticStyles, homePageThemeStyles } from "./homePageStyles";
 import {
   CATEGORY_PILL_ESTIMATED_WIDTH,
   FEATURED_CARD_ESTIMATED_WIDTH,
+  HOME_CATEGORY_PILL_HEIGHT,
   RECOMMENDED_BATCH_SIZE,
   RECOMMENDED_ITEM_ESTIMATED_SIZE,
 } from "../model/constants";
@@ -349,7 +350,9 @@ export default function HomeScreen() {
 
         <Text style={styles.sectionTitle}>{t("home.categories")}</Text>
         {lc ? (
-          <CategorySkeletonRow />
+          <View style={styles.categoriesFlatList}>
+            <CategorySkeletonRow pillHeight={HOME_CATEGORY_PILL_HEIGHT} />
+          </View>
         ) : (
           <FlashList
             horizontal

@@ -194,6 +194,25 @@ export const aiBookingStaticStyles = StyleSheet.create({
   },
   pickerRowText: { fontSize: 15 },
   pickerCheck: { fontWeight: "700", fontSize: 12 },
+  pickerRowComingSoon: { opacity: 0.92 },
+  pickerRowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+    marginLeft: 8,
+  },
+  categoryComingSoonBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  categoryComingSoonBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+    textTransform: "uppercase",
+  },
   pickerRowLeft: {
     flexDirection: "row",
     alignItems: "center",
@@ -324,6 +343,9 @@ export function aiBookingThemeStyles(colors: ThemeColors, insets: { top: number;
     pickerRow: { borderBottomColor: colors.border },
     pickerRowText: { color: colors.text },
     pickerCheck: { color: colors.primary },
+    pickerRowComingSoon: { opacity: 0.92 },
+    categoryComingSoonBadge: { backgroundColor: colors.notification },
+    categoryComingSoonBadgeText: { color: colors.onPrimary },
     pickerRowIconWrap: {
       backgroundColor: colors.background,
       borderColor: colors.border,

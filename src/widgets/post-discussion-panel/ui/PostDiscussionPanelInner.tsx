@@ -15,7 +15,6 @@ import {
   type ViewStyle,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/app/providers/AuthProvider";
 import {
@@ -44,7 +43,12 @@ import {
 import { QUICK_EMOJI } from "@/shared/lib/discussionQuickEmoji";
 import { AppPopupModal, appAlert } from "@/shared/ui/app-popup";
 import { DiscussionCommentSkeletonList } from "@/shared/ui/discussion-skeleton";
-import { DISCUSSION_ANDROID_FOOTER_PADDING, KeyboardStickyView, useKeyboardInset } from "@/shared/lib/keyboard";
+import {
+  DISCUSSION_IOS_LIST_FOOTER_CLEARANCE,
+  KeyboardStickyView,
+  useDiscussionPanelFooterKeyboard,
+} from "@/shared/lib/keyboard";
+import Animated from "react-native-reanimated";
 import { DiscussionShowMoreButton } from "@/shared/ui/discussion-show-more/DiscussionShowMoreButton";
 import {
   getVisibleDiscussionComments,
@@ -70,8 +74,6 @@ export type PostDiscussionPanelInnerProps = {
   onClose?: () => void;
   /** When false, pagination/scroll reset waits until the sheet opens again. Defaults to true. */
   isActive?: boolean;
-  /** screen = full page (adjustResize); overlay = modal / glass sheet. */
-  keyboardHost?: "screen" | "overlay";
 };
 
 export function PostDiscussionPanelInner({
@@ -85,15 +87,22 @@ export function PostDiscussionPanelInner({
   onListContentSizeChange,
   onClose,
   isActive = true,
-  keyboardHost = "screen",
 }: PostDiscussionPanelInnerProps) {
   const palette = discussionPalette ?? discussionPaletteDark;
   const footerBackgroundColor = footerBackgroundOverride ?? palette.footerBg;
   const footerBorderColor = footerBorderOverride ?? palette.footerBorder;
-  const insets = useSafeAreaInsets();
   const [footerHeight, setFooterHeight] = useState(120);
-  const { user } = useAuth();
   const composerInputRef = useRef<TextInput>(null);
+  const footerShellRef = useRef<View>(null);
+  const {
+    RootOuter,
+    rootLiftStyle,
+    footerPaddingBottom,
+    useStickyFooter,
+    composerStickyInset,
+    iosStickyFooterPaddingStyle,
+  } = useDiscussionPanelFooterKeyboard(isActive, { host: "navigation-modal" });
+  const { user } = useAuth();
   const composerBlurResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressComposerBlurResetRef = useRef(false);
 
@@ -105,16 +114,6 @@ export function PostDiscussionPanelInner({
     },
     [],
   );
-
-  const footerPaddingBottom =
-    Platform.OS === "android" ? DISCUSSION_ANDROID_FOOTER_PADDING : Math.max(16, insets.bottom + 10);
-
-  const footerKeyboardInset = useKeyboardInset({
-    gap: 0,
-    enabled: isActive,
-    ignoreWindowResize: keyboardHost === "overlay",
-    bottomInset: 0,
-  });
 
   const { data: comments = [], isLoading: commentsLoading } = usePostComments(postId);
   const { data: myProfile } = useProfile();
@@ -487,85 +486,29 @@ export function PostDiscussionPanelInner({
     () => [
       styles.listContent,
       listContentStyleProp,
-      { paddingBottom: footerHeight },
+      useStickyFooter && Platform.OS === "ios"
+        ? { paddingBottom: footerHeight + DISCUSSION_IOS_LIST_FOOTER_CLEARANCE }
+        : null,
       !commentsLoading && sorted.length === 0 && styles.listContentEmpty,
     ],
-    [commentsLoading, footerHeight, listContentStyleProp, sorted.length],
+    [commentsLoading, footerHeight, listContentStyleProp, sorted.length, useStickyFooter],
   );
 
-  const handleSkeletonLayout = useCallback(
-    (width: number, height: number) => {
-      onListContentSizeChange?.(width, height);
-    },
-    [onListContentSizeChange],
-  );
+  const composerFooter = useMemo(() => {
+    const FooterShell = useStickyFooter ? Animated.View : View;
 
-  return (
-    <View style={styles.flex}>
-      {onClose ? (
-        <View style={styles.panelHeader}>
-          <Text style={[styles.panelHeaderTitle, { color: palette.text }]}>Comments</Text>
-          <Pressable
-            onPress={onClose}
-            hitSlop={12}
-            style={styles.panelCloseBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <Ionicons name="close" size={24} color={palette.text} />
-          </Pressable>
-        </View>
-      ) : null}
-      {commentsLoading ? (
-        <View style={styles.list}>
-          <DiscussionCommentSkeletonList onLayout={handleSkeletonLayout} />
-        </View>
-      ) : (
-        <FlashList
-          ref={listRef}
-          data={visibleComments}
-          keyExtractor={(item) => item.id}
-          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.storyComment}
-          renderItem={renderItem}
-          ListHeaderComponent={listHeader}
-          extraData={[
-            replyTarget,
-            editingComment,
-            replyThreadMutation.isPending,
-            reactMutation.isPending,
-            updateCommentMutation.isPending,
-            visibleComments,
-            visibleCommentCount,
-            replyVisibleCounts,
-            palette,
-            user?.id,
-          ]}
-          contentContainerStyle={listContentContainerStyle}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          onScrollBeginDrag={() => Keyboard.dismiss()}
-          ListEmptyComponent={listEmptyComponent}
-          style={styles.list}
-          onContentSizeChange={(w, h) => onListContentSizeChange?.(w, h)}
-          removeClippedSubviews={Platform.OS !== "android"}
-          initialNumToRender={8}
-          maxToRenderPerBatch={10}
-          windowSize={8}
-          updateCellsBatchingPeriod={40}
-        />
-      )}
-
-      <KeyboardStickyView gap={0} inset={footerKeyboardInset} onLayout={handleFooterLayout}>
-        <View
-          style={[
-            styles.footer,
-            {
-              backgroundColor: footerBackgroundColor,
-              borderTopColor: footerBorderColor,
-              paddingBottom: footerPaddingBottom,
-            },
-          ]}
-        >
+    return (
+      <FooterShell
+        ref={useStickyFooter ? undefined : footerShellRef}
+        style={[
+          styles.footer,
+          {
+            backgroundColor: footerBackgroundColor,
+            borderTopColor: footerBorderColor,
+          },
+          useStickyFooter ? iosStickyFooterPaddingStyle : { paddingBottom: footerPaddingBottom },
+        ]}
+      >
         {editingComment ? (
           <View style={styles.contextBar}>
             <Text style={[styles.contextBarText, { color: palette.textMuted }]}>Editing comment</Text>
@@ -700,8 +643,114 @@ export function PostDiscussionPanelInner({
             )}
           </View>
         </View>
+      </FooterShell>
+    );
+  }, [
+      appendEmojiToDraft,
+      cancelEditingComment,
+      cancelReply,
+      createCommentMutation.isPending,
+      editingComment,
+      footerBackgroundColor,
+      footerBorderColor,
+      footerPaddingBottom,
+      handleComposerBlur,
+      iosStickyFooterPaddingStyle,
+      mainDraft,
+      myAvatarRaw,
+      myAvatarUri,
+      myLabel,
+      palette.avatarFallback,
+      palette.inputBg,
+      palette.sendAccent,
+      palette.text,
+      palette.textMuted,
+      replyTarget,
+      replyThreadMutation.isPending,
+      saveEditedComment,
+      showEmojiRow,
+      submitMainComment,
+      submitThreadReply,
+      updateCommentMutation.isPending,
+      useStickyFooter,
+    ],
+  );
+
+  const handleSkeletonLayout = useCallback(
+    (width: number, height: number) => {
+      onListContentSizeChange?.(width, height);
+    },
+    [onListContentSizeChange],
+  );
+
+  return (
+    <RootOuter style={[styles.flex, rootLiftStyle]}>
+      {onClose ? (
+        <View style={styles.panelHeader}>
+          <Text style={[styles.panelHeaderTitle, { color: palette.text }]}>Comments</Text>
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            style={styles.panelCloseBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <Ionicons name="close" size={24} color={palette.text} />
+          </Pressable>
         </View>
-      </KeyboardStickyView>
+      ) : null}
+      {commentsLoading ? (
+        <View style={styles.list}>
+          <DiscussionCommentSkeletonList onLayout={handleSkeletonLayout} />
+        </View>
+      ) : (
+        <FlashList
+          ref={listRef}
+          data={visibleComments}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.storyComment}
+          renderItem={renderItem}
+          ListHeaderComponent={listHeader}
+          extraData={[
+            replyTarget,
+            editingComment,
+            replyThreadMutation.isPending,
+            reactMutation.isPending,
+            updateCommentMutation.isPending,
+            visibleComments,
+            visibleCommentCount,
+            replyVisibleCounts,
+            palette,
+            user?.id,
+          ]}
+          contentContainerStyle={listContentContainerStyle}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          onScrollBeginDrag={() => Keyboard.dismiss()}
+          ListEmptyComponent={listEmptyComponent}
+          style={styles.list}
+          onContentSizeChange={(w, h) => onListContentSizeChange?.(w, h)}
+          removeClippedSubviews={Platform.OS !== "android"}
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={8}
+          updateCellsBatchingPeriod={40}
+        />
+      )}
+
+      {useStickyFooter ? (
+        <KeyboardStickyView
+          gap={0}
+          bottomInset={0}
+          enabled={isActive}
+          inset={composerStickyInset}
+          onLayout={handleFooterLayout}
+        >
+          {composerFooter}
+        </KeyboardStickyView>
+      ) : (
+        composerFooter
+      )}
 
       <Modal
         visible={deleteTargetId !== null}
@@ -722,7 +771,7 @@ export function PostDiscussionPanelInner({
           ]}
         />
       </Modal>
-    </View>
+    </RootOuter>
   );
 }
 

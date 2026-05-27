@@ -7,6 +7,7 @@ import {
   formatFunctionsError,
   invokeSupabaseFunctionWithAuth,
 } from "@/shared/lib/invokeSupabaseFunction";
+import { handlePushNotificationOpen } from "@/shared/lib/push/handlePushNotificationOpen";
 
 let notificationHandlerInstalled = false;
 let consumeInFlight: Promise<void> | null = null;
@@ -31,6 +32,14 @@ export function ensurePushNotificationHandler(): void {
     const data = (response.notification.request.content.data ?? {}) as Record<string, unknown>;
     notificationOpenHandler?.(data);
   });
+}
+
+/** Handles notification tap when the app was cold-started from a push. */
+export async function consumeInitialPushNotificationResponse(): Promise<void> {
+  const response = await Notifications.getLastNotificationResponseAsync();
+  if (!response) return;
+  const data = (response.notification.request.content.data ?? {}) as Record<string, unknown>;
+  handlePushNotificationOpen(data);
 }
 
 export function setPushNotificationOpenHandler(handler: ((data: Record<string, unknown>) => void) | null): void {

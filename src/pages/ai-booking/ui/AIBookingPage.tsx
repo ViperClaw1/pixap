@@ -33,7 +33,7 @@ import {
   groupCitiesByCountry,
   filterCityGroups,
 } from "@/entities/business-card";
-import { useCategories, CategoryIcon, resolveCategoryIconSpec, localizeCategoryName } from "@/entities/category";
+import { useCategories, CategoryIcon, resolveCategoryIconSpec, localizeCategoryName, buildHomeCategoryList, isHomeCategorySelectable, isRestaurantCategoryName } from "@/entities/category";
 import { useProfile } from "@/entities/user";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
@@ -84,7 +84,6 @@ const DEFAULT_BOOKING_REC_VIEW: BookingRecommendationView = {
 type DraftForm = AIBookingDraftForm;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const RESTAURANT_TABLE_KEY = "restaurant-table";
 const DEFAULT_RADIUS_MILES = 5;
 
 type FlowStep = "city" | "category" | "scope" | "places" | "booking";
@@ -127,7 +126,6 @@ function AIBookingPageContent() {
   const { colors } = useAppTheme();
   const { user, session, loading: authLoading } = useAuth();
   const { t } = useTranslation();
-  const restaurantTableLabel = t("bookingCommon.restaurantTable");
   const nearMeLabel = t("bookingCommon.nearMe5Miles");
   const allPlacesInCityLabel = t("bookingCommon.allPlacesInCity");
   const allPlacesInMyCityLabel = t("bookingCommon.allPlacesInMyCity");
@@ -159,6 +157,7 @@ function AIBookingPageContent() {
   const { data: profile } = useProfile();
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
   const { data: categories = [] } = useCategories();
+  const homeCategories = useMemo(() => buildHomeCategoryList(categories), [categories]);
   const createCartItem = useCreateCartItem();
   const createBooking = useCreateBooking();
   const startN8nWaBooking = useStartN8nWaBooking();
@@ -212,15 +211,34 @@ function AIBookingPageContent() {
     if (!snap) return;
     setSelectedCity((prev) => (prev.trim() ? prev : snap.city));
     if (snap.isRestaurantTable) {
-      setSelectedCategoryId((prev) => (prev.trim() ? prev : RESTAURANT_TABLE_KEY));
-      setSelectedCategoryName((prev) => (prev.trim() ? prev : restaurantTableLabel));
+      const restaurants =
+        homeCategories.find((c) => isRestaurantCategoryName(c.name) && isHomeCategorySelectable(c)) ??
+        categories.find((c) => isRestaurantCategoryName(c.name));
+      if (restaurants) {
+        setSelectedCategoryId((prev) => (prev.trim() ? prev : restaurants.id));
+        setSelectedCategoryName((prev) => (prev.trim() ? prev : restaurants.name));
+      }
     } else {
       setSelectedCategoryId((prev) => (prev.trim() ? prev : snap.categoryId));
       setSelectedCategoryName((prev) => (prev.trim() ? prev : snap.categoryName));
     }
     setScope(snap.scope);
     setRequestComment((prev) => (prev.trim() ? prev : snap.requestComment));
-  }, [lastSearchSnapshot, restaurantTableLabel]);
+  }, [lastSearchSnapshot, homeCategories, categories]);
+
+  useEffect(() => {
+    if (selectedCategoryId !== "restaurant-table") return;
+    const restaurants = homeCategories.find(
+      (c) => isRestaurantCategoryName(c.name) && isHomeCategorySelectable(c),
+    );
+    if (restaurants) {
+      setSelectedCategoryId(restaurants.id);
+      setSelectedCategoryName(restaurants.name);
+      return;
+    }
+    setSelectedCategoryId("");
+    setSelectedCategoryName("");
+  }, [homeCategories, selectedCategoryId]);
 
   const concreteCities = useMemo(
     () => availableCities.filter((c) => c !== ALL_CITIES_OPTION),
@@ -333,17 +351,15 @@ function AIBookingPageContent() {
     [visibleCalendarMonth],
   );
 
-  const isRestaurantTable = selectedCategoryId === RESTAURANT_TABLE_KEY;
+  const isRestaurantTable = isRestaurantCategoryName(selectedCategoryName);
 
   const bookingChatContext = useMemo(() => {
     if (!selectedCity?.trim() || selectedCity === ALL_CITIES_OPTION) return null;
     return buildBookingContextFromPage({
       city: selectedCity,
-      categoryLabel: isRestaurantTable
-        ? restaurantTableLabel
-        : selectedCategoryName
-          ? localizeCategoryName(selectedCategoryName, t)
-          : serviceLabel,
+      categoryLabel: selectedCategoryName
+        ? localizeCategoryName(selectedCategoryName, t)
+        : serviceLabel,
       scopeLabel: scope === "nearby" ? nearMeLabel : allPlacesInCityLabel,
       requestComment: requestComment.trim() || undefined,
       selectedPlace,
@@ -352,14 +368,12 @@ function AIBookingPageContent() {
     });
   }, [
     selectedCity,
-    isRestaurantTable,
     selectedCategoryName,
     scope,
     requestComment,
     selectedPlace,
     bookingDateYmd,
     selectedSlot,
-    restaurantTableLabel,
     serviceLabel,
     nearMeLabel,
     allPlacesInCityLabel,
@@ -367,27 +381,21 @@ function AIBookingPageContent() {
   ]);
 
   const selectedCategoryRow = categories.find((c) => c.id === selectedCategoryId);
-  const categoryDropdownLabel = isRestaurantTable
-    ? restaurantTableLabel
-    : selectedCategoryRow
-      ? localizeCategoryName(selectedCategoryRow.name, t)
-      : selectedCategoryName
-        ? localizeCategoryName(selectedCategoryName, t)
-        : t("bookingCommon.selectServiceOrTable");
-  const selectedCategoryIconSpec = isRestaurantTable
-    ? ({ family: "ionicons", name: "restaurant-outline" } as const)
-    : selectedCategoryRow
-      ? resolveCategoryIconSpec(selectedCategoryRow.name)
-      : null;
+  const categoryDropdownLabel = selectedCategoryRow
+    ? localizeCategoryName(selectedCategoryRow.name, t)
+    : selectedCategoryName
+      ? localizeCategoryName(selectedCategoryName, t)
+      : t("bookingCommon.selectServiceOrTable");
+  const selectedCategoryIconSpec = selectedCategoryRow
+    ? resolveCategoryIconSpec(selectedCategoryRow.name)
+    : null;
 
   const summaryMessage = [
     t("aiBooking.summaryCity", { value: selectedCity || notSelectedLabel }),
     t("aiBooking.summaryRequest", {
-      value: isRestaurantTable
-        ? restaurantTableLabel
-        : selectedCategoryName
-          ? localizeCategoryName(selectedCategoryName, t)
-          : notSelectedLabel,
+      value: selectedCategoryName
+        ? localizeCategoryName(selectedCategoryName, t)
+        : notSelectedLabel,
     }),
     t("aiBooking.summaryScope", { value: scope === "nearby" ? nearMeLabel : allPlacesInCityLabel }),
     selectedPlace ? t("aiBooking.summaryPlace", { name: selectedPlace.name }) : null,
@@ -448,8 +456,8 @@ function AIBookingPageContent() {
 
     const payload: PixAIFlowPayload = {
       city: selectedCity.trim(),
-      categoryId: isRestaurantTable ? undefined : selectedCategoryId.trim(),
-      categoryName: isRestaurantTable ? restaurantTableLabel : selectedCategoryName,
+      categoryId: selectedCategoryId.trim(),
+      categoryName: selectedCategoryName,
       isRestaurantTable,
       comment: requestComment.trim() || undefined,
       mode: scope,
@@ -462,11 +470,9 @@ function AIBookingPageContent() {
       const result = await runFlow(payload);
       const placeCount = result.places?.length ?? 0;
       const scopeText = scope === "nearby" ? nearMeLabel : allPlacesInMyCityLabel;
-      const requestType = isRestaurantTable
-        ? restaurantTableLabel
-        : selectedCategoryName
-          ? localizeCategoryName(selectedCategoryName, t)
-          : t("aiBooking.placesFallback");
+      const requestType = selectedCategoryName
+        ? localizeCategoryName(selectedCategoryName, t)
+        : t("aiBooking.placesFallback");
       const resultsLine = t("aiBooking.searchResultsLine", { count: placeCount, requestType, scopeText });
 
       setHasSearched(true);
@@ -480,8 +486,8 @@ function AIBookingPageContent() {
       setTimeout(() => {
         useBookingChatStore.getState().bumpCatalogRevisionWithOpening(nextRev, resultsLine, {
           city: selectedCity.trim(),
-          categoryId: isRestaurantTable ? RESTAURANT_TABLE_KEY : selectedCategoryId.trim(),
-          categoryName: isRestaurantTable ? restaurantTableLabel : selectedCategoryName || "",
+          categoryId: selectedCategoryId.trim(),
+          categoryName: selectedCategoryName || "",
           isRestaurantTable,
           scope,
           requestComment: requestComment.trim(),
@@ -891,13 +897,22 @@ function AIBookingPageContent() {
         onClose={() => setCategoryPickerVisible(false)}
         title={t("bookingCommon.chooseServiceOrTable")}
       >
-        {categories.map((category) => {
+        {homeCategories.map((category) => {
           const iconSpec = resolveCategoryIconSpec(category.name);
+          const selectable = isHomeCategorySelectable(category);
+          const label = localizeCategoryName(category.name, t);
           return (
             <Pressable
               key={category.id}
-              style={styles.pickerRow}
+              style={[styles.pickerRow, category.isComingSoon && styles.pickerRowComingSoon]}
+              disabled={!selectable}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !selectable }}
+              accessibilityLabel={
+                category.isComingSoon ? `${label}, ${t("home.categoryComingSoon")}` : label
+              }
               onPress={() => {
+                if (!selectable) return;
                 setSelectedCategoryId(category.id);
                 setSelectedCategoryName(category.name);
                 setCategoryPickerVisible(false);
@@ -908,37 +923,21 @@ function AIBookingPageContent() {
                   <CategoryIcon spec={iconSpec} size={14} color={colors.primary} />
                 </View>
                 <Text style={styles.pickerRowText} numberOfLines={1}>
-                  {localizeCategoryName(category.name, t)}
+                  {label}
                 </Text>
               </View>
-              {selectedCategoryId === category.id ? (
-                <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text>
-              ) : null}
+              <View style={styles.pickerRowRight}>
+                {category.isComingSoon ? (
+                  <View style={styles.categoryComingSoonBadge}>
+                    <Text style={styles.categoryComingSoonBadgeText}>{t("home.categoryComingSoon")}</Text>
+                  </View>
+                ) : selectedCategoryId === category.id ? (
+                  <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text>
+                ) : null}
+              </View>
             </Pressable>
           );
         })}
-        <Pressable
-          style={styles.pickerRow}
-          onPress={() => {
-            setSelectedCategoryId(RESTAURANT_TABLE_KEY);
-            setSelectedCategoryName(restaurantTableLabel);
-            setCategoryPickerVisible(false);
-          }}
-        >
-          <View style={styles.pickerRowLeft}>
-            <View style={styles.pickerRowIconWrap}>
-              <CategoryIcon
-                spec={{ family: "ionicons", name: "restaurant-outline" }}
-                size={14}
-                color={colors.primary}
-              />
-            </View>
-            <Text style={styles.pickerRowText} numberOfLines={1}>
-              {restaurantTableLabel}
-            </Text>
-          </View>
-          {isRestaurantTable ? <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text> : null}
-        </Pressable>
       </BottomSheetPickerModal>
     </View>
   );

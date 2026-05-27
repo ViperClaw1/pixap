@@ -30,6 +30,8 @@ type Props = {
   sheetAlert?: AppPopupOptions | null;
   onDismissSheetAlert?: () => void;
   onShowSheetAlert?: (options: AppPopupOptions) => void;
+  /** Hide "Add to story" (e.g. place-only share from daily recommendations). */
+  hideAddToStory?: boolean;
   onAddToStory: () => Promise<void>;
   onWhatsAppShare: (peerUserId: string) => Promise<void>;
   onSystemShare: () => Promise<void>;
@@ -69,6 +71,7 @@ export function ShareBottomSheet({
   sheetAlert,
   onDismissSheetAlert,
   onShowSheetAlert,
+  hideAddToStory = false,
   onAddToStory,
   onWhatsAppShare,
   onSystemShare,
@@ -208,20 +211,22 @@ export function ShareBottomSheet({
           <View style={[styles.footer, { borderTopColor: colors.border }]}>
             {sharePlaceName ? <Text style={[styles.shareContext, { color: colors.textMuted }]}>Sharing: {sharePlaceName}</Text> : null}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsRow}>
-              <View style={styles.actionItem}>
-                <Pressable
-                  style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: canRunAddStoryAction ? 1 : 0.5 }]}
-                  onPress={() => void onAddToStory()}
-                  disabled={!canRunAddStoryAction}
-                >
-                  <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
-                    <Ionicons name="add-circle-outline" size={32} color={colors.text} />
-                  </View>
-                </Pressable>
-                <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
-                  Add to story
-                </Text>
-              </View>
+              {!hideAddToStory ? (
+                <View style={styles.actionItem}>
+                  <Pressable
+                    style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: canRunAddStoryAction ? 1 : 0.5 }]}
+                    onPress={() => void onAddToStory()}
+                    disabled={!canRunAddStoryAction}
+                  >
+                    <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
+                      <Ionicons name="add-circle-outline" size={32} color={colors.text} />
+                    </View>
+                  </Pressable>
+                  <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
+                    Add to story
+                  </Text>
+                </View>
+              ) : null}
               <View style={styles.actionItem}>
                 <Pressable
                   style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: actionsEnabled ? 1 : 0.5 }]}

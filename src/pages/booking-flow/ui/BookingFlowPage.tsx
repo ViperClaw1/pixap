@@ -68,7 +68,7 @@ export default function BookingFlowPage() {
   const { colors, isDark } = useAppTheme();
   const { session, user } = useAuth();
   const { data: profile } = useProfile();
-  const { data: place } = useBusinessCard(id);
+  const { data: place, isLoading: placeLoading } = useBusinessCard(id);
   const isFavorite = useIsFavorite(id);
   const toggleFavorite = useToggleFavorite();
   const createCartItem = useCreateCartItem();
@@ -108,6 +108,14 @@ export default function BookingFlowPage() {
     () => buildMonthCells(visibleCalendarMonth.getFullYear(), visibleCalendarMonth.getMonth()),
     [visibleCalendarMonth],
   );
+
+  if (placeLoading) {
+    return (
+      <View style={[styles.root, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   if (!place) return null;
 

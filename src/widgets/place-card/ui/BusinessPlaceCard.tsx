@@ -17,9 +17,17 @@ import { businessPlaceCardStaticStyles, businessPlaceCardThemeStyles } from "./b
 
 const PLACE_CARD_IMAGE_TRANSITION_MS = 200;
 
+type VerticalLayout = "compact" | "fill";
+
 type Props = {
   place: BusinessCard;
   variant: "vertical" | "horizontal";
+  /** Vertical card sizing: compact featured tile or fill available parent height. */
+  verticalLayout?: VerticalLayout;
+  /** Measured content width for `verticalLayout="fill"` (tags + image thumbs). */
+  fillWidth?: number;
+  /** Measured slide height for `verticalLayout="fill"` image thumb quality. */
+  fillHeight?: number;
   /** Defaults to `PlaceDetail` for `place.id` when omitted (stable props for list memo). */
   onOpen?: () => void;
 };
@@ -53,6 +61,9 @@ function pickTagsThatFitSingleRow(tags: string[], availableWidth: number): strin
 
 function placeCardPropsEqual(prev: Props, next: Props): boolean {
   if (prev.variant !== next.variant || prev.onOpen !== next.onOpen) return false;
+  if ((prev.verticalLayout ?? "compact") !== (next.verticalLayout ?? "compact")) return false;
+  if (prev.fillWidth !== next.fillWidth) return false;
+  if (prev.fillHeight !== next.fillHeight) return false;
   if (prev.place.id !== next.place.id) return false;
   const prevThumb = prev.place.images?.[0] ?? prev.place.image ?? "";
   const nextThumb = next.place.images?.[0] ?? next.place.image ?? "";
@@ -63,19 +74,23 @@ type PlaceHeroImageProps = {
   place: BusinessCard;
   variant: "vertical" | "horizontal";
   imageStyle: object;
+  layoutWidth?: number;
+  layoutHeight?: number;
 };
 
-function PlaceHeroImage({ place, variant, imageStyle }: PlaceHeroImageProps) {
+function PlaceHeroImage({ place, variant, imageStyle, layoutWidth, layoutHeight }: PlaceHeroImageProps) {
   const targetDensity = Math.min(2, PixelRatio.get());
   const primaryImageRaw = place.images?.[0] ?? place.image ?? null;
   const thumb = useMemo(() => {
-    const layoutW = variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_W;
-    const layoutH = variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_H;
+    const layoutW =
+      layoutWidth ?? (variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_W);
+    const layoutH =
+      layoutHeight ?? (variant === "horizontal" ? IMAGE_HORIZONTAL : IMAGE_VERTICAL_H);
     return getBusinessCardThumbUris(place, {
       layoutPx: layoutW * targetDensity,
       layoutPxHeight: layoutH * targetDensity,
     });
-  }, [place, primaryImageRaw, targetDensity, variant]);
+  }, [layoutHeight, layoutWidth, place, primaryImageRaw, targetDensity, variant]);
 
   const coverBlurhash =
     typeof place.blurhashes?.[0] === "string" && place.blurhashes[0].trim().length > 0
@@ -109,9 +124,10 @@ function PlaceHeroImage({ place, variant, imageStyle }: PlaceHeroImageProps) {
   );
 }
 
-function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
+function BusinessPlaceCardInner({ place, variant, verticalLayout = "compact", fillWidth, fillHeight, onOpen }: Props) {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isVerticalFill = variant === "vertical" && verticalLayout === "fill";
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const handleOpen = useCallback(() => {
@@ -140,9 +156,27 @@ function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
 
   const tags = place.tags ?? [];
   const displayTags = tags.length > 0 ? tags : [];
+  const verticalCardWidth = isVerticalFill ? (fillWidth ?? windowWidth - 32) : IMAGE_VERTICAL_W;
+  const verticalImageThumbHeight = useMemo(() => {
+    if (!isVerticalFill) return IMAGE_VERTICAL_H;
+    const metaChrome = 52;
+    const reasonsChrome = 72;
+    const bodyHeight = (fillHeight ?? windowHeight * 0.55) - reasonsChrome;
+    return Math.max(IMAGE_VERTICAL_H, Math.round(bodyHeight - metaChrome));
+  }, [fillHeight, isVerticalFill, windowHeight]);
   const featuredVisibleTags = useMemo(
-    () => pickTagsThatFitSingleRow(displayTags, IMAGE_VERTICAL_W - 4),
-    [displayTags],
+    () => pickTagsThatFitSingleRow(displayTags, verticalCardWidth - 4),
+    [displayTags, verticalCardWidth],
+  );
+  const verticalFillStyles = useMemo(
+    () =>
+      isVerticalFill
+        ? {
+            vRoot: { flex: 1, width: "100%", flexShrink: 0 },
+            vImageBlock: { flex: 1, width: "100%", minHeight: IMAGE_VERTICAL_H },
+          }
+        : null,
+    [isVerticalFill],
   );
   const horizontalVisibleTags = useMemo(
     () =>
@@ -193,9 +227,15 @@ function BusinessPlaceCardInner({ place, variant, onOpen }: Props) {
   }
 
   return (
-    <Pressable onPress={handleOpen} style={styles.vRoot}>
-      <View style={styles.vImageBlock}>
-        <PlaceHeroImage place={place} variant="vertical" imageStyle={styles.vImage} />
+    <Pressable onPress={handleOpen} style={[styles.vRoot, verticalFillStyles?.vRoot]}>
+      <View style={[styles.vImageBlock, verticalFillStyles?.vImageBlock]}>
+        <PlaceHeroImage
+          place={place}
+          variant="vertical"
+          imageStyle={styles.vImage}
+          layoutWidth={isVerticalFill ? verticalCardWidth : undefined}
+          layoutHeight={isVerticalFill ? verticalImageThumbHeight : undefined}
+        />
         <Pressable style={styles.vHeartBtn} onPress={onFavoritePress} hitSlop={8}>
           <AnimatedLikeHeart
             liked={isFavorite}

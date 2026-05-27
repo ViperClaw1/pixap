@@ -26,7 +26,7 @@ export function KeyboardStickyView({
   inset: insetProp,
   ...insetOptions
 }: KeyboardStickyViewProps) {
-  const ownedInset = useKeyboardInset(insetProp ? { enabled: false } : insetOptions);
+  const ownedInset = useKeyboardInset(insetProp ? { enabled: false } : { gap: 0, ...insetOptions });
   const keyboardInset = insetProp ?? ownedInset;
 
   const animatedStyle = useAnimatedStyle(() => ({
