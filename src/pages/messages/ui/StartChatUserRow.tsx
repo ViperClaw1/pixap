@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import type { PublicProfileItem } from "@/entities/user";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import type { useMessagesStyles } from "./messagesStyles";
@@ -21,7 +22,7 @@ function StartChatUserRowComponent({ person, styles, isCompact, unknownLabel, on
   const username = person.username?.trim() || unknownLabel;
 
   return (
-    <Pressable
+    <AppPressable
       style={[styles.card, isCompact ? styles.cardCompact : null, styles.startChatCard]}
       onPress={onPress}
       onPressIn={onPressIn}
@@ -39,7 +40,7 @@ function StartChatUserRowComponent({ person, styles, isCompact, unknownLabel, on
           @{username}
         </Text>
       </View>
-    </Pressable>
+    </AppPressable>
   );
 }
 

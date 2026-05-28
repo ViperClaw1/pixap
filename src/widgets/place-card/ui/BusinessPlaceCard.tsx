@@ -1,7 +1,10 @@
 import { memo, useCallback, useMemo } from "react";
-import { PixelRatio, View, Text, Pressable, useWindowDimensions } from "react-native";
+import { PixelRatio, View, Text, useWindowDimensions } from "react-native";
+import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import type { BusinessCard } from "@/entities/business-card";
@@ -9,6 +12,8 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
+import { useNavigateOnce } from "@/shared/lib/navigation/useNavigateOnce";
+import { prefetchBusinessCard } from "@/shared/lib/navigation/prefetchBusinessCard";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
@@ -154,17 +159,28 @@ function BusinessPlaceCardInner({
   onOpen,
 }: Props) {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const { i18n } = useTranslation();
+  const queryClient = useQueryClient();
+  const navigateOnce = useNavigateOnce();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isVerticalFill = variant === "vertical" && verticalLayout === "fill";
   const { user } = useAuth();
   const { colors } = useAppTheme();
+
+  const handlePressIn = useCallback(() => {
+    void prefetchBusinessCard(queryClient, place.id, i18n.language);
+  }, [i18n.language, place.id, queryClient]);
+
   const handleOpen = useCallback(() => {
-    if (onOpen) {
-      onOpen();
-      return;
-    }
-    navigation.navigate("PlaceDetail", { id: place.id });
-  }, [navigation, onOpen, place.id]);
+    navigateOnce(() => {
+      if (onOpen) {
+        onOpen();
+        return;
+      }
+      navigation.navigate("PlaceDetail", { id: place.id });
+    });
+  }, [navigateOnce, navigation, onOpen, place.id]);
+
   const isFavorite = useIsFavorite(place.id);
   const toggleFavorite = useToggleFavorite();
 
@@ -217,7 +233,7 @@ function BusinessPlaceCardInner({
 
   if (variant === "horizontal") {
     return (
-      <Pressable onPress={handleOpen} style={styles.hRoot}>
+      <AppPressable onPressIn={handlePressIn} onPress={handleOpen} style={styles.hRoot}>
         <View style={styles.hImageWrap}>
           <PlaceHeroImage
             place={place}
@@ -226,14 +242,14 @@ function BusinessPlaceCardInner({
             showLoadingSpinner={showHeroLoadingSpinner}
             loadingSpinnerColor={heroLoadingSpinnerColor}
           />
-          <Pressable style={styles.hHeartBtn} onPress={onFavoritePress} hitSlop={8}>
+          <AppPressable style={styles.hHeartBtn} onPress={onFavoritePress} hitSlop={8}>
             <AnimatedLikeHeart
               liked={isFavorite}
               size={15}
               color={colors.text}
               likedColor={colors.danger}
             />
-          </Pressable>
+          </AppPressable>
         </View>
         <View style={styles.hBody}>
           <View>
@@ -256,12 +272,16 @@ function BusinessPlaceCardInner({
             ))}
           </View>
         </View>
-      </Pressable>
+      </AppPressable>
     );
   }
 
   return (
-    <Pressable onPress={handleOpen} style={[styles.vRoot, verticalFillStyles?.vRoot]}>
+    <AppPressable
+      onPressIn={handlePressIn}
+      onPress={handleOpen}
+      style={[styles.vRoot, verticalFillStyles?.vRoot]}
+    >
       <View style={[styles.vImageBlock, verticalFillStyles?.vImageBlock]}>
         <PlaceHeroImage
           place={place}
@@ -272,14 +292,14 @@ function BusinessPlaceCardInner({
           showLoadingSpinner={showHeroLoadingSpinner}
           loadingSpinnerColor={heroLoadingSpinnerColor}
         />
-        <Pressable style={styles.vHeartBtn} onPress={onFavoritePress} hitSlop={8}>
+        <AppPressable style={styles.vHeartBtn} onPress={onFavoritePress} hitSlop={8}>
           <AnimatedLikeHeart
             liked={isFavorite}
             size={16}
             color={colors.text}
             likedColor={colors.danger}
           />
-        </Pressable>
+        </AppPressable>
         <View style={styles.vRatingPill}>
           <Ionicons name="star" size={12} color="#eab308" />
           <Text style={styles.vRatingText}>{Number(place.rating).toFixed(1)}</Text>
@@ -301,7 +321,7 @@ function BusinessPlaceCardInner({
           </View>
         ) : null}
       </View>
-    </Pressable>
+    </AppPressable>
   );
 }
 

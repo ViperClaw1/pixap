@@ -1,8 +1,10 @@
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, Text, View, ScrollView } from "react-native";
+import { InteractionManager, Text, View, ScrollView } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { Ionicons } from "@expo/vector-icons";
 import { useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -17,6 +19,8 @@ import {
   businessCardDisplayFallback,
   getBusinessCardDisplayUrl,
 } from "@/shared/lib/business-card/businessCardDisplayUrl";
+import { useNavigateOnce } from "@/shared/lib/navigation/useNavigateOnce";
+import { prefetchBusinessCard } from "@/shared/lib/navigation/prefetchBusinessCard";
 import ThemeToggle from "@/shared/ui/theme-toggle/ThemeToggle";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
@@ -33,9 +37,11 @@ type R = RouteProp<BrowseFlowParamList, "Category">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "Category">;
 
 export default function CategoryScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
+  const queryClient = useQueryClient();
+  const navigateOnce = useNavigateOnce();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
@@ -47,7 +53,10 @@ export default function CategoryScreen() {
   const [visibleCount, setVisibleCount] = useState(PLACE_LIST_BATCH_SIZE);
 
   useEffect(() => {
-    setVisibleCount(PLACE_LIST_BATCH_SIZE);
+    const task = InteractionManager.runAfterInteractions(() => {
+      setVisibleCount(PLACE_LIST_BATCH_SIZE);
+    });
+    return () => task.cancel();
   }, [data, id]);
 
   const visiblePlaces = useMemo(() => data.slice(0, visibleCount), [data, visibleCount]);
@@ -66,12 +75,30 @@ export default function CategoryScreen() {
     [themed],
   );
 
+  const openPlaceDetailRef = useRef<(placeId: string) => void>(() => undefined);
+  openPlaceDetailRef.current = (placeId: string) => {
+    navigateOnce(() => navigation.navigate("PlaceDetail", { id: placeId }));
+  };
+
+  const prefetchPlaceRef = useRef<(placeId: string) => void>(() => undefined);
+  prefetchPlaceRef.current = (placeId: string) => {
+    void prefetchBusinessCard(queryClient, placeId, i18n.language);
+  };
+
+  const handlePlacePressIn = useCallback((placeId: string) => {
+    prefetchPlaceRef.current(placeId);
+  }, []);
+
+  const handlePlacePress = useCallback((placeId: string) => {
+    openPlaceDetailRef.current(placeId);
+  }, []);
+
   const listFooter = useMemo(
     () =>
       !isLoading && canShowMore ? (
-        <Pressable style={styles.showMoreBtn} onPress={() => setVisibleCount((prev) => prev + PLACE_LIST_BATCH_SIZE)}>
+        <AppPressable style={styles.showMoreBtn} onPress={() => setVisibleCount((prev) => prev + PLACE_LIST_BATCH_SIZE)}>
           <Text style={styles.showMoreBtnText}>{t("home.showMore")}</Text>
-        </Pressable>
+        </AppPressable>
       ) : null,
     [canShowMore, isLoading, styles.showMoreBtn, styles.showMoreBtnText, t],
   );
@@ -82,7 +109,11 @@ export default function CategoryScreen() {
       const heroRaw = getPrimaryBusinessCardImage(item.images);
       const heroDisplay = getBusinessCardDisplayUrl(heroRaw, { size: "list" });
       return (
-        <Pressable style={styles.row} onPress={() => navigation.navigate("PlaceDetail", { id: item.id })}>
+        <AppPressable
+          style={styles.row}
+          onPressIn={() => handlePlacePressIn(item.id)}
+          onPress={() => handlePlacePress(item.id)}
+        >
           <SmartImage
             uri={heroDisplay}
             fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
@@ -112,10 +143,10 @@ export default function CategoryScreen() {
               </View>
             ) : null}
           </View>
-        </Pressable>
+        </AppPressable>
       );
     },
-    [navigation, styles],
+    [handlePlacePress, handlePlacePressIn, styles],
   );
 
   return (
@@ -123,9 +154,9 @@ export default function CategoryScreen() {
       <View style={[styles.list, { paddingTop: Math.max(insets.top, 12), paddingBottom: 0 }]}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Pressable style={styles.headerBackBtn} onPress={() => navigation.goBack()} accessibilityRole="button">
+            <AppPressable style={styles.headerBackBtn} onPress={() => navigation.goBack()} accessibilityRole="button">
               <Ionicons name="arrow-back" size={20} color={colors.text} />
-            </Pressable>
+            </AppPressable>
           </View>
           <Text numberOfLines={1} style={styles.headerTitle}>
             {categoryName}

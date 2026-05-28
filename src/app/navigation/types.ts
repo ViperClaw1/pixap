@@ -66,6 +66,7 @@ export type CartStackParamList = {
     isSupport?: boolean;
     threadTitle?: string;
   };
+  FeedStoryViewer: StoryViewerRouteParams;
   PaymentSuccess: { next?: "bookings" } | undefined;
   PaymentCanceled: undefined;
 };

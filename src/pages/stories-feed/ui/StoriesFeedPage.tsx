@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   InteractionManager,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,14 +30,15 @@ import { useMyFollowing, useToggleFollow } from "@/entities/user";
 import { useBusinessCards } from "@/entities/business-card";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
-import { getFeedPostCarouselImageUrls, getFeedStoryPreviewImageUrl } from "@/shared/lib/feedMediaUrls";
+import { getFeedPostCarouselImageUrls } from "@/shared/lib/feedMediaUrls";
 import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
 import { ShimmerSurface } from "@/shared/ui/shimmer/ShimmerSurface";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomSheet";
 import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 import { profileDisplayName } from "@/shared/lib/profileDisplayName";
-import { profileAvatar, profileAvatarDisplay, profileName, parseMediaUrls, resolveStorageUrl, type FeedPostVm, getPostImages, slideBlurhashesForPost } from "@/pages/stories-feed/lib/feedPostHelpers";
+import { profileAvatar, profileAvatarDisplay, profileName, getPostImages, slideBlurhashesForPost, type FeedPostVm } from "@/pages/stories-feed/lib/feedPostHelpers";
 import type { BrowseFlowParamList, FeedStackParamList, RootTabParamList } from "@/app/navigation/types";
 import type { StoryGroup } from "@/shared/model/types/stories";
 import { useCreatePostComposer, CreatePostModal } from "@/features/create-post";
@@ -249,67 +249,134 @@ export default function StoriesFeedScreen() {
 
   const renderPostSeparator = useCallback(() => <View style={styles.postDivider} />, []);
 
+  const feedCardHandlersRef = useRef({
+    onPostCardPress,
+    togglePostLike,
+    runAuthedAction,
+    navigation,
+    shareSheet,
+    comments,
+    onToggleFollowAuthor,
+    postBoostConfirm,
+    postBoostAccessEnabled: postBoostAccess.enabled,
+    currentUserId: user?.id,
+    isScreenFocused,
+    toggleFollowPending: toggleFollow.isPending,
+    followingSet,
+    followOverrides,
+    likeCount,
+    likes,
+    width,
+    sliderHeight,
+  });
+  feedCardHandlersRef.current = {
+    onPostCardPress,
+    togglePostLike,
+    runAuthedAction,
+    navigation,
+    shareSheet,
+    comments,
+    onToggleFollowAuthor,
+    postBoostConfirm,
+    postBoostAccessEnabled: postBoostAccess.enabled,
+    currentUserId: user?.id,
+    isScreenFocused,
+    toggleFollowPending: toggleFollow.isPending,
+    followingSet,
+    followOverrides,
+    likeCount,
+    likes,
+    width,
+    sliderHeight,
+  };
+
+  const handleFeedPostPress = useCallback((postId: string, reactionCount: number) => {
+    feedCardHandlersRef.current.onPostCardPress(postId, reactionCount);
+  }, []);
+  const handleFeedPostLike = useCallback((postId: string, reactionCount: number) => {
+    const h = feedCardHandlersRef.current;
+    h.togglePostLike(postId, reactionCount, h.runAuthedAction);
+  }, []);
+  const handleFeedOpenComments = useCallback((postId: string) => {
+    const h = feedCardHandlersRef.current;
+    h.runAuthedAction(() => h.navigation.navigate("PostDiscussion", { postId }));
+  }, []);
+  const handleFeedBookNow = useCallback((placeId: string) => {
+    const h = feedCardHandlersRef.current;
+    h.runAuthedAction(() => h.navigation.navigate("BookingFlow", { id: placeId }));
+  }, []);
+  const handleFeedShare = useCallback(
+    (postId: string, placeId: string | null, images: string[], placeName: string) => {
+      const h = feedCardHandlersRef.current;
+      h.runAuthedAction(() =>
+        h.shareSheet.openShareForPost({ postId, placeId, images, placeName }),
+      );
+    },
+    [],
+  );
+  const handleFeedToggleContent = useCallback((postId: string) => {
+    feedCardHandlersRef.current.comments.toggleExpandContent(postId);
+  }, []);
+  const handleFeedToggleFollow = useCallback((authorUserId: string, authorLabel: string) => {
+    const h = feedCardHandlersRef.current;
+    h.runAuthedAction(() => h.onToggleFollowAuthor(authorUserId, authorLabel));
+  }, []);
+  const handleFeedBoost = useCallback((postId: string, boostedAt: string | null | undefined) => {
+    const h = feedCardHandlersRef.current;
+    h.runAuthedAction(() => h.postBoostConfirm.requestBoost(postId, boostedAt));
+  }, []);
+
   // ─── renderItem ──────────────────────────────────────────────────────────
   const renderFocusedFeedPost = useCallback<ListRenderItem<FeedPostVm>>(
-    ({ item: vm }) => (
-      <FeedPostCard
-        vm={vm}
-        width={width}
-        sliderHeight={sliderHeight}
-        isContentExpanded={!!comments.expandedPostContentIds[vm.post.id]}
-        isLiked={!!likes[vm.post.id]}
-        likeCount={likeCount[vm.post.id] ?? vm.post.reaction_count}
-        currentUserId={user?.id}
-        isFollowing={followOverrides[vm.post.user_id] ?? followingSet.has(vm.post.user_id)}
-        followPending={toggleFollow.isPending}
-        onPress={() => onPostCardPress(vm.post.id, vm.post.reaction_count)}
-        onLike={() => togglePostLike(vm.post.id, vm.post.reaction_count, runAuthedAction)}
-        onOpenComments={() => runAuthedAction(() => navigation.navigate("PostDiscussion", { postId: vm.post.id }))}
-        onBookNow={() => runAuthedAction(() => navigation.navigate("BookingFlow", { id: vm.post.place_id! }))}
-        onShare={() =>
-          runAuthedAction(() =>
-            shareSheet.openShareForPost({
-              postId: vm.post.id,
-              placeId: vm.post.place_id,
-              images: vm.postImagesRaw,
-              placeName: vm.post.business_card?.name ?? vm.post.place_name ?? "Place",
-            }),
-          )
-        }
-        onToggleContent={() => comments.toggleExpandContent(vm.post.id)}
-        onToggleFollow={() =>
-          runAuthedAction(() =>
-            onToggleFollowAuthor(vm.post.user_id, profileName(vm.post.profile?.first_name, vm.post.profile?.last_name)),
-          )
-        }
-        canBoost={postBoostAccess.enabled && vm.post.user_id === user?.id}
-        isBoosted={Boolean(vm.post.boosted_at)}
-        boostPending={postBoostConfirm.isBoostPending(vm.post.id)}
-        onBoost={() =>
-          runAuthedAction(() => postBoostConfirm.requestBoost(vm.post.id, vm.post.boosted_at))
-        }
-        carouselAutoPlay={isScreenFocused}
-      />
-    ),
+    ({ item: vm }) => {
+      const h = feedCardHandlersRef.current;
+      return (
+        <FeedPostCard
+          vm={vm}
+          width={h.width}
+          sliderHeight={h.sliderHeight}
+          isContentExpanded={!!h.comments.expandedPostContentIds[vm.post.id]}
+          isLiked={!!h.likes[vm.post.id]}
+          likeCount={h.likeCount[vm.post.id] ?? vm.post.reaction_count}
+          currentUserId={h.currentUserId}
+          isFollowing={h.followOverrides[vm.post.user_id] ?? h.followingSet.has(vm.post.user_id)}
+          followPending={h.toggleFollowPending}
+          onPress={() => handleFeedPostPress(vm.post.id, vm.post.reaction_count)}
+          onLike={() => handleFeedPostLike(vm.post.id, vm.post.reaction_count)}
+          onOpenComments={() => handleFeedOpenComments(vm.post.id)}
+          onBookNow={() => vm.post.place_id && handleFeedBookNow(vm.post.place_id)}
+          onShare={() =>
+            handleFeedShare(
+              vm.post.id,
+              vm.post.place_id,
+              vm.postImagesRaw,
+              vm.post.business_card?.name ?? vm.post.place_name ?? "Place",
+            )
+          }
+          onToggleContent={() => handleFeedToggleContent(vm.post.id)}
+          onToggleFollow={() =>
+            handleFeedToggleFollow(
+              vm.post.user_id,
+              profileName(vm.post.profile?.first_name, vm.post.profile?.last_name),
+            )
+          }
+          canBoost={h.postBoostAccessEnabled && vm.post.user_id === h.currentUserId}
+          isBoosted={Boolean(vm.post.boosted_at)}
+          boostPending={h.postBoostConfirm.isBoostPending(vm.post.id)}
+          onBoost={() => handleFeedBoost(vm.post.id, vm.post.boosted_at)}
+          carouselAutoPlay={h.isScreenFocused}
+        />
+      );
+    },
     [
-      comments,
-      isScreenFocused,
-      postBoostConfirm,
-      followOverrides,
-      followingSet,
-      likeCount,
-      likes,
-      navigation,
-      onPostCardPress,
-      onToggleFollowAuthor,
-      postBoostAccess.enabled,
-      runAuthedAction,
-      shareSheet,
-      sliderHeight,
-      toggleFollow.isPending,
-      togglePostLike,
-      user?.id,
-      width,
+      handleFeedBookNow,
+      handleFeedBoost,
+      handleFeedOpenComments,
+      handleFeedPostLike,
+      handleFeedPostPress,
+      handleFeedShare,
+      handleFeedToggleContent,
+      handleFeedToggleFollow,
     ],
   );
 
@@ -490,7 +557,7 @@ function StoriesStripHeader({
           onStoriesStripScroll(contentOffset.x, layoutMeasurement.width, contentSize.width);
         }}
       >
-        <Pressable style={styles.storyBubble} disabled={uploadingStory} onPress={onAddStory}>
+        <AppPressable style={styles.storyBubble} disabled={uploadingStory} onPress={onAddStory}>
           <View style={[styles.storyBubbleRing, { borderColor: colors.border }]}>
             <View style={[styles.storyBubbleAvatar, { backgroundColor: colors.card }]}>
               <Ionicons name="person-outline" size={28} color={colors.textMuted} />
@@ -504,24 +571,14 @@ function StoriesStripHeader({
             </View>
           </View>
           <Text style={[styles.storyBubbleName, { color: colors.text }]} numberOfLines={1}>Add story</Text>
-        </Pressable>
+        </AppPressable>
 
         {(topStories ?? []).map((story) => {
           const name = profileDisplayName(story.profile);
-          const storyMedia = parseMediaUrls(story.media_url);
-          const storyPreviewRaw = storyMedia[0] ? resolveStorageUrl(storyMedia[0], "stories") : null;
-          const storyPreviewOpt = storyPreviewRaw ? getFeedStoryPreviewImageUrl(storyPreviewRaw) || storyPreviewRaw : null;
-          const avatarRaw = profileAvatar(story.profile?.avatar_url);
-          const avatarOpt = profileAvatarDisplay(story.profile?.avatar_url);
-          const bubbleUri = storyPreviewOpt ?? avatarOpt;
-          const bubbleFallback = storyPreviewRaw ?? avatarRaw;
-          const bubbleBlur = storyPreviewRaw
-            ? typeof story.media_blurhashes?.[0] === "string" ? story.media_blurhashes[0] : undefined
-            : undefined;
           const targetGroupIndex = storyGroups.findIndex((g) => g.user_id === story.user_id);
 
           return (
-            <Pressable
+            <AppPressable
               key={`story-bubble-${story.id}`}
               style={styles.storyBubble}
               onPress={() => {
@@ -541,16 +598,16 @@ function StoriesStripHeader({
             >
               <View style={[styles.storyBubbleRing, { borderColor: colors.primary }]}>
                 <UserAvatarImage
-                  uri={bubbleUri}
-                  fallbackUri={bubbleFallback}
-                  blurhash={bubbleBlur}
+                  uri={story.profile?.avatar_url}
                   style={styles.storyBubbleAvatar}
                   contentFit="cover"
                   iconSize={28}
                 />
               </View>
-              <Text style={[styles.storyBubbleName, { color: colors.text }]} numberOfLines={1}>{name}</Text>
-            </Pressable>
+              <Text style={[styles.storyBubbleName, { color: colors.text }]} numberOfLines={1}>
+                {name}
+              </Text>
+            </AppPressable>
           );
         })}
         {loadingMoreStories ? (

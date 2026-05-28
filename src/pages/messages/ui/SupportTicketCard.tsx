@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { Ionicons } from "@expo/vector-icons";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import type { MessageThreadItem } from "@/shared/model/types/messages";
@@ -39,7 +40,7 @@ export function SupportTicketCard({
       : previewText;
 
   return (
-    <Pressable
+    <AppPressable
       style={[styles.supportTicketCard, isCompact ? styles.supportTicketCardCompact : null]}
       onPress={onPress}
       onPressIn={onPressIn}
@@ -75,6 +76,6 @@ export function SupportTicketCard({
           <Ionicons name="chevron-forward" size={isCompact ? 16 : 18} color={colors.textMuted} />
         )}
       </View>
-    </Pressable>
+    </AppPressable>
   );
 }

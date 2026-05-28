@@ -19,6 +19,14 @@ import OAuthCallbackScreen from "@/pages/oauth-callback";
 import PrivacyPolicyScreen from "@/pages/privacy-policy";
 import NotFoundScreen from "@/pages/not-found";
 import { renderBrowseFlowScreens, type BrowseFlowStackScreen } from "./BrowseFlowScreens";
+import {
+  nativeStackCartScreenOptions,
+  nativeStackPushScreenOptions,
+  nativeStackStoryOverlayModalOptions,
+} from "./stackTransitionOptions";
+import MessagesScreen from "@/pages/messages";
+import MessageThreadScreen from "@/pages/message-thread";
+import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
 
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const FeedStack = createNativeStackNavigator<FeedStackParamList>();
@@ -27,12 +35,6 @@ const BookingsStack = createNativeStackNavigator<BookingsStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-const stackScreenOptions = {
-  headerShown: false as const,
-  animation: "slide_from_right" as const,
-  /** Native stack: freeze hidden routes when `enableFreeze(true)` (see index.ts). Story modals override with false in BrowseFlowScreens. */
-  freezeOnBlur: true as const,
-};
 const fullWidthSwipeBackOptions = {
   gestureEnabled: true,
   fullScreenGestureEnabled: true,
@@ -40,7 +42,7 @@ const fullWidthSwipeBackOptions = {
 
 function HomeStackNavigator() {
   return (
-    <HomeStack.Navigator initialRouteName="HomeMain" screenOptions={stackScreenOptions}>
+    <HomeStack.Navigator initialRouteName="HomeMain" screenOptions={nativeStackPushScreenOptions}>
       <HomeStack.Screen name="HomeMain" getComponent={() => require("@/pages/home").default} />
       <HomeStack.Screen name="SearchMain" getComponent={() => require("@/pages/search").default} options={fullWidthSwipeBackOptions} />
       <HomeStack.Screen
@@ -56,7 +58,7 @@ function HomeStackNavigator() {
 
 function FeedStackNavigator() {
   return (
-    <FeedStack.Navigator initialRouteName="FeedMain" screenOptions={stackScreenOptions}>
+    <FeedStack.Navigator initialRouteName="FeedMain" screenOptions={nativeStackPushScreenOptions}>
       <FeedStack.Screen name="FeedMain" getComponent={() => require("@/pages/stories-feed").default} />
       {renderBrowseFlowScreens(FeedStack.Screen as BrowseFlowStackScreen)}
     </FeedStack.Navigator>
@@ -65,12 +67,17 @@ function FeedStackNavigator() {
 
 function CartStackNavigator() {
   return (
-    <CartStack.Navigator initialRouteName="CartMain" screenOptions={stackScreenOptions}>
-      <CartStack.Screen name="CartMain" getComponent={() => require("@/pages/messages").default} />
+    <CartStack.Navigator initialRouteName="CartMain" screenOptions={nativeStackCartScreenOptions}>
+      <CartStack.Screen name="CartMain" component={MessagesScreen} />
       <CartStack.Screen
         name="MessageThread"
-        getComponent={() => require("@/pages/message-thread").default}
+        component={MessageThreadScreen}
         options={fullWidthSwipeBackOptions}
+      />
+      <CartStack.Screen
+        name="FeedStoryViewer"
+        getComponent={() => require("@/pages/feed-story-viewer").default}
+        options={nativeStackStoryOverlayModalOptions}
       />
       <CartStack.Screen name="PaymentSuccess" getComponent={() => require("@/pages/payment-success").default} />
       <CartStack.Screen name="PaymentCanceled" getComponent={() => require("@/pages/payment-canceled").default} />
@@ -80,7 +87,7 @@ function CartStackNavigator() {
 
 function BookingsStackNavigator() {
   return (
-    <BookingsStack.Navigator initialRouteName="BookingsMain" screenOptions={stackScreenOptions}>
+    <BookingsStack.Navigator initialRouteName="BookingsMain" screenOptions={nativeStackPushScreenOptions}>
       <BookingsStack.Screen name="BookingsMain" getComponent={() => require("@/pages/bookings").default} />
       {renderBrowseFlowScreens(BookingsStack.Screen as BrowseFlowStackScreen)}
     </BookingsStack.Navigator>
@@ -89,7 +96,7 @@ function BookingsStackNavigator() {
 
 function ProfileStackNavigator() {
   return (
-    <ProfileStack.Navigator initialRouteName="ProfileMain" screenOptions={stackScreenOptions}>
+    <ProfileStack.Navigator initialRouteName="ProfileMain" screenOptions={nativeStackPushScreenOptions}>
       <ProfileStack.Screen name="ProfileMain" getComponent={() => require("@/pages/profile").default} />
       <ProfileStack.Screen name="MyPurchases" getComponent={() => require("@/pages/my-purchases").default} />
       <ProfileStack.Screen name="Auth" getComponent={() => require("@/pages/auth").default} />
@@ -143,9 +150,6 @@ export default function AppNavigator() {
       freezeOnBlur: true,
       tabBarActiveTintColor: colors.tabActive,
       tabBarInactiveTintColor: colors.tabInactive,
-      /** Keep all tab routes mounted; conditional `<Tab.Screen />` null caused Android tab crashes. */
-      tabBarButton:
-        !isAuthorized && (route.name === "Bookings" || route.name === "Cart") ? () => null : undefined,
       tabBarStyle: {
         backgroundColor: colors.tabBar,
         borderTopColor: colors.border,
@@ -166,50 +170,74 @@ export default function AppNavigator() {
             return <Ionicons name={focused ? "chatbubbles" : "chatbubbles-outline"} size={TAB_ICON_SIZE} color={iconColor} />;
           case "Bookings":
             return <Ionicons name={focused ? "calendar" : "calendar-outline"} size={TAB_ICON_SIZE} color={iconColor} />;
-          case "Profile":
-            return (
-              <Ionicons
-                name={
-                  isAuthorized
-                    ? focused
-                      ? "person"
-                      : "person-outline"
-                    : focused
-                      ? "log-in"
-                      : "log-in-outline"
-                }
-                size={TAB_ICON_SIZE}
-                color={iconColor}
-              />
-            );
           default:
             return null;
         }
       },
     }),
-    [
-      colors.border,
-      colors.tabActive,
-      colors.tabBar,
-      colors.tabInactive,
-      isAuthorized,
-      tabBottomPadding,
-    ],
+    [colors.border, colors.tabActive, colors.tabBar, colors.tabInactive, tabBottomPadding],
   );
 
   const profileTabTitle = useMemo(() => (isAuthorized ? "Profile" : "Login"), [isAuthorized]);
+  const hiddenTabBarButton = useMemo(() => () => null, []);
+  const bookingsTabOptions = useMemo(
+    () => ({
+      title: "Bookings",
+      tabBarButton: isAuthorized ? undefined : hiddenTabBarButton,
+    }),
+    [hiddenTabBarButton, isAuthorized],
+  );
+  const cartTabOptions = useMemo(
+    () => ({
+      title: "Messages",
+      tabBarButton: isAuthorized ? undefined : hiddenTabBarButton,
+      lazy: false,
+      freezeOnBlur: false,
+    }),
+    [hiddenTabBarButton, isAuthorized],
+  );
+  const profileTabOptions = useMemo(
+    () => ({
+      title: profileTabTitle,
+      tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
+        <Ionicons
+          name={
+            isAuthorized
+              ? focused
+                ? "person"
+                : "person-outline"
+              : focused
+                ? "log-in"
+                : "log-in-outline"
+          }
+          size={TAB_ICON_SIZE}
+          color={color}
+        />
+      ),
+    }),
+    [isAuthorized, profileTabTitle],
+  );
 
   return (
     <Tab.Navigator
       initialRouteName="Home"
-      detachInactiveScreens
+      detachInactiveScreens={false}
       screenOptions={tabScreenOptions}
     >
       <Tab.Screen name="Feed" component={FeedStackNavigator} options={{ title: "Feed" }} />
-      <Tab.Screen name="Bookings" component={BookingsStackNavigator} options={{ title: "Bookings" }} />
+      <Tab.Screen name="Bookings" component={BookingsStackNavigator} options={bookingsTabOptions} />
       <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: "Home" }} />
-      <Tab.Screen name="Cart" component={CartStackNavigator} options={{ title: "Messages" }} />
-      <Tab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: profileTabTitle }} />
+      <Tab.Screen
+        name="Cart"
+        component={CartStackNavigator}
+        options={cartTabOptions}
+        listeners={{
+          tabPress: () => {
+            ensureMessagesScreensReady();
+          },
+        }}
+      />
+      <Tab.Screen name="Profile" component={ProfileStackNavigator} options={profileTabOptions} />
     </Tab.Navigator>
   );
 }

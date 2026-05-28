@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import type { ThemeColors } from "@/shared/theme/palettes";
@@ -25,7 +26,7 @@ export function SupportChatCard({ styles, colors, isCompact, isOpening, existing
     : t("messages.supportSubtitle");
 
   return (
-    <Pressable
+    <AppPressable
       style={[styles.supportCard, isCompact ? styles.supportCardCompact : null]}
       onPress={onPress}
       disabled={isOpening}
@@ -76,6 +77,6 @@ export function SupportChatCard({ styles, colors, isCompact, isOpening, existing
           )}
         </View>
       )}
-    </Pressable>
+    </AppPressable>
   );
 }

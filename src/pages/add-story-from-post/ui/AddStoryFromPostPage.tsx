@@ -11,8 +11,8 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { useStoryProgress } from "@/entities/story";
-import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { useAddStoryFromPost } from "../model/useAddStoryFromPost";
 
@@ -182,17 +182,10 @@ export default function AddStoryFromPostPage() {
           <View style={styles.modalGrid}>
             {followers.map((follower) => {
               const selected = selectedFriendIds.includes(follower.id);
-              const avatarDisplay = getAvatarDisplayUrl(follower.avatar_url, { layoutPx: 56 });
-              const avatarRaw = follower.avatar_url?.trim() || null;
               return (
                 <Pressable key={follower.id} style={styles.modalUserCard} onPress={() => toggleFriend(follower.id)}>
                   <View style={[styles.modalAvatarWrap, { borderColor: selected ? colors.primary : colors.border }]}>
-                    <SmartImage
-                      uri={avatarDisplay}
-                      fallbackUri={avatarRaw && avatarRaw !== avatarDisplay ? avatarRaw : undefined}
-                      style={styles.modalAvatar}
-                      contentFit="cover"
-                    />
+                    <UserAvatarImage uri={follower.avatar_url} style={styles.modalAvatar} contentFit="cover" />
                     {selected ? (
                       <View style={[styles.modalSelectedBadge, { backgroundColor: colors.primary }]}>
                         <Ionicons name="checkmark" size={12} color={colors.onPrimary} />

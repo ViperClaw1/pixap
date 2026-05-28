@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { Ionicons } from "@expo/vector-icons";
 import { Swipeable } from "react-native-gesture-handler";
 import type { ThemeColors } from "@/shared/theme/palettes";
@@ -23,7 +24,7 @@ type Props = {
   onToggleFollow: () => void;
 };
 
-function MessagesPersonRowComponent({
+function PersonRowContent({
   person,
   styles,
   colors,
@@ -39,22 +40,76 @@ function MessagesPersonRowComponent({
   const displayName = `${person.first_name?.trim() ?? ""} ${person.last_name?.trim() ?? ""}`.trim() || unknownLabel;
 
   return (
+    <View style={[styles.card, isCompact ? styles.cardCompact : null]}>
+      <UserAvatarImage
+        uri={person.avatar_url}
+        style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
+        contentFit="cover"
+      />
+      <View style={styles.cardMain}>
+        <Text style={[styles.title, isCompact ? styles.titleCompact : null]} numberOfLines={1}>
+          {displayName}
+        </Text>
+        <View style={[styles.userMetaRow, isCompact ? styles.userMetaRowCompact : null]}>
+          <Text style={[styles.username, isCompact ? styles.usernameCompact : null]} numberOfLines={1}>
+            @{person.username?.trim() || unknownLabel}
+          </Text>
+          {isFollowing ? (
+            <View style={[styles.followedBadge, isCompact ? styles.followedBadgeCompact : null]}>
+              <Text style={[styles.followedBadgeText, isCompact ? styles.followedBadgeTextCompact : null]}>
+                {followedLabel}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+      <View style={[styles.actionsWrap, isCompact ? styles.actionsWrapCompact : null]}>
+        <AppPressable
+          style={[styles.iconActionBtn, styles.followBtn, isCompact ? styles.iconActionBtnCompact : null]}
+          onPress={onToggleFollow}
+        >
+          <Ionicons
+            name={isFollowing ? "person-remove" : "person-add"}
+            size={actionIconSize}
+            color={colors.onAccent}
+          />
+        </AppPressable>
+        <AppPressable
+          style={[styles.iconActionBtn, styles.chatBtn, isCompact ? styles.iconActionBtnCompact : null]}
+          onPress={onOpenChat}
+          onPressIn={onPrefetchChat}
+        >
+          <Ionicons name="chatbubble-ellipses" size={actionIconSize} color={colors.onAccent} />
+        </AppPressable>
+      </View>
+    </View>
+  );
+}
+
+function MessagesPersonRowComponent(props: Props) {
+  if (Platform.OS === "android") {
+    return <PersonRowContent {...props} />;
+  }
+
+  const { styles, colors, isCompact, actionIconSize, onOpenChat, onPrefetchChat, onToggleFollow, isFollowing } = props;
+
+  return (
     <Swipeable
       overshootRight={false}
       renderRightActions={() => (
         <View style={styles.swipeActionWrap}>
-          <Pressable
+          <AppPressable
             style={[styles.swipeActionBtn, styles.swipeChatBtn, isCompact ? styles.swipeActionBtnCompact : null]}
             onPress={onOpenChat}
             onPressIn={onPrefetchChat}
           >
             <Ionicons name="chatbubble-ellipses" size={actionIconSize} color={colors.onAccent} />
-          </Pressable>
+          </AppPressable>
         </View>
       )}
       renderLeftActions={() => (
         <View style={styles.swipeActionWrap}>
-          <Pressable
+          <AppPressable
             style={[styles.swipeActionBtn, styles.swipeFollowBtn, isCompact ? styles.swipeActionBtnCompact : null]}
             onPress={onToggleFollow}
           >
@@ -63,53 +118,11 @@ function MessagesPersonRowComponent({
               size={actionIconSize}
               color={colors.onAccent}
             />
-          </Pressable>
+          </AppPressable>
         </View>
       )}
     >
-      <View style={[styles.card, isCompact ? styles.cardCompact : null]}>
-        <UserAvatarImage
-          uri={person.avatar_url}
-          style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
-          contentFit="cover"
-        />
-        <View style={styles.cardMain}>
-          <Text style={[styles.title, isCompact ? styles.titleCompact : null]} numberOfLines={1}>
-            {displayName}
-          </Text>
-          <View style={[styles.userMetaRow, isCompact ? styles.userMetaRowCompact : null]}>
-            <Text style={[styles.username, isCompact ? styles.usernameCompact : null]} numberOfLines={1}>
-              @{person.username?.trim() || unknownLabel}
-            </Text>
-            {isFollowing ? (
-              <View style={[styles.followedBadge, isCompact ? styles.followedBadgeCompact : null]}>
-                <Text style={[styles.followedBadgeText, isCompact ? styles.followedBadgeTextCompact : null]}>
-                  {followedLabel}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-        <View style={[styles.actionsWrap, isCompact ? styles.actionsWrapCompact : null]}>
-          <Pressable
-            style={[styles.iconActionBtn, styles.followBtn, isCompact ? styles.iconActionBtnCompact : null]}
-            onPress={onToggleFollow}
-          >
-            <Ionicons
-              name={isFollowing ? "person-remove" : "person-add"}
-              size={actionIconSize}
-              color={colors.onAccent}
-            />
-          </Pressable>
-          <Pressable
-            style={[styles.iconActionBtn, styles.chatBtn, isCompact ? styles.iconActionBtnCompact : null]}
-            onPress={onOpenChat}
-            onPressIn={onPrefetchChat}
-          >
-            <Ionicons name="chatbubble-ellipses" size={actionIconSize} color={colors.onAccent} />
-          </Pressable>
-        </View>
-      </View>
+      <PersonRowContent {...props} />
     </Swipeable>
   );
 }

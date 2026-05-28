@@ -21,6 +21,8 @@ export function useMyFollowing() {
       return ((data ?? []) as unknown as Array<{ following_id: string }>).map((row) => row.following_id);
     },
     enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   });
 
   const followingSet = useMemo(() => new Set(query.data ?? []), [query.data]);
@@ -60,9 +62,19 @@ export function useToggleFollow() {
       if (error) throw error;
       return { skipped: false as const, nowFollowing: true };
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.userFollows.prefix });
+    onSuccess: (_result, variables) => {
+      const mineKey = queryKeys.userFollows.mine(user?.id ?? null);
+      queryClient.setQueryData<string[]>(mineKey, (prev = []) => {
+        const set = new Set(prev);
+        if (variables.isFollowing) {
+          set.delete(variables.followingId);
+        } else {
+          set.add(variables.followingId);
+        }
+        return Array.from(set);
+      });
       void queryClient.invalidateQueries({ queryKey: queryKeys.stories.feedPrefix });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.posts.feedPrefix });
       void queryClient.invalidateQueries({ queryKey: queryKeys.profile.socialMetrics(user?.id ?? null) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.profile.suggestionsPrefix });
     },

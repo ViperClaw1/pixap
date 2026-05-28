@@ -1,6 +1,7 @@
 import { memo, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -68,11 +69,11 @@ function AppHeaderComponent({
     <View style={[styles.wrap, { paddingTop: Math.max(insets.top, 10), borderBottomColor: colors.border, backgroundColor: colors.background }]}>
       <View style={styles.row}>
         <View style={styles.leftActions}>
-          <Pressable style={[styles.iconBtn, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={onLeftPress}>
+          <AppPressable style={[styles.iconBtn, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={onLeftPress}>
             <Ionicons name={leftIcon} size={20} color={colors.text} />
-          </Pressable>
+          </AppPressable>
           {showNotificationsBell ? (
-            <Pressable
+            <AppPressable
               accessibilityRole="button"
               accessibilityLabel={t("notifications.openA11y")}
               style={[styles.iconBtn, styles.bellWrap, { borderColor: colors.border, backgroundColor: colors.card }]}
@@ -84,7 +85,7 @@ function AppHeaderComponent({
                   <Text style={[styles.badgeText, { color: colors.onPrimary }]}>{unread > 9 ? "9+" : String(unread)}</Text>
                 </View>
               ) : null}
-            </Pressable>
+            </AppPressable>
           ) : null}
         </View>
         <Text
@@ -94,18 +95,18 @@ function AppHeaderComponent({
           {title}
         </Text>
         <View style={styles.rightActions}>
-          <Pressable
+          <AppPressable
             accessibilityRole="button"
             accessibilityLabel={t("language.choose")}
             style={[styles.iconBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
             onPress={() => setLanguageOpen(true)}
           >
             <Ionicons name="language-outline" size={20} color={colors.text} />
-          </Pressable>
+          </AppPressable>
           {hasRightAction ? (
-            <Pressable style={[styles.iconBtn, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={onRightPress}>
+            <AppPressable style={[styles.iconBtn, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={onRightPress}>
               <Ionicons name={rightIcon} size={20} color={colors.text} />
-            </Pressable>
+            </AppPressable>
           ) : null}
         </View>
       </View>

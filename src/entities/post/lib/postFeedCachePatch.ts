@@ -164,6 +164,45 @@ export function applyPostBoostInFeedCaches(
   }
 }
 
+export function patchPostInAllFeedCaches(
+  queryClient: QueryClient,
+  postId: string,
+  patch: (post: FeedPostItem) => FeedPostItem,
+): boolean {
+  let touched = false;
+  const queries = queryClient.getQueriesData<InfiniteData<FeedPage>>({ queryKey: queryKeys.posts.feedPrefix });
+
+  for (const [key, data] of queries) {
+    if (!data?.pages?.length) continue;
+    let pageTouched = false;
+    const pages = data.pages.map((page) => {
+      if (!page.posts.some((post) => post.id === postId)) return page;
+      pageTouched = true;
+      return {
+        ...page,
+        posts: page.posts.map((post) => (post.id === postId ? patch(post) : post)),
+      };
+    });
+    if (pageTouched) {
+      touched = true;
+      queryClient.setQueryData<InfiniteData<FeedPage>>(key, { ...data, pages });
+    }
+  }
+
+  return touched;
+}
+
+export function togglePostLikeInFeedCaches(queryClient: QueryClient, postId: string): boolean {
+  return patchPostInAllFeedCaches(queryClient, postId, (post) => {
+    const wasLiked = post.my_reaction === "like";
+    return {
+      ...post,
+      my_reaction: wasLiked ? null : "like",
+      reaction_count: Math.max(0, post.reaction_count + (wasLiked ? -1 : 1)),
+    };
+  });
+}
+
 export function prependPostToFeedCaches(queryClient: QueryClient, post: FeedPostItem): void {
   const queries = queryClient.getQueriesData<InfiniteData<FeedPage>>({ queryKey: queryKeys.posts.feedPrefix });
 

@@ -116,14 +116,15 @@ export function SmartImage({
     if (primary) recordStorageImageRequest(primary, "display");
   }, [chainKey, chain]);
 
-  useEffect(() => {
-    if (chain.length === 0 && skipBundledPlaceholder) {
-      onSourcesExhausted?.();
-    }
-  }, [chain.length, chainKey, onSourcesExhausted, skipBundledPlaceholder]);
-
   const maxAttempts = chain.length > 0 ? chain.length + retryCount : 0;
   const sourcesExhausted = chain.length > 0 && attempt >= maxAttempts;
+
+  useEffect(() => {
+    if (skipBundledPlaceholder && (chain.length === 0 || sourcesExhausted)) {
+      onSourcesExhausted?.();
+    }
+  }, [chain.length, chainKey, onSourcesExhausted, skipBundledPlaceholder, sourcesExhausted]);
+
   const sourceIndex = Math.min(Math.max(chain.length - 1, 0), attempt);
   /** Без кастомного `cacheKey`: ключ кэша = `uri`, как у `Image.prefetch` — повторный mount попадает в disk/memory. */
   const activeUri =
@@ -145,18 +146,11 @@ export function SmartImage({
     (event: ImageErrorEventData) => {
       setAttempt((a) => {
         const limit = chain.length + retryCount;
-        const next = a < limit ? a + 1 : a;
-        if (next >= limit && chain.length > 0) {
-          onSourcesExhausted?.();
-          if (showLoadingSpinner) {
-            setLoadingState(false);
-          }
-        }
-        return next;
+        return a < limit ? a + 1 : a;
       });
       onError?.(event);
     },
-    [chain.length, onError, onSourcesExhausted, retryCount, setLoadingState, showLoadingSpinner],
+    [chain.length, onError, retryCount],
   );
 
   const handleLoadStart = useCallback(

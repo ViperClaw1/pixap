@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Platform, Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { Alert, InteractionManager, Platform, Text, TextInput, useWindowDimensions, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { FlashList } from "@shopify/flash-list";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
@@ -41,6 +41,8 @@ import { markMessagingPerfEnd, markMessagingPerfStart } from "@/shared/lib/messa
 import { MessagesThreadRow } from "./MessagesThreadRow";
 import { MessagesPersonRow } from "./MessagesPersonRow";
 import { StartChatUserRow } from "./StartChatUserRow";
+import { scheduleMessagesScreensPrefetch } from "../lib/prefetchMessagesScreen";
+import { useNavigateOnce } from "@/shared/lib/navigation/useNavigateOnce";
 
 const SKELETON_IDS = ["1", "2", "3"] as const;
 
@@ -56,7 +58,9 @@ export default function MessagesPage() {
   const isCompact = windowWidth < MESSAGES_COMPACT_WIDTH;
   const actionIconSize = isCompact ? 18 : 22;
   const navigation = useNavigation<NativeStackNavigationProp<CartStackParamList>>();
+  const navigateOnce = useNavigateOnce();
   const isScreenFocused = useIsFocused();
+  const [inboxEffectsReady, setInboxEffectsReady] = useState(false);
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { colors, mode, setMode } = useAppTheme();
@@ -68,8 +72,8 @@ export default function MessagesPage() {
   const [startChatSearch, setStartChatSearch] = useState("");
   const [deletedThreadIds, setDeletedThreadIds] = useState<Set<string>>(new Set());
   const { threads, isPending: inboxPending } = useMessagesInbox(search);
-  const { people, isPending: peoplePending } = usePeopleToFollow(search);
-  const sectionsPending = inboxPending || peoplePending;
+  const { people, isPending: peoplePending } = usePeopleToFollow(search, { enabled: inboxEffectsReady });
+  const sectionsPending = inboxPending || (inboxEffectsReady && peoplePending);
   const { data: publicProfiles = [], isLoading: publicProfilesLoading } = usePublicProfiles(
     startChatSearch,
     startChatModalOpen,
@@ -86,6 +90,12 @@ export default function MessagesPage() {
 
   useEffect(() => {
     markMessagingPerfStart("inbox_open");
+    const cancelPrefetch = scheduleMessagesScreensPrefetch();
+    const task = InteractionManager.runAfterInteractions(() => setInboxEffectsReady(true));
+    return () => {
+      cancelPrefetch();
+      task.cancel();
+    };
   }, []);
 
   useEffect(() => {
@@ -140,27 +150,31 @@ export default function MessagesPage() {
         avatar_url?: string | null;
       },
     ) => {
-      navigation.navigate("MessageThread", {
-        threadId,
-        peerId: person.id,
-        peerFirstName: person.first_name,
-        peerLastName: person.last_name,
-        peerAvatarUrl: person.avatar_url,
+      navigateOnce(() => {
+        navigation.navigate("MessageThread", {
+          threadId,
+          peerId: person.id,
+          peerFirstName: person.first_name,
+          peerLastName: person.last_name,
+          peerAvatarUrl: person.avatar_url,
+        });
       });
     },
-    [navigation],
+    [navigateOnce, navigation],
   );
 
   const navigateToSupportThread = useCallback(
     (threadId: string) => {
-      navigation.navigate("MessageThread", {
-        threadId,
-        peerId: "",
-        isSupport: true,
-        threadTitle: t("messages.support"),
+      navigateOnce(() => {
+        navigation.navigate("MessageThread", {
+          threadId,
+          peerId: "",
+          isSupport: true,
+          threadTitle: t("messages.support"),
+        });
       });
     },
-    [navigation, t],
+    [navigateOnce, navigation, t],
   );
 
   const onOpenSupport = () => {
@@ -213,7 +227,7 @@ export default function MessagesPage() {
   const typingThreadIds = useMessagesInboxTyping(
     viewerIsSupportStaff ? customerSupportTickets : visibleThreads,
     user?.id,
-    isScreenFocused,
+    isScreenFocused && inboxEffectsReady,
   );
   const peerTypingLabel = t("messages.thread.peerTyping");
 
@@ -226,14 +240,16 @@ export default function MessagesPage() {
         rows.push({ kind: "thread", key: thread.thread_id, thread });
       }
     }
-    rows.push({ kind: "section", key: "section-people", title: t("messages.peopleToFollow") });
-    if (!sectionsPending) {
-      for (const person of people) {
-        rows.push({ kind: "person", key: person.id, person });
+    if (inboxEffectsReady) {
+      rows.push({ kind: "section", key: "section-people", title: t("messages.peopleToFollow") });
+      if (!sectionsPending) {
+        for (const person of people) {
+          rows.push({ kind: "person", key: person.id, person });
+        }
       }
     }
     return rows;
-  }, [people, sectionsPending, t, visibleThreads]);
+  }, [inboxEffectsReady, people, sectionsPending, t, visibleThreads]);
 
   const onDeleteThread = useCallback(
     (threadId: string, title: string) => {
@@ -275,7 +291,9 @@ export default function MessagesPage() {
         avatar_url: peer?.avatar_url ?? thread.last_sender_avatar_url,
       });
       if (thread.unread_count && !markThreadRead.isPending) {
-        void markThreadRead.mutateAsync(thread.thread_id);
+        InteractionManager.runAfterInteractions(() => {
+          void markThreadRead.mutateAsync(thread.thread_id);
+        });
       }
     },
     [markThreadRead, navigateToThread, user?.id, viewerIsSupportStaff],
@@ -291,14 +309,18 @@ export default function MessagesPage() {
 
   const tabBarHeight = useBottomTabBarHeight();
   const styles = useMessagesStyles(insets.bottom);
-  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom, gap: 0 });
+  const keyboardInset = useKeyboardInset({
+    bottomInset: insets.bottom,
+    gap: 0,
+    enabled: Platform.OS === "ios",
+  });
   const listKeyboardFooterStyle = useAnimatedStyle(() => ({
     height: keyboardInset.value,
   }));
-  const listKeyboardFooter = useCallback(
-    () => <Animated.View style={listKeyboardFooterStyle} />,
-    [listKeyboardFooterStyle],
-  );
+  const listKeyboardFooter = useCallback(() => {
+    if (Platform.OS === "android") return null;
+    return <Animated.View style={listKeyboardFooterStyle} />;
+  }, [listKeyboardFooterStyle]);
 
   const listContentStyle = useMemo(
     () => [
