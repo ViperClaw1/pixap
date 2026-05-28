@@ -1,11 +1,14 @@
-import { useEffect, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 
 export type StorySourceOption = "camera" | "gallery";
+
+/** iOS cannot present UIImagePicker while our Modal is still on screen. */
+const PICKER_PRESENT_DELAY_MS = Platform.OS === "ios" ? 400 : 250;
 
 type Props = {
   visible: boolean;
@@ -24,6 +27,7 @@ export function StorySourcePickerModal({
 }: Props) {
   const { colors } = useAppTheme();
   const opacity = useSharedValue(0);
+  const chooseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!visible) {
@@ -32,6 +36,28 @@ export function StorySourcePickerModal({
     }
     opacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
   }, [opacity, visible]);
+
+  useEffect(() => {
+    return () => {
+      if (chooseTimerRef.current != null) {
+        clearTimeout(chooseTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleChoose = useCallback(
+    (source: StorySourceOption) => {
+      onClose();
+      if (chooseTimerRef.current != null) {
+        clearTimeout(chooseTimerRef.current);
+      }
+      chooseTimerRef.current = setTimeout(() => {
+        chooseTimerRef.current = null;
+        onChoose(source);
+      }, PICKER_PRESENT_DELAY_MS);
+    },
+    [onChoose, onClose],
+  );
 
   const overlayStyle = useAnimatedStyle(
     () => ({
@@ -66,14 +92,21 @@ export function StorySourcePickerModal({
     [],
   );
 
-  if (!visible) return null;
-
   return (
-    <GestureDetector gesture={swipeToCloseGesture}>
-      <Animated.View style={[styles.safeArea, overlayStyle]}>
-        <View style={[styles.overlay, { backgroundColor: "rgba(0,0,0,0.48)" }]}>
-          <Pressable style={styles.outsideTapArea} onPress={onClose} />
-          <View style={[styles.container, { backgroundColor: colors.background, borderColor: colors.border }]}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <GestureDetector gesture={swipeToCloseGesture}>
+        <Animated.View style={[styles.overlayRoot, overlayStyle]} pointerEvents="box-none">
+          <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
+          <View
+            style={[styles.container, { backgroundColor: colors.background, borderColor: colors.border }]}
+            accessibilityViewIsModal
+          >
             <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
             <Text style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text>
             <View style={styles.options}>
@@ -88,7 +121,7 @@ export function StorySourcePickerModal({
                         backgroundColor: colors.card,
                       },
                     ]}
-                    onPress={() => onChoose(option.id)}
+                    onPress={() => handleChoose(option.id)}
                   >
                     <Ionicons name={option.icon} size={24} color={colors.text} />
                     <Text style={[styles.optionText, { color: colors.text }]}>{option.title}</Text>
@@ -97,28 +130,24 @@ export function StorySourcePickerModal({
               })}
             </View>
           </View>
-        </View>
-      </Animated.View>
-    </GestureDetector>
+        </Animated.View>
+      </GestureDetector>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 999,
-  },
-  overlay: {
+  overlayRoot: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+    backgroundColor: "rgba(0,0,0,0.48)",
   },
-  outsideTapArea: {
+  backdrop: {
     ...StyleSheet.absoluteFillObject,
   },
   container: {
-    zIndex: 1,
     width: "100%",
     maxWidth: 420,
     borderRadius: 22,

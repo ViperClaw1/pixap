@@ -166,7 +166,8 @@ export const homePageStaticStyles = StyleSheet.create({
   },
   categoriesFlatList: { marginBottom: 12 },
   featuredCardWrap: { marginRight: 12 },
-  recommendedListSeparator: { height: 12 },
+  /** Included in FlashList item measurement (padding, not margin). */
+  recommendedItemWrap: { paddingBottom: 12 },
   showMoreBtn: {
     marginTop: 4,
     marginBottom: 8,

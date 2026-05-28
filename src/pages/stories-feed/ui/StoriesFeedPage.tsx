@@ -1,8 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Dimensions,
   InteractionManager,
+  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -56,6 +58,8 @@ import {
   FEED_POST_LIST_ITEM_EXTRA_HEIGHT,
   FEED_STORIES_STRIP_HEIGHT,
   FEED_TAB_BAR_BASE,
+  FEED_TITLE_INPUT_KEYBOARD_GAP,
+  FEED_TITLE_INPUT_KEYBOARD_GAP_ANDROID,
 } from "../model/constants";
 
 export default function StoriesFeedScreen() {
@@ -99,6 +103,84 @@ export default function StoriesFeedScreen() {
   const postBoostAccess = usePostBoostFeature();
   const boostPost = useBoostPost();
   const feedListRef = useRef<FlashListRef<FeedPostVm>>(null);
+  const feedScrollYRef = useRef(0);
+  const keyboardTopRef = useRef(Dimensions.get("window").height);
+  const lastTitleInputLayoutRef = useRef<{ y: number; height: number } | null>(null);
+  const titleInputScrollDoneRef = useRef(false);
+  const [titleEditKeyboardInset, setTitleEditKeyboardInset] = useState(0);
+
+  const titleInputKeyboardGap =
+    FEED_TITLE_INPUT_KEYBOARD_GAP +
+    (Platform.OS === "android" ? FEED_TITLE_INPUT_KEYBOARD_GAP_ANDROID : 0);
+
+  const computeTitleInputOverlap = useCallback(() => {
+    const layout = lastTitleInputLayoutRef.current;
+    if (!layout) return 0;
+
+    const windowHeight = Dimensions.get("window").height;
+    const keyboardTop = keyboardTopRef.current;
+    if (keyboardTop >= windowHeight - 1) return 0;
+
+    return Math.max(0, layout.y + layout.height + titleInputKeyboardGap - keyboardTop);
+  }, [titleInputKeyboardGap]);
+
+  const scrollTitleInputByOverlap = useCallback((overlap: number) => {
+    titleInputScrollDoneRef.current = true;
+    requestAnimationFrame(() => {
+      feedListRef.current?.scrollToOffset({
+        offset: feedScrollYRef.current + overlap,
+        animated: true,
+      });
+    });
+  }, []);
+
+  /** Extends list scroll range, then scrolls once (fixes last post at list bottom). */
+  const ensureTitleInputAboveKeyboard = useCallback(() => {
+    const overlap = computeTitleInputOverlap();
+    if (overlap <= 0) return;
+
+    if (titleEditKeyboardInset === overlap && titleInputScrollDoneRef.current) return;
+
+    if (titleEditKeyboardInset === overlap) {
+      scrollTitleInputByOverlap(overlap);
+      return;
+    }
+
+    titleInputScrollDoneRef.current = false;
+    setTitleEditKeyboardInset(overlap);
+  }, [computeTitleInputOverlap, scrollTitleInputByOverlap, titleEditKeyboardInset]);
+
+  const handleTitleInputLayout = useCallback(
+    (layout: { y: number; height: number }) => {
+      lastTitleInputLayoutRef.current = layout;
+      ensureTitleInputAboveKeyboard();
+    },
+    [ensureTitleInputAboveKeyboard],
+  );
+
+  useEffect(() => {
+    if (titleEditKeyboardInset <= 0 || titleInputScrollDoneRef.current) return;
+    scrollTitleInputByOverlap(titleEditKeyboardInset);
+  }, [scrollTitleInputByOverlap, titleEditKeyboardInset]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      keyboardTopRef.current = event.endCoordinates.screenY;
+      ensureTitleInputAboveKeyboard();
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      keyboardTopRef.current = Dimensions.get("window").height;
+      lastTitleInputLayoutRef.current = null;
+      titleInputScrollDoneRef.current = false;
+      setTitleEditKeyboardInset(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [ensureTitleInputAboveKeyboard]);
 
   const scrollFeedToTop = useCallback(() => {
     feedListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -129,6 +211,11 @@ export default function StoriesFeedScreen() {
       Math.max(FEED_CAROUSEL_MIN_HEIGHT, Math.min(fromViewport, maxFromMainBlock)) + FEED_CAROUSEL_HEIGHT_BOOST
     );
   }, [feedMainBlockHeight, height]);
+
+  const feedContentStyle = useMemo(
+    () => [styles.feedContent, { paddingBottom: 12 + titleEditKeyboardInset }],
+    [titleEditKeyboardInset],
+  );
 
   const focusedPostVms = useMemo<FeedPostVm[]>(
     () =>
@@ -342,6 +429,7 @@ export default function StoriesFeedScreen() {
           boostPending={h.postBoostConfirm.isBoostPending(vm.post.id)}
           onBoost={() => handleFeedBoost(vm.post.id, vm.post.boosted_at)}
           carouselAutoPlay={h.isScreenFocused}
+          onTitleInputLayout={handleTitleInputLayout}
         />
       );
     },
@@ -353,6 +441,7 @@ export default function StoriesFeedScreen() {
       handleFeedShare,
       handleFeedToggleContent,
       handleFeedToggleFollow,
+      handleTitleInputLayout,
     ],
   );
 
@@ -404,8 +493,13 @@ export default function StoriesFeedScreen() {
         keyExtractor={(item) => item.post.id}
         estimatedItemSize={sliderHeight + FEED_POST_LIST_ITEM_EXTRA_HEIGHT}
         getItemType={() => "feed-post"}
-        contentContainerStyle={styles.feedContent}
+        contentContainerStyle={feedContentStyle}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        onScroll={(event) => {
+          feedScrollYRef.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
         nestedScrollEnabled={Platform.OS === "android"}
         removeClippedSubviews
         initialNumToRender={4}
