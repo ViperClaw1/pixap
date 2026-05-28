@@ -25,13 +25,13 @@ export type SubscriptionEntitlement = {
 const ACTIVE_STATUSES: EntitlementStatus[] = ["active", "trialing", "grace_period", "billing_retry"];
 const INTRO_FREE_DAYS = 7;
 
-export function useEntitlement() {
+export function useEntitlement(options?: { enabled?: boolean }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: queryKeys.subscription.entitlement(user?.id),
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id) && (options?.enabled ?? true),
     staleTime: 120 * 1000,
     queryFn: async () => {
       const { data, error } = await (supabase as any)

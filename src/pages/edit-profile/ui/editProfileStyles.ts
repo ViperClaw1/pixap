@@ -36,6 +36,13 @@ export const editProfileStaticStyles = StyleSheet.create({
   inputError: {},
   errorText: { marginTop: 6, fontSize: 12 },
   phoneInputWrap: { marginTop: 6 },
+  phonePlaceholder: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   btn: {
     marginTop: 24,
     ...primaryPressableStyle,
@@ -62,5 +69,9 @@ export function editProfileThemeStyles(colors: ThemeColors, _mode: ThemeMode) {
     disabledInput: { backgroundColor: colors.surface, color: colors.textMuted },
     inputError: { borderColor: colors.danger },
     errorText: { color: colors.danger },
+    phonePlaceholder: {
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+    },
   } satisfies Partial<Record<keyof typeof editProfileStaticStyles, object>>;
 }

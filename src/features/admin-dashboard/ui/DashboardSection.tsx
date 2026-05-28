@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text } from "react-native";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 
 type DashboardSectionProps = {
@@ -21,9 +21,9 @@ export function DashboardSection({ title, subtitle, children }: DashboardSection
 }
 
 function createStyles({ colors }: { colors: { text: string; textMuted: string } }) {
-  return StyleSheet.create({
+  return {
     section: { gap: 12, marginBottom: 24 },
     title: { fontSize: 18, fontWeight: "800", color: colors.text },
     subtitle: { fontSize: 13, color: colors.textMuted, marginTop: -6, marginBottom: 4 },
-  });
+  };
 }

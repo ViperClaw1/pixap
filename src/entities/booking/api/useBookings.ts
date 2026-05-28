@@ -83,7 +83,7 @@ export function deriveBookingDisplayStatus(booking: Booking, linkedCartItem?: Ca
   return "confirmed";
 }
 
-export const useBookings = () => {
+export const useBookings = (options?: { enabled?: boolean }) => {
   const { user } = useAuth();
   const { i18n } = useTranslation();
   const language = i18n.language;
@@ -112,7 +112,7 @@ export const useBookings = () => {
       }));
       return rows;
     },
-    enabled: !!user,
+    enabled: !!user && (options?.enabled ?? true),
     staleTime: 30 * 1000,
   });
 };

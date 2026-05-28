@@ -23,7 +23,7 @@ export interface Profile {
   updated_at: string;
 }
 
-export const useProfile = () => {
+export const useProfile = (options?: { enabled?: boolean }) => {
   const { user } = useAuth();
   return useQuery({
     queryKey: queryKeys.profile.user(user?.id),
@@ -32,7 +32,8 @@ export const useProfile = () => {
       if (error) throw error;
       return data as Profile;
     },
-    enabled: !!user,
+    enabled: !!user && (options?.enabled ?? true),
+    staleTime: 5 * 60 * 1000,
   });
 };
 

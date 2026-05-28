@@ -34,7 +34,7 @@ export const useNotifications = () => {
   });
 };
 
-export const useUnreadCount = () => {
+export const useUnreadCount = (options?: { enabled?: boolean }) => {
   const { user } = useAuth();
   const realtimeConnected = useNotificationsRealtime(user?.id);
   const unreadCountQuery = useQuery({
@@ -49,7 +49,7 @@ export const useUnreadCount = () => {
       if (error) throw error;
       return count ?? 0;
     },
-    enabled: !!user,
+    enabled: !!user && (options?.enabled ?? true),
     staleTime: 15 * 1000,
   });
   return unreadCountQuery.data ?? 0;

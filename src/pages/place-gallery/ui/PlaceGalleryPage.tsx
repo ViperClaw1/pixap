@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { InteractionManager, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, useIsFocused, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cancelAnimation, useSharedValue, withTiming, Easing } from "react-native-reanimated";
@@ -40,6 +40,7 @@ export default function PlaceGalleryPage() {
   const { params } = useRoute<PlaceGalleryRoute>();
   const navigation = useNavigation<PlaceGalleryNav>();
   const insets = useSafeAreaInsets();
+  const isScreenFocused = useIsFocused();
   const { width, height } = useWindowDimensions();
 
   const images = useMemo(
@@ -97,6 +98,27 @@ export default function PlaceGalleryPage() {
     return () => task.cancel();
   }, [activeIndex, galleryUri, images, rawImages]);
 
+  const renderGalleryItem = useCallback(
+    ({ item, index }: { item: string; index: number }) => (
+      <Pressable
+        style={styles.absoluteFill}
+        onLongPress={() => setPaused(true)}
+        onPressOut={() => setPaused(false)}
+        delayLongPress={220}
+      >
+        <SmartImage
+          uri={galleryUri(rawImages[index] ?? item)}
+          fallbackUri={rawImages[index] ?? item}
+          recyclingKey={`place-gallery-${index}`}
+          style={styles.absoluteFill}
+          contentFit="contain"
+          transition={100}
+        />
+      </Pressable>
+    ),
+    [galleryUri, rawImages, styles.absoluteFill],
+  );
+
   return (
     <View style={styles.root}>
       <View style={styles.absoluteFill}>
@@ -105,29 +127,13 @@ export default function PlaceGalleryPage() {
           height={height}
           data={images}
           loop
-          autoPlay={images.length > 1}
+          autoPlay={isScreenFocused && images.length > 1}
           autoPlayInterval={AUTO_SLIDE_MS}
           enabled={!paused}
           defaultIndex={initialIndex}
           scrollAnimationDuration={500}
           onSnapToItem={setActiveIndex}
-          renderItem={({ item, index }) => (
-            <Pressable
-              style={styles.absoluteFill}
-              onLongPress={() => setPaused(true)}
-              onPressOut={() => setPaused(false)}
-              delayLongPress={220}
-            >
-              <SmartImage
-                uri={galleryUri(rawImages[index] ?? item)}
-                fallbackUri={rawImages[index] ?? item}
-                recyclingKey={`place-gallery-${index}`}
-                style={styles.absoluteFill}
-                contentFit="contain"
-                transition={100}
-              />
-            </Pressable>
-          )}
+          renderItem={renderGalleryItem}
         />
       </View>
 

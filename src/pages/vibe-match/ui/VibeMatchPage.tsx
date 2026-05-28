@@ -141,7 +141,9 @@ function VibeMatchPageContent() {
   }));
   const { colors } = useAppTheme();
   const navigation = useNavigation<Nav>();
-  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
+    sensitivity: "high",
+  });
   const { user, session, loading: authLoading } = useAuth();
   const {
     canAccessVibeMatch,

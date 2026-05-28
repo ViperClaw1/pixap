@@ -3,7 +3,7 @@ import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 
-export const useUserRole = () => {
+export const useUserRole = (options?: { enabled?: boolean }) => {
   const { user } = useAuth();
 
   const query = useQuery({
@@ -13,7 +13,8 @@ export const useUserRole = () => {
       if (error) throw error;
       return (data?.role as string) ?? "buyer";
     },
-    enabled: !!user,
+    enabled: !!user && (options?.enabled ?? true),
+    staleTime: Infinity,
   });
 
   return {

@@ -98,9 +98,18 @@ export const useStoryComments = (storyId: string) => {
 
     const repliesChannel = supabase
       .channel(`story_replies_${storyId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "story_replies" }, () => {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.stories.comments(storyId) });
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "story_replies",
+          filter: `story_id=eq.${storyId}`,
+        },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.stories.comments(storyId) });
+        },
+      )
       .subscribe();
 
     return () => {
@@ -218,6 +227,7 @@ export const useStoryComments = (storyId: string) => {
       });
     },
     enabled: !!storyId,
+    staleTime: 30 * 1000,
     refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.storyComments,
   });
 };

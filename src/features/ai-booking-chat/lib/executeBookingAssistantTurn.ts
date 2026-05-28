@@ -17,8 +17,9 @@ export async function executeBookingAssistantTurn(input: {
   places: PlaceLite[];
   orderedIds: string[];
   prior: BookingChatTurnHistoryItem[];
+  signal?: AbortSignal;
 }): Promise<void> {
-  const { tabId, userText, catalogRevision, bookingContext, places, orderedIds, prior } = input;
+  const { tabId, userText, catalogRevision, bookingContext, places, orderedIds, prior, signal } = input;
   const store = useBookingChatStore.getState();
 
   const isFirstUserTurn = !prior.some((m) => m.role === "user");
@@ -46,9 +47,11 @@ export async function executeBookingAssistantTurn(input: {
     const messageId = useBookingChatStore.getState().appendAssistantShellForStream(tabId);
 
     let lastLayoutAt = 0;
-    await revealAssistantText({
+    const reveal = revealAssistantText({
       fullText,
+      signal,
       onUpdate: (partial) => {
+        if (signal?.aborted) return;
         const now = Date.now();
         if (now - lastLayoutAt > 110) {
           lastLayoutAt = now;
@@ -57,6 +60,8 @@ export async function executeBookingAssistantTurn(input: {
         useBookingChatStore.getState().patchAssistantMessageContent(tabId, messageId, partial);
       },
     });
+    await reveal.promise;
+    if (signal?.aborted) return;
 
     scheduleBookingChatLayoutAnimation();
     useBookingChatStore.getState().finalizeAssistantStream(tabId, messageId, safe, catalogRevision);

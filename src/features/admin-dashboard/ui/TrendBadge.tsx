@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 
@@ -30,7 +30,7 @@ function createStyles({
 }: {
   colors: { successSurface: string; dangerSurface: string; danger: string; textMuted: string };
 }) {
-  return StyleSheet.create({
+  return {
     root: {
       flexDirection: "row",
       alignItems: "center",
@@ -45,5 +45,5 @@ function createStyles({
     upText: { color: "#15803d" },
     downText: { color: colors.danger },
     label: { fontSize: 12, color: colors.textMuted, marginLeft: 4 },
-  });
+  };
 }

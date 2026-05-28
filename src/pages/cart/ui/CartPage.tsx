@@ -136,6 +136,25 @@ export default function CartPage() {
     }
   };
 
+  const renderServiceCartItem = ({ item }: { item: CartItem }) => (
+    <ServiceCartRow
+      item={item}
+      stylesThemed={stylesThemed}
+      onConfirmBooking={handleConfirmServiceBooking}
+      onPayBooking={handlePayServiceBooking}
+      onAuthRequired={handleAuthRequired}
+    />
+  );
+
+  const renderShoppingCartItem = ({ item }: { item: (typeof shoppingItems)[number] }) => (
+    <ShopRow
+      item={item}
+      stylesThemed={stylesThemed}
+      labelColor={colors.text}
+      onAuthRequired={handleAuthRequired}
+    />
+  );
+
   return (
     <View style={stylesThemed.root}>
       <Text style={[stylesThemed.header, { paddingTop: Math.max(insets.top, 12) }]}>{t("cart.title")}</Text>
@@ -168,15 +187,7 @@ export default function CartPage() {
               />
             }
             ListEmptyComponent={<Text style={stylesThemed.empty}>{t("cart.emptyPaymentAwaiting")}</Text>}
-            renderItem={({ item }) => (
-              <ServiceCartRow
-                item={item}
-                stylesThemed={stylesThemed}
-                onConfirmBooking={handleConfirmServiceBooking}
-                onPayBooking={handlePayServiceBooking}
-                onAuthRequired={handleAuthRequired}
-              />
-            )}
+            renderItem={renderServiceCartItem}
             removeClippedSubviews
             initialNumToRender={8}
             maxToRenderPerBatch={10}
@@ -210,14 +221,7 @@ export default function CartPage() {
               </View>
             ) : null
           }
-          renderItem={({ item }) => (
-            <ShopRow
-              item={item}
-              stylesThemed={stylesThemed}
-              labelColor={colors.text}
-              onAuthRequired={handleAuthRequired}
-            />
-          )}
+          renderItem={renderShoppingCartItem}
           removeClippedSubviews
           initialNumToRender={8}
           maxToRenderPerBatch={10}

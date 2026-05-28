@@ -29,6 +29,7 @@ export function useSequentialTypewriterReveal(
     }
 
     let cancelled = false;
+    let cancelReveal: (() => void) | null = null;
     let lastLayoutAt = 0;
     const maybeScheduleLayout = () => {
       const now = Date.now();
@@ -43,7 +44,7 @@ export function useSequentialTypewriterReveal(
     setShowSecondBubble(false);
 
     const run = async () => {
-      await revealAssistantText({
+      const firstReveal = revealAssistantText({
         fullText: firstText,
         onUpdate: (partial) => {
           if (cancelled) return;
@@ -51,10 +52,12 @@ export function useSequentialTypewriterReveal(
           setFirstVisible(partial);
         },
       });
+      cancelReveal = firstReveal.cancel;
+      await firstReveal.promise;
       if (cancelled) return;
       scheduleBookingChatLayoutAnimation();
       setShowSecondBubble(true);
-      await revealAssistantText({
+      const secondReveal = revealAssistantText({
         fullText: secondText,
         onUpdate: (partial) => {
           if (cancelled) return;
@@ -62,6 +65,8 @@ export function useSequentialTypewriterReveal(
           setSecondVisible(partial);
         },
       });
+      cancelReveal = secondReveal.cancel;
+      await secondReveal.promise;
       if (!cancelled) {
         scheduleBookingChatLayoutAnimation();
         if (chainKey) {
@@ -73,6 +78,7 @@ export function useSequentialTypewriterReveal(
     void run();
     return () => {
       cancelled = true;
+      cancelReveal?.();
     };
   }, [firstText, secondText, chainKey]);
 

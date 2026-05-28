@@ -55,6 +55,7 @@ export const PostMediaCarousel = memo(function PostMediaCarousel({
   postSlideBlurhashes,
   width,
   sliderHeight,
+  autoPlay = true,
 }: {
   postId: string;
   postImages: string[];
@@ -62,6 +63,7 @@ export const PostMediaCarousel = memo(function PostMediaCarousel({
   postSlideBlurhashes: (string | null)[];
   width: number;
   sliderHeight: number;
+  autoPlay?: boolean;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -98,7 +100,7 @@ export const PostMediaCarousel = memo(function PostMediaCarousel({
         height={sliderHeight}
         data={postImages}
         loop
-        autoPlay
+        autoPlay={autoPlay}
         autoPlayInterval={5000}
         scrollAnimationDuration={650}
         onConfigurePanGesture={configureFeedCarouselPanGesture}

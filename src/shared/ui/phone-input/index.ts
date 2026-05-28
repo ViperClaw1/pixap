@@ -9,6 +9,7 @@ export {
   parseStoredPhone,
   regionToFlagEmoji,
   serializePhone,
+  warmPhoneInputCache,
   validatePhoneValue,
 } from "./lib";
 export type { CountryOption, PhoneValue, PhoneValidationError } from "./lib";

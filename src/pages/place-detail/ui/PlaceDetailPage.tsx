@@ -15,7 +15,7 @@ import {
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
-import { useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
+import { useRoute, useNavigation, useIsFocused, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCard } from "@/entities/business-card";
@@ -67,8 +67,11 @@ export default function PlaceDetailScreen() {
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
   const { openAIBooking, openBookingFlow } = useSubscriptionGatedNavigation(navigation);
-  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
+    sensitivity: "high",
+  });
   const insets = useSafeAreaInsets();
+  const isScreenFocused = useIsFocused();
   const { colors } = useAppTheme();
   const { data: place, isLoading } = useBusinessCard(id);
   const { width: windowWidth } = useWindowDimensions();
@@ -288,7 +291,18 @@ export default function PlaceDetailScreen() {
   useEffect(() => {
     const preloadCandidates = imageVm.heroImages.slice(0, 4);
     if (!preloadCandidates.length) return;
-    void preloadSmartImages(preloadCandidates);
+    let cancelled = false;
+    let task: { cancel: () => void } | null = null;
+    const timer = setTimeout(() => {
+      task = InteractionManager.runAfterInteractions(() => {
+        if (!cancelled) void preloadSmartImages(preloadCandidates);
+      });
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      task?.cancel();
+    };
   }, [imageVm.heroImages]);
 
   const openFullscreenGallery = useCallback(
@@ -316,6 +330,30 @@ export default function PlaceDetailScreen() {
     [openFullscreenGallery],
   );
 
+  const renderHeroItem = useCallback(
+    ({ item, index }: { item: string; index: number }) => (
+      <Pressable
+        onPress={() => handleHeroTap(index)}
+        onLongPress={() => setHeroPaused(true)}
+        onPressOut={() => setHeroPaused(false)}
+        delayLongPress={220}
+      >
+        <SmartImage
+          uri={item}
+          fallbackUri={imageVm.heroImagesRaw[index] ?? null}
+          bundledFallback={PLACE_IMAGE_FALLBACK}
+          recyclingKey={`${place?.id ?? "place"}-hero-${index}`}
+          style={styles.hero}
+          contentFit="cover"
+          transition={200}
+          showLoadingSpinner
+          loadingSpinnerColor={colors.primary}
+        />
+      </Pressable>
+    ),
+    [colors.primary, handleHeroTap, imageVm.heroImagesRaw, place?.id, styles.hero],
+  );
+
   if (isLoading || !place) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
@@ -338,31 +376,12 @@ export default function PlaceDetailScreen() {
               height={280}
               data={imageVm.heroImages}
               loop
-              autoPlay={imageVm.heroImages.length > 1}
+              autoPlay={isScreenFocused && imageVm.heroImages.length > 1}
               autoPlayInterval={AUTO_SLIDE_MS}
               enabled={!heroPaused}
               scrollAnimationDuration={500}
               onSnapToItem={setHeroSlide}
-              renderItem={({ item, index }) => (
-                <Pressable
-                  onPress={() => handleHeroTap(index)}
-                  onLongPress={() => setHeroPaused(true)}
-                  onPressOut={() => setHeroPaused(false)}
-                  delayLongPress={220}
-                >
-                  <SmartImage
-                    uri={item}
-                    fallbackUri={imageVm.heroImagesRaw[index] ?? null}
-                    bundledFallback={PLACE_IMAGE_FALLBACK}
-                    recyclingKey={`${place.id}-hero-${index}`}
-                    style={styles.hero}
-                    contentFit="cover"
-                    transition={200}
-                    showLoadingSpinner
-                    loadingSpinnerColor={colors.primary}
-                  />
-                </Pressable>
-              )}
+              renderItem={renderHeroItem}
             />
             <View style={[styles.heroProgressWrap, { top: heroTop }]}>
               <StoryProgressBar count={imageVm.heroImages.length} currentIndex={heroSlide} progress={progress} />

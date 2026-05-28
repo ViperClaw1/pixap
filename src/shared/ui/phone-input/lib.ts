@@ -41,7 +41,12 @@ export function getCountryDisplayName(region: string, locale = "en"): string {
   }
 }
 
+const countryOptionsCache = new Map<string, CountryOption[]>();
+
 export function buildCountryOptions(locale = "en"): CountryOption[] {
+  const cached = countryOptionsCache.get(locale);
+  if (cached) return cached;
+
   const options: CountryOption[] = [];
   for (const region of phoneUtil.getSupportedRegions()) {
     try {
@@ -57,7 +62,14 @@ export function buildCountryOptions(locale = "en"): CountryOption[] {
       // ignore unsupported regions
     }
   }
-  return options.sort((a, b) => a.name.localeCompare(b.name, locale));
+  const sorted = options.sort((a, b) => a.name.localeCompare(b.name, locale));
+  countryOptionsCache.set(locale, sorted);
+  return sorted;
+}
+
+/** Pre-build country list so Edit Profile / phone fields open without a long JS stall. */
+export function warmPhoneInputCache(locale = "en"): void {
+  buildCountryOptions(locale);
 }
 
 export function filterCountryOptions(options: CountryOption[], query: string): CountryOption[] {

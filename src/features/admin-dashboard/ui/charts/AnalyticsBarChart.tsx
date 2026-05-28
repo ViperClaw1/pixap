@@ -74,7 +74,7 @@ export function AnalyticsBarChart({ title, outcomes }: AnalyticsBarChartProps) {
 }
 
 function createStyles({ colors }: { colors: { card: string; border: string; text: string; textMuted: string } }) {
-  return StyleSheet.create({
+  return {
     card: {
       backgroundColor: colors.card,
       borderRadius: 14,
@@ -85,5 +85,5 @@ function createStyles({ colors }: { colors: { card: string; border: string; text
     },
     title: { fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: 12 },
     empty: { fontSize: 14, color: colors.textMuted, paddingVertical: 40, textAlign: "center" },
-  });
+  };
 }

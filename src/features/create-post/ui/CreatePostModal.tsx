@@ -1,4 +1,5 @@
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Animated from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,6 +13,24 @@ import { createPostStyles as s } from "./createPostStyles";
 import { MAX_POST_PHOTOS } from "../model/constants";
 
 type ComposerState = ReturnType<typeof useCreatePostComposer>;
+
+const PostPlaceCardImage = memo(function PostPlaceCardImage({
+  imageUrl,
+  decodeWidth,
+  decodeHeight,
+  style,
+}: {
+  imageUrl: string;
+  decodeWidth: number;
+  decodeHeight: number;
+  style: object;
+}) {
+  const uri = useMemo(
+    () => getOptimizedImageUrl(imageUrl, decodeWidth, decodeHeight, 72) || imageUrl,
+    [decodeHeight, decodeWidth, imageUrl],
+  );
+  return <SmartImage uri={uri} fallbackUri={imageUrl} style={style} contentFit="cover" />;
+});
 
 interface CreatePostModalProps {
   composer: ComposerState;
@@ -229,11 +248,11 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                               </Pressable>
                               <View style={s.postPlaceImageWrap}>
                                 {place.imageUrl ? (
-                                  <SmartImage
-                                    uri={getOptimizedImageUrl(place.imageUrl, placeImageDecodeSize.w, placeImageDecodeSize.h, 72) || place.imageUrl}
-                                    fallbackUri={place.imageUrl}
+                                  <PostPlaceCardImage
+                                    imageUrl={place.imageUrl}
+                                    decodeWidth={placeImageDecodeSize.w}
+                                    decodeHeight={placeImageDecodeSize.h}
                                     style={s.postPlaceImage}
-                                    contentFit="cover"
                                   />
                                 ) : (
                                   <View style={[s.postPlaceImage, s.postPlaceImageFallback, { backgroundColor: colors.background }]}>

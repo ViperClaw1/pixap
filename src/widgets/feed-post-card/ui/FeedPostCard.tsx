@@ -37,6 +37,7 @@ interface FeedPostCardProps {
   isBoosted?: boolean;
   boostPending?: boolean;
   onBoost?: () => void;
+  carouselAutoPlay?: boolean;
 }
 
 export const FeedPostCard = memo(function FeedPostCard({
@@ -60,6 +61,7 @@ export const FeedPostCard = memo(function FeedPostCard({
   isBoosted = false,
   boostPending = false,
   onBoost,
+  carouselAutoPlay = true,
 }: FeedPostCardProps) {
   const { colors } = useAppTheme();
   const item = vm.post;
@@ -181,6 +183,7 @@ export const FeedPostCard = memo(function FeedPostCard({
                 postSlideBlurhashes={vm.postSlideBlurhashes}
                 width={width}
                 sliderHeight={sliderHeight}
+                autoPlay={carouselAutoPlay}
               />
             </View>
           </GestureDetector>

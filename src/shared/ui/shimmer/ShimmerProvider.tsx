@@ -1,9 +1,17 @@
-import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { Animated, Easing } from "react-native";
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+import {
+  cancelAnimation,
+  Easing,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  type SharedValue,
+} from "react-native-reanimated";
 
 type Ctx = {
   /** 0 → 1 loop; child surfaces interpolate translateX */
-  progress: Animated.Value;
+  progress: SharedValue<number>;
 };
 
 const ShimmerContext = createContext<Ctx | null>(null);
@@ -25,34 +33,26 @@ type Props = {
  * Single shared progress animation for all skeleton surfaces on screen (one loop, synced shimmer).
  */
 export function ShimmerProvider({ active, children }: Props) {
-  const progress = useRef(new Animated.Value(0)).current;
+  const progress = useSharedValue(0);
 
   useEffect(() => {
     if (!active) {
-      progress.stopAnimation();
-      progress.setValue(0);
+      cancelAnimation(progress);
+      progress.value = 0;
       return;
     }
 
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(progress, {
-          toValue: 1,
-          duration: 1400,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(progress, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ]),
+    progress.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 0 }),
+      ),
+      -1,
     );
-    loop.start();
+
     return () => {
-      loop.stop();
-      progress.setValue(0);
+      cancelAnimation(progress);
+      progress.value = 0;
     };
   }, [active, progress]);
 

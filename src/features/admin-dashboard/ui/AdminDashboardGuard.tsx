@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { View, Text, Pressable, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useNavigation } from "@react-navigation/native";
 import { useProfile } from "@/entities/user";
@@ -45,7 +45,7 @@ function createStyles({
 }: {
   colors: { background: string; text: string; textMuted: string; primary: string; onPrimary: string };
 }) {
-  return StyleSheet.create({
+  return {
     centered: {
       flex: 1,
       justifyContent: "center",
@@ -64,5 +64,5 @@ function createStyles({
       borderRadius: 12,
     },
     btnText: { color: colors.onPrimary, fontWeight: "700" },
-  });
+  };
 }

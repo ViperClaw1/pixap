@@ -142,7 +142,9 @@ function AIBookingPageContent() {
   } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
   const navigation = useNavigation<Nav>();
-  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
+    sensitivity: "high",
+  });
   useAuthSessionRedirect({
     authLoading: authLoading,
     hasUser: Boolean(user),

@@ -12,12 +12,16 @@ import {
   useWindowDimensions,
   type TextInput,
 } from "react-native";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import { animateStoryViewerDismissWorklet } from "@/shared/lib/storyViewerDismissAnimation";
 import {
   useNavigation,
   useRoute,
-  type NavigationProp,
-  type ParamListBase,
   type RouteProp,
 } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -25,7 +29,6 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { runOnJS } from "react-native-reanimated";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useStoryViewer } from "@/entities/story";
@@ -52,6 +55,8 @@ const AUTO_ADVANCE_MS = 7000;
 const COMPOSER_FOOTER_PADDING_ANDROID = 10;
 /** Lifts composer above keyboard on Android (footer padding + buffer). */
 const COMPOSER_ANDROID_KEYBOARD_GAP = COMPOSER_FOOTER_PADDING_ANDROID + 35;
+/** Min downward drag (px) before dismiss. */
+const DISMISS_DRAG_PX = 100;
 type FlatStoryRow = { story: StoryItem; groupIndex: number; storyIndex: number; key: string };
 
 function formatStoryTime(value: string) {
@@ -104,6 +109,8 @@ export default function StoryViewerScreen() {
   const replyMutation = useReplyToStory();
   const [localReaction, setLocalReaction] = useState<StoryReactionType | null>(activeStory?.my_reaction ?? null);
   const authRedirectTaskRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
+  const isDismissingRef = useRef(false);
+  const dismissTranslateY = useSharedValue(0);
 
   useEffect(() => {
     if (!activeStory) return;
@@ -146,6 +153,22 @@ export default function StoryViewerScreen() {
   const androidBottomLiftStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: -androidKeyboardInset.value }],
   }));
+
+  const dismissDragStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: dismissTranslateY.value }],
+  }));
+
+  const dismissScrimStyle = useAnimatedStyle(() => {
+    const fadeDistance = Math.max(height * 0.35, 1);
+    const progress = Math.min(1, dismissTranslateY.value / fadeDistance);
+    return { opacity: 1 - progress };
+  });
+
+  const closeViewer = useCallback(() => {
+    if (isDismissingRef.current) return;
+    isDismissingRef.current = true;
+    navigation.goBack();
+  }, [navigation]);
 
   const { goToNextStory, goToPreviousStory, goToNextGroup, goToPreviousGroup, setPaused } = viewer;
   const goNext = useCallback(() => {
@@ -259,21 +282,53 @@ export default function StoryViewerScreen() {
 
   const panGesture = useMemo(
     () =>
-      Gesture.Pan().onEnd((event) => {
-        const isVerticalDismiss = event.translationY > 100 && Math.abs(event.translationY) > Math.abs(event.translationX);
-        if (isVerticalDismiss) {
-          runOnJS(navigation.goBack)();
-          return;
-        }
-        if (event.translationX < -70) {
-          runOnJS(goToNextGroup)();
-          return;
-        }
-        if (event.translationX > 70) {
-          runOnJS(goToPreviousGroup)();
-        }
-      }),
-    [goToNextGroup, goToPreviousGroup, navigation],
+      Gesture.Pan()
+        .enabled(!discussionOpen && !keyboardOpen)
+        .onBegin(() => {
+          runOnJS(setPaused)(true);
+        })
+        .onUpdate((e) => {
+          if (e.translationY > 0 && Math.abs(e.translationY) > Math.abs(e.translationX)) {
+            dismissTranslateY.value = e.translationY;
+          }
+        })
+        .onEnd((e) => {
+          const isVertical = Math.abs(e.translationY) > Math.abs(e.translationX);
+          if (isVertical && e.translationY > 0) {
+            const shouldClose =
+              e.translationY > DISMISS_DRAG_PX || (e.translationY > 48 && e.velocityY > 700);
+            if (shouldClose) {
+              animateStoryViewerDismissWorklet(
+                dismissTranslateY,
+                height,
+                e.translationY,
+                e.velocityY,
+                closeViewer,
+              );
+              return;
+            }
+            dismissTranslateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+            runOnJS(setPaused)(false);
+            return;
+          }
+          if (e.translationX < -70) {
+            runOnJS(goToNextGroup)();
+          } else if (e.translationX > 70) {
+            runOnJS(goToPreviousGroup)();
+          }
+          dismissTranslateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+          runOnJS(setPaused)(false);
+        }),
+    [
+      closeViewer,
+      discussionOpen,
+      dismissTranslateY,
+      goToNextGroup,
+      goToPreviousGroup,
+      height,
+      keyboardOpen,
+      setPaused,
+    ],
   );
 
   const composedGesture = useMemo(
@@ -293,6 +348,13 @@ export default function StoryViewerScreen() {
     ? getAvatarDisplayUrl(authorAvatarRaw, { layoutPx: authorAvatarSize })
     : null;
 
+  const renderStorySlide = useCallback(
+    ({ item }: { item: FlatStoryRow }) => (
+      <StorySlide story={item.story} width={width} height={contentHeight} />
+    ),
+    [contentHeight, width],
+  );
+
   if (!activeStory || !activeGroup) {
     return (
       <SafeAreaView
@@ -311,7 +373,7 @@ export default function StoryViewerScreen() {
 
   const storySurface = (
     <GestureDetector gesture={composedGesture}>
-      <View
+      <Animated.View
         style={[
           styles.gestureSurface,
           {
@@ -319,6 +381,7 @@ export default function StoryViewerScreen() {
             borderTopLeftRadius: 18,
             borderTopRightRadius: 18,
           },
+          dismissDragStyle,
         ]}
       >
         <FlatList
@@ -331,7 +394,7 @@ export default function StoryViewerScreen() {
           getItemLayout={(_data, index) => ({ length: width, offset: width * index, index })}
           initialScrollIndex={viewer.currentFlatIndex}
           onScrollToIndexFailed={onScrollToIndexFailed}
-          renderItem={({ item }) => <StorySlide story={item.story} width={width} height={contentHeight} />}
+          renderItem={renderStorySlide}
           style={styles.slider}
           removeClippedSubviews
           initialNumToRender={1}
@@ -379,7 +442,7 @@ export default function StoryViewerScreen() {
             {renderBottomAreaContent()}
           </View>
         )}
-      </View>
+      </Animated.View>
     </GestureDetector>
   );
 
@@ -492,10 +555,11 @@ export default function StoryViewerScreen() {
   }
 
   return (
-    <SafeAreaView
-      style={[styles.root, { backgroundColor: "rgba(0,0,0,0.45)" }]}
-      edges={["top"]}
-    >
+    <View style={styles.root}>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.dismissScrim, dismissScrimStyle]}
+      />
       <View style={styles.root}>{storySurface}</View>
 
       <StoryDiscussionGlassSheet
@@ -504,13 +568,18 @@ export default function StoryViewerScreen() {
         navigation={navigation}
         onDismiss={() => setDiscussionOpen(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: "transparent",
+  },
+  dismissScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
   gestureSurface: {
     flex: 1,

@@ -9,6 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  InteractionManager,
 } from "react-native";
 import { appAlert } from "@/shared/ui/app-popup";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
@@ -21,7 +22,6 @@ import { asParamListNavigation } from "@/app/navigation/appNavigation";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as ImagePicker from "expo-image-picker";
 import { useProfile, useUpdateProfile, useUploadProfileAvatar } from "@/entities/user";
 import { isUsernameAvailable } from "@/entities/user/api/profileApi";
 import { isUsernameTakenError, getSupabaseErrorMessage } from "@/entities/user/lib/profileUpdateErrors";
@@ -40,12 +40,12 @@ import {
   serializePhone,
   type PhoneValue,
 } from "@/shared/ui/phone-input";
+import type { StorySourceOption } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
-import {
-  StorySourcePickerModal,
-  type StorySourceOption,
-} from "@/shared/ui/story-source-picker/StorySourcePickerModal";
+import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
+
+type ImagePickerAsset = import("expo-image-picker").ImagePickerAsset;
 
 const KEYBOARD_GAP = 16;
 
@@ -111,10 +111,18 @@ function EditProfileScreenContent() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [avatarSourcePickerVisible, setAvatarSourcePickerVisible] = useState(false);
+  const [avatarPickerMounted, setAvatarPickerMounted] = useState(false);
+  const [phoneFieldReady, setPhoneFieldReady] = useState(Platform.OS !== "android");
 
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
   };
+
+  useEffect(() => {
+    if (phoneFieldReady) return;
+    const task = InteractionManager.runAfterInteractions(() => setPhoneFieldReady(true));
+    return () => task.cancel();
+  }, [phoneFieldReady]);
 
   useEffect(() => {
     if (!profile) return;
@@ -141,10 +149,11 @@ function EditProfileScreenContent() {
   };
 
   const pickAvatar = () => {
+    setAvatarPickerMounted(true);
     setAvatarSourcePickerVisible(true);
   };
 
-  const uploadAvatar = async (asset: ImagePicker.ImagePickerAsset) => {
+  const uploadAvatar = async (asset: ImagePickerAsset) => {
     if (!user?.id) {
       navigateToAuthScreen(navigation);
       return;
@@ -169,6 +178,7 @@ function EditProfileScreenContent() {
 
   const pickAvatarFromCamera = async () => {
     try {
+      const ImagePicker = await import("expo-image-picker");
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") {
         appAlert("Permission needed", "Camera access is required to take a photo.", undefined, "alert");
@@ -191,6 +201,7 @@ function EditProfileScreenContent() {
 
   const pickAvatarFromGallery = async () => {
     try {
+      const ImagePicker = await import("expo-image-picker");
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
         appAlert("Permission needed", "Storage access is required to choose a photo.", undefined, "alert");
@@ -387,15 +398,21 @@ function EditProfileScreenContent() {
         <TextInput style={[styles.input, styles.disabledInput]} value={profile?.email ?? user?.email ?? ""} editable={false} />
         <Text style={styles.label}>Phone</Text>
         <View style={styles.phoneInputWrap}>
-          <PhoneInput
-            value={phoneValue}
-            onChange={handlePhoneChange}
-            hasError={Boolean(phoneError)}
-            onBlur={() => {
-              setPhoneTouched(true);
-              setPhoneError(getPhoneValidationMessage(phoneValue));
-            }}
-          />
+          {phoneFieldReady ? (
+            <PhoneInput
+              value={phoneValue}
+              onChange={handlePhoneChange}
+              hasError={Boolean(phoneError)}
+              onBlur={() => {
+                setPhoneTouched(true);
+                setPhoneError(getPhoneValidationMessage(phoneValue));
+              }}
+            />
+          ) : (
+            <View style={styles.phonePlaceholder}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          )}
         </View>
         {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
         <Text style={styles.label}>Bio (optional)</Text>
@@ -412,13 +429,15 @@ function EditProfileScreenContent() {
         </Pressable>
       </ScrollView>
       </Animated.View>
-      <StorySourcePickerModal
-        visible={avatarSourcePickerVisible}
-        onClose={() => setAvatarSourcePickerVisible(false)}
-        onChoose={onChooseAvatarSource}
-        title="Choose avatar"
-        subtitle="Select where to pick your photo from."
-      />
+      {avatarPickerMounted ? (
+        <StorySourcePickerModal
+          visible={avatarSourcePickerVisible}
+          onClose={() => setAvatarSourcePickerVisible(false)}
+          onChoose={onChooseAvatarSource}
+          title="Choose avatar"
+          subtitle="Select where to pick your photo from."
+        />
+      ) : null}
     </View>
   );
 }

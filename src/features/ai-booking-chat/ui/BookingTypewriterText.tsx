@@ -29,8 +29,9 @@ export function BookingTypewriterText({ fullText, textStyle, tickMs = DEFAULT_AS
     }
 
     let cancelled = false;
+    let cancelReveal: (() => void) | null = null;
     const run = async () => {
-      await revealAssistantText({
+      const reveal = revealAssistantText({
         fullText,
         tickMs,
         onUpdate: (partial) => {
@@ -43,6 +44,8 @@ export function BookingTypewriterText({ fullText, textStyle, tickMs = DEFAULT_AS
           setVisible(partial);
         },
       });
+      cancelReveal = reveal.cancel;
+      await reveal.promise;
       if (!cancelled) {
         scheduleBookingChatLayoutAnimation();
         if (runOnceKey) {
@@ -53,6 +56,7 @@ export function BookingTypewriterText({ fullText, textStyle, tickMs = DEFAULT_AS
     void run();
     return () => {
       cancelled = true;
+      cancelReveal?.();
     };
   }, [fullText, tickMs, runOnceKey]);
 
