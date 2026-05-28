@@ -137,7 +137,8 @@ export function useMessagesInbox(search: string) {
       return items;
     },
     enabled: !!user?.id,
-    staleTime: 40 * 1000,
+    staleTime: 2 * 60 * 1000,
+    refetchOnMount: false,
     refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.messagesInbox,
   });
 

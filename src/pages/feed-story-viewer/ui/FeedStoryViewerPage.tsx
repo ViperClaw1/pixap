@@ -28,6 +28,7 @@ import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { fetchStoryViewerContext } from "@/entities/story/lib/fetchStoryViewerContext";
+import { buildFlatMediaSlides, buildMediaSlidesForStory } from "@/entities/story/lib/buildStoryMediaSlides";
 import { useStoryProgress, useStoryViewer, useReplyToStory, useReactToStory } from "@/entities/story";
 import type { StoryGroup } from "@/shared/model/types/stories";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
@@ -38,8 +39,7 @@ import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import Toast from "react-native-toast-message";
 import { getFeedStoryFullscreenImageUrl } from "@/shared/lib/feedMediaUrls";
-import { parseStoryMediaPrimaryUrl, parseStoryMediaUrls } from "@/shared/lib/storyMediaUrls";
-import type { StoryItem, StoryReactionType } from "@/shared/model/types/stories";
+import type { StoryReactionType } from "@/shared/model/types/stories";
 import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 
@@ -59,40 +59,7 @@ const DOUBLE_TAP_MS = 260;
 /** Min downward drag (px) before dismiss; matches StoryViewerPage threshold. */
 const DISMISS_DRAG_PX = 100;
 
-type FeedMediaSlide = {
-  key: string;
-  story: StoryItem;
-  groupIndex: number;
-  storyIndex: number;
-  mediaIndex: number;
-  rawUri: string | null;
-};
-
-function buildFlatMediaSlides(flatStories: { story: StoryItem; groupIndex: number; storyIndex: number }[]): FeedMediaSlide[] {
-  return flatStories.flatMap((row) => {
-    const urls = parseStoryMediaUrls(row.story.media_url);
-    if (!urls.length) {
-      return [
-        {
-          key: `${row.story.id}-0`,
-          story: row.story,
-          groupIndex: row.groupIndex,
-          storyIndex: row.storyIndex,
-          mediaIndex: 0,
-          rawUri: parseStoryMediaPrimaryUrl(row.story.media_url),
-        },
-      ];
-    }
-    return urls.map((url, mediaIndex) => ({
-      key: `${row.story.id}-${mediaIndex}`,
-      story: row.story,
-      groupIndex: row.groupIndex,
-      storyIndex: row.storyIndex,
-      mediaIndex,
-      rawUri: url,
-    }));
-  });
-}
+type FeedMediaSlide = ReturnType<typeof buildFlatMediaSlides>[number];
 
 export default function FeedStoryViewerPage() {
   const { params } = useRoute<FeedStoryViewerRoute>();
@@ -287,6 +254,12 @@ export default function FeedStoryViewerPage() {
     activeSlide != null && viewerGroups[activeSlide.groupIndex] != null
       ? viewerGroups[activeSlide.groupIndex]
       : null;
+
+  const activeStoryMediaSlides = useMemo(
+    () => (activeStory ? buildMediaSlidesForStory(activeStory) : []),
+    [activeStory],
+  );
+  const activeStoryMediaIndex = activeSlide?.mediaIndex ?? 0;
 
   const activeImageUrl = activeSlide?.rawUri ?? null;
 
@@ -593,8 +566,8 @@ export default function FeedStoryViewerPage() {
 
         <View style={[styles.topProgressRow, { top: Math.max(4, insets.top + 4) }]}>
           <StoryProgressBar
-            count={Math.max(1, flatMediaSlides.length)}
-            currentIndex={safeSlideIndex}
+            count={Math.max(1, activeStoryMediaSlides.length)}
+            currentIndex={activeStoryMediaIndex}
             progress={progress}
           />
         </View>

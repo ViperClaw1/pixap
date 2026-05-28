@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
+  InteractionManager,
   Keyboard,
   Platform,
   Pressable,
@@ -23,6 +24,7 @@ import Animated, {
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
+import { useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -40,8 +42,9 @@ import {
   useSendMessage,
   useThreadMessages,
 } from "@/entities/messages";
+import { prefetchThreadMessages } from "@/entities/messages/lib/prefetchThreadMessages";
 import { useIsUserOnline } from "@/entities/user-presence";
-import { navigateFeedFocusStory, navigateFeedPlaceDetail } from "@/app/navigation/appNavigation";
+import { navigateFeedPlaceDetail } from "@/app/navigation/appNavigation";
 import type { CartStackParamList } from "@/app/navigation/types";
 import Toast from "react-native-toast-message";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
@@ -79,6 +82,7 @@ const LOAD_OLDER_SCROLL_THRESHOLD_PX = 120;
 
 export default function MessageThreadPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const navigation = useNavigation<MessageThreadNav>();
   const { params } = useRoute<MessageThreadRoute>();
   const isSupport = params.isSupport === true;
@@ -175,9 +179,9 @@ export default function MessageThreadPage() {
   );
   const openSharedStory = useCallback(
     (storyId: string) => {
-      navigateFeedFocusStory(navigation, storyId, user?.id ?? null);
+      navigation.navigate("FeedStoryViewer", { storyId });
     },
-    [navigation, user?.id],
+    [navigation],
   );
 
   const peerPresence = useMemo(
@@ -205,8 +209,17 @@ export default function MessageThreadPage() {
 
   useEffect(() => {
     if (!messages.length) return;
-    scheduleMarkReadRef.current();
+    const task = InteractionManager.runAfterInteractions(() => scheduleMarkReadRef.current());
+    return () => task.cancel();
   }, [messages.length]);
+
+  useEffect(() => {
+    if (!threadId || !user?.id) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      void prefetchThreadMessages(queryClient, threadId, user.id, isSupport);
+    });
+    return () => task.cancel();
+  }, [isSupport, queryClient, threadId, user?.id]);
 
   const peerName = isSupport
     ? (params.threadTitle ?? t("messages.support"))
@@ -278,7 +291,8 @@ export default function MessageThreadPage() {
       pendingOpenScrollRef.current = false;
       return;
     }
-    flushScrollToBottomOnOpen();
+    const task = InteractionManager.runAfterInteractions(() => flushScrollToBottomOnOpen());
+    return () => task.cancel();
   }, [isLoading, rows.length, threadId, flushScrollToBottomOnOpen]);
 
   useEffect(() => {

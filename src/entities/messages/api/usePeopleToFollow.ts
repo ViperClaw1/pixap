@@ -12,7 +12,7 @@ export type FollowSuggestion = {
   username: string | null;
 };
 
-export function usePeopleToFollow(search: string) {
+export function usePeopleToFollow(search: string, options?: { enabled?: boolean }) {
   const { user } = useAuth();
 
   const query = useQuery({
@@ -36,7 +36,9 @@ export function usePeopleToFollow(search: string) {
       if (error) throw error;
       return (data ?? []) as FollowSuggestion[];
     },
-    enabled: !!user?.id,
+    enabled: (options?.enabled ?? true) && !!user?.id,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
   const people = useMemo(

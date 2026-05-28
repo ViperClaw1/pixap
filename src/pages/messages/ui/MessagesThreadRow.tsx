@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { Ionicons } from "@expo/vector-icons";
 import { Swipeable } from "react-native-gesture-handler";
 import type { ThemeColors } from "@/shared/theme/palettes";
@@ -22,66 +23,78 @@ type Props = {
   onDelete: () => void;
 };
 
-function MessagesThreadRowComponent({
+function ThreadRowContent({
   thread,
   styles,
   colors,
   isCompact,
-  peerIsTyping = false,
-  typingLabel = "typing...",
+  peerIsTyping,
+  typingLabel,
   onPress,
   onPressIn,
-  onDelete,
-}: Props) {
+  onLongPress,
+}: Props & { onLongPress?: () => void }) {
+  return (
+    <AppPressable
+      style={[styles.card, isCompact ? styles.cardCompact : null]}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onLongPress={onLongPress}
+      delayLongPress={400}
+    >
+      <UserAvatarImage
+        uri={thread.last_sender_avatar_url}
+        style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
+        contentFit="cover"
+      />
+      <View style={styles.cardMain}>
+        <View style={styles.rowBetween}>
+          <Text style={[styles.title, styles.chatTitle]} numberOfLines={1}>
+            {thread.inbox_title ?? thread.last_sender_name}
+          </Text>
+        </View>
+        <Text
+          style={[styles.subtitle, peerIsTyping && styles.subtitleTyping]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {peerIsTyping ? typingLabel : thread.last_message_text}
+        </Text>
+      </View>
+      <View style={styles.threadActionsWrap}>
+        <Text style={styles.time}>{formatRelativeTime(thread.last_message_at, { style: "compact" })}</Text>
+        <View style={styles.threadReadIndicator}>
+          <Ionicons
+            name={thread.unread_count > 0 ? "checkmark" : "checkmark-done"}
+            size={16}
+            color={thread.unread_count > 0 ? colors.textMuted : colors.primary}
+          />
+        </View>
+      </View>
+    </AppPressable>
+  );
+}
+
+function MessagesThreadRowComponent(props: Props) {
+  const { onDelete, ...contentProps } = props;
+
+  if (Platform.OS === "android") {
+    return <ThreadRowContent {...contentProps} onLongPress={onDelete} />;
+  }
+
+  const { styles, colors } = props;
   return (
     <Swipeable
       overshootRight={false}
       renderRightActions={() => (
         <View style={styles.swipeActionWrap}>
-          <Pressable
-            style={[styles.swipeActionBtn, styles.swipeDeleteBtn]}
-            onPress={onDelete}
-          >
+          <AppPressable style={[styles.swipeActionBtn, styles.swipeDeleteBtn]} onPress={onDelete}>
             <Ionicons name="trash-outline" size={22} color={colors.onAccent} />
-          </Pressable>
+          </AppPressable>
         </View>
       )}
     >
-      <Pressable
-        style={[styles.card, isCompact ? styles.cardCompact : null]}
-        onPress={onPress}
-        onPressIn={onPressIn}
-      >
-        <UserAvatarImage
-          uri={thread.last_sender_avatar_url}
-          style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
-          contentFit="cover"
-        />
-        <View style={styles.cardMain}>
-          <View style={styles.rowBetween}>
-            <Text style={[styles.title, styles.chatTitle]} numberOfLines={1}>
-              {thread.inbox_title ?? thread.last_sender_name}
-            </Text>
-          </View>
-          <Text
-            style={[styles.subtitle, peerIsTyping && styles.subtitleTyping]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {peerIsTyping ? typingLabel : thread.last_message_text}
-          </Text>
-        </View>
-        <View style={styles.threadActionsWrap}>
-          <Text style={styles.time}>{formatRelativeTime(thread.last_message_at, { style: "compact" })}</Text>
-          <View style={styles.threadReadIndicator}>
-            <Ionicons
-              name={thread.unread_count > 0 ? "checkmark" : "checkmark-done"}
-              size={16}
-              color={thread.unread_count > 0 ? colors.textMuted : colors.primary}
-            />
-          </View>
-        </View>
-      </Pressable>
+      <ThreadRowContent {...contentProps} />
     </Swipeable>
   );
 }

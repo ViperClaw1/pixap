@@ -32,13 +32,29 @@ function targetsKey(targets: InboxTypingTarget[]): string {
   return targets.map((t) => `${t.threadId}:${t.peerId}`).join("|");
 }
 
+/** Cap realtime typing channels — N subscriptions on inbox open blocked the Android JS thread. */
+const MAX_INBOX_TYPING_CHANNELS = 12;
+
+function limitTypingTargets(threads: MessageThreadItem[], userId: string | null | undefined): InboxTypingTarget[] {
+  const targets = buildInboxTypingTargets(threads, userId);
+  if (targets.length <= MAX_INBOX_TYPING_CHANNELS) return targets;
+  const recentThreadIds = new Set(
+    [...threads]
+      .filter((t) => !t.is_support)
+      .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
+      .slice(0, MAX_INBOX_TYPING_CHANNELS)
+      .map((t) => t.thread_id),
+  );
+  return targets.filter((t) => recentThreadIds.has(t.threadId));
+}
+
 /** Subscribes to per-thread typing broadcasts for inbox rows (Messages list). */
 export function useMessagesInboxTyping(
   threads: MessageThreadItem[],
   userId: string | null | undefined,
   enabled = true,
 ): ReadonlySet<string> {
-  const targets = useMemo(() => buildInboxTypingTargets(threads, userId), [threads, userId]);
+  const targets = useMemo(() => limitTypingTargets(threads, userId), [threads, userId]);
   const targetsKeyValue = useMemo(() => targetsKey(targets), [targets]);
   const [typingThreadIds, setTypingThreadIds] = useState<ReadonlySet<string>>(() => new Set());
   const idleTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());

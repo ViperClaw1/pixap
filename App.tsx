@@ -23,6 +23,7 @@ import {
 } from "@/shared/lib/push/pushNotifications";
 import { handlePushNotificationOpen } from "@/shared/lib/push/handlePushNotificationOpen";
 import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
+import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -118,6 +119,7 @@ export default function App() {
         deferredRef.current = InteractionManager.runAfterInteractions(() => {
           logStartupDiagnostics();
           ensurePushNotificationHandler();
+          ensureMessagesScreensReady();
           markStartup("deferred_tasks_start");
           void hydrateI18nFromStorage().then(() => {
             markStartup("i18n_storage_hydrated");

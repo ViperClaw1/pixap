@@ -32,14 +32,15 @@ import { Ionicons } from "@expo/vector-icons";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useStoryViewer } from "@/entities/story";
+import { buildMediaSlidesForStory } from "@/entities/story/lib/buildStoryMediaSlides";
 import { useStoryProgress } from "@/entities/story";
 import { useReactToStory } from "@/entities/story";
 import { useReplyToStory } from "@/entities/story";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
-import type { StoryItem, StoryReactionType } from "@/shared/model/types/stories";
+import type { StoryReactionType } from "@/shared/model/types/stories";
 import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { StorySlide } from "@/widgets/stories-strip";
+import { StoryMediaSlide } from "@/widgets/stories-strip";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
@@ -57,28 +58,10 @@ const COMPOSER_FOOTER_PADDING_ANDROID = 10;
 const COMPOSER_ANDROID_KEYBOARD_GAP = COMPOSER_FOOTER_PADDING_ANDROID + 35;
 /** Min downward drag (px) before dismiss. */
 const DISMISS_DRAG_PX = 100;
-type FlatStoryRow = { story: StoryItem; groupIndex: number; storyIndex: number; key: string };
 
 function formatStoryTime(value: string) {
   const date = new Date(value);
   return date.toLocaleString();
-}
-
-function parseStoryMediaUrl(raw?: string | null): string | null {
-  const value = raw?.trim();
-  if (!value) return null;
-  if (value.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        const first = parsed.find((item) => typeof item === "string" && item.trim().length > 0);
-        return typeof first === "string" ? first : null;
-      }
-    } catch {
-      return null;
-    }
-  }
-  return value;
 }
 
 export default function StoryViewerScreen() {
@@ -87,10 +70,12 @@ export default function StoryViewerScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const flatListRef = useRef<FlatList<FlatStoryRow>>(null);
+  const flatListRef = useRef<FlatList<ReturnType<typeof buildMediaSlidesForStory>[number]>>(null);
   const composerInputRef = useRef<TextInput>(null);
   const frozenLayoutHeightRef = useRef(height);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [mediaSlideIndex, setMediaSlideIndex] = useState(0);
+  const enteringPreviousStoryRef = useRef(false);
   const [discussionOpen, setDiscussionOpen] = useState(false);
   const [quickComment, setQuickComment] = useState("");
   const viewerGroups = params.groups ?? [];
@@ -171,23 +156,55 @@ export default function StoryViewerScreen() {
   }, [navigation]);
 
   const { goToNextStory, goToPreviousStory, goToNextGroup, goToPreviousGroup, setPaused } = viewer;
-  const goNext = useCallback(() => {
+
+  const activeMediaSlides = useMemo(
+    () => (activeStory ? buildMediaSlidesForStory(activeStory) : []),
+    [activeStory],
+  );
+
+  useEffect(() => {
+    if (!activeStory) return;
+    if (enteringPreviousStoryRef.current) {
+      enteringPreviousStoryRef.current = false;
+      setMediaSlideIndex(Math.max(0, activeMediaSlides.length - 1));
+      return;
+    }
+    setMediaSlideIndex(0);
+  }, [activeMediaSlides.length, activeStory?.id]);
+
+  const goNextMediaOrStory = useCallback(() => {
+    if (mediaSlideIndex < activeMediaSlides.length - 1) {
+      setMediaSlideIndex((index) => index + 1);
+      return;
+    }
     goToNextStory();
-  }, [goToNextStory]);
+  }, [activeMediaSlides.length, goToNextStory, mediaSlideIndex]);
+
+  const goPrevMediaOrStory = useCallback(() => {
+    if (mediaSlideIndex > 0) {
+      setMediaSlideIndex((index) => index - 1);
+      return;
+    }
+    enteringPreviousStoryRef.current = true;
+    goToPreviousStory();
+  }, [goToPreviousStory, mediaSlideIndex]);
+
+  const progressItemKey = activeMediaSlides[mediaSlideIndex]?.key ?? storyId;
 
   const { progress } = useStoryProgress({
     durationMs: AUTO_ADVANCE_MS,
     paused: viewer.paused || keyboardOpen || discussionOpen,
-    itemKey: storyId,
-    onComplete: goNext,
+    itemKey: progressItemKey,
+    onComplete: goNextMediaOrStory,
   });
 
   useEffect(() => {
+    if (!activeMediaSlides.length) return;
     flatListRef.current?.scrollToIndex({
-      index: viewer.currentFlatIndex,
+      index: Math.min(mediaSlideIndex, activeMediaSlides.length - 1),
       animated: false,
     });
-  }, [viewer.currentFlatIndex]);
+  }, [activeMediaSlides.length, activeStory?.id, mediaSlideIndex]);
 
   const onScrollToIndexFailed = useCallback(
     (info: { index: number; averageItemLength: number }) => {
@@ -203,13 +220,15 @@ export default function StoryViewerScreen() {
   );
 
   useEffect(() => {
-    const next = parseStoryMediaUrl(viewer.flatStories[viewer.currentFlatIndex + 1]?.story.media_url);
-    const nextGroup = parseStoryMediaUrl(viewerGroups[viewer.currentGroupIndex + 1]?.stories[0]?.media_url);
-    const nextOptimized = getFeedStoryFullscreenImageUrl(next) || next;
-    const nextGroupOptimized = getFeedStoryFullscreenImageUrl(nextGroup) || nextGroup;
+    const nextSlide = activeMediaSlides[mediaSlideIndex + 1];
+    const nextStory = viewerGroups[viewer.currentGroupIndex + 1]?.stories[0];
+    const nextUri = nextSlide?.rawUri ?? null;
+    const nextGroupUri = nextStory?.media_url ?? null;
+    const nextOptimized = nextUri ? getFeedStoryFullscreenImageUrl(nextUri) || nextUri : null;
+    const nextGroupOptimized = nextGroupUri ? getFeedStoryFullscreenImageUrl(nextGroupUri) || nextGroupUri : null;
     if (nextOptimized) void Image.prefetch(nextOptimized);
     if (nextGroupOptimized) void Image.prefetch(nextGroupOptimized);
-  }, [viewerGroups, viewer.currentFlatIndex, viewer.currentGroupIndex, viewer.flatStories]);
+  }, [activeMediaSlides, mediaSlideIndex, viewer.currentGroupIndex, viewerGroups]);
 
   const closeViewerAndRouteToAuth = useCallback(() => {
     navigation.goBack();
@@ -265,10 +284,10 @@ export default function StoryViewerScreen() {
   const tapGesture = useMemo(
     () =>
       Gesture.Tap().onEnd((event) => {
-        if (event.x < width * 0.45) runOnJS(goToPreviousStory)();
-        else runOnJS(goNext)();
+        if (event.x < width * 0.45) runOnJS(goPrevMediaOrStory)();
+        else runOnJS(goNextMediaOrStory)();
       }),
-    [goNext, goToPreviousStory, width],
+    [goNextMediaOrStory, goPrevMediaOrStory, width],
   );
 
   const longPressGesture = useMemo(
@@ -349,9 +368,19 @@ export default function StoryViewerScreen() {
     : null;
 
   const renderStorySlide = useCallback(
-    ({ item }: { item: FlatStoryRow }) => (
-      <StorySlide story={item.story} width={width} height={contentHeight} />
-    ),
+    ({ item }: { item: ReturnType<typeof buildMediaSlidesForStory>[number] }) => {
+      const rawUri = item.rawUri;
+      const optimized = rawUri ? getFeedStoryFullscreenImageUrl(rawUri) : null;
+      return (
+        <StoryMediaSlide
+          optimizedUri={optimized || rawUri}
+          fallbackUri={rawUri}
+          recyclingKey={`story-viewer-${item.key}`}
+          width={width}
+          height={contentHeight}
+        />
+      );
+    },
     [contentHeight, width],
   );
 
@@ -388,11 +417,11 @@ export default function StoryViewerScreen() {
           ref={flatListRef}
           horizontal
           pagingEnabled
-          data={viewer.flatStories}
+          data={activeMediaSlides}
           scrollEnabled={false}
           keyExtractor={(item) => item.key}
           getItemLayout={(_data, index) => ({ length: width, offset: width * index, index })}
-          initialScrollIndex={viewer.currentFlatIndex}
+          initialScrollIndex={Math.min(mediaSlideIndex, Math.max(0, activeMediaSlides.length - 1))}
           onScrollToIndexFailed={onScrollToIndexFailed}
           renderItem={renderStorySlide}
           style={styles.slider}
@@ -407,8 +436,8 @@ export default function StoryViewerScreen() {
           </View>
           <View style={styles.progressWrap}>
             <StoryProgressBar
-              count={activeGroup.stories.length}
-              currentIndex={viewer.currentStoryIndex}
+              count={Math.max(1, activeMediaSlides.length)}
+              currentIndex={mediaSlideIndex}
               progress={progress}
             />
           </View>

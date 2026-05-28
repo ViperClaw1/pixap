@@ -57,7 +57,7 @@ import { profileFullName } from "../model/format";
 import {
   ensureEditProfileScreenReady,
   scheduleEditProfilePrefetch,
-} from "@/pages/profile/lib/prefetchEditProfileScreen";
+} from "../lib/prefetchEditProfileScreen";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">,
