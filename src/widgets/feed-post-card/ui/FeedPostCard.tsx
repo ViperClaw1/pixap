@@ -1,5 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View, type TextLayoutEvent } from "react-native";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type TextLayoutEvent,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
@@ -15,6 +24,8 @@ import { PostBoostCrownBadge, PostBoostStarButton } from "@/features/post-boost"
 import type { FeedPostVm } from "@/pages/stories-feed/lib/feedPostHelpers";
 import { DOUBLE_TAP_DELAY_MS } from "@/pages/stories-feed/model/constants";
 import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
+import { useDeletePost, useUpdatePost } from "@/entities/post";
+import { AppPopupModal, appAlert } from "@/shared/ui/app-popup";
 
 interface FeedPostCardProps {
   vm: FeedPostVm;
@@ -35,7 +46,13 @@ interface FeedPostCardProps {
   boostPending?: boolean;
   onBoost?: () => void;
   carouselAutoPlay?: boolean;
+  onPostDeleted?: () => void;
+  /** Reports title edit input position; parent scrolls once when keyboard is visible. */
+  onTitleInputLayout?: (layout: { y: number; height: number }) => void;
 }
+
+/** Matches comment / boost icons in the actions row. */
+const FEED_ACTION_ICON_SIZE = 23;
 
 export const FeedPostCard = memo(function FeedPostCard({
   vm,
@@ -56,13 +73,22 @@ export const FeedPostCard = memo(function FeedPostCard({
   boostPending = false,
   onBoost,
   carouselAutoPlay = true,
+  onPostDeleted,
+  onTitleInputLayout,
 }: FeedPostCardProps) {
   const { colors } = useAppTheme();
   const item = vm.post;
+  const updatePostMutation = useUpdatePost();
+  const deletePostMutation = useDeletePost();
   const [localLiked, setLocalLiked] = useState(item.my_reaction === "like");
   const [localLikeCount, setLocalLikeCount] = useState(item.reaction_count);
   const lastTapAtRef = useRef(0);
   const [showMoreLink, setShowMoreLink] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const titleInputRef = useRef<TextInput | null>(null);
+  const isOwner = Boolean(currentUserId && item.user_id === currentUserId);
 
   useEffect(() => {
     setLocalLiked(item.my_reaction === "like");
@@ -74,6 +100,67 @@ export const FeedPostCard = memo(function FeedPostCard({
   useEffect(() => {
     setShowMoreLink(false);
   }, [item.id, postContent, isContentExpanded]);
+
+  useEffect(() => {
+    setIsEditingTitle(false);
+    setTitleDraft("");
+    setDeleteConfirmVisible(false);
+  }, [item.id]);
+
+  const reportTitleInputLayout = useCallback(() => {
+    const input = titleInputRef.current;
+    if (!input || typeof input.measureInWindow !== "function") return;
+    input.measureInWindow((_x, y, _w, h) => {
+      onTitleInputLayout?.({ y, height: h });
+    });
+  }, [onTitleInputLayout]);
+
+  const startEditTitle = useCallback(() => {
+    setTitleDraft(postContent);
+    setIsEditingTitle(true);
+  }, [postContent]);
+
+  const cancelEditTitle = useCallback(() => {
+    setIsEditingTitle(false);
+    setTitleDraft("");
+  }, []);
+
+  const saveEditedTitle = useCallback(() => {
+    const trimmed = titleDraft.trim();
+    if (!trimmed) {
+      appAlert("Post required", "Post text cannot be empty.", undefined, "alert");
+      return;
+    }
+    if (trimmed === postContent) {
+      cancelEditTitle();
+      return;
+    }
+    void updatePostMutation
+      .mutateAsync({ postId: item.id, content: trimmed })
+      .then(() => {
+        cancelEditTitle();
+      })
+      .catch((error) => {
+        if (isAuthRequiredError(error)) return;
+        appAlert("Edit failed", error instanceof Error ? error.message : "Please try again.", undefined, "alert");
+      });
+  }, [cancelEditTitle, item.id, postContent, titleDraft, updatePostMutation]);
+
+  const executeDeletePost = useCallback(() => {
+    if (isEditingTitle) {
+      cancelEditTitle();
+    }
+    void deletePostMutation
+      .mutateAsync({ postId: item.id })
+      .then(() => {
+        setDeleteConfirmVisible(false);
+        onPostDeleted?.();
+      })
+      .catch((error) => {
+        if (isAuthRequiredError(error)) return;
+        appAlert("Delete failed", error instanceof Error ? error.message : "Please try again.", undefined, "alert");
+      });
+  }, [cancelEditTitle, deletePostMutation, isEditingTitle, item.id, onPostDeleted]);
 
   const onMeasurePostTextLayout = useCallback(
     (event: TextLayoutEvent) => {
@@ -250,41 +337,107 @@ export const FeedPostCard = memo(function FeedPostCard({
               </Pressable>
             ) : null}
           </View>
-          {canBoost && onBoost ? (
-            <PostBoostStarButton active={isBoosted} disabled={boostPending} onPress={onBoost} />
-          ) : null}
+          <View style={styles.rightActions}>
+            {isOwner ? (
+              <>
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={startEditTitle}
+                  hitSlop={8}
+                  accessibilityLabel="Edit post"
+                >
+                  <Ionicons name="create-outline" size={FEED_ACTION_ICON_SIZE} color={colors.text} />
+                </Pressable>
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={() => setDeleteConfirmVisible(true)}
+                  hitSlop={8}
+                  accessibilityLabel="Delete post"
+                >
+                  <Ionicons name="trash-outline" size={FEED_ACTION_ICON_SIZE} color={colors.danger} />
+                </Pressable>
+              </>
+            ) : null}
+            {canBoost && onBoost ? (
+              <PostBoostStarButton
+                active={isBoosted}
+                disabled={boostPending}
+                onPress={onBoost}
+                grouped
+              />
+            ) : null}
+          </View>
         </View>
       </View>
 
       <View style={styles.commentsSection}>
-        {postContent ? (
+        {postContent || isEditingTitle ? (
           <View style={styles.postTextBlock}>
-            {!isContentExpanded ? (
-              <Text
-                pointerEvents="none"
-                style={[styles.storyText, styles.hiddenMeasureText, { color: colors.text }]}
-                onTextLayout={onMeasurePostTextLayout}
-              >
-                {postContent}
-              </Text>
-            ) : null}
-            {isContentExpanded ? (
-              <Text style={[styles.storyText, { color: colors.text }]}>{postContent}</Text>
-            ) : (
-              <View style={styles.postTextRow}>
-                <Text
-                  style={[styles.storyText, styles.postTextFlex, { color: colors.text }]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
+            {isEditingTitle ? (
+              <View style={styles.titleEditWrap}>
+                <TextInput
+                  ref={titleInputRef}
+                  value={titleDraft}
+                  onChangeText={setTitleDraft}
+                  placeholder="Post text..."
+                  placeholderTextColor={colors.textMuted}
+                  style={[
+                    styles.titleEditInput,
+                    { backgroundColor: colors.card, color: colors.text, borderColor: colors.border },
+                  ]}
+                  editable={!updatePostMutation.isPending}
+                  multiline
+                  autoFocus
+                  onFocus={reportTitleInputLayout}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Save post text"
+                  style={[
+                    styles.titleSaveBtn,
+                    { backgroundColor: colors.primary },
+                    (!titleDraft.trim() || updatePostMutation.isPending) && styles.titleSaveBtnDisabled,
+                  ]}
+                  disabled={!titleDraft.trim() || updatePostMutation.isPending}
+                  onPress={saveEditedTitle}
                 >
-                  {postContent}
-                </Text>
-                {showMoreLink ? (
-                  <Pressable onPress={onToggleContent} hitSlop={8} accessibilityRole="button">
-                    <Text style={[styles.moreLink, { color: colors.textMuted }]}>more...</Text>
-                  </Pressable>
-                ) : null}
+                  {updatePostMutation.isPending ? (
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  ) : (
+                    <Ionicons name="checkmark" size={18} color={colors.onPrimary} />
+                  )}
+                </Pressable>
               </View>
+            ) : (
+              <>
+                {!isContentExpanded ? (
+                  <Text
+                    pointerEvents="none"
+                    style={[styles.storyText, styles.hiddenMeasureText, { color: colors.text }]}
+                    onTextLayout={onMeasurePostTextLayout}
+                  >
+                    {postContent}
+                  </Text>
+                ) : null}
+                {isContentExpanded ? (
+                  <Text style={[styles.storyText, { color: colors.text }]}>{postContent}</Text>
+                ) : (
+                  <View style={styles.postTextRow}>
+                    <Text
+                      style={[styles.storyText, styles.postTextFlex, { color: colors.text }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {postContent}
+                    </Text>
+                    {showMoreLink ? (
+                      <Pressable onPress={onToggleContent} hitSlop={8} accessibilityRole="button">
+                        <Text style={[styles.moreLink, { color: colors.textMuted }]}>more...</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                )}
+              </>
             )}
           </View>
         ) : null}
@@ -298,6 +451,27 @@ export const FeedPostCard = memo(function FeedPostCard({
           />
         ) : null}
       </View>
+
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteConfirmVisible(false)}
+      >
+        <AppPopupModal
+          embedded
+          visible={deleteConfirmVisible}
+          variant="alert"
+          title="Delete post?"
+          message="This cannot be undone."
+          onClose={() => setDeleteConfirmVisible(false)}
+          buttons={[
+            { text: "Cancel", style: "cancel" },
+            { text: "Delete", style: "destructive", onPress: executeDeletePost },
+          ]}
+          loading={deletePostMutation.isPending}
+        />
+      </Modal>
     </View>
   );
 });
@@ -309,12 +483,37 @@ const styles = StyleSheet.create({
   actionsSection: { paddingHorizontal: 14, paddingTop: 10 },
   actionsRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   leftActions: { flexDirection: "row", alignItems: "center", gap: 16, flex: 1, flexWrap: "wrap" },
+  rightActions: { flexDirection: "row", alignItems: "center", gap: 16, flexShrink: 0 },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   bookBtn: { minHeight: 34, paddingHorizontal: 14, borderRadius: 14, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center" },
   bookBtnText: { fontSize: 13, fontWeight: "700", lineHeight: 16 },
   actionCount: { fontSize: 16, fontWeight: "700" },
   commentsSection: { paddingHorizontal: 14, paddingTop: 8, gap: 6 },
   postTextBlock: { position: "relative" },
+  titleEditWrap: { position: "relative", justifyContent: "center" },
+  titleEditInput: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    minHeight: 44,
+    maxHeight: 120,
+    paddingLeft: 12,
+    paddingRight: 44,
+    paddingVertical: 10,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "500",
+  },
+  titleSaveBtn: {
+    position: "absolute",
+    right: 6,
+    bottom: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  titleSaveBtnDisabled: { opacity: 0.45 },
   postTextRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   postTextFlex: { flex: 1, minWidth: 0 },
   hiddenMeasureText: { position: "absolute", opacity: 0, left: 0, right: 0, zIndex: -1 },

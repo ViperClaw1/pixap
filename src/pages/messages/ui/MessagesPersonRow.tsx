@@ -93,11 +93,23 @@ function MessagesPersonRowComponent(props: Props) {
 
   const { styles, colors, isCompact, actionIconSize, onOpenChat, onPrefetchChat, onToggleFollow, isFollowing } = props;
 
+  const swipeWrapRight = [
+    styles.swipeActionWrap,
+    styles.swipeActionWrapRight,
+    isCompact ? styles.swipeActionWrapRightCompact : null,
+  ];
+  const swipeWrapLeft = [
+    styles.swipeActionWrap,
+    styles.swipeActionWrapLeft,
+    isCompact ? styles.swipeActionWrapLeftCompact : null,
+  ];
+
   return (
     <Swipeable
       overshootRight={false}
+      overshootLeft={false}
       renderRightActions={() => (
-        <View style={styles.swipeActionWrap}>
+        <View style={swipeWrapRight}>
           <AppPressable
             style={[styles.swipeActionBtn, styles.swipeChatBtn, isCompact ? styles.swipeActionBtnCompact : null]}
             onPress={onOpenChat}
@@ -108,7 +120,7 @@ function MessagesPersonRowComponent(props: Props) {
         </View>
       )}
       renderLeftActions={() => (
-        <View style={styles.swipeActionWrap}>
+        <View style={swipeWrapLeft}>
           <AppPressable
             style={[styles.swipeActionBtn, styles.swipeFollowBtn, isCompact ? styles.swipeActionBtnCompact : null]}
             onPress={onToggleFollow}

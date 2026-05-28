@@ -412,8 +412,8 @@ export default function PlaceDetailScreen() {
           </Pressable>
         )}
         <View style={[styles.heroBar, { top: heroTop + 18 }]}>
-          <Pressable style={styles.iconBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.iconBtnText}>←</Text>
+          <Pressable style={styles.iconBtn} onPress={() => navigation.goBack()} accessibilityLabel="Back">
+            <Ionicons name="arrow-back" size={20} color={colors.mediaOverlayText} />
           </Pressable>
           <View style={styles.heroBarActions}>
             <Pressable style={styles.iconBtn} onPress={onShare} accessibilityLabel="Share">

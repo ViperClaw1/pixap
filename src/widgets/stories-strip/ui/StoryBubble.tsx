@@ -1,10 +1,9 @@
 import { memo, useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { StoryGroup } from "@/shared/model/types/stories";
-import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { profileDisplayName } from "@/shared/lib/profileDisplayName";
+import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 
 interface StoryBubbleProps {
   group: StoryGroup;
@@ -21,12 +20,6 @@ function StoryBubbleComponent({ group, viewed, onPress, variant = "story", uploa
     if (isAdd) return "Add Story";
     return profileDisplayName(group.profile);
   }, [group.profile, isAdd]);
-
-  const avatarDisplayUri = useMemo(
-    () => getAvatarDisplayUrl(group.profile?.avatar_url, { layoutPx: 64 }),
-    [group.profile?.avatar_url],
-  );
-  const avatarRawUri = group.profile?.avatar_url?.trim() || null;
 
   return (
     <Pressable style={styles.wrapper} disabled={uploading} onPress={onPress}>
@@ -48,14 +41,11 @@ function StoryBubbleComponent({ group, viewed, onPress, variant = "story", uploa
             )}
           </View>
         ) : (
-          <SmartImage
-            uri={avatarDisplayUri}
-            fallbackUri={
-              avatarRawUri && avatarDisplayUri && avatarRawUri !== avatarDisplayUri ? avatarRawUri : undefined
-            }
+          <UserAvatarImage
+            uri={group.profile?.avatar_url}
             style={styles.avatar}
             contentFit="cover"
-            transition={120}
+            iconSize={24}
             recyclingKey={`${group.user_id}-story-avatar`}
           />
         )}

@@ -7,6 +7,11 @@ import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 /** Page content width below which people-row layout switches to compact. */
 export const MESSAGES_COMPACT_WIDTH = 400;
 
+/** Screen edge → inline chat/follow btn: list `paddingHorizontal` + card `padding`. */
+const PERSON_ROW_EDGE_INSET = 16 + 11;
+const PERSON_ROW_EDGE_INSET_COMPACT = 12 + 8;
+const SWIPE_ACTION_INNER_GAP = 8;
+
 export const messagesStaticStyles = StyleSheet.create({
         root: {
           flex: 1,
@@ -185,7 +190,16 @@ export const messagesStaticStyles = StyleSheet.create({
 
         swipeActionWrap: {
           justifyContent: "center",
-          paddingLeft: 8,
+        },
+
+        swipeActionWrapLeft: {
+          paddingLeft: PERSON_ROW_EDGE_INSET,
+          paddingRight: SWIPE_ACTION_INNER_GAP,
+        },
+
+        swipeActionWrapRight: {
+          paddingLeft: SWIPE_ACTION_INNER_GAP,
+          paddingRight: PERSON_ROW_EDGE_INSET,
         },
 
         swipeActionBtn: {
@@ -330,6 +344,16 @@ export const messagesStaticStyles = StyleSheet.create({
         swipeActionBtnCompact: {
           width: 44,
           height: 44,
+        },
+
+        swipeActionWrapLeftCompact: {
+          paddingLeft: PERSON_ROW_EDGE_INSET_COMPACT,
+          paddingRight: SWIPE_ACTION_INNER_GAP,
+        },
+
+        swipeActionWrapRightCompact: {
+          paddingLeft: SWIPE_ACTION_INNER_GAP,
+          paddingRight: PERSON_ROW_EDGE_INSET_COMPACT,
         },
 
         skeletonCardCompact: {

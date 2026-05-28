@@ -49,6 +49,17 @@ export default function FavoritesScreen() {
     [themed],
   );
 
+  const listContentPaddingBottom = 100 + insets.bottom;
+  const showEmptyList = favorites.length === 0;
+
+  const listContentStyle = useMemo(
+    () => [
+      { padding: 16, paddingTop: 12, paddingBottom: listContentPaddingBottom },
+      showEmptyList ? styles.listContentEmpty : null,
+    ],
+    [listContentPaddingBottom, showEmptyList, styles.listContentEmpty],
+  );
+
   const renderFavoriteItem = useCallback(
     ({ item }: { item: (typeof favorites)[number] }) => {
       const b = item.business_card as { id: string; name: string; images: string[] | null; address: string } | null;
@@ -97,12 +108,12 @@ export default function FavoritesScreen() {
         notificationsEnabled
       />
       }
-      contentContainerStyle={{
-        padding: 16,
-        paddingTop: 12,
-        paddingBottom: 100 + insets.bottom,
-      }}
-      ListEmptyComponent={<Text style={styles.empty}>{t("favorites.empty")}</Text>}
+      contentContainerStyle={listContentStyle}
+      ListEmptyComponent={
+        <View style={styles.emptyListWrap}>
+          <Text style={styles.empty}>{t("favorites.empty")}</Text>
+        </View>
+      }
       renderItem={renderFavoriteItem}
       removeClippedSubviews
       initialNumToRender={8}

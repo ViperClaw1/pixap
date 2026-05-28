@@ -11,7 +11,16 @@ export const favoritesStaticStyles = StyleSheet.create({
   },
   name: { fontWeight: "700" },
   meta: { fontSize: 12, marginTop: 4 },
-  empty: { textAlign: "center", marginTop: 32 },
+  listContentEmpty: {
+    flexGrow: 1,
+  },
+  emptyListWrap: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  empty: { textAlign: "center", fontSize: 14, lineHeight: 20 },
 });
 
 export function favoritesThemeStyles(colors: ThemeColors) {

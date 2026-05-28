@@ -6,7 +6,6 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  Alert,
   Platform,
   Dimensions,
   ScrollView,
@@ -32,6 +31,8 @@ import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { authStaticStyles, authThemeStyles } from "./authStyles";
 import { devError, devInfo } from "@/shared/lib/devLog";
+import { appAlert } from "@/shared/ui/app-popup";
+import type { AppPopupVariant } from "@/shared/ui/app-popup";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -98,6 +99,13 @@ export default function AuthScreen() {
   const themed = useThemeStyles(({ colors: c }) => authThemeStyles(c));
   const styles = useMemo(() => mergeStaticAndThemed(authStaticStyles, themed), [themed]);
 
+  const showUserAlert = useCallback(
+    (title: string, message?: string, variant: AppPopupVariant = "alert") => {
+      appAlert(title, message, [{ text: t("common.ok") }], variant);
+    },
+    [t],
+  );
+
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   const hasMinPasswordLength = password.length >= 8;
   const hasPasswordDigit = /\d/.test(password);
@@ -153,7 +161,7 @@ export default function AuthScreen() {
         const isAvailable = await AppleAuthentication.isAvailableAsync();
         devInfo("[Apple][native] available:", isAvailable);
         if (!isAvailable) {
-          Alert.alert(t("auth.alerts.appleUnavailableTitle"), t("auth.alerts.appleUnavailableBody"));
+          showUserAlert(t("auth.alerts.appleUnavailableTitle"), t("auth.alerts.appleUnavailableBody"));
           return;
         }
 
@@ -167,7 +175,7 @@ export default function AuthScreen() {
         const token = credential.identityToken;
         devInfo("[Apple][native] token received:", Boolean(token), "user:", credential.user ?? "n/a");
         if (!token) {
-          Alert.alert(t("auth.alerts.signInFailed"), t("auth.alerts.appleNoToken"));
+          showUserAlert(t("auth.alerts.signInFailed"), t("auth.alerts.appleNoToken"));
           return;
         }
 
@@ -177,7 +185,7 @@ export default function AuthScreen() {
         });
         if (error) {
           devError("[Apple][native] signInWithIdToken error:", error.message);
-          Alert.alert(t("auth.alerts.signInFailed"), error.message);
+          showUserAlert(t("auth.alerts.signInFailed"), error.message);
           return;
         }
         devInfo("[Apple][native] signInWithIdToken success");
@@ -210,16 +218,16 @@ export default function AuthScreen() {
         if (finished.ok) devInfo("[OAuth] callback exchange: success");
         else devError("[OAuth] callback exchange: failed:", finished.message);
         if (!finished.ok) {
-          Alert.alert(t("auth.alerts.signInFailed"), finished.message);
+          showUserAlert(t("auth.alerts.signInFailed"), finished.message);
           return;
         }
         return;
       }
       if (result.type !== "success") {
-        Alert.alert(t("auth.alerts.signInCancelled"));
+        showUserAlert(t("auth.alerts.signInCancelled"), undefined, "info");
       }
     } catch (e: unknown) {
-      Alert.alert(t("auth.alerts.oauthError"), e instanceof Error ? e.message : t("auth.alerts.unknown"));
+      showUserAlert(t("auth.alerts.oauthError"), e instanceof Error ? e.message : t("auth.alerts.unknown"));
     } finally {
       setLoading(false);
     }
@@ -231,7 +239,7 @@ export default function AuthScreen() {
       if (mode === "login") {
         const { error } = await signIn(email, password);
         if (error) {
-          Alert.alert(t("auth.alerts.signInFailed"), error);
+          showUserAlert(t("auth.alerts.signInFailed"), error);
           return;
         }
         return;
@@ -241,33 +249,33 @@ export default function AuthScreen() {
         setPasswordTouched(true);
         setConfirmPasswordTouched(true);
         if (isEmailEmpty) {
-          Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.emailRequired"));
+          showUserAlert(t("auth.alerts.validationTitle"), t("auth.alerts.emailRequired"));
           return;
         }
         if (!isValidEmail(email)) {
-          Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.emailInvalid"));
+          showUserAlert(t("auth.alerts.validationTitle"), t("auth.alerts.emailInvalid"));
           return;
         }
         if (!isPasswordPolicyValid) {
-          Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.passwordPolicy"));
+          showUserAlert(t("auth.alerts.validationTitle"), t("auth.alerts.passwordPolicy"));
           return;
         }
         if (!arePasswordsMatching) {
-          Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.passwordsMismatch"));
+          showUserAlert(t("auth.alerts.validationTitle"), t("auth.alerts.passwordsMismatch"));
           return;
         }
         const { error, isUserAlreadyExists } = await signUp(email, password, firstName, lastName);
         if (error) {
           if (isUserAlreadyExists) {
-            Alert.alert(t("auth.alerts.emailAlreadyRegisteredTitle"), t("auth.alerts.emailAlreadyRegisteredBody"));
+            showUserAlert(t("auth.alerts.emailAlreadyRegisteredTitle"), t("auth.alerts.emailAlreadyRegisteredBody"), "info");
             return;
           }
-          Alert.alert(t("auth.alerts.signUpFailed"), error);
+          showUserAlert(t("auth.alerts.signUpFailed"), error);
           return;
         }
         const signInResult = await signIn(email, password);
         if (signInResult.error) {
-          Alert.alert(t("auth.alerts.signUpAutoSignInFailedTitle"), t("auth.alerts.signUpAutoSignInFailedBody"));
+          showUserAlert(t("auth.alerts.signUpAutoSignInFailedTitle"), t("auth.alerts.signUpAutoSignInFailedBody"));
           setMode("login");
           return;
         }
@@ -276,11 +284,11 @@ export default function AuthScreen() {
       }
       setEmailTouched(true);
       if (isEmailEmpty) {
-        Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.emailRequired"));
+        showUserAlert(t("auth.alerts.validationTitle"), t("auth.alerts.emailRequired"));
         return;
       }
       if (!isValidEmail(email)) {
-        Alert.alert(t("auth.alerts.validationTitle"), t("auth.alerts.emailInvalid"));
+        showUserAlert(t("auth.alerts.validationTitle"), t("auth.alerts.emailInvalid"));
         return;
       }
       navigation.navigate("VerifyEmailOtp", { flow: "recovery", email: email.trim() });

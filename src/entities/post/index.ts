@@ -7,6 +7,8 @@ export * from "./api/useCreatePostComment";
 export * from "./api/useUpdatePostComment";
 export * from "./api/useDeletePostComment";
 export * from "./api/useCreatePost";
+export * from "./api/useUpdatePost";
+export * from "./api/useDeletePost";
 export * from "./api/useReactToPost";
 export * from "./api/useReactToPostComment";
 export { compareFeedPosts, comparePostsByBoostThenCreated } from "./lib/compareFeedPosts";

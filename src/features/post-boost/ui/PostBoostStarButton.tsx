@@ -15,9 +15,11 @@ type Props = {
   active: boolean;
   disabled?: boolean;
   onPress: () => void;
+  /** When true, drops extra margin (parent row uses `gap` for spacing). */
+  grouped?: boolean;
 };
 
-export function PostBoostStarButton({ active, disabled, onPress }: Props) {
+export function PostBoostStarButton({ active, disabled, onPress, grouped = false }: Props) {
   const pulse = useSharedValue(1);
 
   useEffect(() => {
@@ -43,7 +45,11 @@ export function PostBoostStarButton({ active, disabled, onPress }: Props) {
       disabled={disabled}
       onPress={onPress}
       hitSlop={8}
-      style={({ pressed }) => [styles.hit, pressed && !disabled ? styles.pressed : null]}
+      style={({ pressed }) => [
+        styles.hit,
+        grouped ? styles.hitGrouped : null,
+        pressed && !disabled ? styles.pressed : null,
+      ]}
     >
       <Animated.View style={animatedStyle}>
         <Ionicons name={active ? "star" : "star-outline"} size={23} color={BOOST_STAR_COLOR} />
@@ -57,6 +63,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 8,
+  },
+  hitGrouped: {
+    marginLeft: 0,
   },
   pressed: { opacity: 0.85 },
 });

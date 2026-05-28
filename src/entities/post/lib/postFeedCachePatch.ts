@@ -198,6 +198,27 @@ export function togglePostLikeInFeedCaches(queryClient: QueryClient, postId: str
   });
 }
 
+export function removePostFromAllFeedCaches(queryClient: QueryClient, postId: string): boolean {
+  let touched = false;
+  const queries = queryClient.getQueriesData<InfiniteData<FeedPage>>({ queryKey: queryKeys.posts.feedPrefix });
+
+  for (const [key, data] of queries) {
+    if (!data?.pages?.length) continue;
+    let pageTouched = false;
+    const pages = data.pages.map((page) => {
+      if (!page.posts.some((post) => post.id === postId)) return page;
+      pageTouched = true;
+      return { ...page, posts: page.posts.filter((post) => post.id !== postId) };
+    });
+    if (pageTouched) {
+      touched = true;
+      queryClient.setQueryData<InfiniteData<FeedPage>>(key, { ...data, pages });
+    }
+  }
+
+  return touched;
+}
+
 export function prependPostToFeedCaches(queryClient: QueryClient, post: FeedPostItem): void {
   const queries = queryClient.getQueriesData<InfiniteData<FeedPage>>({ queryKey: queryKeys.posts.feedPrefix });
 
