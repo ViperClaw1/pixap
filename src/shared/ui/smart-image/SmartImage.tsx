@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { Image, type ImageErrorEventData, type ImageProps, type ImageSource, type ImageSourceProps } from "expo-image";
 import { getSupabaseStorageObjectFallbackUrl } from "@/shared/lib/imageUtils";
 import { recordStorageImageRequest } from "@/shared/lib/storageEgressMetrics";
@@ -16,6 +17,11 @@ export type SmartImageProps = Omit<ImageProps, "source"> & {
   bundledFallback?: ImageSource;
   /** When true, do not show the bundled placeholder while loading (e.g. small circular avatars). */
   skipBundledPlaceholder?: boolean;
+  /** When true, show ActivityIndicator instead of the bundled placeholder while the remote image loads. */
+  showLoadingSpinner?: boolean;
+  loadingSpinnerColor?: string;
+  /** Fired when remote loading state changes (only when `showLoadingSpinner` is true). */
+  onLoadingChange?: (loading: boolean) => void;
   /** Retry attempts for primary/fallback chain. Default: 1 */
   retryCount?: number;
   /** Optional low-res placeholder hash */
@@ -71,18 +77,33 @@ export function SmartImage({
   fallbackUri,
   bundledFallback,
   onError,
+  onLoad,
+  onLoadStart,
   recyclingKey,
   skipBundledPlaceholder,
+  showLoadingSpinner = false,
+  loadingSpinnerColor,
+  onLoadingChange,
   retryCount: retryCountProp,
   blurhash,
   priority,
   onSourcesExhausted,
+  style,
   ...rest
 }: SmartImageProps) {
   const chain = useMemo(() => buildUriChain(uri, fallbackUri), [uri, fallbackUri]);
   const chainKey = chain.join("|");
   const retryCount = Math.max(0, retryCountProp ?? 1);
   const [attempt, setAttempt] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const setLoadingState = useCallback(
+    (next: boolean) => {
+      setLoading(next);
+      onLoadingChange?.(next);
+    },
+    [onLoadingChange],
+  );
 
   useEffect(() => {
     setAttempt(0);
@@ -109,6 +130,15 @@ export function SmartImage({
       : null;
   const source = activeUri ? { uri: activeUri, priority, cacheKey: activeUri } : undefined;
 
+  useEffect(() => {
+    if (!showLoadingSpinner) return;
+    if (sourcesExhausted || !activeUri) {
+      setLoadingState(false);
+      return;
+    }
+    setLoadingState(true);
+  }, [activeUri, chainKey, showLoadingSpinner, sourcesExhausted, setLoadingState]);
+
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
       setAttempt((a) => {
@@ -116,16 +146,40 @@ export function SmartImage({
         const next = a < limit ? a + 1 : a;
         if (next >= limit && chain.length > 0) {
           onSourcesExhausted?.();
+          if (showLoadingSpinner) {
+            setLoadingState(false);
+          }
         }
         return next;
       });
       onError?.(event);
     },
-    [chain.length, onError, onSourcesExhausted, retryCount],
+    [chain.length, onError, onSourcesExhausted, retryCount, setLoadingState, showLoadingSpinner],
+  );
+
+  const handleLoadStart = useCallback(
+    (event: Parameters<NonNullable<ImageProps["onLoadStart"]>>[0]) => {
+      if (showLoadingSpinner && activeUri) {
+        setLoadingState(true);
+      }
+      onLoadStart?.(event);
+    },
+    [activeUri, onLoadStart, setLoadingState, showLoadingSpinner],
+  );
+
+  const handleLoad = useCallback(
+    (event: Parameters<NonNullable<ImageProps["onLoad"]>>[0]) => {
+      if (showLoadingSpinner) {
+        setLoadingState(false);
+      }
+      onLoad?.(event);
+    },
+    [onLoad, setLoadingState, showLoadingSpinner],
   );
 
   const rk = recyclingKey ?? (chainKey ? `${chainKey}#${attempt}` : "smartimg-fallback");
-  const shouldShowBundledPlaceholder = !skipBundledPlaceholder;
+  const effectiveSkipBundledPlaceholder = skipBundledPlaceholder || showLoadingSpinner;
+  const shouldShowBundledPlaceholder = !effectiveSkipBundledPlaceholder;
   const bundledAsset = bundledFallback ?? FALLBACK;
   const finalSource = source ?? (shouldShowBundledPlaceholder ? bundledAsset : undefined);
   const placeholderSource = blurhash
@@ -134,18 +188,47 @@ export function SmartImage({
       ? (bundledAsset as ImageProps["placeholder"])
       : undefined;
 
-  return (
+  const imageStyle = showLoadingSpinner ? StyleSheet.absoluteFillObject : style;
+
+  const image = (
     <Image
       {...rest}
+      style={imageStyle}
       recyclingKey={rk}
       source={finalSource}
       placeholder={placeholderSource}
       placeholderContentFit={(rest.contentFit ?? "cover") as ImageProps["placeholderContentFit"]}
       onError={handleError}
+      onLoadStart={handleLoadStart}
+      onLoad={handleLoad}
       cachePolicy="memory-disk"
     />
   );
+
+  if (!showLoadingSpinner) {
+    return image;
+  }
+
+  return (
+    <View style={style as StyleProp<ViewStyle>}>
+      {image}
+      {loading && activeUri ? (
+        <View style={styles.spinnerHost}>
+          <ActivityIndicator size="large" color={loadingSpinnerColor} />
+        </View>
+      ) : null}
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  spinnerHost: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+});
 
 export async function preloadSmartImages(uris: Array<string | null | undefined>): Promise<void> {
   const normalized = Array.from(

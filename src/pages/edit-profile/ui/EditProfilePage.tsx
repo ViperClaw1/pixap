@@ -23,6 +23,8 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { useProfile, useUpdateProfile, useUploadProfileAvatar } from "@/entities/user";
+import { isUsernameAvailable } from "@/entities/user/api/profileApi";
+import { isUsernameTakenError, getSupabaseErrorMessage } from "@/entities/user/lib/profileUpdateErrors";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
@@ -47,6 +49,7 @@ import {
 
 const KEYBOARD_GAP = 16;
 
+const USERNAME_TAKEN_MESSAGE = "This username is already taken. Please choose another one.";
 const USERNAME_REGEX = /^[a-z0-9._-]+$/;
 const USERNAME_MIN_LENGTH = 3;
 const USERNAME_MAX_LENGTH = 30;
@@ -236,6 +239,27 @@ function EditProfileScreenContent() {
     if (nextUsernameError || !trimmedFirst || !trimmedLast || nextPhoneError) {
       return;
     }
+
+    if (!user?.id) {
+      navigateToAuthScreen(navigation);
+      return;
+    }
+
+    try {
+      const usernameAvailable = await isUsernameAvailable(normalizedUsername, user.id);
+      if (!usernameAvailable) {
+        setUsernameError(USERNAME_TAKEN_MESSAGE);
+        return;
+      }
+    } catch (error: unknown) {
+      if (isAuthRequiredError(error)) {
+        navigateToAuthScreen(navigation);
+        return;
+      }
+      appAlert("Failed to save", getSupabaseErrorMessage(error), undefined, "alert");
+      return;
+    }
+
     const phoneToSave = serializePhone(phoneValue) || null;
     try {
       await update.mutateAsync({
@@ -269,7 +293,10 @@ function EditProfileScreenContent() {
         navigateToAuthScreen(navigation);
         return;
       }
-      const message = error instanceof Error ? error.message : "Failed to save";
+      const message = getSupabaseErrorMessage(error);
+      if (isUsernameTakenError(error)) {
+        setUsernameError(USERNAME_TAKEN_MESSAGE);
+      }
       appAlert("Failed to save", message, undefined, "alert");
     }
   };

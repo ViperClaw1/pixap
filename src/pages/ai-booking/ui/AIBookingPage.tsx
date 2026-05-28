@@ -7,6 +7,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  ScrollView,
 } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
@@ -106,16 +107,19 @@ function AIBookingPageContent() {
     stableBottomInsetRef.current = insets.bottom;
   }
   const stableBottomInset = stableBottomInsetRef.current;
-  const bookingScrollRef = useRef<Animated.ScrollView>(null);
+  const bookingScrollRef = useRef<ScrollView>(null);
   const bookingComposerInputRef = useRef<TextInput>(null);
   const keyboardInset = useKeyboardInset({
     bottomInset: stableBottomInset,
     gap: 16,
     ignoreWindowResize: false,
   });
-  const bookingScrollAnimatedStyle = useAnimatedStyle(() => ({
-    paddingBottom: keyboardInset.value,
-  }));
+  const bookingKeyboardStyle = useAnimatedStyle(() => {
+    if (Platform.OS === "ios") {
+      return { flex: 1, transform: [{ translateY: -keyboardInset.value }] };
+    }
+    return { flex: 1, paddingBottom: keyboardInset.value };
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -632,10 +636,11 @@ function AIBookingPageContent() {
 
   return (
     <View style={styles.root} {...androidSwipeBackPanHandlers}>
-      <Animated.ScrollView
+      <Animated.View style={bookingKeyboardStyle}>
+      <ScrollView
         ref={bookingScrollRef}
         style={styles.root}
-        contentContainerStyle={[styles.scroll, bookingScrollAnimatedStyle]}
+        contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       >
@@ -815,7 +820,8 @@ function AIBookingPageContent() {
             submitting={confirmingBooking}
           />
         ) : null}
-      </Animated.ScrollView>
+      </ScrollView>
+      </Animated.View>
 
       <View style={styles.footer}>
         <View style={styles.row}>

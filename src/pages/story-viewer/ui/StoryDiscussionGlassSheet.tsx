@@ -20,7 +20,6 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
         <StoryDiscussionPanelInner
           storyId={storyId}
           isActive={visible}
-          keyboardHost="overlay"
           onRequireAuth={panelProps.onRequireAuth}
           onClose={panelProps.onClose}
           discussionPalette={discussionPaletteDark}

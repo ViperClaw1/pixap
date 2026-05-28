@@ -1,6 +1,5 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { PanResponder, Platform } from "react-native";
-
 /**
  * На Android у Native Stack (`react-native-screens`) жест «назад» из настроек
  * `gestureEnabled` / `fullScreenGestureEnabled` из `@react-navigation/native-stack`
@@ -18,10 +17,12 @@ export function useAndroidFullSwipeBackPanHandlers(
   options?: { swipeBackFallback?: () => void },
 ) {
   const navRef = useRef(navigation);
-  navRef.current = navigation;
-  const fallbackRef = useRef(options?.swipeBackFallback);
-  fallbackRef.current = options?.swipeBackFallback;
+  const fallbackRef = useRef<(() => void) | null>(null);
 
+  useEffect(() => {
+    navRef.current = navigation;
+    fallbackRef.current = options?.swipeBackFallback ?? null;
+  }, [navigation, options?.swipeBackFallback]);
   return useMemo(() => {
     if (Platform.OS !== "android") {
       return {};

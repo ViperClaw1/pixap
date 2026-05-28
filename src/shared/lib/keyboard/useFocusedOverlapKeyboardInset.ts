@@ -37,24 +37,24 @@ export function useFocusedOverlapKeyboardInset({
 }: UseFocusedOverlapKeyboardInsetOptions): FocusedOverlapKeyboardInsetResult {
   const extraInset = useSharedValue(0);
   const getFocusedInputRef = useRef(getFocusedInput);
-  const getMeasureTargetRef = useRef(getMeasureTarget);
-  const onKeyboardFrameRef = useRef(onKeyboardFrame);
-  const onKeyboardChangeRef = useRef(onKeyboardChange);
+  const getMeasureTargetRef = useRef<UseFocusedOverlapKeyboardInsetOptions["getMeasureTarget"] | null>(null);
+  const onKeyboardFrameRef = useRef<UseFocusedOverlapKeyboardInsetOptions["onKeyboardFrame"] | null>(null);
+  const onKeyboardChangeRef = useRef<UseFocusedOverlapKeyboardInsetOptions["onKeyboardChange"] | null>(null);
 
   useEffect(() => {
     getFocusedInputRef.current = getFocusedInput;
   }, [getFocusedInput]);
 
   useEffect(() => {
-    getMeasureTargetRef.current = getMeasureTarget;
+    getMeasureTargetRef.current = getMeasureTarget ?? null;
   }, [getMeasureTarget]);
 
   useEffect(() => {
-    onKeyboardFrameRef.current = onKeyboardFrame;
+    onKeyboardFrameRef.current = onKeyboardFrame ?? null;
   }, [onKeyboardFrame]);
 
   useEffect(() => {
-    onKeyboardChangeRef.current = onKeyboardChange;
+    onKeyboardChangeRef.current = onKeyboardChange ?? null;
   }, [onKeyboardChange]);
 
   const lastFrameRef = useRef<{

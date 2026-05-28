@@ -135,11 +135,11 @@ export function useKeyboardInset(options: KeyboardInsetOptions = {}): SharedValu
 
   const isAndroid = Platform.OS === "android";
 
-  const onKeyboardChangeRef = useRef(onKeyboardChange);
+  const onKeyboardChangeRef = useRef<KeyboardInsetOptions["onKeyboardChange"] | null>(null);
   const baselineWindowHeightRef = useRef(Dimensions.get("window").height);
 
   useEffect(() => {
-    onKeyboardChangeRef.current = onKeyboardChange;
+    onKeyboardChangeRef.current = onKeyboardChange ?? null;
   }, [onKeyboardChange]);
 
   const notifyKeyboardChange = (keyboardTop: number, keyboardHeight: number) => {
@@ -181,6 +181,9 @@ export function useKeyboardInset(options: KeyboardInsetOptions = {}): SharedValu
         } else if (shrunkBy > 48) {
           raw = Math.max(raw, shrunkBy);
         }
+      } else if (shrunkBy > 48) {
+        // Expo/RN may shrink the window on iOS — do not stack resize + full keyboard.height lift.
+        raw = Math.max(0, raw - shrunkBy);
       }
 
       return Math.max(0, raw - tabBarHeight - bottomInset + gap);

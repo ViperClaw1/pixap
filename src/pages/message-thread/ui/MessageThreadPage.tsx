@@ -346,11 +346,11 @@ export default function MessageThreadPage() {
   const keyboardInsetOptions = useMemo(
     () => ({
       gap: MESSAGE_THREAD_KEYBOARD_GAP,
-      tabBarHeight: 0,
+      tabBarHeight: Platform.OS === "ios" ? tabBarHeight : 0,
       bottomInset: 0,
       ignoreWindowResize: Platform.OS === "android",
     }),
-    [stableBottomInset, tabBarHeight],
+    [tabBarHeight],
   );
   const keyboardInset = useKeyboardInset(keyboardInsetOptions);
 
@@ -414,7 +414,7 @@ export default function MessageThreadPage() {
     height:
       Platform.OS === "android"
         ? Math.max(0, keyboardInset.value - androidKeyboardTrim)
-        : keyboardInset.value,
+        : 0,
   }));
 
   const footerHeightShared = useSharedValue(footerHeight);
@@ -423,7 +423,10 @@ export default function MessageThreadPage() {
   }, [footerHeight, footerHeightShared]);
 
   const scrollFabPositionStyle = useAnimatedStyle(() => ({
-    bottom: 12 + footerHeightShared.value + keyboardInset.value,
+    bottom:
+      12 +
+      footerHeightShared.value +
+      (Platform.OS === "android" ? keyboardInset.value : 0),
   }));
 
   const mergeDrafts = useCallback((prev: MessageAttachmentDraft[], next: MessageAttachmentDraft[]) => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   DEFAULT_TEMPERAMENT,
   STAGE1_STEPS,
@@ -8,6 +9,8 @@ import {
   type Temperament,
   type UserPreferencesPatch,
 } from "@/entities/user-preferences";
+import { bootstrapMyDailyRecommendations } from "@/entities/daily-recommendation";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { saveOnboardingDraft } from "../lib/onboardingDraftStorage";
 
 const AUTOSAVE_MS = 300;
@@ -15,6 +18,7 @@ const AUTOSAVE_MS = 300;
 export function useOnboardingWizard(initialStep?: OnboardingStep) {
   const { data: serverPrefs, isLoading } = useUserPreferences();
   const upsert = useUpsertUserPreferences();
+  const queryClient = useQueryClient();
 
   const [step, setStep] = useState<OnboardingStep>(initialStep ?? "venue_categories");
   const [favoriteCategories, setFavoriteCategories] = useState<string[]>([]);
@@ -156,12 +160,20 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
   }, [flushSave, step]);
 
   const completeOnboarding = useCallback(async () => {
+    const isFirstCompletion = !serverPrefs?.onboarding_completed;
     await flushSave({
       onboarding_completed: true,
       onboarding_step: "completed",
       clear_skipped: true,
     });
-  }, [flushSave]);
+    if (isFirstCompletion) {
+      void bootstrapMyDailyRecommendations().then((result) => {
+        if (!result || result.inserted_count <= 0) return;
+        void queryClient.invalidateQueries({ queryKey: queryKeys.dailyRecommendations.prefix });
+      });
+    }
+    return { isFirstCompletion };
+  }, [flushSave, queryClient, serverPrefs?.onboarding_completed]);
 
   return {
     isLoading,

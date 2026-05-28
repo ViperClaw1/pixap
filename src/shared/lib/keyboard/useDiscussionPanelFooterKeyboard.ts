@@ -18,9 +18,6 @@ export const DISCUSSION_FOOTER_IOS_EXTRA_BOTTOM_PADDING = 5;
 /** @deprecated Use DISCUSSION_FOOTER_VERTICAL_PADDING */
 export const DISCUSSION_ANDROID_FOOTER_PADDING = DISCUSSION_FOOTER_VERTICAL_PADDING;
 
-/** Fade out safe-area offset once keyboard lift exceeds this (px). */
-const IOS_SAFE_AREA_FADE_LIFT_PX = 56;
-
 /** Extra scroll clearance above sticky footer on iOS (px). */
 export const DISCUSSION_IOS_LIST_FOOTER_CLEARANCE = 8;
 
@@ -122,21 +119,6 @@ export function useDiscussionPanelFooterKeyboard(
     ignoreWindowResize: true,
   });
 
-  const iosStickyFooterPaddingStyle = useAnimatedStyle(() => {
-    if (!useStickyFooter) {
-      return {};
-    }
-    const lift = useIosNavigationSticky
-      ? navigationModalInset.value
-      : useIosGlassSticky
-        ? iosGlassInset.value
-        : 0;
-    const fade = Math.min(1, lift / IOS_SAFE_AREA_FADE_LIFT_PX);
-    return {
-      paddingBottom: footerPaddingBottom + insets.bottom * (1 - fade),
-    };
-  });
-
   const rootLiftStyle = useAnimatedStyle(() => {
     if (Platform.OS === "android") {
       if (useAndroidGlassLift) {
@@ -155,7 +137,7 @@ export function useDiscussionPanelFooterKeyboard(
     footerPaddingBottom,
     useStickyFooter,
     composerStickyInset,
-    iosStickyFooterPaddingStyle: useStickyFooter ? iosStickyFooterPaddingStyle : undefined,
+    stickySafeAreaBottom: useStickyFooter ? insets.bottom : 0,
     iosComposerInset: composerStickyInset,
     iosStickyUsesWindowInset: useIosGlassSticky,
   };

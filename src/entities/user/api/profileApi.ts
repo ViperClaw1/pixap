@@ -2,6 +2,22 @@ import type { QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 
+/** Returns false when another profile already uses this username (case-insensitive). */
+export async function isUsernameAvailable(username: string, userId: string): Promise<boolean> {
+  const normalized = username.trim().toLowerCase();
+  if (!normalized) return false;
+
+  const { data, error } = await supabase
+    .from("public_profiles" as any)
+    .select("id")
+    .ilike("username", normalized)
+    .neq("id", userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return !data;
+}
+
 /** Peer phone for share flows; uses RPC because `profiles` RLS is select-own only. */
 export async function fetchProfilePhone(userId: string): Promise<string | null> {
   const { data, error } = await supabase.rpc("get_profile_phone_for_share" as never, {

@@ -917,6 +917,12 @@ export type Database = {
         }
         Returns: string[]
       },
+      bootstrap_my_daily_recommendations: {
+        Args: {
+          p_date?: string
+        }
+        Returns: Json
+      },
       enqueue_daily_recommendation_push: {
         Args: {
           p_user_id: string

@@ -28,6 +28,9 @@ type Props = {
   fillWidth?: number;
   /** Measured slide height for `verticalLayout="fill"` image thumb quality. */
   fillHeight?: number;
+  /** Show ActivityIndicator instead of bundled placeholder while the hero image loads. */
+  showHeroLoadingSpinner?: boolean;
+  heroLoadingSpinnerColor?: string;
   /** Defaults to `PlaceDetail` for `place.id` when omitted (stable props for list memo). */
   onOpen?: () => void;
 };
@@ -64,6 +67,8 @@ function placeCardPropsEqual(prev: Props, next: Props): boolean {
   if ((prev.verticalLayout ?? "compact") !== (next.verticalLayout ?? "compact")) return false;
   if (prev.fillWidth !== next.fillWidth) return false;
   if (prev.fillHeight !== next.fillHeight) return false;
+  if (prev.showHeroLoadingSpinner !== next.showHeroLoadingSpinner) return false;
+  if (prev.heroLoadingSpinnerColor !== next.heroLoadingSpinnerColor) return false;
   if (prev.place.id !== next.place.id) return false;
   const prevThumb = prev.place.images?.[0] ?? prev.place.image ?? "";
   const nextThumb = next.place.images?.[0] ?? next.place.image ?? "";
@@ -76,9 +81,19 @@ type PlaceHeroImageProps = {
   imageStyle: object;
   layoutWidth?: number;
   layoutHeight?: number;
+  showLoadingSpinner?: boolean;
+  loadingSpinnerColor?: string;
 };
 
-function PlaceHeroImage({ place, variant, imageStyle, layoutWidth, layoutHeight }: PlaceHeroImageProps) {
+function PlaceHeroImage({
+  place,
+  variant,
+  imageStyle,
+  layoutWidth,
+  layoutHeight,
+  showLoadingSpinner,
+  loadingSpinnerColor,
+}: PlaceHeroImageProps) {
   const targetDensity = Math.min(2, PixelRatio.get());
   const primaryImageRaw = place.images?.[0] ?? place.image ?? null;
   const thumb = useMemo(() => {
@@ -105,6 +120,8 @@ function PlaceHeroImage({ place, variant, imageStyle, layoutWidth, layoutHeight 
         style={imageStyle}
         contentFit="cover"
         transition={PLACE_CARD_IMAGE_TRANSITION_MS}
+        showLoadingSpinner={showLoadingSpinner}
+        loadingSpinnerColor={loadingSpinnerColor}
       />
     );
   }
@@ -120,11 +137,22 @@ function PlaceHeroImage({ place, variant, imageStyle, layoutWidth, layoutHeight 
       style={imageStyle}
       contentFit="cover"
       transition={PLACE_CARD_IMAGE_TRANSITION_MS}
+      showLoadingSpinner={showLoadingSpinner}
+      loadingSpinnerColor={loadingSpinnerColor}
     />
   );
 }
 
-function BusinessPlaceCardInner({ place, variant, verticalLayout = "compact", fillWidth, fillHeight, onOpen }: Props) {
+function BusinessPlaceCardInner({
+  place,
+  variant,
+  verticalLayout = "compact",
+  fillWidth,
+  fillHeight,
+  showHeroLoadingSpinner,
+  heroLoadingSpinnerColor,
+  onOpen,
+}: Props) {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isVerticalFill = variant === "vertical" && verticalLayout === "fill";
@@ -191,7 +219,13 @@ function BusinessPlaceCardInner({ place, variant, verticalLayout = "compact", fi
     return (
       <Pressable onPress={handleOpen} style={styles.hRoot}>
         <View style={styles.hImageWrap}>
-          <PlaceHeroImage place={place} variant="horizontal" imageStyle={styles.hImage} />
+          <PlaceHeroImage
+            place={place}
+            variant="horizontal"
+            imageStyle={styles.hImage}
+            showLoadingSpinner={showHeroLoadingSpinner}
+            loadingSpinnerColor={heroLoadingSpinnerColor}
+          />
           <Pressable style={styles.hHeartBtn} onPress={onFavoritePress} hitSlop={8}>
             <AnimatedLikeHeart
               liked={isFavorite}
@@ -235,6 +269,8 @@ function BusinessPlaceCardInner({ place, variant, verticalLayout = "compact", fi
           imageStyle={styles.vImage}
           layoutWidth={isVerticalFill ? verticalCardWidth : undefined}
           layoutHeight={isVerticalFill ? verticalImageThumbHeight : undefined}
+          showLoadingSpinner={showHeroLoadingSpinner}
+          loadingSpinnerColor={heroLoadingSpinnerColor}
         />
         <Pressable style={styles.vHeartBtn} onPress={onFavoritePress} hitSlop={8}>
           <AnimatedLikeHeart
