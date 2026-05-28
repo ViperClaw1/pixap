@@ -260,7 +260,7 @@ Detailed state machine: [backend/wa-booking-service/README.md](backend/wa-bookin
 ### Mobile (`/.env`  see [.env.example](.env.example))
 
 - **`EXPO_PUBLIC_SUPABASE_URL`**, **`EXPO_PUBLIC_SUPABASE_ANON_KEY`**: Required.
-- **`EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM`**: Set to `1` when Pro **Storage Image Transformations** are enabled (see `docs/SUPABASE_IMAGE_TRANSFORMS_SETUP.md`). EAS build profiles set this in `eas.json`.
+- **`EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM`**: Set to `1` in **EAS Environment** (and locally in `.env`) so `/render/image/` is used only when pregen WebP is missing; primary path is pre-generated variants via `/object/public/` (see `docs/SUPABASE_IMAGE_TRANSFORMS_SETUP.md`).
 - **`EXPO_PUBLIC_OAUTH_REDIRECT_BASE`**: HTTPS site for email / reset links.
 - **`EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI`**: Optional override for native OAuth redirect.
 - **`EXPO_PUBLIC_STRIPE_RETURN_SCHEME`**: Deep link scheme segment for payment return (see `app.config.ts` **`scheme`**: **`pixap`**).

@@ -44,6 +44,7 @@ Dashboard → **Logs** → **Storage** (или Edge Logs с фильтром pat
 
 ```bash
 supabase db query --file supabase/smoke/storage_objects_size_audit.sql
+supabase db query --file supabase/smoke/storage_pregen_missing_audit.sql
 ```
 
 ---

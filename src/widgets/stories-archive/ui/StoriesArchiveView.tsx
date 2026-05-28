@@ -4,7 +4,6 @@ import {
   BackHandler,
   Dimensions,
   InteractionManager,
-  PixelRatio,
   Pressable,
   StyleSheet,
   Text,
@@ -36,7 +35,7 @@ import { rotateStoriesFromIndex } from "@/entities/story/lib/archiveViewer";
 import type { StoryGroup, StoryItem } from "@/shared/model/types/stories";
 import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { parseStoryMediaUrls, resolveStoryStorageUrl } from "@/shared/lib/storyMediaUrls";
-import { getOptimizedImageUrl, quantizeDecodePx } from "@/shared/lib/imageUtils";
+import { getFeedStoryPreviewImageUrl } from "@/shared/lib/feedMediaUrls";
 import { chunkCells, toYmd, firstOfMonthContaining, type CalendarCell } from "@/shared/lib/bookingCalendar";
 import { StoryArchiveGridThumb } from "./StoryArchiveGridThumb";
 import { useStoriesArchiveStyles } from "./storiesArchiveStyles";
@@ -99,18 +98,17 @@ const WEEKDAYS_MON = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const GRID_COLUMNS = 3;
 const GRID_BATCH_ROWS = 7;
 /** Matches `calCircle` size in storiesArchiveStyles. */
-const CAL_CIRCLE_SIZE = 40;
 const PREFETCH_BATCH_SIZE = 4;
 const ARCHIVE_SLIDE_MS = 280;
 const ARCHIVE_SLIDE_EASING = Easing.out(Easing.cubic);
 const MAP_REGION_EDGE_PADDING = 0.02;
 const MAP_REGION_MIN_DELTA = 0.08;
 
-function buildArchiveThumb(raw: string, decodePx: number): ArchiveThumb {
-  const optimized = getOptimizedImageUrl(raw, decodePx, decodePx, 72) || raw;
+function buildArchiveThumb(raw: string): ArchiveThumb {
+  const display = getFeedStoryPreviewImageUrl(raw) || raw;
   return {
-    thumbUri: optimized,
-    thumbFallbackUri: optimized !== raw ? raw : undefined,
+    thumbUri: display,
+    thumbFallbackUri: display !== raw ? raw : undefined,
   };
 }
 
@@ -364,26 +362,23 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
   }, [stories]);
 
   const gridItems = useMemo((): GridCell[] => {
-    const dpr = PixelRatio.get();
-    const ow = quantizeDecodePx(Math.round(gridTileWidth * dpr));
-    const oh = quantizeDecodePx(Math.round(gridTileHeight * dpr));
     const out: GridCell[] = [];
     for (const story of stories) {
       const urls = storyMediaById.get(story.id) ?? [];
       urls.forEach((uri, mediaIndex) => {
-        const optimized = getOptimizedImageUrl(uri, ow, oh, 72) || uri;
-        const thumbFallbackUri = optimized !== uri ? uri : undefined;
+        const display = getFeedStoryPreviewImageUrl(uri) || uri;
+        const thumbFallbackUri = display !== uri ? uri : undefined;
         out.push({
           key: `${story.id}-${mediaIndex}`,
           storyId: story.id,
           mediaIndex,
-          thumbUri: optimized,
+          thumbUri: display,
           thumbFallbackUri,
         });
       });
     }
     return out;
-  }, [stories, storyMediaById, gridTileWidth, gridTileHeight]);
+  }, [stories, storyMediaById]);
 
   const handleGridCellPress = useCallback(
     (item: GridCell) => {
@@ -426,11 +421,6 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
     return () => task.cancel();
   }, [overlayActive, stories.length, gridItems, tabBodyMinHeight, gridTileHeight, tab]);
 
-  const calThumbDecodePx = useMemo(() => {
-    const dpr = Math.min(2, PixelRatio.get());
-    return quantizeDecodePx(Math.round(CAL_CIRCLE_SIZE * dpr));
-  }, []);
-
   const previewThumbByYmd = useMemo(() => {
     if (!overlayActive || !stories.length) return new Map<string, CalendarThumb>();
     const newestStoryByYmd = new Map<string, StoryItem>();
@@ -444,10 +434,10 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
     const thumbs = new Map<string, CalendarThumb>();
     for (const [ymd, story] of newestStoryByYmd.entries()) {
       const raw = (storyMediaById.get(story.id) ?? [])[0];
-      if (raw) thumbs.set(ymd, buildArchiveThumb(raw, calThumbDecodePx));
+      if (raw) thumbs.set(ymd, buildArchiveThumb(raw));
     }
     return thumbs;
-  }, [overlayActive, stories, storyMediaById, calThumbDecodePx]);
+  }, [overlayActive, stories, storyMediaById]);
 
   const storiesByYmd = useMemo(() => {
     if (tab !== "calendar") return new Map<string, StoryItem[]>();

@@ -6,22 +6,13 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM": "0"
-      }
+      "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM": "0"
-      }
+      "distribution": "internal"
     },
     "production": {
       "environment": "production",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM": "0"
-      },
       "autoIncrement": false,
       "android": {
         "buildType": "app-bundle",
