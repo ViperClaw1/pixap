@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View, StyleSheet, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Pressable, Text, View, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
@@ -31,7 +31,6 @@ type Props = {
 function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
-  const { width } = useWindowDimensions();
   const [offset, setOffset] = useState(0);
   const [venues, setVenues] = useState<OnboardingVenue[]>([]);
   const [index, setIndex] = useState(0);
@@ -216,33 +215,35 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
         {t("progress", { keyPrefix: "onboarding.venue", count: ratedCount, min: MIN_ONBOARDING_VENUE_RATINGS })}
       </Text>
       <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.deck, { width }, cardStyle]}>
+        <Animated.View style={[styles.deck, cardStyle]}>
           {current ? <OnboardingVenueCard venue={current} /> : null}
         </Animated.View>
       </GestureDetector>
-      <View style={styles.navRow}>
-        <Pressable disabled={index === 0} onPress={() => goToIndex(index - 1)} style={styles.navBtn}>
-          <Text style={{ color: index === 0 ? colors.textMuted : colors.text }}>{t("prev", { keyPrefix: "onboarding.actions" })}</Text>
-        </Pressable>
-        <Pressable
-          disabled={index >= venues.length - 1}
-          onPress={() => goToIndex(index + 1)}
-          style={styles.navBtn}
-        >
-          <Text style={{ color: index >= venues.length - 1 ? colors.textMuted : colors.text }}>
-            {t("next", { keyPrefix: "onboarding.actions" })}
-          </Text>
-        </Pressable>
+      <View style={styles.bottomControls}>
+        <View style={styles.navRow}>
+          <Pressable disabled={index === 0} onPress={() => goToIndex(index - 1)} style={styles.navBtn}>
+            <Text style={{ color: index === 0 ? colors.textMuted : colors.text }}>{t("prev", { keyPrefix: "onboarding.actions" })}</Text>
+          </Pressable>
+          <Pressable
+            disabled={index >= venues.length - 1}
+            onPress={() => goToIndex(index + 1)}
+            style={styles.navBtn}
+          >
+            <Text style={{ color: index >= venues.length - 1 ? colors.textMuted : colors.text }}>
+              {t("next", { keyPrefix: "onboarding.actions" })}
+            </Text>
+          </Pressable>
+        </View>
+        <RatingScale selected={selectedRating} onSelect={(r) => void submitRating(r)} />
+        {canFinishEarly ? (
+          <Pressable
+            style={[primaryPressableStyle, styles.finishBtn]}
+            onPress={() => void finishSession("finish_button", ratedCount)}
+          >
+            <Text style={primaryPressableTextStyle}>{t("finish", { keyPrefix: "onboarding.actions" })}</Text>
+          </Pressable>
+        ) : null}
       </View>
-      <RatingScale selected={selectedRating} onSelect={(r) => void submitRating(r)} />
-      {canFinishEarly ? (
-        <Pressable
-          style={[primaryPressableStyle, styles.finishBtn]}
-          onPress={() => void finishSession("finish_button", ratedCount)}
-        >
-          <Text style={primaryPressableTextStyle}>{t("finish", { keyPrefix: "onboarding.actions" })}</Text>
-        </Pressable>
-      ) : null}
       {submitting ? <ActivityIndicator style={styles.spinner} color={colors.primary} /> : null}
     </View>
   );
@@ -257,10 +258,11 @@ export function OnboardingVenueRatingStep(props: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, gap: 12 },
+  root: { flex: 1, minHeight: 0, gap: 12 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16 },
-  hint: { fontSize: 13, textAlign: "center" },
-  deck: { flex: 1, minHeight: 320 },
+  hint: { fontSize: 13, textAlign: "center", flexShrink: 0 },
+  deck: { flex: 1, minHeight: 0, alignSelf: "stretch" },
+  bottomControls: { flexShrink: 0, gap: 12 },
   navRow: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 8 },
   navBtn: { padding: 8 },
   finishBtn: { marginTop: 4 },

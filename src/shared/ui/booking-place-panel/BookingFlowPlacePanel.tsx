@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Pressable, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useBookingFlowPlacePanelStyles } from "./bookingFlowPlacePanelStyles";
 import Carousel from "react-native-reanimated-carousel";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
@@ -42,6 +43,7 @@ export function BookingFlowPlacePanel({
   fillContent = false,
 }: Props) {
   const { width: windowWidth } = useWindowDimensions();
+  const { colors } = useAppTheme();
   const [heroSlide, setHeroSlide] = useState(0);
   const heroWidth = Math.max(280, windowWidth);
 
@@ -67,9 +69,11 @@ export function BookingFlowPlacePanel({
         style={styles.hero}
         contentFit="cover"
         transition={200}
+        showLoadingSpinner
+        loadingSpinnerColor={colors.primary}
       />
     ),
-    [heroImagesRaw, place.id, styles.hero],
+    [colors.primary, heroImagesRaw, place.id, styles.hero],
   );
 
   return (
@@ -100,6 +104,8 @@ export function BookingFlowPlacePanel({
             style={styles.hero}
             contentFit="cover"
             transition={200}
+            showLoadingSpinner
+            loadingSpinnerColor={colors.primary}
           />
         )}
         <View style={styles.heroBar}>

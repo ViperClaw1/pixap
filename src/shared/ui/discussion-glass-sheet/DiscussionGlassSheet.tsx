@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   Keyboard,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -72,6 +73,35 @@ export function DiscussionGlassSheet({ visible, navigation, onDismiss, children 
   const sheetMaxH = windowHeight * SHEET_MAX_HEIGHT_RATIO;
   const maxListViewport = Math.max(DISCUSSION_LIST_MIN_VIEWPORT, sheetMaxH - CHROME_FIXED - FOOTER_FIXED);
   const [listContentH, setListContentH] = useState(0);
+  const listContentHRef = useRef(0);
+  const listContentHDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleListContentSizeChange = useCallback((width: number, height: number) => {
+    if (Platform.OS !== "ios") {
+      setListContentH(height);
+      return;
+    }
+    if (Math.abs(height - listContentHRef.current) < 4) {
+      return;
+    }
+    if (listContentHDebounceRef.current) {
+      clearTimeout(listContentHDebounceRef.current);
+    }
+    listContentHDebounceRef.current = setTimeout(() => {
+      listContentHDebounceRef.current = null;
+      listContentHRef.current = height;
+      setListContentH(height);
+    }, 120);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (listContentHDebounceRef.current) {
+        clearTimeout(listContentHDebounceRef.current);
+      }
+    },
+    [],
+  );
 
   const sheetH = useMemo(() => {
     const clippedList = Math.min(Math.max(listContentH, 0), maxListViewport);
@@ -99,6 +129,7 @@ export function DiscussionGlassSheet({ visible, navigation, onDismiss, children 
     isClosingRef.current = false;
     dismissWindowHeightRef.current = windowHeight;
     setRenderModal(true);
+    listContentHRef.current = 0;
     setListContentH(0);
     backdropOpacity.value = 0;
     sheetTranslate.value = windowHeight;
@@ -206,10 +237,10 @@ export function DiscussionGlassSheet({ visible, navigation, onDismiss, children 
   const panelProps = useMemo<DiscussionGlassSheetPanelProps>(
     () => ({
       onClose: animateCloseThenDismiss,
-      onListContentSizeChange: setListContentH,
+      onListContentSizeChange: handleListContentSizeChange,
       onRequireAuth,
     }),
-    [animateCloseThenDismiss, onRequireAuth],
+    [animateCloseThenDismiss, handleListContentSizeChange, onRequireAuth],
   );
 
   const sheetChrome = (

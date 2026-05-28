@@ -10,6 +10,7 @@ type Props = {
   slideHeight: number;
   slideGap: number;
   textMutedColor: string;
+  heroLoadingSpinnerColor: string;
 };
 
 function DailyRecommendationSlideInner({
@@ -18,6 +19,7 @@ function DailyRecommendationSlideInner({
   slideHeight,
   slideGap,
   textMutedColor,
+  heroLoadingSpinnerColor,
 }: Props) {
   return (
     <View style={[styles.slide, { width: slideWidth, marginRight: slideGap, height: slideHeight }]}>
@@ -28,6 +30,8 @@ function DailyRecommendationSlideInner({
           verticalLayout="fill"
           fillWidth={slideWidth}
           fillHeight={slideHeight}
+          showHeroLoadingSpinner
+          heroLoadingSpinnerColor={heroLoadingSpinnerColor}
         />
       </View>
       <View style={styles.reasons}>

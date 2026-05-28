@@ -1,13 +1,10 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, TextInput, Pressable } from "react-native";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
-import { useKeyboardInset } from "@/shared/lib/keyboard";
+import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCards, type BusinessCard } from "@/entities/business-card";
 import { useProfile } from "@/entities/user";
 import type { SearchStackParamList } from "@/app/navigation/types";
@@ -80,7 +77,6 @@ export default function SearchScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
-  const insets = useSafeAreaInsets();
   const { colors, mode, setMode } = useAppTheme();
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
@@ -115,20 +111,6 @@ export default function SearchScreen() {
 
   const themed = useThemeStyles(({ colors: c, isDark: dark }) => searchThemeStyles(c, dark));
   const styles = useMemo(() => mergeStaticAndThemed(searchStaticStyles, themed), [themed]);
-
-  const keyboardInset = useKeyboardInset({
-    bottomInset: Math.max(insets.bottom, 16),
-    gap: 0,
-  });
-  const listContentPaddingStyle = useAnimatedStyle(() => ({
-    paddingBottom: keyboardInset.value,
-  }));
-  const listContentStaticStyle = useMemo(
-    () => ({
-      flexGrow: showEmptyState ? 1 : undefined,
-    }),
-    [showEmptyState],
-  );
 
   const handleQueryChange = useCallback((text: string) => {
     setQ(text);
@@ -196,17 +178,13 @@ export default function SearchScreen() {
 
       {isLoading ? (
         <ShimmerProvider active>
-          <Animated.ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[listContentStaticStyle, listContentPaddingStyle]}
-          >
+          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
             <PlaceRowSkeletonList variant="search" />
-          </Animated.ScrollView>
+          </ScrollView>
         </ShimmerProvider>
       ) : (
-        <Animated.ScrollView
+        <ScrollView
           style={styles.list}
-          contentContainerStyle={[listContentStaticStyle, listContentPaddingStyle]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
@@ -221,7 +199,7 @@ export default function SearchScreen() {
             ))
           )}
           {!showEmptyState ? listFooter : null}
-        </Animated.ScrollView>
+        </ScrollView>
       )}
       </View>
     </View>

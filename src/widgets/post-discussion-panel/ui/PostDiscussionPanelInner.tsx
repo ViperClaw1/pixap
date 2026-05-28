@@ -48,7 +48,6 @@ import {
   KeyboardStickyView,
   useDiscussionPanelFooterKeyboard,
 } from "@/shared/lib/keyboard";
-import Animated from "react-native-reanimated";
 import { DiscussionShowMoreButton } from "@/shared/ui/discussion-show-more/DiscussionShowMoreButton";
 import {
   getVisibleDiscussionComments,
@@ -92,6 +91,7 @@ export function PostDiscussionPanelInner({
   const footerBackgroundColor = footerBackgroundOverride ?? palette.footerBg;
   const footerBorderColor = footerBorderOverride ?? palette.footerBorder;
   const [footerHeight, setFooterHeight] = useState(120);
+  const footerHeightLockedRef = useRef<number | null>(null);
   const composerInputRef = useRef<TextInput>(null);
   const footerShellRef = useRef<View>(null);
   const {
@@ -100,7 +100,7 @@ export function PostDiscussionPanelInner({
     footerPaddingBottom,
     useStickyFooter,
     composerStickyInset,
-    iosStickyFooterPaddingStyle,
+    stickySafeAreaBottom,
   } = useDiscussionPanelFooterKeyboard(isActive, { host: "navigation-modal" });
   const { user } = useAuth();
   const composerBlurResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -477,10 +477,22 @@ export function PostDiscussionPanelInner({
     [palette.textMuted],
   );
 
-  const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
-    const nextHeight = event.nativeEvent.layout.height;
-    setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-  }, []);
+  const handleFooterLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const nextHeight = event.nativeEvent.layout.height;
+      if (useStickyFooter && Platform.OS === "ios") {
+        const nextLocked = Math.max(footerHeightLockedRef.current ?? 0, nextHeight);
+        if (footerHeightLockedRef.current === nextLocked) {
+          return;
+        }
+        footerHeightLockedRef.current = nextLocked;
+        setFooterHeight(nextLocked);
+        return;
+      }
+      setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    },
+    [useStickyFooter],
+  );
 
   const listContentContainerStyle = useMemo(
     () => [
@@ -495,18 +507,16 @@ export function PostDiscussionPanelInner({
   );
 
   const composerFooter = useMemo(() => {
-    const FooterShell = useStickyFooter ? Animated.View : View;
-
     return (
-      <FooterShell
+      <View
         ref={useStickyFooter ? undefined : footerShellRef}
         style={[
           styles.footer,
           {
             backgroundColor: footerBackgroundColor,
             borderTopColor: footerBorderColor,
+            paddingBottom: footerPaddingBottom,
           },
-          useStickyFooter ? iosStickyFooterPaddingStyle : { paddingBottom: footerPaddingBottom },
         ]}
       >
         {editingComment ? (
@@ -643,7 +653,7 @@ export function PostDiscussionPanelInner({
             )}
           </View>
         </View>
-      </FooterShell>
+      </View>
     );
   }, [
       appendEmojiToDraft,
@@ -655,7 +665,6 @@ export function PostDiscussionPanelInner({
       footerBorderColor,
       footerPaddingBottom,
       handleComposerBlur,
-      iosStickyFooterPaddingStyle,
       mainDraft,
       myAvatarRaw,
       myAvatarUri,
@@ -744,6 +753,7 @@ export function PostDiscussionPanelInner({
           bottomInset={0}
           enabled={isActive}
           inset={composerStickyInset}
+          safeAreaBottom={stickySafeAreaBottom}
           onLayout={handleFooterLayout}
         >
           {composerFooter}

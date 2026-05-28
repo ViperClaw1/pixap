@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { toProfileUpdateError } from "../lib/profileUpdateErrors";
 
 export interface Profile {
   id: string;
@@ -46,7 +47,7 @@ export const useUpdateProfile = () => {
         .eq("id", user!.id)
         .select()
         .single();
-      if (error) throw error;
+      if (error) throw toProfileUpdateError(error);
       return data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.profile.root }),

@@ -170,9 +170,10 @@ function DailyRecommendationsPageContent() {
         slideHeight={carouselLayout.height}
         slideGap={SLIDE_GAP}
         textMutedColor={colors.textMuted}
+        heroLoadingSpinnerColor={colors.primary}
       />
     ),
-    [carouselLayout.height, colors.textMuted, slideWidth],
+    [carouselLayout.height, colors.primary, colors.textMuted, slideWidth],
   );
 
   const pageTitle = t("dailyRecommendations.title", { defaultValue: "Tonight for You" });

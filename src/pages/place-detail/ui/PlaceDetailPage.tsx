@@ -358,6 +358,8 @@ export default function PlaceDetailScreen() {
                     style={styles.hero}
                     contentFit="cover"
                     transition={200}
+                    showLoadingSpinner
+                    loadingSpinnerColor={colors.primary}
                   />
                 </Pressable>
               )}
@@ -385,6 +387,8 @@ export default function PlaceDetailScreen() {
               recyclingKey={place.id}
               style={styles.hero}
               contentFit="cover"
+              showLoadingSpinner
+              loadingSpinnerColor={colors.primary}
             />
           </Pressable>
         )}

@@ -46,6 +46,11 @@ export const verifyEmailOtpStaticStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  resendBtnTextDisabled: {
+    fontSize: 14,
+    fontWeight: "600",
+    opacity: 0.55,
+  },
   verifyBtn: {
     ...primaryPressableStyle,
     minHeight: 46,
