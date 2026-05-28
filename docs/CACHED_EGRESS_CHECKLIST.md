@@ -21,10 +21,13 @@
 - stories: **1024**  
 - аватары: **768**  
 
-Но **без Image Transformations** клиент в UI часто запрашивает **полный объект** с CDN, даже для превью 128×128.
+Но **без pregen + Image Transformations** клиент в UI часто запрашивает **полный объект** с CDN, даже для превью 128×128.
 
-Оптимизация URL: `getOptimizedImageUrl` / `imagePresets.ts` — работает только при  
-`EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1` **и** включённой фиче в Supabase Dashboard.
+**Основной путь:** pre-generated WebP (`*_thumb.webp`, …) через `/object/public/` — **без transform quota**.
+
+**Fallback:** `getOptimizedImageUrl` / `imagePresets.ts` — `/render/image/` только при `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1`, если pregen отсутствует, и включённой фиче в Supabase Dashboard.
+
+Аудит missing pregen: `supabase/smoke/storage_pregen_missing_audit.sql`
 
 ---
 
@@ -33,7 +36,7 @@
 ### [x] 1. Включить Supabase Image Transformations (Pro + Dashboard)
 
 - [x] Pro + Dashboard → Image Transformations.
-- [x] `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1` — `.env.example`, `eas.json`.
+- [x] `EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM=1` — `.env.example`, EAS Environment.
 - [x] Fallback на `/object/public/` при 403 — `SmartImage`.
 - [x] Smoke → **200**.
 
@@ -120,7 +123,7 @@
 
 Старые объекты могли быть загружены **до** WebP/resize pipeline.
 
-- [ ] SQL/скрипт: список объектов в `stories` / `avatars` > N KB без `.webp`.
+- [x] SQL аудит missing pregen — `supabase/smoke/storage_pregen_missing_audit.sql`.
 - [ ] Опционально: batch re-encode (отдельная задача, не в hot path).
 
 ---
@@ -198,7 +201,7 @@
 |----------------|-----------------|--------|
 | Stories feed, карусель постов | Да (если transform on) | Aggressive prefetch |
 | Feed story viewer, story viewer | Да | Prefetch 1080p |
-| Stories strip, archive | Да + presets | Archive batch prefetch |
+| Stories strip, archive | Pregen `_story.webp` + render fallback | Archive uses `getFeedStoryPreviewImageUrl` |
 | Profile, edit profile, search, favorites | Да | |
 | Message thread attachments | Да | P0.2 |
 | Create post modal (local `photo.uri`) | N/A | Локальные файлы |
