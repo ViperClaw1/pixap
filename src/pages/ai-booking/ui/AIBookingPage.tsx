@@ -34,7 +34,15 @@ import {
   groupCitiesByCountry,
   filterCityGroups,
 } from "@/entities/business-card";
-import { useCategories, CategoryIcon, resolveCategoryIconSpec, localizeCategoryName } from "@/entities/category";
+import {
+  useCategories,
+  CategoryIcon,
+  resolveCategoryIconSpec,
+  localizeCategoryName,
+  buildHomeCategoryList,
+  isRestaurantCategoryName,
+  isHomeCategorySelectable,
+} from "@/entities/category";
 import { useProfile } from "@/entities/user";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
@@ -222,6 +230,7 @@ function AIBookingPageContent() {
   const { data: profile } = useProfile();
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
   const { data: categories = [] } = useCategories();
+  const bookingCategoryOptions = useMemo(() => buildHomeCategoryList(categories), [categories]);
   const createCartItem = useCreateCartItem();
   const createBooking = useCreateBooking();
   const startN8nWaBooking = useStartN8nWaBooking();
@@ -972,15 +981,33 @@ function AIBookingPageContent() {
         onClose={() => setCategoryPickerVisible(false)}
         title={t("bookingCommon.chooseServiceOrTable")}
       >
-        {categories.map((category) => {
+        {bookingCategoryOptions.map((category) => {
           const iconSpec = resolveCategoryIconSpec(category.name);
+          const label = localizeCategoryName(category.name, t);
+          const isSelected = isRestaurantCategoryName(category.name)
+            ? isRestaurantTable
+            : selectedCategoryId === category.id;
+          const isSelectable = !category.isComingSoon && (isRestaurantCategoryName(category.name) || isHomeCategorySelectable(category));
+
           return (
             <Pressable
               key={category.id}
-              style={styles.pickerRow}
+              style={[styles.pickerRow, category.isComingSoon && styles.pickerRowComingSoon]}
+              disabled={!isSelectable}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !isSelectable, selected: isSelected }}
+              accessibilityLabel={
+                category.isComingSoon ? `${label}, ${t("home.categoryComingSoon")}` : label
+              }
               onPress={() => {
-                setSelectedCategoryId(category.id);
-                setSelectedCategoryName(category.name);
+                if (!isSelectable) return;
+                if (isRestaurantCategoryName(category.name)) {
+                  setSelectedCategoryId(RESTAURANT_TABLE_KEY);
+                  setSelectedCategoryName(restaurantTableLabel);
+                } else {
+                  setSelectedCategoryId(category.id);
+                  setSelectedCategoryName(category.name);
+                }
                 setCategoryPickerVisible(false);
               }}
             >
@@ -989,37 +1016,20 @@ function AIBookingPageContent() {
                   <CategoryIcon spec={iconSpec} size={14} color={colors.primary} />
                 </View>
                 <Text style={styles.pickerRowText} numberOfLines={1}>
-                  {localizeCategoryName(category.name, t)}
+                  {label}
                 </Text>
               </View>
-              {selectedCategoryId === category.id ? (
-                <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text>
-              ) : null}
+              <View style={styles.pickerRowRight}>
+                {category.isComingSoon ? (
+                  <View style={styles.categoryComingSoonBadge}>
+                    <Text style={styles.categoryComingSoonBadgeText}>{t("home.categoryComingSoon")}</Text>
+                  </View>
+                ) : null}
+                {isSelected ? <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text> : null}
+              </View>
             </Pressable>
           );
         })}
-        <Pressable
-          style={styles.pickerRow}
-          onPress={() => {
-            setSelectedCategoryId(RESTAURANT_TABLE_KEY);
-            setSelectedCategoryName(restaurantTableLabel);
-            setCategoryPickerVisible(false);
-          }}
-        >
-          <View style={styles.pickerRowLeft}>
-            <View style={styles.pickerRowIconWrap}>
-              <CategoryIcon
-                spec={{ family: "ionicons", name: "restaurant-outline" }}
-                size={14}
-                color={colors.primary}
-              />
-            </View>
-            <Text style={styles.pickerRowText} numberOfLines={1}>
-              {restaurantTableLabel}
-            </Text>
-          </View>
-          {isRestaurantTable ? <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text> : null}
-        </Pressable>
       </BottomSheetPickerModal>
     </View>
   );

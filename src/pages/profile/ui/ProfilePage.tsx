@@ -536,9 +536,9 @@ function ProfileScreenContent() {
           <Text style={styles.suggestionsTitle}>{t("profile.suggestions.title")}</Text>
           <Text style={styles.suggestionsSubtitle}>{t("profile.suggestions.subtitle")}</Text>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionScrollContent}>
-          {suggestions.length ? (
-            suggestions.map((item) => (
+        {suggestions.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionScrollContent}>
+            {suggestions.map((item) => (
               <View key={item.id} style={styles.suggestionCard}>
                 <View style={styles.suggestionAvatarWrap}>
                   <UserAvatarImage
@@ -562,13 +562,13 @@ function ProfileScreenContent() {
                   <Text style={styles.suggestionFollowBtnText}>{t("profile.suggestions.follow")}</Text>
                 </Pressable>
               </View>
-            ))
-          ) : (
-            <View style={[styles.suggestionCard, { width: 220 }]}>
-              <Text style={styles.suggestionReason}>{t("profile.suggestions.empty")}</Text>
-            </View>
-          )}
-        </ScrollView>
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.suggestionEmptyCard}>
+            <Text style={styles.suggestionReason}>{t("profile.suggestions.empty")}</Text>
+          </View>
+        )}
       </View>
       <View style={styles.bioCard}>
         <Text style={styles.bioLabel}>{t("profile.bio.label")}</Text>

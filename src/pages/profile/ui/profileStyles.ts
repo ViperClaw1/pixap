@@ -419,6 +419,17 @@ export const profileStaticStyles = StyleSheet.create({
     padding: 12,
   },
 
+  suggestionEmptyCard: {
+    alignSelf: "stretch",
+    width: "100%",
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   suggestionAvatarWrap: {
     width: 66,
     height: 66,
@@ -700,6 +711,10 @@ export function profileThemeStyles(colors: ThemeColors, _mode: ThemeMode) {
       color: colors.textMuted,
     },
     suggestionCard: {
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+    },
+    suggestionEmptyCard: {
       borderColor: colors.border,
       backgroundColor: colors.card,
     },

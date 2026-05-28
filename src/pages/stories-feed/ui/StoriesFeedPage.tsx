@@ -46,10 +46,8 @@ import { useBatchStoryUpload } from "@/features/create-story";
 import { usePostShareSheet } from "@/features/post-share";
 import { FeedPostCard } from "@/widgets/feed-post-card";
 import { usePostCommentComposer } from "@/pages/stories-feed/model/usePostCommentComposer";
-import { usePostLikes } from "@/pages/stories-feed/model/usePostLikes";
 import { useFollowOverrides } from "@/pages/stories-feed/model/useFollowOverrides";
 import {
-  DOUBLE_TAP_DELAY_MS,
   FEED_APP_HEADER_BODY,
   FEED_CAROUSEL_HEIGHT_BOOST,
   FEED_CAROUSEL_MAIN_BLOCK_MAX_RATIO,
@@ -188,7 +186,7 @@ export default function StoriesFeedScreen() {
   const composer = useCreatePostComposer(businessCards, rootNavigation as NavigationProp<Record<string, object | undefined>>, height);
   const storyUpload = useBatchStoryUpload(createStoryPlaceId);
   const shareSheet = usePostShareSheet(rootNavigation as NavigationProp<Record<string, object | undefined>>);
-  const { likes, likeCount, togglePostLike } = usePostLikes(useReactToPost());
+  const reactToPost = useReactToPost();
   const { followOverrides, onToggleFollowAuthor } = useFollowOverrides(followingSet, toggleFollow);
   const comments = usePostCommentComposer();
 
@@ -231,27 +229,10 @@ export default function StoriesFeedScreen() {
     [],
   );
 
-  // ─── Double-tap to like ──────────────────────────────────────────────────
-  const lastPostTapByIdRef = useRef<Record<string, number>>({});
-  const onPostCardPress = useCallback(
-    (postId: string, reactionCount: number) => {
-      const now = Date.now();
-      const lastTapAt = lastPostTapByIdRef.current[postId] ?? 0;
-      if (now - lastTapAt <= DOUBLE_TAP_DELAY_MS) {
-        lastPostTapByIdRef.current[postId] = 0;
-        togglePostLike(postId, reactionCount, runAuthedAction);
-        return;
-      }
-      lastPostTapByIdRef.current[postId] = now;
-    },
-    [togglePostLike, runAuthedAction],
-  );
-
   const renderPostSeparator = useCallback(() => <View style={styles.postDivider} />, []);
 
   const feedCardHandlersRef = useRef({
-    onPostCardPress,
-    togglePostLike,
+    reactToPost,
     runAuthedAction,
     navigation,
     shareSheet,
@@ -264,14 +245,11 @@ export default function StoriesFeedScreen() {
     toggleFollowPending: toggleFollow.isPending,
     followingSet,
     followOverrides,
-    likeCount,
-    likes,
     width,
     sliderHeight,
   });
   feedCardHandlersRef.current = {
-    onPostCardPress,
-    togglePostLike,
+    reactToPost,
     runAuthedAction,
     navigation,
     shareSheet,
@@ -284,18 +262,20 @@ export default function StoriesFeedScreen() {
     toggleFollowPending: toggleFollow.isPending,
     followingSet,
     followOverrides,
-    likeCount,
-    likes,
     width,
     sliderHeight,
   };
 
-  const handleFeedPostPress = useCallback((postId: string, reactionCount: number) => {
-    feedCardHandlersRef.current.onPostCardPress(postId, reactionCount);
-  }, []);
-  const handleFeedPostLike = useCallback((postId: string, reactionCount: number) => {
+  const handleFeedToggleLike = useCallback((postId: string) => {
     const h = feedCardHandlersRef.current;
-    h.togglePostLike(postId, reactionCount, h.runAuthedAction);
+    return new Promise<void>((resolve, reject) => {
+      h.runAuthedAction(() => {
+        void h.reactToPost
+          .mutateAsync({ postId, type: "like" })
+          .then(() => resolve())
+          .catch(reject);
+      });
+    });
   }, []);
   const handleFeedOpenComments = useCallback((postId: string) => {
     const h = feedCardHandlersRef.current;
@@ -336,13 +316,10 @@ export default function StoriesFeedScreen() {
           width={h.width}
           sliderHeight={h.sliderHeight}
           isContentExpanded={!!h.comments.expandedPostContentIds[vm.post.id]}
-          isLiked={!!h.likes[vm.post.id]}
-          likeCount={h.likeCount[vm.post.id] ?? vm.post.reaction_count}
           currentUserId={h.currentUserId}
           isFollowing={h.followOverrides[vm.post.user_id] ?? h.followingSet.has(vm.post.user_id)}
           followPending={h.toggleFollowPending}
-          onPress={() => handleFeedPostPress(vm.post.id, vm.post.reaction_count)}
-          onLike={() => handleFeedPostLike(vm.post.id, vm.post.reaction_count)}
+          onToggleLike={() => handleFeedToggleLike(vm.post.id)}
           onOpenComments={() => handleFeedOpenComments(vm.post.id)}
           onBookNow={() => vm.post.place_id && handleFeedBookNow(vm.post.place_id)}
           onShare={() =>
@@ -372,8 +349,7 @@ export default function StoriesFeedScreen() {
       handleFeedBookNow,
       handleFeedBoost,
       handleFeedOpenComments,
-      handleFeedPostLike,
-      handleFeedPostPress,
+      handleFeedToggleLike,
       handleFeedShare,
       handleFeedToggleContent,
       handleFeedToggleFollow,

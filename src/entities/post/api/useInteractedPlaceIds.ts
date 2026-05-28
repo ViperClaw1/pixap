@@ -37,7 +37,7 @@ export function useInteractedPlaceIds(userId: string | undefined) {
     queryKey: queryKeys.posts.interactedPlaces(userId ?? null),
     queryFn: () => fetchInteractedPlaceIds(userId!),
     enabled: Boolean(userId),
-    staleTime: 8 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
 }

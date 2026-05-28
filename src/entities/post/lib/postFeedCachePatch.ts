@@ -1,18 +1,13 @@
 import type { QueryClient, InfiniteData } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { FeedPostItem } from "../api/usePostsFeed";
+import type { FeedPostsCursor, FeedPostsPage } from "../api/fetchPostsFeedPage";
 import { compareFeedPosts, comparePostsByBoostThenCreated } from "./compareFeedPosts";
 import { pickLaterBoostedAt } from "./hydrateFeedPosts";
 import { listHasId } from "@/shared/realtime/dedupe";
 import { debouncedPostsFeedInvalidate } from "./postFeedRealtimeDebounce";
 
-export type FeedPostsCursor = { createdAt: string; id: string };
-
-export type FeedPostsPage = {
-  posts: FeedPostItem[];
-  hasMore: boolean;
-  nextCursor: FeedPostsCursor | null;
-};
+export type { FeedPostsCursor, FeedPostsPage };
 
 type FeedPage = FeedPostsPage;
 

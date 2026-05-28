@@ -233,28 +233,31 @@ function MessageBodyText({
             </Text>
           );
         }
-        const urlParts = splitTextWithUrls(seg.text);
-        const hasUrl = urlParts.some((s) => s.kind === "url");
-        if (!hasUrl) {
-          return <Text key={`t-${i}`}>{seg.text}</Text>;
+        if (seg.kind === "text") {
+          const urlParts = splitTextWithUrls(seg.text);
+          const hasUrl = urlParts.some((s) => s.kind === "url");
+          if (!hasUrl) {
+            return <Text key={`t-${i}`}>{seg.text}</Text>;
+          }
+          return (
+            <Text key={`t-${i}`}>
+              {urlParts.map((u, j) =>
+                u.kind === "text" ? (
+                  <Text key={`${i}-${j}`}>{u.text}</Text>
+                ) : (
+                  <Text
+                    key={`${i}-${j}-url`}
+                    style={{ color: linkColor, fontWeight: "600", textDecorationLine: "underline" }}
+                    onPress={() => void openExternalUrl(u.url)}
+                  >
+                    {u.text}
+                  </Text>
+                ),
+              )}
+            </Text>
+          );
         }
-        return (
-          <Text key={`t-${i}`}>
-            {urlParts.map((u, j) =>
-              u.kind === "text" ? (
-                <Text key={`${i}-${j}`}>{u.text}</Text>
-              ) : (
-                <Text
-                  key={`${i}-${j}-url`}
-                  style={{ color: linkColor, fontWeight: "600", textDecorationLine: "underline" }}
-                  onPress={() => void openExternalUrl(u.url)}
-                >
-                  {u.text}
-                </Text>
-              ),
-            )}
-          </Text>
-        );
+        return null;
       })}
     </Text>
   );
