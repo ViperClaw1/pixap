@@ -346,11 +346,14 @@ export function BookingChatDock({ visible, catalogRevision, bookingContext, plac
             backgroundColor: colors.primary,
             alignItems: "center",
             justifyContent: "center",
-            elevation: 4,
-            shadowColor: "#000",
-            shadowOpacity: 0.2,
-            shadowRadius: 4,
-            shadowOffset: { width: 0, height: 2 },
+            ...(Platform.OS === "ios"
+              ? {
+                  shadowColor: "#000",
+                  shadowOpacity: 0.2,
+                  shadowRadius: 4,
+                  shadowOffset: { width: 0, height: 2 },
+                }
+              : { elevation: 4 }),
             zIndex: 20,
           }}
         >

@@ -1,11 +1,11 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import Carousel, { type ICarouselInstance } from "react-native-reanimated-carousel";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, useIsFocused, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
@@ -28,6 +28,7 @@ export default function AddStoryFromPostPage() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<AddStoryNav>();
+  const isScreenFocused = useIsFocused();
   const { params } = useRoute<AddStoryRoute>();
   const carouselRef = useRef<ICarouselInstance | null>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -90,6 +91,15 @@ export default function AddStoryFromPostPage() {
     if (ok) navigation.goBack();
   };
 
+  const renderStoryImage = useCallback(
+    ({ item }: { item: string }) => (
+      <Pressable style={styles.absoluteFill} onPress={() => Keyboard.dismiss()}>
+        <SmartImage uri={item} recyclingKey={`add-story-${item}`} style={styles.absoluteFill} contentFit="cover" />
+      </Pressable>
+    ),
+    [styles.absoluteFill],
+  );
+
   return (
     <SafeAreaView style={styles.root} edges={[]}>
       <View style={styles.absoluteFill}>
@@ -100,15 +110,11 @@ export default function AddStoryFromPostPage() {
             width={width}
             height={height}
             loop={safeImages.length > 1}
-            autoPlay={safeImages.length > 1}
+            autoPlay={isScreenFocused && safeImages.length > 1}
             autoPlayInterval={AUTO_ADVANCE_MS}
             scrollAnimationDuration={550}
             onSnapToItem={setIndex}
-            renderItem={({ item }) => (
-              <Pressable style={styles.absoluteFill} onPress={() => Keyboard.dismiss()}>
-                <SmartImage uri={item} recyclingKey={`add-story-${item}`} style={styles.absoluteFill} contentFit="cover" />
-              </Pressable>
-            )}
+            renderItem={renderStoryImage}
           />
         ) : (
           <View style={[styles.absoluteFill, styles.emptyImage, { backgroundColor: colors.card }]}>

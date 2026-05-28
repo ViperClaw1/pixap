@@ -51,7 +51,7 @@ function extractKeywords(value?: string | null): string[] {
   );
 }
 
-export function useProfileSocialMetrics() {
+export function useProfileSocialMetrics(options?: { enabled?: boolean }) {
   const { user } = useAuth();
 
   const query = useQuery({
@@ -90,7 +90,7 @@ export function useProfileSocialMetrics() {
         followingCount: followingCountResult.count ?? 0,
       };
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && (options?.enabled ?? true),
     staleTime: 60 * 1000,
   });
 
@@ -102,9 +102,9 @@ export function useProfileSocialMetrics() {
   };
 }
 
-export function useSuggestedProfiles(limit = 10) {
+export function useSuggestedProfiles(limit = 10, options?: { enabled?: boolean }) {
   const { user } = useAuth();
-  const { data: profile } = useProfile();
+  const { data: profile } = useProfile({ enabled: options?.enabled ?? true });
   const { followingSet, followingIds } = useMyFollowing();
   const followingSignature = useMemo(() => [...followingIds].sort().join(","), [followingIds]);
 
@@ -165,7 +165,7 @@ export function useSuggestedProfiles(limit = 10) {
 
       return relevant.slice(0, limit);
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && (options?.enabled ?? true),
     staleTime: 90 * 1000,
   });
 

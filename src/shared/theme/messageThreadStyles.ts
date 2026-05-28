@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import {
@@ -70,11 +70,14 @@ export const messageThreadStaticStyles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     zIndex: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
+    ...(Platform.OS === "ios"
+      ? {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.12,
+          shadowRadius: 6,
+        }
+      : { elevation: 4 }),
   },
   scrollToBottomPressable: {
     flex: 1,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
@@ -49,6 +49,34 @@ export default function FavoritesScreen() {
     [themed],
   );
 
+  const renderFavoriteItem = useCallback(
+    ({ item }: { item: (typeof favorites)[number] }) => {
+      const b = item.business_card as { id: string; name: string; images: string[] | null; address: string } | null;
+      if (!b) return null;
+      const heroRaw = getPrimaryBusinessCardImage(b.images);
+      const heroDisplay = getBusinessCardDisplayUrl(heroRaw, { layoutPx: 168, layoutPxHeight: 168 });
+      return (
+        <Pressable style={styles.row} onPress={() => navigation.navigate("PlaceDetail", { id: b.id })}>
+          <SmartImage
+            uri={heroDisplay}
+            fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
+            recyclingKey={b.id}
+            style={styles.thumb}
+            contentFit="cover"
+            skipBundledPlaceholder
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.name}>{b.name}</Text>
+            <Text style={styles.meta} numberOfLines={1}>
+              {b.address}
+            </Text>
+          </View>
+        </Pressable>
+      );
+    },
+    [navigation, styles.meta, styles.name, styles.row, styles.thumb],
+  );
+
   if (!loading && !user) {
     return null;
   }
@@ -75,30 +103,7 @@ export default function FavoritesScreen() {
         paddingBottom: 100 + insets.bottom,
       }}
       ListEmptyComponent={<Text style={styles.empty}>{t("favorites.empty")}</Text>}
-      renderItem={({ item }) => {
-        const b = item.business_card as { id: string; name: string; images: string[] | null; address: string } | null;
-        if (!b) return null;
-        const heroRaw = getPrimaryBusinessCardImage(b.images);
-        const heroDisplay = getBusinessCardDisplayUrl(heroRaw, { layoutPx: 168, layoutPxHeight: 168 });
-        return (
-          <Pressable style={styles.row} onPress={() => navigation.navigate("PlaceDetail", { id: b.id })}>
-            <SmartImage
-              uri={heroDisplay}
-              fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
-              recyclingKey={b.id}
-              style={styles.thumb}
-              contentFit="cover"
-              skipBundledPlaceholder
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{b.name}</Text>
-              <Text style={styles.meta} numberOfLines={1}>
-                {b.address}
-              </Text>
-            </View>
-          </Pressable>
-        );
-      }}
+      renderItem={renderFavoriteItem}
       removeClippedSubviews
       initialNumToRender={8}
       maxToRenderPerBatch={10}

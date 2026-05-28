@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Text, TextInput, Pressable, Alert, ActivityIndicator, Platform, Keyboard } from "react-native";
+import { Text, Pressable, Alert, ActivityIndicator, Platform, Keyboard } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +16,7 @@ import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { resetPasswordStaticStyles, resetPasswordThemeStyles } from "./resetPasswordStyles";
 import { devInfo } from "@/shared/lib/devLog";
+import { PasswordTextInput } from "@/shared/ui/password-input";
 import { supabase } from "@/shared/api/supabase/client";
 import { RESET_PASSWORD_COPY_KEYS, RESET_PASSWORD_RULE_KEYS } from "../model/constants";
 
@@ -86,7 +87,7 @@ export default function ResetPasswordScreen() {
         style={[styles.fieldWrap]}
         onPress={() => undefined}
       >
-        <TextInput
+        <PasswordTextInput
           style={styles.input}
           placeholder={t("auth.placeholderPassword")}
           placeholderTextColor={colors.textMuted}
@@ -95,7 +96,7 @@ export default function ResetPasswordScreen() {
             if (!passwordTouched && value.length > 0) setPasswordTouched(true);
             setPassword(value);
           }}
-          secureTextEntry={!showPassword}
+          visible={showPassword}
           onBlur={() => setPasswordTouched(true)}
         />
         <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
@@ -118,13 +119,13 @@ export default function ResetPasswordScreen() {
         style={[styles.fieldWrap, showPasswordsMismatch ? styles.fieldWrapError : null]}
         onPress={() => undefined}
       >
-        <TextInput
+        <PasswordTextInput
           style={styles.input}
           placeholder={t("auth.placeholderConfirmPassword")}
           placeholderTextColor={colors.textMuted}
           value={confirm}
           onChangeText={setConfirm}
-          secureTextEntry={!showConfirmPassword}
+          visible={showConfirmPassword}
           onBlur={() => setConfirmPasswordTouched(true)}
         />
         <Pressable onPress={() => setShowConfirmPassword((v) => !v)} hitSlop={8}>

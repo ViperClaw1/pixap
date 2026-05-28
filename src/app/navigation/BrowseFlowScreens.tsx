@@ -19,6 +19,10 @@ const galleryModalOptions = {
 const storyOverlayModalOptions = {
   presentation: "transparentModal" as const,
   freezeOnBlur: false as const,
+  /** Custom pan dismiss in StoryViewer / FeedStoryViewer — native swipe conflicts with JS translateY. */
+  gestureEnabled: false,
+  animation: "fade" as const,
+  contentStyle: { backgroundColor: "transparent" },
 };
 
 /**

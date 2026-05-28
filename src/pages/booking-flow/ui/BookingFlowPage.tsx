@@ -63,7 +63,9 @@ type Nav = NativeStackNavigationProp<BrowseFlowParamList, "BookingFlow">;
 export default function BookingFlowPage() {
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
-  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
+    sensitivity: "high",
+  });
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const { session, user } = useAuth();

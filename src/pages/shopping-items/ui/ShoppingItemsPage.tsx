@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -102,6 +102,26 @@ export default function ShoppingItemsScreen() {
     }
   };
 
+  const renderShoppingItem = useCallback(
+    ({ item }: { item: ShoppingItem }) => (
+      <Pressable style={styles.row} onPress={() => openFlow(item)}>
+        <SmartImage
+          uri={item.image}
+          fallbackUri={getPrimaryBusinessCardImage(place?.images)}
+          recyclingKey={`${item.id}-${id}`}
+          style={shoppingItemsStaticStyles.thumb}
+          contentFit="cover"
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.price}>{Number(item.price).toLocaleString()} ₸</Text>
+        </View>
+        <Text style={styles.plus}>+</Text>
+      </Pressable>
+    ),
+    [id, place?.images, styles.name, styles.plus, styles.price, styles.row],
+  );
+
   if (placeLoading || isLoading) {
     return (
       <View style={styles.centered}>
@@ -127,22 +147,7 @@ export default function ShoppingItemsScreen() {
         keyExtractor={(i) => i.id}
         estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.shoppingItem}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 + insets.bottom }}
-        renderItem={({ item }) => (
-          <Pressable style={styles.row} onPress={() => openFlow(item)}>
-            <SmartImage
-              uri={item.image}
-              fallbackUri={getPrimaryBusinessCardImage(place?.images)}
-              recyclingKey={`${item.id}-${id}`}
-              style={shoppingItemsStaticStyles.thumb}
-              contentFit="cover"
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.price}>{Number(item.price).toLocaleString()} ₸</Text>
-            </View>
-            <Text style={styles.plus}>+</Text>
-          </Pressable>
-        )}
+        renderItem={renderShoppingItem}
         removeClippedSubviews
         initialNumToRender={8}
         maxToRenderPerBatch={10}

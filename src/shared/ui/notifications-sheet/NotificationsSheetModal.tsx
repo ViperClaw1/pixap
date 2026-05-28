@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -18,27 +19,30 @@ export function NotificationsSheetModal({ visible, onClose, title }: Props) {
   const markAsRead = useMarkAsRead();
   const resolvedTitle = title ?? t("notifications.sheetTitle");
 
-  const styles = StyleSheet.create({
-    body: { paddingHorizontal: 4, paddingBottom: 12 },
-    empty: { color: colors.textMuted, fontSize: 14, textAlign: "center", paddingVertical: 20 },
-    card: {
-      borderRadius: 12,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      backgroundColor: colors.card,
-      paddingVertical: 12,
-      paddingHorizontal: 12,
-      marginBottom: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-    },
-    cardTextBlock: { flex: 1, minWidth: 0 },
-    text: { color: colors.text, fontSize: 14 },
-    date: { color: colors.textMuted, fontSize: 11, marginTop: 6 },
-    readIconWrap: { width: 28, alignItems: "center", justifyContent: "center" },
-    readIcon: { opacity: 0.45 },
-  });
+  const styles = useMemo(
+    () => ({
+      body: { paddingHorizontal: 4, paddingBottom: 12 },
+      empty: { color: colors.textMuted, fontSize: 14, textAlign: "center", paddingVertical: 20 },
+      card: {
+        borderRadius: 12,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.border,
+        backgroundColor: colors.card,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        marginBottom: 10,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+      },
+      cardTextBlock: { flex: 1, minWidth: 0 },
+      text: { color: colors.text, fontSize: 14 },
+      date: { color: colors.textMuted, fontSize: 11, marginTop: 6 },
+      readIconWrap: { width: 28, alignItems: "center", justifyContent: "center" },
+      readIcon: { opacity: 0.45 },
+    }),
+    [colors],
+  );
 
   return (
     <BottomSheetPickerModal visible={visible} onClose={onClose} title={resolvedTitle} maxHeightFraction={0.75}>

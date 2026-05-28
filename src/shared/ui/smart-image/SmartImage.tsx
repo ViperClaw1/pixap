@@ -88,9 +88,11 @@ export function SmartImage({
   blurhash,
   priority,
   onSourcesExhausted,
+  transition: transitionProp,
   style,
   ...rest
 }: SmartImageProps) {
+  const transition = transitionProp ?? (skipBundledPlaceholder ? 0 : 150);
   const chain = useMemo(() => buildUriChain(uri, fallbackUri), [uri, fallbackUri]);
   const chainKey = chain.join("|");
   const retryCount = Math.max(0, retryCountProp ?? 1);
@@ -202,6 +204,7 @@ export function SmartImage({
       onLoadStart={handleLoadStart}
       onLoad={handleLoad}
       cachePolicy="memory-disk"
+      transition={transition}
     />
   );
 

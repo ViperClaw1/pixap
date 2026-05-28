@@ -5,7 +5,7 @@ import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { FAVORITES_SELECT, localizeBusinessCard } from "@/entities/business-card";
 
-export const useFavorites = () => {
+export const useFavorites = (options?: { enabled?: boolean }) => {
   const { user } = useAuth();
   const { i18n } = useTranslation();
   const language = i18n.language;
@@ -30,7 +30,7 @@ export const useFavorites = () => {
         business_card: row.business_card ? localizeBusinessCard(row.business_card, language) : null,
       }));
     },
-    enabled: !!user,
+    enabled: !!user && (options?.enabled ?? true),
   });
 };
 

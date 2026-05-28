@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   Dimensions,
   InteractionManager,
-  PanResponder,
   PixelRatio,
   Pressable,
   StyleSheet,
@@ -16,6 +16,13 @@ import {
   type ImageStyle,
 } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import MapView, { Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 import Supercluster from "supercluster";
 import { useNavigation } from "@react-navigation/native";
@@ -94,7 +101,8 @@ const GRID_BATCH_ROWS = 7;
 /** Matches `calCircle` size in storiesArchiveStyles. */
 const CAL_CIRCLE_SIZE = 40;
 const PREFETCH_BATCH_SIZE = 4;
-const ARCHIVE_TAB_ORDER: ArchiveTab[] = ["grid", "calendar", "map"];
+const ARCHIVE_SLIDE_MS = 280;
+const ARCHIVE_SLIDE_EASING = Easing.out(Easing.cubic);
 const MAP_REGION_EDGE_PADDING = 0.02;
 const MAP_REGION_MIN_DELTA = 0.08;
 
@@ -274,35 +282,53 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
   const [visibleMonth, setVisibleMonth] = useState(() => firstOfMonthContaining(new Date()));
   const mapRef = useRef<MapView | null>(null);
   const [mapRegion, setMapRegion] = useState<Region | null>(null);
-  const archiveSwipeHandlers = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponderCapture: (_e, g) => Math.abs(g.dx) > 16 && Math.abs(g.dx) > Math.abs(g.dy) * 1.2,
-        onPanResponderRelease: (_e, g) => {
-          const swipeLeft = g.dx < -56 && Math.abs(g.dx) > Math.abs(g.dy) * 1.05;
-          const swipeRight = g.dx > 56 && Math.abs(g.dx) > Math.abs(g.dy) * 1.05;
-          if (!swipeLeft && !swipeRight) return;
-          const currentIndex = ARCHIVE_TAB_ORDER.indexOf(tab);
-          if (currentIndex < 0) return;
-          if (swipeLeft) {
-            const nextTab = ARCHIVE_TAB_ORDER[currentIndex + 1];
-            if (nextTab) setTab(nextTab);
-            return;
-          }
-          const previousTab = ARCHIVE_TAB_ORDER[currentIndex - 1];
-          if (previousTab) {
-            setTab(previousTab);
-            return;
-          }
-          onRequestClose();
-        },
-      }).panHandlers,
-    [onRequestClose, tab],
-  );
+  const isDismissingRef = useRef(false);
+  const onRequestCloseRef = useRef(onRequestClose);
+  onRequestCloseRef.current = onRequestClose;
+  const slideX = useSharedValue(width);
+
+  const finishDismiss = useCallback(() => {
+    onRequestCloseRef.current();
+  }, []);
+
+  const dismissOverlay = useCallback(() => {
+    if (isDismissingRef.current) return;
+    isDismissingRef.current = true;
+    slideX.value = withTiming(
+      width,
+      { duration: ARCHIVE_SLIDE_MS, easing: ARCHIVE_SLIDE_EASING },
+      (finished) => {
+        if (finished) runOnJS(finishDismiss)();
+      },
+    );
+  }, [finishDismiss, slideX, width]);
+
+  const slideStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: slideX.value }],
+  }));
+
+  useEffect(() => {
+    isDismissingRef.current = false;
+    slideX.value = width;
+    slideX.value = withTiming(0, { duration: ARCHIVE_SLIDE_MS, easing: ARCHIVE_SLIDE_EASING });
+  }, [slideX, width]);
 
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
   };
+
+  const handleGoBack = useCallback(() => {
+    dismissOverlay();
+  }, [dismissOverlay]);
+
+  useEffect(() => {
+    if (!overlayActive) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      dismissOverlay();
+      return true;
+    });
+    return () => sub.remove();
+  }, [dismissOverlay, overlayActive]);
 
   const openViewer = useCallback(
     (subset: StoryItem[], initialStoryIndex: number, placeId: string, initialMediaByStoryId?: Record<string, number>) => {
@@ -773,9 +799,11 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
   };
 
   return (
-    <View style={[styles.root, { paddingBottom: insets.bottom }]} {...archiveSwipeHandlers}>
+    <Animated.View
+      style={[StyleSheet.absoluteFillObject, styles.root, { paddingBottom: insets.bottom }, slideStyle]}
+    >
       <View style={styles.header}>
-        <Pressable style={styles.iconBtn} onPress={onRequestClose} accessibilityLabel="Back">
+        <Pressable style={styles.iconBtn} onPress={handleGoBack} accessibilityLabel="Back">
           <Ionicons name="arrow-back" size={20} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
@@ -824,6 +852,6 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
           {tab === "map" ? <View style={[StyleSheet.absoluteFillObject, { zIndex: 2 }]}>{renderMap()}</View> : null}
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 }

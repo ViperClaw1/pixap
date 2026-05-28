@@ -12,9 +12,9 @@ import {
   Alert,
   useWindowDimensions,
 } from "react-native";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, useIsFocused, type RouteProp } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
-import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import { useBottomTabBarHeight, type BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -54,6 +54,10 @@ import {
 } from "../model/constants";
 import { formatErrorForAlert } from "@/shared/lib/formatErrorForAlert";
 import { profileFullName } from "../model/format";
+import {
+  ensureEditProfileScreenReady,
+  scheduleEditProfilePrefetch,
+} from "@/pages/profile/lib/prefetchEditProfileScreen";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">,
@@ -74,17 +78,21 @@ function ProfileScreenContent() {
   const insets = useSafeAreaInsets();
   const { colors, mode, setMode } = useAppTheme();
   const { user, loading, signOut } = useAuth();
-  const { data: profile } = useProfile();
-  const unreadNotifications = useUnreadCount();
-  const { data: favorites = [] } = useFavorites();
-  const { data: bookings = [] } = useBookings();
-  const { data: businessCards = [] } = useBusinessCards();
-  const { role } = useUserRole();
-  const { postsCount, followersCount, followingCount } = useProfileSocialMetrics();
-  const { suggestions } = useSuggestedProfiles(12);
+  const isScreenFocused = useIsFocused();
+  const profileQueriesEnabled = !!user && isScreenFocused;
+  const { data: profile } = useProfile({ enabled: profileQueriesEnabled });
+  const unreadNotifications = useUnreadCount({ enabled: profileQueriesEnabled });
+  const { data: favorites = [] } = useFavorites({ enabled: profileQueriesEnabled });
+  const { data: bookings = [] } = useBookings({ enabled: profileQueriesEnabled });
+  const { data: businessCards = [] } = useBusinessCards(undefined, undefined, { enabled: profileQueriesEnabled });
+  const { role } = useUserRole({ enabled: profileQueriesEnabled });
+  const { postsCount, followersCount, followingCount } = useProfileSocialMetrics({ enabled: profileQueriesEnabled });
+  const { suggestions } = useSuggestedProfiles(12, { enabled: profileQueriesEnabled });
   const toggleFollow = useToggleFollow();
-  const { status: subscriptionStatus, isTrial, expiresAt, storeEnvironment, isActive } = useEntitlement();
-  const { balance, credits } = useBookingCredits();
+  const { status: subscriptionStatus, isTrial, expiresAt, storeEnvironment, isActive } = useEntitlement({
+    enabled: profileQueriesEnabled,
+  });
+  const { balance, credits } = useBookingCredits({ enabled: profileQueriesEnabled });
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [storiesArchiveVisible, setStoriesArchiveVisible] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -119,6 +127,16 @@ function ProfileScreenContent() {
   usePreferenceOnboardingGate(navigation);
 
   useEffect(() => {
+    if (!isScreenFocused) return;
+    return scheduleEditProfilePrefetch();
+  }, [isScreenFocused]);
+
+  const openEditProfile = useCallback(() => {
+    ensureEditProfileScreenReady();
+    navigation.navigate("EditProfile");
+  }, [navigation]);
+
+  useEffect(() => {
     const requestedCreateStep = route.params?.openCreateStep;
     const shouldOpenCreateModal = Boolean(route.params?.openCreateModal) || Boolean(requestedCreateStep);
     if (!shouldOpenCreateModal) return;
@@ -128,9 +146,12 @@ function ProfileScreenContent() {
   }, [navigation, route.params?.openCreateModal, route.params?.openCreateStep]);
 
   const { width: windowWidth } = useWindowDimensions();
+  const tabBarHeight = useBottomTabBarHeight();
   const isCompact = windowWidth < PROFILE_COMPACT_WIDTH;
   const styles = useProfileStyles();
   const linkRowStyle = isCompact ? [styles.link, styles.linkCompact] : styles.link;
+  const scrollBottomPadding =
+    Platform.OS === "android" ? Math.max(insets.bottom, 24) + tabBarHeight : Math.max(insets.bottom, 24);
 
   const userName = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || t("profile.defaultUserName");
   const isEmailVerified = Boolean(profile?.is_verified);
@@ -346,9 +367,9 @@ function ProfileScreenContent() {
         onPress: () => setStoriesArchiveVisible(true),
       },
       { key: "privacy", label: t("profile.actions.privacy"), icon: "shield-outline", onPress: openPrivacy },
-      { key: "settings", label: t("profile.actions.settings"), icon: "settings-outline", onPress: () => navigation.navigate("EditProfile") },
+      { key: "settings", label: t("profile.actions.settings"), icon: "settings-outline", onPress: openEditProfile },
     ],
-    [isActive, navigation, openManageSubscription, openPrivacy, t, unreadNotifications],
+    [isActive, navigation, openEditProfile, openManageSubscription, openPrivacy, t, unreadNotifications],
   );
 
   const showAdminDashboard = isProfileAdmin(profile?.account_role);
@@ -375,9 +396,10 @@ function ProfileScreenContent() {
         style={styles.root}
         contentContainerStyle={{
           paddingTop: 12,
-          paddingBottom: Math.max(insets.bottom, 24),
+          paddingBottom: scrollBottomPadding,
           paddingHorizontal: isCompact ? 12 : 16,
         }}
+        keyboardShouldPersistTaps="handled"
       >
       <View style={styles.card}>
         <View style={styles.profileRow}>
@@ -415,7 +437,11 @@ function ProfileScreenContent() {
               ) : null}
             </View>
           </View>
-          <Pressable style={styles.settingsBtn} onPress={() => navigation.navigate("EditProfile")}>
+          <Pressable
+            style={styles.settingsBtn}
+            onPressIn={ensureEditProfileScreenReady}
+            onPress={openEditProfile}
+          >
             <Ionicons name="settings-outline" size={16} color={colors.text} />
           </Pressable>
         </View>
@@ -559,27 +585,31 @@ function ProfileScreenContent() {
           linkIconStyle={styles.linkIcon}
           textMuted={colors.textMuted}
         />
-        {trailingActions.map((item, index) => (
-          <Pressable
-            key={item.key}
-            style={[
-              linkRowStyle,
-              !showAdminDashboard && index === trailingActions.length - 1 ? { borderBottomWidth: 0 } : null,
-            ]}
-            onPress={item.onPress}
-          >
-            <Ionicons name={item.icon} size={20} color={colors.textMuted} style={styles.linkIcon} />
-            <Text style={styles.linkText}>{item.label}</Text>
-            {item.badgeCount != null && item.badgeCount > 0 ? (
-              <View style={styles.linkMenuBadge}>
-                <Text style={styles.linkMenuBadgeText}>{item.badgeCount > 9 ? "9+" : String(item.badgeCount)}</Text>
-              </View>
-            ) : null}
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
-          </Pressable>
-        ))}
+        {trailingActions.map((item, index) => {
+          const isLastInCard =
+            !showAdminDashboard && index === trailingActions.length - 1;
+          return (
+            <Pressable
+              key={item.key}
+              style={[linkRowStyle, isLastInCard ? styles.linkLastInCard : null]}
+              onPress={item.onPress}
+            >
+              <Ionicons name={item.icon} size={20} color={colors.textMuted} style={styles.linkIcon} />
+              <Text style={styles.linkText}>{item.label}</Text>
+              {item.badgeCount != null && item.badgeCount > 0 ? (
+                <View style={styles.linkMenuBadge}>
+                  <Text style={styles.linkMenuBadgeText}>{item.badgeCount > 9 ? "9+" : String(item.badgeCount)}</Text>
+                </View>
+              ) : null}
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
+            </Pressable>
+          );
+        })}
         {showAdminDashboard ? (
-          <Pressable style={[linkRowStyle, { borderBottomWidth: 0 }]} onPress={() => navigation.navigate("AdminDashboard")}>
+          <Pressable
+            style={[linkRowStyle, styles.linkLastInCard]}
+            onPress={() => navigation.navigate("AdminDashboard")}
+          >
             <Ionicons name="stats-chart-outline" size={20} color={colors.textMuted} style={styles.linkIcon} />
             <Text style={styles.linkText}>{t("profile.adminDashboard")}</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
@@ -847,7 +877,7 @@ function ProfileScreenContent() {
       <NotificationsSheetModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
 
       {storiesArchiveVisible ? (
-        <View style={[StyleSheet.absoluteFillObject, { zIndex: 100 }]}>
+        <View style={[StyleSheet.absoluteFillObject, { zIndex: 100 }]} pointerEvents="box-none">
           <StoriesArchiveView overlayActive onRequestClose={() => setStoriesArchiveVisible(false)} />
         </View>
       ) : null}

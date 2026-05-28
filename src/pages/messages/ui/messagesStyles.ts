@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
@@ -25,11 +25,14 @@ export const messagesStaticStyles = StyleSheet.create({
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 14,
-          shadowColor: "#000",
-          shadowOpacity: 0.02,
-          shadowRadius: 10,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 2,
+          ...(Platform.OS === "ios"
+            ? {
+                shadowColor: "#000",
+                shadowOpacity: 0.02,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+              }
+            : { elevation: 2 }),
         },
 
         searchInput: {
@@ -57,11 +60,14 @@ export const messagesStaticStyles = StyleSheet.create({
           flexDirection: "row",
           alignItems: "center",
           gap: 12,
-          shadowColor: "#000",
-          shadowOpacity: 0.02,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: 1,
+          ...(Platform.OS === "ios"
+            ? {
+                shadowColor: "#000",
+                shadowOpacity: 0.02,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 6 },
+              }
+            : { elevation: 1 }),
         },
 
         avatar: {
@@ -159,11 +165,14 @@ export const messagesStaticStyles = StyleSheet.create({
           borderRadius: 22,
           alignItems: "center",
           justifyContent: "center",
-          shadowColor: "#000",
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 2,
+          ...(Platform.OS === "ios"
+            ? {
+                shadowColor: "#000",
+                shadowOpacity: 0.06,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 4 },
+              }
+            : { elevation: 2 }),
         },
 
         followBtn: {
@@ -185,11 +194,14 @@ export const messagesStaticStyles = StyleSheet.create({
           borderRadius: 14,
           alignItems: "center",
           justifyContent: "center",
-          shadowColor: "#000",
-          shadowOpacity: 0.12,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 3,
+          ...(Platform.OS === "ios"
+            ? {
+                shadowColor: "#000",
+                shadowOpacity: 0.12,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 4 },
+              }
+            : { elevation: 3 }),
         },
 
         swipeFollowBtn: {},
@@ -499,7 +511,7 @@ export function messagesThemeStyles(colors: ThemeColors, bottomInset: number) {
     searchWrap: {
       backgroundColor: colors.card,
       borderColor: colors.border,
-      shadowColor: colors.shadow,
+      ...(Platform.OS === "ios" ? { shadowColor: colors.shadow } : null),
     },
     searchInput: {
       color: colors.text,
@@ -510,7 +522,7 @@ export function messagesThemeStyles(colors: ThemeColors, bottomInset: number) {
     card: {
       backgroundColor: colors.card,
       borderColor: colors.border,
-      shadowColor: colors.shadow,
+      ...(Platform.OS === "ios" ? { shadowColor: colors.shadow } : null),
     },
     avatar: {
       backgroundColor: colors.surface,
@@ -530,7 +542,7 @@ export function messagesThemeStyles(colors: ThemeColors, bottomInset: number) {
     username: {
       color: colors.textMuted,
     },
-    swipeActionBtn: { shadowColor: colors.shadow },
+    swipeActionBtn: Platform.OS === "ios" ? { shadowColor: colors.shadow } : {},
     followedBadge: {
       backgroundColor: colors.accentSurface,
       borderColor: colors.accent,

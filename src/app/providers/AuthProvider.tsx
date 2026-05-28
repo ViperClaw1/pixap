@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
@@ -153,60 +153,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [loading, queryClient, user?.id]);
 
-  const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
-    const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-signup", {
-      body: {
-        email,
-        password,
-        firstName,
-        lastName,
-        redirectTo: getEmailCallbackRedirectUrl(),
-      },
-    });
-    if (error) {
-      const message = error.message ?? "Sign up failed";
-      return { error: message, isUserAlreadyExists: isUserAlreadyExistsError(message) };
-    }
-    if (data && typeof data === "object" && "error" in data && data.error) {
-      const message = String(data.error);
-      return { error: message, isUserAlreadyExists: isUserAlreadyExistsError(message) };
-    }
-    return { error: null };
-  };
+  const signUp = useCallback(
+    async (email: string, password: string, firstName: string, lastName: string) => {
+      const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-signup", {
+        body: {
+          email,
+          password,
+          firstName,
+          lastName,
+          redirectTo: getEmailCallbackRedirectUrl(),
+        },
+      });
+      if (error) {
+        const message = error.message ?? "Sign up failed";
+        return { error: message, isUserAlreadyExists: isUserAlreadyExistsError(message) };
+      }
+      if (data && typeof data === "object" && "error" in data && data.error) {
+        const message = String(data.error);
+        return { error: message, isUserAlreadyExists: isUserAlreadyExistsError(message) };
+      }
+      return { error: null };
+    },
+    [getEmailCallbackRedirectUrl],
+  );
 
-  const signIn = async (email: string, password: string): Promise<SignInResult> => {
+  const signIn = useCallback(async (email: string, password: string): Promise<SignInResult> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (!error) return { error: null };
     return { error: error.message ?? "Sign in failed" };
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error && isInvalidRefreshTokenError(error)) {
       await supabase.auth.signOut({ scope: "local" });
       return;
     }
     if (error) throw error;
-  };
+  }, []);
 
-  const resetPassword = async (email: string) => {
-    const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-recovery", {
-      body: {
-        email,
-        redirectTo: getEmailCallbackRedirectUrl(),
-      },
-    });
-    if (error) return { error: error.message };
-    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
-    return { error: null };
-  };
+  const resetPassword = useCallback(
+    async (email: string) => {
+      const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-recovery", {
+        body: {
+          email,
+          redirectTo: getEmailCallbackRedirectUrl(),
+        },
+      });
+      if (error) return { error: error.message };
+      if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+      return { error: null };
+    },
+    [getEmailCallbackRedirectUrl],
+  );
 
-  const updatePassword = async (newPassword: string) => {
+  const updatePassword = useCallback(async (newPassword: string) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     return { error: error?.message ?? null };
-  };
+  }, []);
 
-  const sendVerificationOtp = async (email: string) => {
+  const sendVerificationOtp = useCallback(async (email: string) => {
     devInfo("[auth][sendVerificationOtp] invoke auth-email-verify", { email });
     const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-verify", {
       body: {
@@ -223,27 +229,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     devInfo("[auth][sendVerificationOtp] edge invoke success");
     return { error: null };
-  };
+  }, []);
 
-  const verifyEmailOtp = async (code: string) => {
+  const verifyEmailOtp = useCallback(async (code: string) => {
     const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-verify-otp", {
       body: { code },
     });
     if (error) return { error: error.message };
     if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
     return { error: null };
-  };
+  }, []);
 
-  const sendRecoveryOtp = async (email: string) => {
+  const sendRecoveryOtp = useCallback(async (email: string) => {
     const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-recovery", {
       body: { action: "send", email },
     });
     if (error) return { error: error.message };
     if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
     return { error: null };
-  };
+  }, []);
 
-  const verifyRecoveryOtp = async (email: string, code: string) => {
+  const verifyRecoveryOtp = useCallback(async (email: string, code: string) => {
     const { data, error } = await supabase.functions.invoke<{
       ok: boolean;
       error?: string;
@@ -264,32 +270,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     if (setSessionError) return { error: setSessionError.message };
     return { error: null };
-  };
+  }, []);
 
-  const resendVerification = async (email: string) => {
-    // Backward compatibility for existing callers.
-    const result = await sendVerificationOtp(email);
-    devInfo("[auth][resendVerification] deprecated alias used");
-    return result;
-  };
+  const resendVerification = useCallback(
+    async (email: string) => {
+      const result = await sendVerificationOtp(email);
+      devInfo("[auth][resendVerification] deprecated alias used");
+      return result;
+    },
+    [sendVerificationOtp],
+  );
+
+  const value = useMemo(
+    () => ({
+      user,
+      session,
+      loading,
+      signUp,
+      signIn,
+      signOut,
+      resetPassword,
+      updatePassword,
+      resendVerification,
+      sendVerificationOtp,
+      verifyEmailOtp,
+      sendRecoveryOtp,
+      verifyRecoveryOtp,
+    }),
+    [
+      user,
+      session,
+      loading,
+      signUp,
+      signIn,
+      signOut,
+      resetPassword,
+      updatePassword,
+      resendVerification,
+      sendVerificationOtp,
+      verifyEmailOtp,
+      sendRecoveryOtp,
+      verifyRecoveryOtp,
+    ],
+  );
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        session,
-        loading,
-        signUp,
-        signIn,
-        signOut,
-        resetPassword,
-        updatePassword,
-        resendVerification,
-        sendVerificationOtp,
-        verifyEmailOtp,
-        sendRecoveryOtp,
-        verifyRecoveryOtp,
-      }}
+      value={value}
     >
       {children}
     </AuthContext.Provider>

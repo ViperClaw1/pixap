@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
@@ -456,21 +456,37 @@ export const profileStaticStyles = StyleSheet.create({
   actionsCard: {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    overflow: "hidden",
+    /** Android: `overflow: hidden` + borderRadius breaks hit-testing for bottom rows. */
+    ...Platform.select({
+      ios: { overflow: "hidden" as const },
+      default: { overflow: "visible" as const },
+    }),
   },
 
   link: {
     paddingVertical: 14,
     paddingHorizontal: 14,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    minHeight: 48,
+    ...Platform.select({
+      android: {
+        zIndex: 1,
+        elevation: 0,
+      },
+      default: null,
+    }),
   },
 
   linkCompact: {
     paddingHorizontal: 10,
     gap: 8,
+  },
+
+  linkLastInCard: {
+    borderBottomWidth: 0,
   },
 
   linkIcon: {
@@ -702,6 +718,7 @@ export function profileThemeStyles(colors: ThemeColors, _mode: ThemeMode) {
     },
     link: {
       borderBottomColor: colors.border,
+      backgroundColor: colors.card,
     },
     linkText: {
       color: colors.text,

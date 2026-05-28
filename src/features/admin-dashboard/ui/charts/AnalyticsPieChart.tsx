@@ -78,7 +78,7 @@ export function AnalyticsPieChart({ title, outcomes }: AnalyticsPieChartProps) {
 }
 
 function createStyles({ colors }: { colors: { card: string; border: string; text: string; textMuted: string } }) {
-  return StyleSheet.create({
+  return {
     card: {
       backgroundColor: colors.card,
       borderRadius: 14,
@@ -94,5 +94,5 @@ function createStyles({ colors }: { colors: { card: string; border: string; text
     dot: { width: 10, height: 10, borderRadius: 5 },
     legendText: { fontSize: 11, color: colors.textMuted, flex: 1 },
     empty: { fontSize: 14, color: colors.textMuted, paddingVertical: 24, textAlign: "center" },
-  });
+  };
 }

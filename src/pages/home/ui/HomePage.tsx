@@ -8,6 +8,7 @@ import {
   Alert,
   TextInput,
   PixelRatio,
+  InteractionManager,
 } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
@@ -168,7 +169,18 @@ export default function HomeScreen() {
     const uris = featured
       .slice(0, 8)
       .map((p) => thumbUriForCard(p, FEATURED_THUMB_W, FEATURED_THUMB_H));
-    void preloadSmartImages(uris);
+    let cancelled = false;
+    let task: { cancel: () => void } | null = null;
+    const timer = setTimeout(() => {
+      task = InteractionManager.runAfterInteractions(() => {
+        if (!cancelled) void preloadSmartImages(uris);
+      });
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      task?.cancel();
+    };
   }, [featured]);
 
   useEffect(() => {
@@ -176,7 +188,18 @@ export default function HomeScreen() {
     const uris = visibleRecommended
       .slice(0, 8)
       .map((p) => thumbUriForCard(p, RECOMMENDED_THUMB_SIZE, RECOMMENDED_THUMB_SIZE));
-    void preloadSmartImages(uris);
+    let cancelled = false;
+    let task: { cancel: () => void } | null = null;
+    const timer = setTimeout(() => {
+      task = InteractionManager.runAfterInteractions(() => {
+        if (!cancelled) void preloadSmartImages(uris);
+      });
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      task?.cancel();
+    };
   }, [visibleRecommended]);
 
   const recommendedListExtraData = useMemo(

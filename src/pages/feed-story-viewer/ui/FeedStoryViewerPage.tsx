@@ -16,6 +16,7 @@ import {
 import { BlurView } from "expo-blur";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { animateStoryViewerDismissWorklet } from "@/shared/lib/storyViewerDismissAnimation";
 import { useFocusedOverlapKeyboardInset, useKeyboardInset } from "@/shared/lib/keyboard";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -227,6 +228,25 @@ export default function FeedStoryViewerPage() {
 
   const flatMediaSlides = useMemo(() => buildFlatMediaSlides(flatStories), [flatStories]);
 
+  const renderMediaSlide = useCallback(
+    ({ item }: { item: FeedMediaSlide }) => {
+      const rawUri = item.rawUri;
+      const optimized = rawUri ? getFeedStoryFullscreenImageUrl(rawUri) : null;
+      return (
+        <View style={styles.absoluteFill}>
+          <StoryMediaSlide
+            optimizedUri={optimized || rawUri}
+            fallbackUri={rawUri}
+            recyclingKey={`feed-story-viewer-${item.key}`}
+            width={width}
+            height={height}
+          />
+        </View>
+      );
+    },
+    [height, width],
+  );
+
   const defaultCarouselIndex = useMemo(() => {
     if (!flatMediaSlides.length) return 0;
     const idx = flatMediaSlides.findIndex(
@@ -423,8 +443,11 @@ export default function FeedStoryViewerPage() {
   }, [setPaused]);
 
   const dismissTranslateY = useSharedValue(0);
+  const isDismissingRef = useRef(false);
 
   const closeViewer = useCallback(() => {
+    if (isDismissingRef.current) return;
+    isDismissingRef.current = true;
     navigation.goBack();
   }, [navigation]);
 
@@ -468,7 +491,13 @@ export default function FeedStoryViewerPage() {
             const shouldClose =
               e.translationY > DISMISS_DRAG_PX || (e.translationY > 48 && e.velocityY > 700);
             if (shouldClose) {
-              runOnJS(closeViewer)();
+              animateStoryViewerDismissWorklet(
+                dismissTranslateY,
+                height,
+                e.translationY,
+                e.velocityY,
+                closeViewer,
+              );
               return;
             }
             dismissTranslateY.value = withSpring(0, { damping: 18, stiffness: 200 });
@@ -483,7 +512,7 @@ export default function FeedStoryViewerPage() {
           dismissTranslateY.value = withSpring(0, { damping: 18, stiffness: 200 });
           runOnJS(setPaused)(false);
         }),
-    [closeViewer, dismissTranslateY, goToNextSlide, goToPrevSlide, keyboardOpen, previewOpen, setPaused],
+    [closeViewer, dismissTranslateY, goToNextSlide, goToPrevSlide, height, keyboardOpen, previewOpen, setPaused],
   );
 
   const mediaGesture = useMemo(
@@ -555,21 +584,7 @@ export default function FeedStoryViewerPage() {
           onScrollStart={() => setCarouselUserInteracting(true)}
           onScrollEnd={() => setCarouselUserInteracting(false)}
           onSnapToItem={handleCarouselSnapToItem}
-          renderItem={({ item }) => {
-            const rawUri = item.rawUri;
-            const optimized = rawUri ? getFeedStoryFullscreenImageUrl(rawUri) : null;
-            return (
-              <View style={styles.absoluteFill}>
-                <StoryMediaSlide
-                  optimizedUri={optimized || rawUri}
-                  fallbackUri={rawUri}
-                  recyclingKey={`feed-story-viewer-${item.key}`}
-                  width={width}
-                  height={height}
-                />
-              </View>
-            );
-          }}
+          renderItem={renderMediaSlide}
         />
 
         <GestureDetector gesture={mediaGesture}>
@@ -763,7 +778,7 @@ export default function FeedStoryViewerPage() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "transparent",
   },
   absoluteFill: {
     ...StyleSheet.absoluteFillObject,
@@ -901,6 +916,8 @@ const styles = StyleSheet.create({
   },
   storyChrome: {
     flex: 1,
+    backgroundColor: "#000000",
+    overflow: "hidden",
   },
   mediaGestureLayer: {
     ...StyleSheet.absoluteFillObject,

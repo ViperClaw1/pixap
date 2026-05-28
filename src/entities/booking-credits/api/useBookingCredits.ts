@@ -5,13 +5,13 @@ import { queryKeys } from "@/shared/api/queryKeys";
 import { parseBookingCreditsStatus } from "../lib/parseBookingCreditsStatus";
 import type { BookingCreditsStatus } from "../model/types";
 
-export function useBookingCredits() {
+export function useBookingCredits(options?: { enabled?: boolean }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: queryKeys.bookingCredits.wallet(user?.id),
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id) && (options?.enabled ?? true),
     staleTime: 30 * 1000,
     queryFn: async (): Promise<BookingCreditsStatus | null> => {
       const { data, error } = await supabase.rpc("get_booking_credits_status");

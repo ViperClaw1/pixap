@@ -1,5 +1,6 @@
-import { memo, useMemo } from "react";
-import { View, StyleSheet, Animated, type StyleProp, type ViewStyle } from "react-native";
+import { memo } from "react";
+import { View, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useShimmerProgress } from "./ShimmerProvider";
@@ -13,7 +14,7 @@ type Props = {
 };
 
 /**
- * Clipped block with a left→right shimmer (native-driver friendly translateX on wrapper).
+ * Clipped block with a left→right shimmer (Reanimated translateX on wrapper).
  */
 function ShimmerSurfaceInner({ width, height, borderRadius = 0, style }: Props) {
   const { isDark } = useAppTheme();
@@ -21,17 +22,11 @@ function ShimmerSurfaceInner({ width, height, borderRadius = 0, style }: Props) 
   const { base, peak } = getSkeletonShimmerColors(isDark);
   const layoutWidth = typeof width === "number" && Number.isFinite(width) ? width : 0;
   const layoutHeight = typeof height === "number" && Number.isFinite(height) ? height : 0;
-
-  const translateX = useMemo(
-    () =>
-      progress.interpolate({
-        inputRange: [0, 1],
-        outputRange: [-layoutWidth, layoutWidth],
-      }),
-    [progress, layoutWidth],
-  );
-
   const stripeWidth = Math.max(layoutWidth * 2, 120);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -layoutWidth + progress.value * layoutWidth * 2 }],
+  }));
 
   return (
     <View
@@ -39,14 +34,16 @@ function ShimmerSurfaceInner({ width, height, borderRadius = 0, style }: Props) 
     >
       <Animated.View
         pointerEvents="none"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: -layoutWidth,
-          width: stripeWidth,
-          height: layoutHeight,
-          transform: [{ translateX }],
-        }}
+        style={[
+          {
+            position: "absolute",
+            top: 0,
+            left: -layoutWidth,
+            width: stripeWidth,
+            height: layoutHeight,
+          },
+          animatedStyle,
+        ]}
       >
         <LinearGradient
           colors={["transparent", peak, "transparent"]}

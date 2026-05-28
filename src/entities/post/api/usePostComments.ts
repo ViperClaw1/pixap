@@ -148,6 +148,7 @@ export const usePostComments = (postId: string) => {
       }) as PostComment[];
     },
     enabled: !!postId,
+    staleTime: 30 * 1000,
     refetchInterval: realtimeConnected ? false : REALTIME_POLL_MS.postComments,
     select: selectStablePostComments,
   });

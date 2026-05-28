@@ -13,7 +13,7 @@ import {
   type ViewToken,
 } from "react-native";
 import { FlashList, type FlashListRef, type ListRenderItem } from "@shopify/flash-list";
-import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, useIsFocused, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -69,6 +69,7 @@ export default function StoriesFeedScreen() {
   const { user } = useAuth();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const isScreenFocused = useIsFocused();
 
   // ─── Data ────────────────────────────────────────────────────────────────
   const filterUserId = route.params?.filterUserId?.trim() ?? "";
@@ -287,10 +288,12 @@ export default function StoriesFeedScreen() {
         onBoost={() =>
           runAuthedAction(() => postBoostConfirm.requestBoost(vm.post.id, vm.post.boosted_at))
         }
+        carouselAutoPlay={isScreenFocused}
       />
     ),
     [
       comments,
+      isScreenFocused,
       postBoostConfirm,
       followOverrides,
       followingSet,

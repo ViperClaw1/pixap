@@ -77,13 +77,18 @@ function mapRpcBusinessCard(row: LocalizedBusinessCardRpcRow): BusinessCard {
   };
 }
 
-export const useBusinessCards = (type?: "featured" | "recommended", city?: string | null) => {
+export const useBusinessCards = (
+  type?: "featured" | "recommended",
+  city?: string | null,
+  options?: { enabled?: boolean },
+) => {
   const { i18n } = useTranslation();
   const language = i18n.language;
 
   return useQuery({
     queryKey: queryKeys.businessCards.list(type, city ?? null, language),
     staleTime: 2 * 60 * 1000,
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const lang = language.split("-")[0]?.toLowerCase() ?? "en";
       const { data, error } = await supabase.rpc("get_business_cards_localized", {

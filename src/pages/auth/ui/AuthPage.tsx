@@ -32,6 +32,7 @@ import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { authStaticStyles, authThemeStyles } from "./authStyles";
 import { devError, devInfo } from "@/shared/lib/devLog";
+import { PasswordTextInput } from "@/shared/ui/password-input";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -368,7 +369,7 @@ export default function AuthScreen() {
         <>
           <View style={[styles.fieldWrap, showPasswordPolicyError ? styles.fieldWrapError : null]}>
             <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
-            <TextInput
+            <PasswordTextInput
               ref={passwordInputRef}
               style={styles.input}
               placeholder={t("auth.placeholderPassword")}
@@ -380,7 +381,7 @@ export default function AuthScreen() {
                 setPasswordTouched(true);
                 if (activeInputRef.current === passwordInputRef.current) activeInputRef.current = null;
               }}
-              secureTextEntry={!showPassword}
+              visible={showPassword}
             />
             <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
               <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
@@ -435,7 +436,7 @@ export default function AuthScreen() {
             <>
               <View style={[styles.fieldWrap, showPasswordsMismatch ? styles.fieldWrapError : null]}>
                 <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
-                <TextInput
+                <PasswordTextInput
                   ref={confirmPasswordInputRef}
                   style={styles.input}
                   placeholder={t("auth.placeholderConfirmPassword")}
@@ -447,7 +448,7 @@ export default function AuthScreen() {
                     setConfirmPasswordTouched(true);
                     if (activeInputRef.current === confirmPasswordInputRef.current) activeInputRef.current = null;
                   }}
-                  secureTextEntry={!showConfirmPassword}
+                  visible={showConfirmPassword}
                 />
                 <Pressable onPress={() => setShowConfirmPassword((v) => !v)} hitSlop={8}>
                   <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />

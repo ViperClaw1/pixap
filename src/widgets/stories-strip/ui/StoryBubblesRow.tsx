@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { StoryGroup } from "@/shared/model/types/stories";
 import { StoryBubble } from "./StoryBubble";
@@ -62,12 +63,13 @@ function StoryBubblesRowComponent({
             ))}
           </View>
         ) : groups.length > 0 ? (
-          <FlatList
+          <FlashList
             horizontal
             showsHorizontalScrollIndicator={false}
             data={groups}
             keyExtractor={(item) => item.user_id}
             renderItem={renderItem}
+            estimatedItemSize={72}
             contentContainerStyle={styles.listContent}
             initialNumToRender={6}
             maxToRenderPerBatch={8}
