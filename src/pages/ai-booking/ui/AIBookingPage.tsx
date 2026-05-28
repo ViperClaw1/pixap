@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   Platform,
   ScrollView,
+  Keyboard,
+  type KeyboardEvent,
 } from "react-native";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
-import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { CommonActions, useFocusEffect, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
@@ -34,7 +34,7 @@ import {
   groupCitiesByCountry,
   filterCityGroups,
 } from "@/entities/business-card";
-import { useCategories, CategoryIcon, resolveCategoryIconSpec, localizeCategoryName, buildHomeCategoryList, isHomeCategorySelectable, isRestaurantCategoryName } from "@/entities/category";
+import { useCategories, CategoryIcon, resolveCategoryIconSpec, localizeCategoryName } from "@/entities/category";
 import { useProfile } from "@/entities/user";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
@@ -74,7 +74,11 @@ import {
 } from "@/features/ai-booking-chat";
 import { devWarn } from "@/shared/lib/devLog";
 import { appAlert } from "@/shared/ui/app-popup";
-import { AI_BOOKING_DEFAULT_COMMENT_INPUT_HEIGHT, AI_BOOKING_DEFAULT_PERSONS } from "../model/constants";
+import {
+  AI_BOOKING_COMPOSER_KEYBOARD_MARGIN,
+  AI_BOOKING_DEFAULT_COMMENT_INPUT_HEIGHT,
+  AI_BOOKING_DEFAULT_PERSONS,
+} from "../model/constants";
 
 const DEFAULT_BOOKING_REC_VIEW: BookingRecommendationView = {
   rerankedPlaceIds: [],
@@ -85,6 +89,7 @@ const DEFAULT_BOOKING_REC_VIEW: BookingRecommendationView = {
 type DraftForm = AIBookingDraftForm;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RESTAURANT_TABLE_KEY = "restaurant-table";
 const DEFAULT_RADIUS_MILES = 5;
 
 type FlowStep = "city" | "category" | "scope" | "places" | "booking";
@@ -102,24 +107,79 @@ const validationSchema = {
 
 function AIBookingPageContent() {
   const insets = useSafeAreaInsets();
-  const stableBottomInsetRef = useRef(insets.bottom);
-  if (insets.bottom > stableBottomInsetRef.current) {
-    stableBottomInsetRef.current = insets.bottom;
-  }
-  const stableBottomInset = stableBottomInsetRef.current;
+  const bookingComposerScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bookingComposerFocusedRef = useRef(false);
   const bookingScrollRef = useRef<ScrollView>(null);
+  const bookingScrollYRef = useRef(0);
+  const bookingScrollLayoutRef = useRef({ viewH: 0, contentH: 0 });
   const bookingComposerInputRef = useRef<TextInput>(null);
-  const keyboardInset = useKeyboardInset({
-    bottomInset: stableBottomInset,
-    gap: 16,
-    ignoreWindowResize: false,
-  });
-  const bookingKeyboardStyle = useAnimatedStyle(() => {
-    if (Platform.OS === "ios") {
-      return { flex: 1, transform: [{ translateY: -keyboardInset.value }] };
+  const keyboardTopScreenRef = useRef<number | null>(null);
+
+  const scrollBookingContentToUncoverComposer = useCallback(() => {
+    if (!bookingComposerFocusedRef.current) return;
+    const keyboardTop = keyboardTopScreenRef.current;
+    if (keyboardTop == null) return;
+    const input = bookingComposerInputRef.current;
+    if (!input) return;
+    const margin = AI_BOOKING_COMPOSER_KEYBOARD_MARGIN;
+    input.measureInWindow((_x, y, _w, h) => {
+      const bottom = y + h;
+      const overlap = bottom - (keyboardTop - margin);
+      if (overlap <= 0) return;
+      const { viewH, contentH } = bookingScrollLayoutRef.current;
+      const maxY = Math.max(0, contentH - viewH);
+      const nextY = Math.min(maxY, bookingScrollYRef.current + overlap);
+      if (nextY <= bookingScrollYRef.current + 0.5) return;
+      bookingScrollRef.current?.scrollTo({ y: nextY, animated: true });
+    });
+  }, []);
+
+  useEffect(() => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const onShow = (e: KeyboardEvent) => {
+      const { height, screenY } = e.endCoordinates;
+      if (!height || height < 1) {
+        keyboardTopScreenRef.current = null;
+        return;
+      }
+      keyboardTopScreenRef.current = screenY;
+      scrollBookingContentToUncoverComposer();
+    };
+    const onHide = () => {
+      keyboardTopScreenRef.current = null;
+    };
+    const subShow = Keyboard.addListener(showEvt, onShow);
+    const subHide = Keyboard.addListener(hideEvt, onHide);
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, [scrollBookingContentToUncoverComposer]);
+
+  const onBookingComposerInputFocus = useCallback(() => {
+    bookingComposerFocusedRef.current = true;
+    const prev = bookingComposerScrollTimeoutRef.current;
+    if (prev != null) clearTimeout(prev);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollBookingContentToUncoverComposer();
+      });
+    });
+    bookingComposerScrollTimeoutRef.current = setTimeout(() => {
+      bookingComposerScrollTimeoutRef.current = null;
+      scrollBookingContentToUncoverComposer();
+    }, 280);
+  }, [scrollBookingContentToUncoverComposer]);
+
+  const onBookingComposerInputBlur = useCallback(() => {
+    bookingComposerFocusedRef.current = false;
+    const pending = bookingComposerScrollTimeoutRef.current;
+    if (pending != null) {
+      clearTimeout(pending);
+      bookingComposerScrollTimeoutRef.current = null;
     }
-    return { flex: 1, paddingBottom: keyboardInset.value };
-  });
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -130,6 +190,7 @@ function AIBookingPageContent() {
   const { colors } = useAppTheme();
   const { user, session, loading: authLoading } = useAuth();
   const { t } = useTranslation();
+  const restaurantTableLabel = t("bookingCommon.restaurantTable");
   const nearMeLabel = t("bookingCommon.nearMe5Miles");
   const allPlacesInCityLabel = t("bookingCommon.allPlacesInCity");
   const allPlacesInMyCityLabel = t("bookingCommon.allPlacesInMyCity");
@@ -142,9 +203,7 @@ function AIBookingPageContent() {
   } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
   const navigation = useNavigation<Nav>();
-  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
-    sensitivity: "high",
-  });
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   useAuthSessionRedirect({
     authLoading: authLoading,
     hasUser: Boolean(user),
@@ -163,7 +222,6 @@ function AIBookingPageContent() {
   const { data: profile } = useProfile();
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
   const { data: categories = [] } = useCategories();
-  const homeCategories = useMemo(() => buildHomeCategoryList(categories), [categories]);
   const createCartItem = useCreateCartItem();
   const createBooking = useCreateBooking();
   const startN8nWaBooking = useStartN8nWaBooking();
@@ -217,34 +275,15 @@ function AIBookingPageContent() {
     if (!snap) return;
     setSelectedCity((prev) => (prev.trim() ? prev : snap.city));
     if (snap.isRestaurantTable) {
-      const restaurants =
-        homeCategories.find((c) => isRestaurantCategoryName(c.name) && isHomeCategorySelectable(c)) ??
-        categories.find((c) => isRestaurantCategoryName(c.name));
-      if (restaurants) {
-        setSelectedCategoryId((prev) => (prev.trim() ? prev : restaurants.id));
-        setSelectedCategoryName((prev) => (prev.trim() ? prev : restaurants.name));
-      }
+      setSelectedCategoryId((prev) => (prev.trim() ? prev : RESTAURANT_TABLE_KEY));
+      setSelectedCategoryName((prev) => (prev.trim() ? prev : restaurantTableLabel));
     } else {
       setSelectedCategoryId((prev) => (prev.trim() ? prev : snap.categoryId));
       setSelectedCategoryName((prev) => (prev.trim() ? prev : snap.categoryName));
     }
     setScope(snap.scope);
     setRequestComment((prev) => (prev.trim() ? prev : snap.requestComment));
-  }, [lastSearchSnapshot, homeCategories, categories]);
-
-  useEffect(() => {
-    if (selectedCategoryId !== "restaurant-table") return;
-    const restaurants = homeCategories.find(
-      (c) => isRestaurantCategoryName(c.name) && isHomeCategorySelectable(c),
-    );
-    if (restaurants) {
-      setSelectedCategoryId(restaurants.id);
-      setSelectedCategoryName(restaurants.name);
-      return;
-    }
-    setSelectedCategoryId("");
-    setSelectedCategoryName("");
-  }, [homeCategories, selectedCategoryId]);
+  }, [lastSearchSnapshot, restaurantTableLabel]);
 
   const concreteCities = useMemo(
     () => availableCities.filter((c) => c !== ALL_CITIES_OPTION),
@@ -357,15 +396,17 @@ function AIBookingPageContent() {
     [visibleCalendarMonth],
   );
 
-  const isRestaurantTable = isRestaurantCategoryName(selectedCategoryName);
+  const isRestaurantTable = selectedCategoryId === RESTAURANT_TABLE_KEY;
 
   const bookingChatContext = useMemo(() => {
     if (!selectedCity?.trim() || selectedCity === ALL_CITIES_OPTION) return null;
     return buildBookingContextFromPage({
       city: selectedCity,
-      categoryLabel: selectedCategoryName
-        ? localizeCategoryName(selectedCategoryName, t)
-        : serviceLabel,
+      categoryLabel: isRestaurantTable
+        ? restaurantTableLabel
+        : selectedCategoryName
+          ? localizeCategoryName(selectedCategoryName, t)
+          : serviceLabel,
       scopeLabel: scope === "nearby" ? nearMeLabel : allPlacesInCityLabel,
       requestComment: requestComment.trim() || undefined,
       selectedPlace,
@@ -374,12 +415,14 @@ function AIBookingPageContent() {
     });
   }, [
     selectedCity,
+    isRestaurantTable,
     selectedCategoryName,
     scope,
     requestComment,
     selectedPlace,
     bookingDateYmd,
     selectedSlot,
+    restaurantTableLabel,
     serviceLabel,
     nearMeLabel,
     allPlacesInCityLabel,
@@ -387,21 +430,27 @@ function AIBookingPageContent() {
   ]);
 
   const selectedCategoryRow = categories.find((c) => c.id === selectedCategoryId);
-  const categoryDropdownLabel = selectedCategoryRow
-    ? localizeCategoryName(selectedCategoryRow.name, t)
-    : selectedCategoryName
-      ? localizeCategoryName(selectedCategoryName, t)
-      : t("bookingCommon.selectServiceOrTable");
-  const selectedCategoryIconSpec = selectedCategoryRow
-    ? resolveCategoryIconSpec(selectedCategoryRow.name)
-    : null;
+  const categoryDropdownLabel = isRestaurantTable
+    ? restaurantTableLabel
+    : selectedCategoryRow
+      ? localizeCategoryName(selectedCategoryRow.name, t)
+      : selectedCategoryName
+        ? localizeCategoryName(selectedCategoryName, t)
+        : t("bookingCommon.selectServiceOrTable");
+  const selectedCategoryIconSpec = isRestaurantTable
+    ? ({ family: "ionicons", name: "restaurant-outline" } as const)
+    : selectedCategoryRow
+      ? resolveCategoryIconSpec(selectedCategoryRow.name)
+      : null;
 
   const summaryMessage = [
     t("aiBooking.summaryCity", { value: selectedCity || notSelectedLabel }),
     t("aiBooking.summaryRequest", {
-      value: selectedCategoryName
-        ? localizeCategoryName(selectedCategoryName, t)
-        : notSelectedLabel,
+      value: isRestaurantTable
+        ? restaurantTableLabel
+        : selectedCategoryName
+          ? localizeCategoryName(selectedCategoryName, t)
+          : notSelectedLabel,
     }),
     t("aiBooking.summaryScope", { value: scope === "nearby" ? nearMeLabel : allPlacesInCityLabel }),
     selectedPlace ? t("aiBooking.summaryPlace", { name: selectedPlace.name }) : null,
@@ -462,8 +511,8 @@ function AIBookingPageContent() {
 
     const payload: PixAIFlowPayload = {
       city: selectedCity.trim(),
-      categoryId: selectedCategoryId.trim(),
-      categoryName: selectedCategoryName,
+      categoryId: isRestaurantTable ? undefined : selectedCategoryId.trim(),
+      categoryName: isRestaurantTable ? restaurantTableLabel : selectedCategoryName,
       isRestaurantTable,
       comment: requestComment.trim() || undefined,
       mode: scope,
@@ -476,9 +525,11 @@ function AIBookingPageContent() {
       const result = await runFlow(payload);
       const placeCount = result.places?.length ?? 0;
       const scopeText = scope === "nearby" ? nearMeLabel : allPlacesInMyCityLabel;
-      const requestType = selectedCategoryName
-        ? localizeCategoryName(selectedCategoryName, t)
-        : t("aiBooking.placesFallback");
+      const requestType = isRestaurantTable
+        ? restaurantTableLabel
+        : selectedCategoryName
+          ? localizeCategoryName(selectedCategoryName, t)
+          : t("aiBooking.placesFallback");
       const resultsLine = t("aiBooking.searchResultsLine", { count: placeCount, requestType, scopeText });
 
       setHasSearched(true);
@@ -492,8 +543,8 @@ function AIBookingPageContent() {
       setTimeout(() => {
         useBookingChatStore.getState().bumpCatalogRevisionWithOpening(nextRev, resultsLine, {
           city: selectedCity.trim(),
-          categoryId: selectedCategoryId.trim(),
-          categoryName: selectedCategoryName || "",
+          categoryId: isRestaurantTable ? RESTAURANT_TABLE_KEY : selectedCategoryId.trim(),
+          categoryName: isRestaurantTable ? restaurantTableLabel : selectedCategoryName || "",
           isRestaurantTable,
           scope,
           requestComment: requestComment.trim(),
@@ -638,13 +689,28 @@ function AIBookingPageContent() {
 
   return (
     <View style={styles.root} {...androidSwipeBackPanHandlers}>
-      <Animated.View style={bookingKeyboardStyle}>
       <ScrollView
         ref={bookingScrollRef}
         style={styles.root}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          bookingScrollYRef.current = e.nativeEvent.contentOffset.y;
+        }}
+        onLayout={(e) => {
+          bookingScrollLayoutRef.current = {
+            ...bookingScrollLayoutRef.current,
+            viewH: e.nativeEvent.layout.height,
+          };
+        }}
+        onContentSizeChange={(_w, h) => {
+          bookingScrollLayoutRef.current = {
+            ...bookingScrollLayoutRef.current,
+            contentH: h,
+          };
+        }}
       >
         <View style={styles.semanticSection}>
           <View style={styles.topRow}>
@@ -774,6 +840,8 @@ function AIBookingPageContent() {
               bookingContext={bookingChatContext}
               places={placeOptions}
               composerInputRef={bookingComposerInputRef}
+              onComposerInputFocus={onBookingComposerInputFocus}
+              onComposerInputBlur={onBookingComposerInputBlur}
             />
           </View>
         ) : null}
@@ -823,7 +891,6 @@ function AIBookingPageContent() {
           />
         ) : null}
       </ScrollView>
-      </Animated.View>
 
       <View style={styles.footer}>
         <View style={styles.row}>
@@ -905,22 +972,13 @@ function AIBookingPageContent() {
         onClose={() => setCategoryPickerVisible(false)}
         title={t("bookingCommon.chooseServiceOrTable")}
       >
-        {homeCategories.map((category) => {
+        {categories.map((category) => {
           const iconSpec = resolveCategoryIconSpec(category.name);
-          const selectable = isHomeCategorySelectable(category);
-          const label = localizeCategoryName(category.name, t);
           return (
             <Pressable
               key={category.id}
-              style={[styles.pickerRow, category.isComingSoon && styles.pickerRowComingSoon]}
-              disabled={!selectable}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: !selectable }}
-              accessibilityLabel={
-                category.isComingSoon ? `${label}, ${t("home.categoryComingSoon")}` : label
-              }
+              style={styles.pickerRow}
               onPress={() => {
-                if (!selectable) return;
                 setSelectedCategoryId(category.id);
                 setSelectedCategoryName(category.name);
                 setCategoryPickerVisible(false);
@@ -931,21 +989,37 @@ function AIBookingPageContent() {
                   <CategoryIcon spec={iconSpec} size={14} color={colors.primary} />
                 </View>
                 <Text style={styles.pickerRowText} numberOfLines={1}>
-                  {label}
+                  {localizeCategoryName(category.name, t)}
                 </Text>
               </View>
-              <View style={styles.pickerRowRight}>
-                {category.isComingSoon ? (
-                  <View style={styles.categoryComingSoonBadge}>
-                    <Text style={styles.categoryComingSoonBadgeText}>{t("home.categoryComingSoon")}</Text>
-                  </View>
-                ) : selectedCategoryId === category.id ? (
-                  <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text>
-                ) : null}
-              </View>
+              {selectedCategoryId === category.id ? (
+                <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text>
+              ) : null}
             </Pressable>
           );
         })}
+        <Pressable
+          style={styles.pickerRow}
+          onPress={() => {
+            setSelectedCategoryId(RESTAURANT_TABLE_KEY);
+            setSelectedCategoryName(restaurantTableLabel);
+            setCategoryPickerVisible(false);
+          }}
+        >
+          <View style={styles.pickerRowLeft}>
+            <View style={styles.pickerRowIconWrap}>
+              <CategoryIcon
+                spec={{ family: "ionicons", name: "restaurant-outline" }}
+                size={14}
+                color={colors.primary}
+              />
+            </View>
+            <Text style={styles.pickerRowText} numberOfLines={1}>
+              {restaurantTableLabel}
+            </Text>
+          </View>
+          {isRestaurantTable ? <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text> : null}
+        </Pressable>
       </BottomSheetPickerModal>
     </View>
   );

@@ -10,11 +10,14 @@ import {
   StyleSheet,
   Text,
   View,
-  type LayoutChangeEvent,
+  useWindowDimensions,
   type TextInput,
   type ViewStyle,
 } from "react-native";
+import Animated from "react-native-reanimated";
+import { GestureDetector } from "react-native-gesture-handler";
 import { FlashList } from "@shopify/flash-list";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/app/providers/AuthProvider";
 import {
@@ -36,8 +39,7 @@ import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import { QUICK_EMOJI } from "@/shared/lib/discussionQuickEmoji";
 import { AppPopupModal, appAlert } from "@/shared/ui/app-popup";
 import {
-  DISCUSSION_IOS_LIST_FOOTER_CLEARANCE,
-  KeyboardStickyView,
+  DISCUSSION_ANDROID_FOOTER_PADDING,
   useDiscussionPanelFooterKeyboard,
 } from "@/shared/lib/keyboard";
 import { DiscussionCommentSkeletonList } from "@/shared/ui/discussion-skeleton";
@@ -55,6 +57,10 @@ import {
 } from "./StoryDiscussionCommentThread";
 import { discussionPaletteDark, type DiscussionUiPalette } from "@/shared/theme/discussionPalette";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
+import {
+  useStoryDiscussionDismissPan,
+  type StoryDiscussionDismissDragHandlers,
+} from "../lib/storyDiscussionDismissPan";
 
 type EditingCommentTarget = {
   itemId: string;
@@ -77,6 +83,9 @@ export type StoryDiscussionPanelInnerProps = {
   showEmojiRow?: boolean;
   onListContentSizeChange?: (width: number, height: number) => void;
   onClose?: () => void;
+  onDismissDragStart?: () => void;
+  onDismissDragUpdate?: (translationY: number) => void;
+  onDismissDragEnd?: (translationY: number, velocityY: number) => void;
   /** When false, pagination/scroll reset waits until the sheet opens again. Defaults to true. */
   isActive?: boolean;
 };
@@ -91,27 +100,19 @@ export function StoryDiscussionPanelInner({
   showEmojiRow = true,
   onListContentSizeChange,
   onClose,
+  onDismissDragStart,
+  onDismissDragUpdate,
+  onDismissDragEnd,
   isActive = true,
 }: StoryDiscussionPanelInnerProps) {
+  const { height: windowHeight } = useWindowDimensions();
   const palette = discussionPalette ?? discussionPaletteDark;
   const footerBackgroundColor = footerBackgroundOverride ?? palette.footerBg;
   const footerBorderColor = footerBorderOverride ?? palette.footerBorder;
-  const [footerHeight, setFooterHeight] = useState(120);
-  const footerHeightLockedRef = useRef<number | null>(null);
-  const composerInputRef = useRef<TextInput>(null);
-  const footerShellRef = useRef<View>(null);
-
-  const discussionKeyboardHost = onListContentSizeChange != null ? "glass-overlay" : "navigation-modal";
-
-  const {
-    RootOuter,
-    rootLiftStyle,
-    footerPaddingBottom,
-    useStickyFooter,
-    composerStickyInset,
-    stickySafeAreaBottom,
-  } = useDiscussionPanelFooterKeyboard(isActive, { host: discussionKeyboardHost });
+  const insets = useSafeAreaInsets();
+  const { RootOuter, androidRootLiftStyle } = useDiscussionPanelFooterKeyboard(isActive);
   const { user } = useAuth();
+  const composerInputRef = useRef<TextInput>(null);
   const composerBlurResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressComposerBlurResetRef = useRef(false);
 
@@ -123,6 +124,28 @@ export function StoryDiscussionPanelInner({
     },
     [],
   );
+
+  const footerPaddingBottom =
+    Platform.OS === "android" ? DISCUSSION_ANDROID_FOOTER_PADDING : Math.max(16, insets.bottom + 10);
+
+  const dismissDragHandlers = useMemo<StoryDiscussionDismissDragHandlers | undefined>(
+    () =>
+      onDismissDragStart || onDismissDragUpdate || onDismissDragEnd
+        ? {
+            onDismissDragStart,
+            onDismissDragUpdate,
+            onDismissDragEnd,
+          }
+        : undefined,
+    [onDismissDragEnd, onDismissDragStart, onDismissDragUpdate],
+  );
+
+  const { panGesture, dismissDragStyle } = useStoryDiscussionDismissPan({
+    enabled: Boolean(onClose) && isActive,
+    dismissHeight: windowHeight,
+    onClose,
+    dragHandlers: dismissDragHandlers,
+  });
 
   const { data: comments = [], isLoading: commentsLoading } = useStoryComments(storyId);
   const { data: myProfile } = useProfile();
@@ -487,39 +510,92 @@ export function StoryDiscussionPanelInner({
     [palette.textMuted],
   );
 
-  const handleFooterLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      const nextHeight = event.nativeEvent.layout.height;
-      if (useStickyFooter && Platform.OS === "ios") {
-        const nextLocked = Math.max(footerHeightLockedRef.current ?? 0, nextHeight);
-        if (footerHeightLockedRef.current === nextLocked) {
-          return;
-        }
-        footerHeightLockedRef.current = nextLocked;
-        setFooterHeight(nextLocked);
-        return;
-      }
-      setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-    },
-    [useStickyFooter],
-  );
-
   const listContentContainerStyle = useMemo(
     () => [
       styles.listContent,
       listContentStyleProp,
-      useStickyFooter && Platform.OS === "ios"
-        ? { paddingBottom: footerHeight + DISCUSSION_IOS_LIST_FOOTER_CLEARANCE }
-        : null,
       !commentsLoading && sorted.length === 0 && styles.listContentEmpty,
     ],
-    [commentsLoading, footerHeight, listContentStyleProp, sorted.length, useStickyFooter],
+    [commentsLoading, listContentStyleProp, sorted.length],
   );
 
-  const composerFooter = useMemo(() => {
-    return (
+  const handleSkeletonLayout = useCallback(
+    (width: number, height: number) => {
+      onListContentSizeChange?.(width, height);
+    },
+    [onListContentSizeChange],
+  );
+
+  const dismissHeader = onClose ? (
+    <GestureDetector gesture={panGesture}>
+      <View>
+        <Pressable
+          onPress={() => Keyboard.dismiss()}
+          style={styles.sheetGrabber}
+          accessibilityRole="button"
+          accessibilityLabel="Drag to close comments"
+        >
+          <View style={[styles.dragHandle, { backgroundColor: palette.grabber }]} />
+        </Pressable>
+        <View style={styles.panelHeader}>
+          <Text style={[styles.panelHeaderTitle, { color: palette.text }]}>Comments</Text>
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            style={styles.panelCloseBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <Ionicons name="close" size={24} color={palette.text} />
+          </Pressable>
+        </View>
+      </View>
+    </GestureDetector>
+  ) : null;
+
+  const panelBody = (
+    <>
+      {dismissHeader}
+      {commentsLoading ? (
+        <View style={styles.list}>
+          <DiscussionCommentSkeletonList onLayout={handleSkeletonLayout} />
+        </View>
+      ) : (
+        <FlashList
+          ref={listRef}
+          data={visibleComments}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.storyComment}
+          renderItem={renderItem}
+          ListHeaderComponent={listHeader}
+          extraData={[
+            replyTarget,
+            editingComment,
+            replyThreadMutation.isPending,
+            reactMutation.isPending,
+            updateCommentMutation.isPending,
+            visibleComments,
+            visibleCommentCount,
+            replyVisibleCounts,
+            palette,
+            user?.id,
+          ]}
+          contentContainerStyle={listContentContainerStyle}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          onScrollBeginDrag={() => Keyboard.dismiss()}
+          ListEmptyComponent={listEmptyComponent}
+          style={styles.list}
+          onContentSizeChange={(w, h) => onListContentSizeChange?.(w, h)}
+          removeClippedSubviews={Platform.OS !== "android"}
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={8}
+          updateCellsBatchingPeriod={40}
+        />
+      )}
+
       <View
-        ref={useStickyFooter ? undefined : footerShellRef}
         style={[
           styles.footer,
           {
@@ -664,114 +740,6 @@ export function StoryDiscussionPanelInner({
           </View>
         </View>
       </View>
-    );
-  }, [
-      appendEmojiToDraft,
-      cancelEditingComment,
-      cancelReply,
-      editingComment,
-      footerBackgroundColor,
-      footerBorderColor,
-      footerPaddingBottom,
-      handleComposerBlur,
-      mainDraft,
-      myAvatarRaw,
-      myAvatarUri,
-      myLabel,
-      palette.avatarFallback,
-      palette.inputBg,
-      palette.sendAccent,
-      palette.text,
-      palette.textMuted,
-      replyMutation.isPending,
-      replyTarget,
-      replyThreadMutation.isPending,
-      saveEditedComment,
-      showEmojiRow,
-      submitMainComment,
-      submitThreadReply,
-      updateCommentMutation.isPending,
-      useStickyFooter,
-    ],
-  );
-
-  const handleSkeletonLayout = useCallback(
-    (width: number, height: number) => {
-      onListContentSizeChange?.(width, height);
-    },
-    [onListContentSizeChange],
-  );
-
-  return (
-    <RootOuter style={[styles.flex, rootLiftStyle]}>
-      {onClose ? (
-        <View style={styles.panelHeader}>
-          <Text style={[styles.panelHeaderTitle, { color: palette.text }]}>Comments</Text>
-          <Pressable
-            onPress={onClose}
-            hitSlop={12}
-            style={styles.panelCloseBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <Ionicons name="close" size={24} color={palette.text} />
-          </Pressable>
-        </View>
-      ) : null}
-      {commentsLoading ? (
-        <View style={styles.list}>
-          <DiscussionCommentSkeletonList onLayout={handleSkeletonLayout} />
-        </View>
-      ) : (
-        <FlashList
-          ref={listRef}
-          data={visibleComments}
-          keyExtractor={(item) => item.id}
-          estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.storyComment}
-          renderItem={renderItem}
-          ListHeaderComponent={listHeader}
-          extraData={[
-            replyTarget,
-            editingComment,
-            replyThreadMutation.isPending,
-            reactMutation.isPending,
-            updateCommentMutation.isPending,
-            visibleComments,
-            visibleCommentCount,
-            replyVisibleCounts,
-            palette,
-            user?.id,
-          ]}
-          contentContainerStyle={listContentContainerStyle}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          onScrollBeginDrag={() => Keyboard.dismiss()}
-          ListEmptyComponent={listEmptyComponent}
-          style={styles.list}
-          onContentSizeChange={(w, h) => onListContentSizeChange?.(w, h)}
-          removeClippedSubviews={Platform.OS !== "android"}
-          initialNumToRender={8}
-          maxToRenderPerBatch={10}
-          windowSize={8}
-          updateCellsBatchingPeriod={40}
-        />
-      )}
-
-      {useStickyFooter ? (
-        <KeyboardStickyView
-          gap={0}
-          bottomInset={0}
-          enabled={isActive}
-          inset={composerStickyInset}
-          safeAreaBottom={stickySafeAreaBottom}
-          ignoreWindowResize={discussionKeyboardHost === "glass-overlay"}
-          onLayout={handleFooterLayout}
-        >
-          {composerFooter}
-        </KeyboardStickyView>
-      ) : (
-        composerFooter
-      )}
 
       <Modal
         visible={deleteTarget !== null}
@@ -792,14 +760,34 @@ export function StoryDiscussionPanelInner({
           ]}
         />
       </Modal>
-    </RootOuter>
+    </>
   );
+
+  if (onClose && !dismissDragHandlers) {
+    return (
+      <RootOuter style={[styles.flex, androidRootLiftStyle]}>
+        <Animated.View style={[styles.flex, dismissDragStyle]}>{panelBody}</Animated.View>
+      </RootOuter>
+    );
+  }
+
+  return <RootOuter style={[styles.flex, androidRootLiftStyle]}>{panelBody}</RootOuter>;
 }
 
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
     minHeight: 0,
+  },
+  sheetGrabber: {
+    alignItems: "center",
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  dragHandle: {
+    width: 42,
+    height: 4,
+    borderRadius: 2,
   },
   panelHeader: {
     flexDirection: "row",

@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
-  InteractionManager,
   Keyboard,
+  Modal,
   Platform,
   Pressable,
   Text,
@@ -24,7 +24,6 @@ import Animated, {
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import { useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -42,9 +41,9 @@ import {
   useSendMessage,
   useThreadMessages,
 } from "@/entities/messages";
-import { prefetchThreadMessages } from "@/entities/messages/lib/prefetchThreadMessages";
 import { useIsUserOnline } from "@/entities/user-presence";
 import { navigateFeedPlaceDetail } from "@/app/navigation/appNavigation";
+import { navigateToFeedStoryViewer } from "@/app/navigation/navigateToStoryViewer";
 import type { CartStackParamList } from "@/app/navigation/types";
 import Toast from "react-native-toast-message";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
@@ -72,6 +71,8 @@ import {
   detectAttachmentKind,
   type MessageAttachmentDraft,
 } from "@/features/message-attachments";
+import { AppPopupModal } from "@/shared/ui/app-popup";
+import type { AppPopupButton } from "@/shared/ui/app-popup/types";
 
 type MessageThreadRoute = RouteProp<CartStackParamList, "MessageThread">;
 type MessageThreadNav = NativeStackNavigationProp<CartStackParamList, "MessageThread">;
@@ -82,7 +83,6 @@ const LOAD_OLDER_SCROLL_THRESHOLD_PX = 120;
 
 export default function MessageThreadPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const navigation = useNavigation<MessageThreadNav>();
   const { params } = useRoute<MessageThreadRoute>();
   const isSupport = params.isSupport === true;
@@ -107,6 +107,9 @@ export default function MessageThreadPage() {
   const [footerHeight, setFooterHeight] = useState(COMPOSER_HEIGHT + FOOTER_VERTICAL_PADDING * 2 + 1);
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; originalContent: string } | null>(null);
+  const [openingStoryId, setOpeningStoryId] = useState<string | null>(null);
+  const [deleteMessageTargetId, setDeleteMessageTargetId] = useState<string | null>(null);
+  const openingStoryInFlightRef = useRef<string | null>(null);
   const { user } = useAuth();
   const { threadId, isResolvingThread, resolveError } = useResolvedMessageThreadId({
     threadId: params.threadId,
@@ -178,10 +181,26 @@ export default function MessageThreadPage() {
     [navigation],
   );
   const openSharedStory = useCallback(
-    (storyId: string) => {
-      navigation.navigate("FeedStoryViewer", { storyId });
+    async (storyId: string) => {
+      if (openingStoryInFlightRef.current) return;
+      openingStoryInFlightRef.current = storyId;
+      setOpeningStoryId(storyId);
+      try {
+        const opened = await navigateToFeedStoryViewer(navigation, storyId, user?.id ?? null);
+        if (!opened) {
+          Toast.show({
+            type: "error",
+            text1: t("messages.thread.storyUnavailable"),
+          });
+        }
+      } finally {
+        if (openingStoryInFlightRef.current === storyId) {
+          openingStoryInFlightRef.current = null;
+        }
+        setOpeningStoryId((current) => (current === storyId ? null : current));
+      }
     },
-    [navigation],
+    [navigation, t, user?.id],
   );
 
   const peerPresence = useMemo(
@@ -209,17 +228,8 @@ export default function MessageThreadPage() {
 
   useEffect(() => {
     if (!messages.length) return;
-    const task = InteractionManager.runAfterInteractions(() => scheduleMarkReadRef.current());
-    return () => task.cancel();
+    scheduleMarkReadRef.current();
   }, [messages.length]);
-
-  useEffect(() => {
-    if (!threadId || !user?.id) return;
-    const task = InteractionManager.runAfterInteractions(() => {
-      void prefetchThreadMessages(queryClient, threadId, user.id, isSupport);
-    });
-    return () => task.cancel();
-  }, [isSupport, queryClient, threadId, user?.id]);
 
   const peerName = isSupport
     ? (params.threadTitle ?? t("messages.support"))
@@ -291,8 +301,7 @@ export default function MessageThreadPage() {
       pendingOpenScrollRef.current = false;
       return;
     }
-    const task = InteractionManager.runAfterInteractions(() => flushScrollToBottomOnOpen());
-    return () => task.cancel();
+    flushScrollToBottomOnOpen();
   }, [isLoading, rows.length, threadId, flushScrollToBottomOnOpen]);
 
   useEffect(() => {
@@ -308,50 +317,53 @@ export default function MessageThreadPage() {
     flushScrollAfterSend();
   }, [flushScrollAfterSend, flushScrollToBottomOnOpen]);
 
-  const openDeleteOptions = useCallback(
-    (messageId: string, isMine: boolean) => {
-      if (!isMine) return;
-      Alert.alert("Delete message", "Choose delete mode", [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete for me",
-          onPress: () => {
-            void deleteMessage
-              .mutateAsync({ threadId, messageId, mode: "me" })
-              .then(() => {
-                Toast.show({ type: "success", text1: "Deleted for you" });
-              })
-              .catch((error) => {
-                Toast.show({
-                  type: "error",
-                  text1: "Delete failed",
-                  text2: error instanceof Error ? error.message : "Please try again.",
-                });
-              });
-          },
-        },
-        {
-          text: "Delete for everyone",
-          style: "destructive",
-          onPress: () => {
-            void deleteMessage
-              .mutateAsync({ threadId, messageId, mode: "everyone" })
-              .then(() => {
-                Toast.show({ type: "success", text1: "Deleted for everyone" });
-              })
-              .catch((error) => {
-                Toast.show({
-                  type: "error",
-                  text1: "Delete failed",
-                  text2: error instanceof Error ? error.message : "Please try again.",
-                });
-              });
-          },
-        },
-      ]);
+  const dismissDeleteMessagePopup = useCallback(() => {
+    setDeleteMessageTargetId(null);
+  }, []);
+
+  const runDeleteMessage = useCallback(
+    (messageId: string, mode: "me" | "everyone") => {
+      if (!threadId) return;
+      void deleteMessage
+        .mutateAsync({ threadId, messageId, mode })
+        .then(() => {
+          Toast.show({
+            type: "success",
+            text1: mode === "me" ? "Deleted for you" : "Deleted for everyone",
+          });
+        })
+        .catch((error) => {
+          Toast.show({
+            type: "error",
+            text1: "Delete failed",
+            text2: error instanceof Error ? error.message : "Please try again.",
+          });
+        });
     },
     [deleteMessage, threadId],
   );
+
+  const deleteMessagePopupButtons = useMemo((): AppPopupButton[] => {
+    const messageId = deleteMessageTargetId;
+    if (!messageId) return [];
+    return [
+      {
+        text: "Delete for me",
+        onPress: () => runDeleteMessage(messageId, "me"),
+      },
+      {
+        text: "Delete for everyone",
+        style: "destructive",
+        onPress: () => runDeleteMessage(messageId, "everyone"),
+      },
+      { text: "Cancel", style: "cancel" },
+    ];
+  }, [deleteMessageTargetId, runDeleteMessage]);
+
+  const openDeleteOptions = useCallback((messageId: string, isMine: boolean) => {
+    if (!isMine) return;
+    setDeleteMessageTargetId(messageId);
+  }, []);
 
   const styles = useMessageThreadStyles(insets.top, stableBottomInset);
   const tabBarHeight = useBottomTabBarHeight();
@@ -360,11 +372,11 @@ export default function MessageThreadPage() {
   const keyboardInsetOptions = useMemo(
     () => ({
       gap: MESSAGE_THREAD_KEYBOARD_GAP,
-      tabBarHeight: Platform.OS === "ios" ? tabBarHeight : 0,
-      bottomInset: 0,
+      tabBarHeight: Platform.OS === "android" ? 0 : tabBarHeight,
+      bottomInset: stableBottomInset,
       ignoreWindowResize: Platform.OS === "android",
     }),
-    [tabBarHeight],
+    [stableBottomInset, tabBarHeight],
   );
   const keyboardInset = useKeyboardInset(keyboardInsetOptions);
 
@@ -424,24 +436,22 @@ export default function MessageThreadPage() {
     setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
   }, []);
 
-  const listKeyboardSpacerStyle = useAnimatedStyle(() => ({
-    height:
-      Platform.OS === "android"
-        ? Math.max(0, keyboardInset.value - androidKeyboardTrim)
-        : 0,
-  }));
+  const listKeyboardSpacerStyle = useAnimatedStyle(
+    () => ({
+      height:
+        Platform.OS === "android"
+          ? Math.max(0, keyboardInset.value - androidKeyboardTrim)
+          : keyboardInset.value,
+    }),
+    [androidKeyboardTrim, keyboardInset],
+  );
 
-  const footerHeightShared = useSharedValue(footerHeight);
-  useEffect(() => {
-    footerHeightShared.value = footerHeight;
-  }, [footerHeight, footerHeightShared]);
-
-  const scrollFabPositionStyle = useAnimatedStyle(() => ({
-    bottom:
-      12 +
-      footerHeightShared.value +
-      (Platform.OS === "android" ? keyboardInset.value : 0),
-  }));
+  const scrollFabPositionStyle = useAnimatedStyle(
+    () => ({
+      bottom: 12 + footerHeight + keyboardInset.value,
+    }),
+    [footerHeight, keyboardInset],
+  );
 
   const mergeDrafts = useCallback((prev: MessageAttachmentDraft[], next: MessageAttachmentDraft[]) => {
     const seen = new Set(prev.map((p) => p.uri));
@@ -580,6 +590,7 @@ export default function MessageThreadPage() {
         onCloseReactionPicker={onCloseReactionPicker}
         onOpenSharedPlace={openSharedPlace}
         onOpenSharedStory={openSharedStory}
+        openingStoryId={openingStoryId}
         onOpenAttachment={(uri) => openAttachmentViewer(uri, null)}
       />
     ),
@@ -594,6 +605,7 @@ export default function MessageThreadPage() {
       openDeleteOptions,
       openSharedPlace,
       openSharedStory,
+      openingStoryId,
       peerLastReadAt,
       reactionPickerMessageId,
       startEditingMessage,
@@ -672,7 +684,7 @@ export default function MessageThreadPage() {
         )}
       </View>
 
-      <KeyboardStickyView {...keyboardInsetOptions} inset={keyboardInset} insetTrim={androidKeyboardTrim}>
+      <KeyboardStickyView {...keyboardInsetOptions} insetTrim={androidKeyboardTrim}>
         <View onLayout={handleFooterLayout}>
           <View style={styles.footer}>
             {peerIsTyping ? (
@@ -839,6 +851,22 @@ export default function MessageThreadPage() {
         colors={colors}
         onClose={() => setAttachmentViewer(null)}
       />
+
+      <Modal
+        visible={deleteMessageTargetId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissDeleteMessagePopup}
+      >
+        <AppPopupModal
+          embedded
+          visible={deleteMessageTargetId !== null}
+          title="Delete message"
+          message="Choose delete mode"
+          onClose={dismissDeleteMessagePopup}
+          buttons={deleteMessagePopupButtons}
+        />
+      </Modal>
     </View>
   );
 }

@@ -39,6 +39,7 @@ import { useBookingCredits } from "@/entities/booking-credits";
 import { usePreferenceOnboardingGate } from "@/features/preference-onboarding";
 import { ProfileBookingCreditsBadge } from "./ProfileBookingCreditsBadge";
 import { ProfileOnboardingActions } from "./ProfileOnboardingActions";
+import { ProfilePageSkeleton } from "./ProfilePageSkeleton";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
@@ -80,7 +81,7 @@ function ProfileScreenContent() {
   const { user, loading, signOut } = useAuth();
   const isScreenFocused = useIsFocused();
   const profileQueriesEnabled = !!user && isScreenFocused;
-  const { data: profile } = useProfile({ enabled: profileQueriesEnabled });
+  const { data: profile, isPending: profilePending } = useProfile({ enabled: profileQueriesEnabled });
   const unreadNotifications = useUnreadCount({ enabled: profileQueriesEnabled });
   const { data: favorites = [] } = useFavorites({ enabled: profileQueriesEnabled });
   const { data: bookings = [] } = useBookings({ enabled: profileQueriesEnabled });
@@ -374,6 +375,7 @@ function ProfileScreenContent() {
 
   const showAdminDashboard = isProfileAdmin(profile?.account_role);
   const trailingActions = actions.slice(1);
+  const showProfileSkeleton = Boolean(user) && (loading || (profileQueriesEnabled && profilePending && !profile));
 
   if (!loading && !user) {
     return null;
@@ -401,6 +403,10 @@ function ProfileScreenContent() {
         }}
         keyboardShouldPersistTaps="handled"
       >
+      {showProfileSkeleton ? (
+        <ProfilePageSkeleton isCompact={isCompact} />
+      ) : (
+        <>
       <View style={styles.card}>
         <View style={styles.profileRow}>
           <View style={styles.avatarWrap}>
@@ -635,6 +641,8 @@ function ProfileScreenContent() {
           <Text style={styles.signOutText}>{t("profile.logOut")}</Text>
         )}
       </Pressable>
+        </>
+      )}
     </ScrollView>
 
       <BottomSheetPickerModal

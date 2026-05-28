@@ -50,19 +50,24 @@ const ENTRY_BADGE = {
   paid: { bg: "#FFEDD5", fg: "#C2410C" },
 } as const;
 
+const STATUS_BADGE = {
+  success: { bg: "#DCFCE7", fg: "#166534" },
+  danger: { bg: "#FEE2E2", fg: "#991B1B" },
+  warning: { bg: "#FEF3C7", fg: "#92400E" },
+} as const;
+
 function statusPalette(status: BookingDisplayStatus) {
   switch (status) {
-    case "draft":
-      return { bg: "#F3F4F6", fg: "#374151" };
     case "confirmed":
-      return { bg: "#DCFCE7", fg: "#166534" };
-    case "cancelled":
-      return { bg: "#FEE2E2", fg: "#991B1B" };
     case "completed":
-      return { bg: "#DBEAFE", fg: "#1E3A8A" };
+      return STATUS_BADGE.success;
+    case "cancelled":
+      return STATUS_BADGE.danger;
+    case "draft":
+      return STATUS_BADGE.warning;
     case "payment awaiting":
     default:
-      return { bg: "#FEF3C7", fg: "#92400E" };
+      return STATUS_BADGE.warning;
   }
 }
 

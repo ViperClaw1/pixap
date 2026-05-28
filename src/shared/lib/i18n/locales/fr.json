@@ -265,7 +265,8 @@
     "followed": "Suivi",
     "thread": {
       "peerTyping": "écrit...",
-      "peerOnline": "en ligne"
+      "peerOnline": "en ligne",
+      "storyUnavailable": "La story n'est pas disponible ou a expiré"
     }
   },
   "bookings": {

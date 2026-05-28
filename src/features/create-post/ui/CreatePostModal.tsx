@@ -1,5 +1,4 @@
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Animated from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,24 +12,6 @@ import { createPostStyles as s } from "./createPostStyles";
 import { MAX_POST_PHOTOS } from "../model/constants";
 
 type ComposerState = ReturnType<typeof useCreatePostComposer>;
-
-const PostPlaceCardImage = memo(function PostPlaceCardImage({
-  imageUrl,
-  decodeWidth,
-  decodeHeight,
-  style,
-}: {
-  imageUrl: string;
-  decodeWidth: number;
-  decodeHeight: number;
-  style: object;
-}) {
-  const uri = useMemo(
-    () => getOptimizedImageUrl(imageUrl, decodeWidth, decodeHeight, 72) || imageUrl,
-    [decodeHeight, decodeWidth, imageUrl],
-  );
-  return <SmartImage uri={uri} fallbackUri={imageUrl} style={style} contentFit="cover" />;
-});
 
 interface CreatePostModalProps {
   composer: ComposerState;
@@ -160,11 +141,10 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                   </View>
 
                   {!c.selectedGeocode && c.postAddressDraft.trim().length >= 2 && c.mapsApiKey ? (
-                    <Animated.View
+                    <View
                       style={[
                         s.postAddressSuggestionsBox,
-                        { borderColor: colors.border, backgroundColor: colors.card },
-                        c.postAddressSuggestionsBoxStyle,
+                        { borderColor: colors.border, backgroundColor: colors.card, maxHeight: c.postAddressSuggestionsMaxHeight },
                       ]}
                     >
                       {c.addressGeocodeLoading && c.geocodeSuggestions.length === 0 ? (
@@ -175,7 +155,7 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                         <Text style={[s.postAddressSuggestionsEmpty, { color: colors.textMuted }]}>No matching addresses</Text>
                       ) : (
                         <ScrollView
-                          style={s.postAddressSuggestionsScroll}
+                          style={[s.postAddressSuggestionsScroll, { maxHeight: c.postAddressSuggestionsMaxHeight }]}
                           keyboardShouldPersistTaps="handled"
                           nestedScrollEnabled
                           showsVerticalScrollIndicator
@@ -196,7 +176,7 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                           ))}
                         </ScrollView>
                       )}
-                    </Animated.View>
+                    </View>
                   ) : null}
                 </View>
 
@@ -248,11 +228,11 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
                               </Pressable>
                               <View style={s.postPlaceImageWrap}>
                                 {place.imageUrl ? (
-                                  <PostPlaceCardImage
-                                    imageUrl={place.imageUrl}
-                                    decodeWidth={placeImageDecodeSize.w}
-                                    decodeHeight={placeImageDecodeSize.h}
+                                  <SmartImage
+                                    uri={getOptimizedImageUrl(place.imageUrl, placeImageDecodeSize.w, placeImageDecodeSize.h, 72) || place.imageUrl}
+                                    fallbackUri={place.imageUrl}
                                     style={s.postPlaceImage}
+                                    contentFit="cover"
                                   />
                                 ) : (
                                   <View style={[s.postPlaceImage, s.postPlaceImageFallback, { backgroundColor: colors.background }]}>

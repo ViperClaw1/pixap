@@ -22,6 +22,9 @@ export function StoryDiscussionGlassSheet({ visible, storyId, navigation, onDism
           isActive={visible}
           onRequireAuth={panelProps.onRequireAuth}
           onClose={panelProps.onClose}
+          onDismissDragStart={panelProps.onDismissDragStart}
+          onDismissDragUpdate={panelProps.onDismissDragUpdate}
+          onDismissDragEnd={panelProps.onDismissDragEnd}
           discussionPalette={discussionPaletteDark}
           footerBackgroundColor={glassFooterBg}
           footerBorderColor="rgba(255,255,255,0.12)"

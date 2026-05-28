@@ -1,144 +1,29 @@
-import { useEffect, useMemo, useRef } from "react";
-import { Dimensions, Keyboard, Platform } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, {
-  useAnimatedStyle,
-  useDerivedValue,
-  useSharedValue,
-  type SharedValue,
-} from "react-native-reanimated";
+import { Platform, View } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "./useKeyboardInset";
 
-/** Matches `styles.footer.paddingTop` in discussion panels — keep in sync. */
-export const DISCUSSION_FOOTER_VERTICAL_PADDING = 8;
+export const DISCUSSION_ANDROID_FOOTER_PADDING = 8;
+const ANDROID_KEYBOARD_GAP = 8;
 
-/** Extra bottom padding on iOS (bottom = top + this). */
-export const DISCUSSION_FOOTER_IOS_EXTRA_BOTTOM_PADDING = 5;
+/** Android: lift list + footer above keyboard (navigation modal + RN Modal). iOS: no-op. */
+export function useDiscussionPanelFooterKeyboard(isActive = true) {
+  const useAndroidLift = Platform.OS === "android";
 
-/** @deprecated Use DISCUSSION_FOOTER_VERTICAL_PADDING */
-export const DISCUSSION_ANDROID_FOOTER_PADDING = DISCUSSION_FOOTER_VERTICAL_PADDING;
-
-/** Extra scroll clearance above sticky footer on iOS (px). */
-export const DISCUSSION_IOS_LIST_FOOTER_CLEARANCE = 8;
-
-/** Window height drop from adjustResize — above this, skip manual lift on Android. */
-const ANDROID_RESIZE_HANDLED_THRESHOLD_PX = 48;
-
-export type DiscussionKeyboardHost = "navigation-modal" | "glass-overlay";
-
-export type DiscussionPanelFooterKeyboardOptions = {
-  host?: DiscussionKeyboardHost;
-};
-
-/**
- * Discussion composer keyboard handling.
- * - iOS navigation modal: sticky footer + window keyboard inset.
- * - Android navigation modal: flex footer; root padding only when window does not resize.
- * - Glass overlay: iOS sticky; Android root padding.
- */
-export function useDiscussionPanelFooterKeyboard(
-  isActive = true,
-  options: DiscussionPanelFooterKeyboardOptions = {},
-) {
-  const { host = "navigation-modal" } = options;
-  const insets = useSafeAreaInsets();
-
-  const footerPaddingBottom = useMemo(
-    () =>
-      Platform.OS === "ios"
-        ? DISCUSSION_FOOTER_VERTICAL_PADDING + DISCUSSION_FOOTER_IOS_EXTRA_BOTTOM_PADDING
-        : DISCUSSION_FOOTER_VERTICAL_PADDING,
-    [],
-  );
-
-  const useNavigationModalLift = isActive && host === "navigation-modal";
-  const useAndroidGlassLift = isActive && Platform.OS === "android" && host === "glass-overlay";
-  const useIosGlassSticky = isActive && Platform.OS === "ios" && host === "glass-overlay";
-  const useIosNavigationSticky = useNavigationModalLift && Platform.OS === "ios";
-  const useStickyFooter = useIosNavigationSticky || useIosGlassSticky;
-
-  const navigationModalInset = useKeyboardInset({
-    enabled: useNavigationModalLift,
-    gap: 0,
-    ignoreWindowResize: false,
-  });
-
-  const iosGlassInset = useKeyboardInset({
-    enabled: useIosGlassSticky,
-    gap: 0,
-    ignoreWindowResize: false,
-  });
-
-  const androidShrinkTrim = useSharedValue(0);
-  const baselineWindowHeightRef = useRef(Dimensions.get("window").height);
-
-  useEffect(() => {
-    if (!useNavigationModalLift || Platform.OS !== "android") {
-      return undefined;
-    }
-
-    const syncBaseline = () => {
-      baselineWindowHeightRef.current = Dimensions.get("window").height;
-    };
-
-    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
-      syncBaseline();
-      androidShrinkTrim.value = 0;
-    });
-
-    const dimSub = Dimensions.addEventListener("change", ({ window }) => {
-      const shrunkBy = Math.max(0, baselineWindowHeightRef.current - window.height);
-      androidShrinkTrim.value = shrunkBy;
-    });
-
-    return () => {
-      hideSub.remove();
-      dimSub.remove();
-    };
-  }, [androidShrinkTrim, useNavigationModalLift]);
-
-  const androidNavigationPadding = useDerivedValue(() => {
-    if (!useNavigationModalLift || Platform.OS !== "android") {
-      return 0;
-    }
-    if (androidShrinkTrim.value >= ANDROID_RESIZE_HANDLED_THRESHOLD_PX) {
-      return 0;
-    }
-    return navigationModalInset.value;
-  });
-
-  const composerStickyInset: SharedValue<number> | undefined = useIosNavigationSticky
-    ? navigationModalInset
-    : useIosGlassSticky
-      ? iosGlassInset
-      : undefined;
-
-  const androidGlassInset = useKeyboardInset({
-    enabled: useAndroidGlassLift,
-    gap: 0,
+  const keyboardInset = useKeyboardInset({
+    enabled: useAndroidLift && isActive,
+    gap: ANDROID_KEYBOARD_GAP,
     ignoreWindowResize: true,
   });
 
-  const rootLiftStyle = useAnimatedStyle(() => {
-    if (Platform.OS === "android") {
-      if (useAndroidGlassLift) {
-        return { paddingBottom: androidGlassInset.value };
-      }
-      if (useNavigationModalLift) {
-        return { paddingBottom: androidNavigationPadding.value };
-      }
-    }
-    return { paddingBottom: 0 };
-  });
+  const androidRootLiftStyle = useAnimatedStyle(
+    () => ({
+      paddingBottom: keyboardInset.value,
+    }),
+    [keyboardInset],
+  );
 
   return {
-    RootOuter: Animated.View,
-    rootLiftStyle,
-    footerPaddingBottom,
-    useStickyFooter,
-    composerStickyInset,
-    stickySafeAreaBottom: useStickyFooter ? insets.bottom : 0,
-    iosComposerInset: composerStickyInset,
-    iosStickyUsesWindowInset: useIosGlassSticky,
+    RootOuter: useAndroidLift ? Animated.View : View,
+    androidRootLiftStyle: useAndroidLift ? androidRootLiftStyle : undefined,
   };
 }

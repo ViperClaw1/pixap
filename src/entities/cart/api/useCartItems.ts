@@ -5,6 +5,7 @@ import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { CART_ITEMS_SELECT, localizeBusinessCard } from "@/entities/business-card";
+import { suppressBookingStatusNotificationForCartItem } from "@/entities/booking/lib/bookingDisplayStatusTracker";
 
 export interface CartItem {
   id: string;
@@ -117,7 +118,10 @@ export const useConfirmServiceCartBooking = () => {
       }
       return payload;
     },
-    onSuccess: () => {
+    onSuccess: (_data, { cartItemId }) => {
+      if (user?.id) {
+        suppressBookingStatusNotificationForCartItem(user.id, cartItemId);
+      }
       void queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
     },

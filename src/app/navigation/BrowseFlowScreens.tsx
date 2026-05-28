@@ -1,9 +1,5 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { HomeStackParamList } from "./types";
-import {
-  nativeStackModalFromBottomScreenOptions,
-  nativeStackStoryOverlayModalOptions,
-} from "./stackTransitionOptions";
 
 const fullWidthSwipeBackOptions = {
   gestureEnabled: true,
@@ -15,6 +11,20 @@ const galleryModalOptions = {
   presentation: "fullScreenModal" as const,
   freezeOnBlur: false as const,
 };
+/**
+ * Сторис/композер: `transparentModal` оставляет предыдущий экран в дереве (`display: flex` в NativeStackView),
+ * иначе под `fullScreenModal` подложка получает `display: none` и при закрытии модалки вся сетка размонтируется.
+ * `freezeOnBlur: false` — не замирают таймеры/прогресс под модалкой.
+ */
+const storyOverlayModalOptions = {
+  presentation: "transparentModal" as const,
+  freezeOnBlur: false as const,
+  /** Custom pan dismiss in StoryViewer / FeedStoryViewer — native swipe conflicts with JS translateY. */
+  gestureEnabled: false,
+  animation: "fade" as const,
+  contentStyle: { backgroundColor: "transparent" },
+};
+
 /**
  * `Screen` prop type for stacks that include browse routes.
  * Uses `HomeStackParamList` as a wide-enough superset for JSX `name`/`component` props.
@@ -47,32 +57,42 @@ export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
       <Screen
         name="StoryViewer"
         getComponent={() => require("@/pages/story-viewer").default}
-        options={nativeStackStoryOverlayModalOptions}
+        options={storyOverlayModalOptions}
       />
       <Screen
         name="FeedStoryViewer"
         getComponent={() => require("@/pages/feed-story-viewer").default}
-        options={nativeStackStoryOverlayModalOptions}
+        options={storyOverlayModalOptions}
       />
       <Screen
         name="StoryComposer"
         getComponent={() => require("@/pages/story-composer").default}
-        options={nativeStackStoryOverlayModalOptions}
+        options={storyOverlayModalOptions}
       />
       <Screen
         name="AddStoryFromPost"
         getComponent={() => require("@/pages/add-story-from-post").default}
-        options={nativeStackStoryOverlayModalOptions}
+        options={storyOverlayModalOptions}
       />
       <Screen
         name="StoryDiscussion"
         getComponent={() => require("@/pages/story-discussion").default}
-        options={nativeStackModalFromBottomScreenOptions}
+        options={{
+          presentation: "modal",
+          animation: "slide_from_bottom",
+          headerShown: false,
+          freezeOnBlur: false,
+        }}
       />
       <Screen
         name="PostDiscussion"
         getComponent={() => require("@/pages/post-discussion").default}
-        options={nativeStackModalFromBottomScreenOptions}
+        options={{
+          presentation: "modal",
+          animation: "slide_from_bottom",
+          headerShown: false,
+          freezeOnBlur: false,
+        }}
       />
       <Screen
         name="Category"

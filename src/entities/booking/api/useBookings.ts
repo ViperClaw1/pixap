@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import type { CartItem } from "@/entities/cart";
 import { BOOKINGS_SELECT, localizeBusinessCard } from "@/entities/business-card";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
+import { suppressBookingStatusNotification } from "../lib/bookingDisplayStatusTracker";
 
 export interface Booking {
   id: string;
@@ -66,21 +67,35 @@ function deriveWaLinkedDisplayStatus(linkedCartItem: CartItem): BookingDisplaySt
   return "draft";
 }
 
+/** Past slot: show under Completed, not Confirmed. */
+function applyPastConfirmedAsCompleted(
+  status: BookingDisplayStatus,
+  dateTimeIso: string,
+): BookingDisplayStatus {
+  if (status === "confirmed" && new Date(dateTimeIso).getTime() < Date.now()) {
+    return "completed";
+  }
+  return status;
+}
+
 export function deriveBookingDisplayStatus(booking: Booking, linkedCartItem?: CartItem | null): BookingDisplayStatus {
-  if (booking.status === "expired") return "cancelled";
-  if (isWaVenueUnavailable(linkedCartItem)) return "cancelled";
+  let status: BookingDisplayStatus;
 
-  if (linkedCartItem?.status === "created") {
-    return deriveWaLinkedDisplayStatus(linkedCartItem);
+  if (booking.status === "expired") {
+    status = "cancelled";
+  } else if (isWaVenueUnavailable(linkedCartItem)) {
+    status = "cancelled";
+  } else if (linkedCartItem?.status === "created") {
+    status = deriveWaLinkedDisplayStatus(linkedCartItem);
+  } else if (booking.payment_status === "pending") {
+    status = linkedCartItem ? deriveWaLinkedDisplayStatus(linkedCartItem) : "draft";
+  } else if (new Date(booking.date_time).getTime() < Date.now()) {
+    status = "completed";
+  } else {
+    status = "confirmed";
   }
 
-  if (booking.payment_status === "pending") {
-    if (linkedCartItem) return deriveWaLinkedDisplayStatus(linkedCartItem);
-    return "draft";
-  }
-
-  if (new Date(booking.date_time).getTime() < Date.now()) return "completed";
-  return "confirmed";
+  return applyPastConfirmedAsCompleted(status, booking.date_time);
 }
 
 export const useBookings = (options?: { enabled?: boolean }) => {
@@ -144,9 +159,12 @@ export const useCreateBooking = () => {
         .select()
         .single();
       if (error) throw error;
-      return data;
+      return data as { id: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (user?.id && data?.id) {
+        suppressBookingStatusNotification(user.id, data.id);
+      }
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookingCredits.prefix });
     },
@@ -165,6 +183,11 @@ export const useCancelBooking = () => {
         .eq("user_id", user!.id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix }),
+    onSuccess: (_data, bookingId) => {
+      if (user?.id) {
+        suppressBookingStatusNotification(user.id, bookingId);
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
+    },
   });
 };

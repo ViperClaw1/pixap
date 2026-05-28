@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
@@ -19,7 +19,12 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import {
   useBookings,
   deriveBookingDisplayStatus,
+  getBookingStatusSnapshot,
+  hasHydratedBookingStatuses,
+  isBookingStatusNotificationSuppressed,
   linkCartItemForBooking,
+  markBookingStatusesHydrated,
+  setBookingStatusSnapshot,
   venueConfirmedPriceLabel,
   type BookingDisplayStatus,
 } from "@/entities/booking";
@@ -68,7 +73,7 @@ export default function BookingsScreen() {
   const showSkeleton = loading || isListLoading;
   const createNotification = useCreateNotification();
   const isCompact = windowWidth < 400;
-  const prevStatusesRef = useRef<Map<string, BookingDisplayStatus>>(new Map());
+  const isBookingDataReady = Boolean(user) && !bookingsPending && !cartPending;
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
   };
@@ -93,6 +98,7 @@ export default function BookingsScreen() {
       const linkedCartItem = linkCartItemForBooking(booking, cartItems);
       return {
         id: booking.id,
+        linkedCartItemId: linkedCartItem?.id ?? null,
         venueName: booking.business_card?.name ?? t("bookings.defaultVenueName"),
         businessCardId: booking.business_card_id,
         status: deriveBookingDisplayStatus(booking, linkedCartItem),
@@ -107,25 +113,37 @@ export default function BookingsScreen() {
   );
 
   useEffect(() => {
-    const prev = prevStatusesRef.current;
+    if (!user?.id || !isBookingDataReady) return;
+
+    const snapshot = getBookingStatusSnapshot(user.id);
+    const isHydrated = hasHydratedBookingStatuses(user.id);
+
     for (const current of bookingStatuses) {
-      const previousStatus = prev.get(current.id);
-      if (!previousStatus) continue;
-      if (previousStatus !== current.status) {
-        const text = bookingStatusNotificationText(current.venueName, current.status);
-        Toast.show({
-          type: "success",
-          text1: t("bookings.toastStatusUpdated"),
-          text2: text,
-        });
-        createNotification.mutate({
-          text,
-          businessCardId: current.businessCardId,
-        });
+      const previousStatus = snapshot.get(current.id);
+      if (!isHydrated || previousStatus === undefined) continue;
+      if (previousStatus === current.status) continue;
+      if (isBookingStatusNotificationSuppressed(user.id, current.id, current.linkedCartItemId)) {
+        continue;
       }
+
+      const text = bookingStatusNotificationText(current.venueName, current.status);
+      Toast.show({
+        type: "success",
+        text1: t("bookings.toastStatusUpdated"),
+        text2: text,
+      });
+      createNotification.mutate({
+        text,
+        businessCardId: current.businessCardId,
+      });
     }
-    prevStatusesRef.current = new Map(bookingStatuses.map((x) => [x.id, x.status]));
-  }, [bookingStatuses, createNotification, t]);
+
+    setBookingStatusSnapshot(
+      user.id,
+      new Map(bookingStatuses.map((entry) => [entry.id, entry.status])),
+    );
+    markBookingStatusesHydrated(user.id);
+  }, [bookingStatuses, createNotification, isBookingDataReady, t, user?.id]);
 
   const listContentPaddingBottom = 100 + insets.bottom;
   const showEmptyList = !showSkeleton && items.length === 0;
