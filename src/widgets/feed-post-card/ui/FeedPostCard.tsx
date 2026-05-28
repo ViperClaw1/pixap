@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type TextLayoutEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
@@ -13,21 +13,18 @@ import { PostMediaCarousel } from "@/widgets/feed-post-carousel";
 import { CommentPreview } from "@/widgets/feed-list";
 import { PostBoostCrownBadge, PostBoostStarButton } from "@/features/post-boost";
 import type { FeedPostVm } from "@/pages/stories-feed/lib/feedPostHelpers";
-
-const FEED_MEDIA_DOUBLE_TAP_MAX_MS = 280;
+import { DOUBLE_TAP_DELAY_MS } from "@/pages/stories-feed/model/constants";
+import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 
 interface FeedPostCardProps {
   vm: FeedPostVm;
   width: number;
   sliderHeight: number;
   isContentExpanded: boolean;
-  isLiked: boolean;
-  likeCount: number;
   currentUserId: string | null | undefined;
   isFollowing: boolean;
   followPending: boolean;
-  onPress: () => void;
-  onLike: () => void;
+  onToggleLike: () => void | Promise<void>;
   onOpenComments: () => void;
   onBookNow: () => void;
   onShare: () => void;
@@ -45,13 +42,10 @@ export const FeedPostCard = memo(function FeedPostCard({
   width,
   sliderHeight,
   isContentExpanded,
-  isLiked,
-  likeCount,
   currentUserId,
   isFollowing,
   followPending,
-  onPress,
-  onLike,
+  onToggleLike,
   onOpenComments,
   onBookNow,
   onShare,
@@ -65,7 +59,15 @@ export const FeedPostCard = memo(function FeedPostCard({
 }: FeedPostCardProps) {
   const { colors } = useAppTheme();
   const item = vm.post;
+  const [localLiked, setLocalLiked] = useState(item.my_reaction === "like");
+  const [localLikeCount, setLocalLikeCount] = useState(item.reaction_count);
+  const lastTapAtRef = useRef(0);
   const [showMoreLink, setShowMoreLink] = useState(false);
+
+  useEffect(() => {
+    setLocalLiked(item.my_reaction === "like");
+    setLocalLikeCount(item.reaction_count);
+  }, [item.id, item.my_reaction, item.reaction_count]);
   const postContent = item.content?.trim() ?? "";
   const geoFormattedAddress = item.geo_formatted_address?.trim() ?? "";
 
@@ -82,15 +84,41 @@ export const FeedPostCard = memo(function FeedPostCard({
     [isContentExpanded],
   );
 
+  const runToggleLike = useCallback(async () => {
+    const wasLiked = localLiked;
+    setLocalLiked(!wasLiked);
+    setLocalLikeCount((prev) => (wasLiked ? Math.max(0, prev - 1) : prev + 1));
+    try {
+      await onToggleLike();
+    } catch (error) {
+      setLocalLiked(wasLiked);
+      setLocalLikeCount(item.reaction_count);
+      if (!isAuthRequiredError(error)) {
+        throw error;
+      }
+    }
+  }, [item.reaction_count, localLiked, onToggleLike]);
+
+  const onMediaPress = useCallback(() => {
+    const now = Date.now();
+    const lastTapAt = lastTapAtRef.current;
+    if (now - lastTapAt <= DOUBLE_TAP_DELAY_MS) {
+      lastTapAtRef.current = 0;
+      void runToggleLike();
+      return;
+    }
+    lastTapAtRef.current = now;
+  }, [runToggleLike]);
+
   const carouselDoubleTapGesture = useMemo(
     () =>
       Gesture.Tap()
         .numberOfTaps(2)
-        .maxDuration(FEED_MEDIA_DOUBLE_TAP_MAX_MS)
+        .maxDuration(DOUBLE_TAP_DELAY_MS)
         .onEnd(() => {
-          runOnJS(onPress)();
+          runOnJS(runToggleLike)();
         }),
-    [onPress],
+    [runToggleLike],
   );
 
   const hasCarousel = vm.postImages.length > 1;
@@ -188,7 +216,7 @@ export const FeedPostCard = memo(function FeedPostCard({
             </View>
           </GestureDetector>
         ) : (
-          <Pressable style={styles.mediaPressable} onPress={onPress}>
+          <Pressable style={styles.mediaPressable} onPress={onMediaPress}>
             <StoryMediaSlide
               optimizedUri={vm.postImages[0] ?? null}
               fallbackUri={vm.postImagesRaw[0] ?? null}
@@ -204,9 +232,9 @@ export const FeedPostCard = memo(function FeedPostCard({
       <View style={styles.actionsSection}>
         <View style={styles.actionsRow}>
           <View style={styles.leftActions}>
-            <Pressable style={styles.actionBtn} onPress={onLike}>
-              <AnimatedLikeHeart liked={isLiked} size={24} color={colors.text} likedColor={colors.text} />
-              <Text style={[styles.actionCount, { color: colors.text }]}>{likeCount}</Text>
+            <Pressable style={styles.actionBtn} onPress={() => void runToggleLike()}>
+              <AnimatedLikeHeart liked={localLiked} size={24} color={colors.text} likedColor={colors.text} />
+              <Text style={[styles.actionCount, { color: colors.text }]}>{localLikeCount}</Text>
             </Pressable>
             <Pressable style={styles.actionBtn} onPress={onOpenComments}>
               <Ionicons name="chatbubble-outline" size={23} color={colors.text} />

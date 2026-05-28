@@ -1,23 +1,13 @@
 import { useCallback, useMemo } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
 import type { PostItem } from "@/shared/model/types/posts";
 import { useMyFollowing } from "@/entities/user";
 import { usePostsFeedRealtime } from "@/entities/post/lib/usePostsFeedRealtime";
-import {
-  enrichPostsBoostedAt,
-  hydrateFeedPosts,
-  isMissingGeoColumnsError,
-  isMissingMediaBlurhashesError,
-  isMissingBoostedAtError,
-  normalizePostRow,
-  type PostRowInput,
-} from "@/entities/post/lib/hydrateFeedPosts";
+import { compareFeedPosts, comparePostsByBoostThenCreated } from "../lib/compareFeedPosts";
 import { useInteractedPlaceIds } from "./useInteractedPlaceIds";
 import { REALTIME_POLL_MS } from "@/shared/realtime/realtimePolling";
-import { compareFeedPosts, comparePostsByBoostThenCreated } from "../lib/compareFeedPosts";
 import {
   collectBoostedAtFromAllFeedCaches,
   collectPostsFromFeedCache,
@@ -25,7 +15,10 @@ import {
   mergeRefetchedFeedPageWithCache,
   type FeedPostsPage,
 } from "../lib/postFeedCachePatch";
-import { FEED_MAX_CACHED_PAGES, FEED_PAGE_SIZE } from "../model/feedConstants";
+import { FEED_MAX_CACHED_PAGES } from "../model/feedConstants";
+import { fetchPostsFeedPage, type FeedPostsCursor } from "./fetchPostsFeedPage";
+
+export type { FeedPostsCursor, FeedPostsPage };
 
 export type FeedPostItem = PostItem & {
   place_name: string;
@@ -38,152 +31,25 @@ export type FeedPostItem = PostItem & {
   is_followed_author: boolean;
 };
 
-export type FeedPostsCursor = { createdAt: string; id: string };
-
 export type UsePostsFeedOptions = {
   /** When set, loads posts for this author from DB (profile posts tab). */
   authorUserId?: string;
 };
 
-type FetchPostsFeedPageParams = {
-  cursor: FeedPostsCursor | null;
-  userId: string | undefined;
-  followingSet: ReadonlySet<string>;
-  interactedPlaceIds: string[];
-  authorUserId?: string;
-};
-
-const postsSelectLegacy = "id, user_id, place_id, content, media_url, created_at";
-const postsSelectWithGeo =
-  "id, user_id, place_id, content, media_url, created_at, geo_place_name, geo_formatted_address, geo_latitude, geo_longitude";
-const postsSelectWithGeoAndBlur = `${postsSelectWithGeo}, media_blurhashes`;
-const postsSelectWithBoost = `${postsSelectWithGeoAndBlur}, boosted_at`;
-
-function applyCreatedAtIdCursor<T extends { or: (filters: string) => T }>(
-  query: T,
-  cursor: FeedPostsCursor | null,
-): T {
-  if (!cursor) return query;
-  return query.or(
-    `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`,
-  );
-}
-
-async function runPostsSelect(params: {
-  select: string;
-  cursor: FeedPostsCursor | null;
-  limit: number;
-  authorUserId?: string;
-}): Promise<{ rows: PostRowInput[]; hasMore: boolean; nextCursor: FeedPostsCursor | null; selectIncludedBoostedAt: boolean }> {
-  const { select, cursor, limit, authorUserId } = params;
-  const fetchLimit = limit + 1;
-
-  const exec = () => {
-    let q = supabase.from("posts" as any).select(select);
-    if (authorUserId) {
-      q = q.eq("user_id", authorUserId);
+function flattenFeedPages(pages: FeedPostsPage[] | undefined): FeedPostItem[] {
+  const byId = new Map<string, FeedPostItem>();
+  const order: string[] = [];
+  for (const page of pages ?? []) {
+    for (const post of page.posts) {
+      if (!byId.has(post.id)) {
+        order.push(post.id);
+        byId.set(post.id, post);
+      } else {
+        byId.set(post.id, post);
+      }
     }
-    q = applyCreatedAtIdCursor(q, cursor);
-    return q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(fetchLimit);
-  };
-
-  let selectIncludedBoostedAt = select.includes("boosted_at");
-  let postsQuery = await exec();
-  if (postsQuery.error && isMissingBoostedAtError(postsQuery.error.message)) {
-    selectIncludedBoostedAt = false;
-    const fallbackSelect = select.includes("media_blurhashes")
-      ? postsSelectWithGeoAndBlur
-      : select.includes("geo_place_name")
-        ? postsSelectWithGeo
-        : postsSelectLegacy;
-    postsQuery = await (() => {
-      let q = supabase.from("posts" as any).select(fallbackSelect);
-      if (authorUserId) q = q.eq("user_id", authorUserId);
-      q = applyCreatedAtIdCursor(q, cursor);
-      return q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(fetchLimit);
-    })();
   }
-  if (postsQuery.error && isMissingGeoColumnsError(postsQuery.error.message)) {
-    selectIncludedBoostedAt = false;
-    postsQuery = await (() => {
-      let q = supabase.from("posts" as any).select(postsSelectLegacy);
-      if (authorUserId) q = q.eq("user_id", authorUserId);
-      q = applyCreatedAtIdCursor(q, cursor);
-      return q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(fetchLimit);
-    })();
-  } else if (postsQuery.error && isMissingMediaBlurhashesError(postsQuery.error.message)) {
-    selectIncludedBoostedAt = false;
-    postsQuery = await (() => {
-      let q = supabase.from("posts" as any).select(postsSelectWithGeo);
-      if (authorUserId) q = q.eq("user_id", authorUserId);
-      q = applyCreatedAtIdCursor(q, cursor);
-      return q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(fetchLimit);
-    })();
-  }
-  if (postsQuery.error) throw postsQuery.error;
-
-  const rawRows = (postsQuery.data ?? []) as Array<Record<string, unknown>>;
-  const hasMore = rawRows.length > limit;
-  const pageRows = hasMore ? rawRows.slice(0, limit) : rawRows;
-  let rows = pageRows.map((row) => normalizePostRow(row));
-  if (!selectIncludedBoostedAt && rows.length) {
-    rows = await enrichPostsBoostedAt(rows);
-  }
-
-  const last = pageRows[pageRows.length - 1];
-  const nextCursor =
-    hasMore && last
-      ? { createdAt: String(last.created_at ?? ""), id: String(last.id ?? "") }
-      : null;
-
-  return { rows, hasMore, nextCursor, selectIncludedBoostedAt };
-}
-
-async function fetchActiveBoostedRows(authorUserId?: string): Promise<PostRowInput[]> {
-  const exec = (select: string) => {
-    let q = supabase.from("posts" as any).select(select).not("boosted_at", "is", null);
-    if (authorUserId) q = q.eq("user_id", authorUserId);
-    return q.order("boosted_at", { ascending: false }).limit(40);
-  };
-
-  let result = await exec(postsSelectWithBoost);
-  if (result.error && isMissingBoostedAtError(result.error.message)) {
-    result = await exec(postsSelectWithGeoAndBlur);
-  }
-  if (result.error) return [];
-
-  return ((result.data ?? []) as Array<Record<string, unknown>>).map((row) => normalizePostRow(row));
-}
-
-async function fetchPostsFeedPage(params: FetchPostsFeedPageParams): Promise<FeedPostsPage> {
-  const { cursor, userId, followingSet, interactedPlaceIds, authorUserId } = params;
-
-  const boostedRows = cursor ? [] : await fetchActiveBoostedRows(authorUserId);
-  const { rows: chronRows, hasMore, nextCursor, selectIncludedBoostedAt } = await runPostsSelect({
-    select: postsSelectWithBoost,
-    cursor,
-    limit: FEED_PAGE_SIZE,
-    authorUserId,
-  });
-
-  const byId = new Map<string, PostRowInput>();
-  for (const row of boostedRows) byId.set(row.id, row);
-  for (const row of chronRows) byId.set(row.id, row);
-  const mergedRows = [...byId.values()];
-  if (!mergedRows.length) return { posts: [], hasMore: false, nextCursor: null };
-
-  let postRows = mergedRows;
-  if (!selectIncludedBoostedAt) {
-    postRows = await enrichPostsBoostedAt(postRows);
-  }
-
-  const hydrated = await hydrateFeedPosts(postRows, { userId, followingSet });
-
-  return {
-    posts: hydrated,
-    hasMore,
-    nextCursor,
-  };
+  return order.map((id) => byId.get(id)!);
 }
 
 function dedupeAndSortFeedPosts(
@@ -245,13 +111,10 @@ export function usePostsFeed(options: UsePostsFeedOptions = {}) {
       const boostedAtByPostId = isFirstPage ? collectBoostedAtFromAllFeedCaches(queryClient) : new Map<string, string>();
       const cachedPosts = isFirstPage ? collectPostsFromFeedCache(queryClient, feedQueryKey) : [];
 
-      const page = await fetchPostsFeedPage({
-        cursor,
-        userId: user?.id,
-        followingSet,
-        interactedPlaceIds,
-        authorUserId,
-      });
+      const page = await fetchPostsFeedPage(
+        { cursor, authorUserId },
+        { userId: user?.id, followingSet },
+      );
 
       const merged = isFirstPage ? mergeRefetchedFeedPageWithCache(page, cachedPosts, { authorUserId }) : page;
       return mergeBoostedAtIntoFeedPage(merged, boostedAtByPostId, authorUserId);
@@ -259,15 +122,14 @@ export function usePostsFeed(options: UsePostsFeedOptions = {}) {
     getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextCursor ?? undefined : undefined),
   });
 
-  const posts = useMemo(
-    () =>
-      dedupeAndSortFeedPosts(query.data?.pages, {
-        authorUserId,
-        followingSet,
-        interactedPlaceIds,
-      }),
-    [query.data?.pages, authorUserId, followingSet, interactedPlaceIds],
-  );
+  const posts = useMemo(() => {
+    const pages = query.data?.pages;
+    if (!pages?.length) return [];
+    if (pages.some((page) => page.viaLegacy)) {
+      return dedupeAndSortFeedPosts(pages, { authorUserId, followingSet, interactedPlaceIds });
+    }
+    return flattenFeedPages(pages);
+  }, [query.data?.pages, authorUserId, followingSet, interactedPlaceIds]);
 
   const loadMore = useCallback(() => {
     if (!query.hasNextPage || query.isFetchingNextPage) return;
