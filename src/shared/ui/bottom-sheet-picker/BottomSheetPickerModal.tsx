@@ -170,7 +170,6 @@ export function BottomSheetPickerModal({
 
   const keyboardInsetAnim = useKeyboardInset({
     gap: KEYBOARD_GAP,
-    ignoreWindowResize: true,
     useNativeDriver: true,
     onKeyboardChange,
   });
@@ -219,9 +218,12 @@ export function BottomSheetPickerModal({
     [dragStart, dragY, handlePanEnd],
   );
 
-  const sheetAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: dragY.value - keyboardInsetAnim.value }],
-  }));
+  const sheetAnimatedStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ translateY: dragY.value - keyboardInsetAnim.value }],
+    }),
+    [dragY, keyboardInsetAnim],
+  );
 
   const styles = useBottomSheetPickerStyles(
     sheetMaxHeight,

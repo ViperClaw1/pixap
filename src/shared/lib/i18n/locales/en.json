@@ -376,7 +376,8 @@
     "followed": "Followed",
     "thread": {
       "peerTyping": "typing...",
-      "peerOnline": "online"
+      "peerOnline": "online",
+      "storyUnavailable": "Story is unavailable or has expired"
     }
   },
   "bookings": {

@@ -376,7 +376,8 @@
     "followed": "Подписан",
     "thread": {
       "peerTyping": "печатает...",
-      "peerOnline": "в сети"
+      "peerOnline": "в сети",
+      "storyUnavailable": "Сторис недоступна или истекла"
     }
   },
   "bookings": {

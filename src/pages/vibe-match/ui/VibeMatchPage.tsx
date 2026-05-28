@@ -135,15 +135,14 @@ type Nav = NativeStackNavigationProp<BrowseFlowParamList, "VibeMatch">;
 function VibeMatchPageContent() {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
-  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom, gap: 16 });
-  const keyboardRootStyle = useAnimatedStyle(() => ({
-    paddingBottom: keyboardInset.value,
-  }));
+  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
+  const keyboardRootStyle = useAnimatedStyle(
+    () => ({ paddingBottom: keyboardInset.value }),
+    [keyboardInset],
+  );
   const { colors } = useAppTheme();
   const navigation = useNavigation<Nav>();
-  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
-    sensitivity: "high",
-  });
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const { user, session, loading: authLoading } = useAuth();
   const {
     canAccessVibeMatch,

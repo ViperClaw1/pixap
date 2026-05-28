@@ -21,6 +21,7 @@ type Props = {
   onCloseReactionPicker: () => void;
   onOpenSharedPlace: (placeId: string) => void;
   onOpenSharedStory: (storyId: string) => void;
+  openingStoryId: string | null;
   onOpenAttachment: (uri: string) => void;
 };
 
@@ -39,6 +40,7 @@ function MessageThreadRowComponent({
   onCloseReactionPicker,
   onOpenSharedPlace,
   onOpenSharedStory,
+  openingStoryId,
   onOpenAttachment,
 }: Props) {
   if (item.kind === "divider") {
@@ -66,6 +68,7 @@ function MessageThreadRowComponent({
       onCloseReactionPicker={onCloseReactionPicker}
       onOpenSharedPlace={onOpenSharedPlace}
       onOpenSharedStory={onOpenSharedStory}
+      openingStoryId={openingStoryId}
       onOpenAttachment={onOpenAttachment}
       enableLinkPreview={item.isLatestPage}
     />
@@ -93,7 +96,8 @@ export const MessageThreadRow = memo(MessageThreadRowComponent, (prev, next) => 
       prev.item.groupedWithPrevious === next.item.groupedWithPrevious &&
       prev.item.isLatestPage === next.item.isLatestPage &&
       prev.peerLastReadAt === next.peerLastReadAt &&
-      prev.mode === next.mode
+      prev.mode === next.mode &&
+      prev.openingStoryId === next.openingStoryId
     );
   }
   return false;

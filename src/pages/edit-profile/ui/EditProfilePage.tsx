@@ -9,7 +9,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
-  InteractionManager,
 } from "react-native";
 import { appAlert } from "@/shared/ui/app-popup";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
@@ -22,9 +21,8 @@ import { asParamListNavigation } from "@/app/navigation/appNavigation";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
 import { useProfile, useUpdateProfile, useUploadProfileAvatar } from "@/entities/user";
-import { isUsernameAvailable } from "@/entities/user/api/profileApi";
-import { isUsernameTakenError, getSupabaseErrorMessage } from "@/entities/user/lib/profileUpdateErrors";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
@@ -40,16 +38,15 @@ import {
   serializePhone,
   type PhoneValue,
 } from "@/shared/ui/phone-input";
-import type { StorySourceOption } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
-import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
-
-type ImagePickerAsset = import("expo-image-picker").ImagePickerAsset;
+import {
+  StorySourcePickerModal,
+  type StorySourceOption,
+} from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 
 const KEYBOARD_GAP = 16;
 
-const USERNAME_TAKEN_MESSAGE = "This username is already taken. Please choose another one.";
 const USERNAME_REGEX = /^[a-z0-9._-]+$/;
 const USERNAME_MIN_LENGTH = 3;
 const USERNAME_MAX_LENGTH = 30;
@@ -89,7 +86,7 @@ function EditProfileScreenContent() {
       return { transform: [{ translateY: -keyboardInsetAnim.value }] };
     }
     return { paddingBottom: keyboardInsetAnim.value };
-  });
+  }, [isIos, keyboardInsetAnim]);
 
   const update = useUpdateProfile();
   const uploadProfileAvatar = useUploadProfileAvatar();
@@ -111,18 +108,10 @@ function EditProfileScreenContent() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [avatarSourcePickerVisible, setAvatarSourcePickerVisible] = useState(false);
-  const [avatarPickerMounted, setAvatarPickerMounted] = useState(false);
-  const [phoneFieldReady, setPhoneFieldReady] = useState(Platform.OS !== "android");
 
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
   };
-
-  useEffect(() => {
-    if (phoneFieldReady) return;
-    const task = InteractionManager.runAfterInteractions(() => setPhoneFieldReady(true));
-    return () => task.cancel();
-  }, [phoneFieldReady]);
 
   useEffect(() => {
     if (!profile) return;
@@ -149,11 +138,10 @@ function EditProfileScreenContent() {
   };
 
   const pickAvatar = () => {
-    setAvatarPickerMounted(true);
     setAvatarSourcePickerVisible(true);
   };
 
-  const uploadAvatar = async (asset: ImagePickerAsset) => {
+  const uploadAvatar = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!user?.id) {
       navigateToAuthScreen(navigation);
       return;
@@ -178,7 +166,6 @@ function EditProfileScreenContent() {
 
   const pickAvatarFromCamera = async () => {
     try {
-      const ImagePicker = await import("expo-image-picker");
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") {
         appAlert("Permission needed", "Camera access is required to take a photo.", undefined, "alert");
@@ -201,7 +188,6 @@ function EditProfileScreenContent() {
 
   const pickAvatarFromGallery = async () => {
     try {
-      const ImagePicker = await import("expo-image-picker");
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
         appAlert("Permission needed", "Storage access is required to choose a photo.", undefined, "alert");
@@ -250,27 +236,6 @@ function EditProfileScreenContent() {
     if (nextUsernameError || !trimmedFirst || !trimmedLast || nextPhoneError) {
       return;
     }
-
-    if (!user?.id) {
-      navigateToAuthScreen(navigation);
-      return;
-    }
-
-    try {
-      const usernameAvailable = await isUsernameAvailable(normalizedUsername, user.id);
-      if (!usernameAvailable) {
-        setUsernameError(USERNAME_TAKEN_MESSAGE);
-        return;
-      }
-    } catch (error: unknown) {
-      if (isAuthRequiredError(error)) {
-        navigateToAuthScreen(navigation);
-        return;
-      }
-      appAlert("Failed to save", getSupabaseErrorMessage(error), undefined, "alert");
-      return;
-    }
-
     const phoneToSave = serializePhone(phoneValue) || null;
     try {
       await update.mutateAsync({
@@ -304,10 +269,7 @@ function EditProfileScreenContent() {
         navigateToAuthScreen(navigation);
         return;
       }
-      const message = getSupabaseErrorMessage(error);
-      if (isUsernameTakenError(error)) {
-        setUsernameError(USERNAME_TAKEN_MESSAGE);
-      }
+      const message = error instanceof Error ? error.message : "Failed to save";
       appAlert("Failed to save", message, undefined, "alert");
     }
   };
@@ -398,21 +360,15 @@ function EditProfileScreenContent() {
         <TextInput style={[styles.input, styles.disabledInput]} value={profile?.email ?? user?.email ?? ""} editable={false} />
         <Text style={styles.label}>Phone</Text>
         <View style={styles.phoneInputWrap}>
-          {phoneFieldReady ? (
-            <PhoneInput
-              value={phoneValue}
-              onChange={handlePhoneChange}
-              hasError={Boolean(phoneError)}
-              onBlur={() => {
-                setPhoneTouched(true);
-                setPhoneError(getPhoneValidationMessage(phoneValue));
-              }}
-            />
-          ) : (
-            <View style={styles.phonePlaceholder}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          )}
+          <PhoneInput
+            value={phoneValue}
+            onChange={handlePhoneChange}
+            hasError={Boolean(phoneError)}
+            onBlur={() => {
+              setPhoneTouched(true);
+              setPhoneError(getPhoneValidationMessage(phoneValue));
+            }}
+          />
         </View>
         {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
         <Text style={styles.label}>Bio (optional)</Text>
@@ -429,15 +385,13 @@ function EditProfileScreenContent() {
         </Pressable>
       </ScrollView>
       </Animated.View>
-      {avatarPickerMounted ? (
-        <StorySourcePickerModal
-          visible={avatarSourcePickerVisible}
-          onClose={() => setAvatarSourcePickerVisible(false)}
-          onChoose={onChooseAvatarSource}
-          title="Choose avatar"
-          subtitle="Select where to pick your photo from."
-        />
-      ) : null}
+      <StorySourcePickerModal
+        visible={avatarSourcePickerVisible}
+        onClose={() => setAvatarSourcePickerVisible(false)}
+        onChoose={onChooseAvatarSource}
+        title="Choose avatar"
+        subtitle="Select where to pick your photo from."
+      />
     </View>
   );
 }

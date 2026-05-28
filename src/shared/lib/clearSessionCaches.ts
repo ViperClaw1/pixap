@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
+import { clearAllBookingStatusTrackers } from "@/entities/booking/lib/bookingDisplayStatusTracker";
 import { clearStoriesFeedRealtimeDebounce } from "@/entities/story/lib/storyFeedRealtimeDebounce";
 
 /**
@@ -9,6 +10,7 @@ import { clearStoriesFeedRealtimeDebounce } from "@/entities/story/lib/storyFeed
  */
 export async function clearSessionCaches(queryClient: QueryClient): Promise<void> {
   clearStoriesFeedRealtimeDebounce();
+  clearAllBookingStatusTrackers();
   queryClient.clear();
   try {
     await Image.clearMemoryCache();

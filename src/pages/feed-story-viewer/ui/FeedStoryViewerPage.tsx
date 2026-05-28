@@ -421,7 +421,14 @@ export default function FeedStoryViewerPage() {
   const closeViewer = useCallback(() => {
     if (isDismissingRef.current) return;
     isDismissingRef.current = true;
-    navigation.goBack();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    const parent = navigation.getParent();
+    if (parent?.canGoBack()) {
+      parent.goBack();
+    }
   }, [navigation]);
 
   const goToNextSlide = useCallback(() => {
@@ -526,7 +533,7 @@ export default function FeedStoryViewerPage() {
     return (
       <View style={[styles.root, styles.deepLinkState]}>
         <Text style={styles.deepLinkStateText}>Story is unavailable or has expired.</Text>
-        <Pressable style={styles.deepLinkCloseBtn} onPress={() => navigation.goBack()}>
+        <Pressable style={styles.deepLinkCloseBtn} onPress={closeViewer}>
           <Text style={styles.deepLinkCloseBtnText}>Close</Text>
         </Pressable>
       </View>

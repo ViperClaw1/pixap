@@ -19,11 +19,6 @@ import OAuthCallbackScreen from "@/pages/oauth-callback";
 import PrivacyPolicyScreen from "@/pages/privacy-policy";
 import NotFoundScreen from "@/pages/not-found";
 import { renderBrowseFlowScreens, type BrowseFlowStackScreen } from "./BrowseFlowScreens";
-import {
-  nativeStackCartScreenOptions,
-  nativeStackPushScreenOptions,
-  nativeStackStoryOverlayModalOptions,
-} from "./stackTransitionOptions";
 import MessagesScreen from "@/pages/messages";
 import MessageThreadScreen from "@/pages/message-thread";
 import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
@@ -35,14 +30,29 @@ const BookingsStack = createNativeStackNavigator<BookingsStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
+const stackScreenOptions = {
+  headerShown: false as const,
+  animation: "slide_from_right" as const,
+  /** Native stack: freeze hidden routes when `enableFreeze(true)` (see index.ts). Story modals override with false in BrowseFlowScreens. */
+  freezeOnBlur: true as const,
+};
 const fullWidthSwipeBackOptions = {
   gestureEnabled: true,
   fullScreenGestureEnabled: true,
 } as const;
 
+/** Story viewer overlay (Cart stack deep link). */
+const storyOverlayModalOptions = {
+  presentation: "transparentModal" as const,
+  freezeOnBlur: false as const,
+  gestureEnabled: false,
+  animation: "fade" as const,
+  contentStyle: { backgroundColor: "transparent" },
+};
+
 function HomeStackNavigator() {
   return (
-    <HomeStack.Navigator initialRouteName="HomeMain" screenOptions={nativeStackPushScreenOptions}>
+    <HomeStack.Navigator initialRouteName="HomeMain" screenOptions={stackScreenOptions}>
       <HomeStack.Screen name="HomeMain" getComponent={() => require("@/pages/home").default} />
       <HomeStack.Screen name="SearchMain" getComponent={() => require("@/pages/search").default} options={fullWidthSwipeBackOptions} />
       <HomeStack.Screen
@@ -58,7 +68,7 @@ function HomeStackNavigator() {
 
 function FeedStackNavigator() {
   return (
-    <FeedStack.Navigator initialRouteName="FeedMain" screenOptions={nativeStackPushScreenOptions}>
+    <FeedStack.Navigator initialRouteName="FeedMain" screenOptions={stackScreenOptions}>
       <FeedStack.Screen name="FeedMain" getComponent={() => require("@/pages/stories-feed").default} />
       {renderBrowseFlowScreens(FeedStack.Screen as BrowseFlowStackScreen)}
     </FeedStack.Navigator>
@@ -67,7 +77,7 @@ function FeedStackNavigator() {
 
 function CartStackNavigator() {
   return (
-    <CartStack.Navigator initialRouteName="CartMain" screenOptions={nativeStackCartScreenOptions}>
+    <CartStack.Navigator initialRouteName="CartMain" screenOptions={stackScreenOptions}>
       <CartStack.Screen name="CartMain" component={MessagesScreen} />
       <CartStack.Screen
         name="MessageThread"
@@ -77,7 +87,7 @@ function CartStackNavigator() {
       <CartStack.Screen
         name="FeedStoryViewer"
         getComponent={() => require("@/pages/feed-story-viewer").default}
-        options={nativeStackStoryOverlayModalOptions}
+        options={storyOverlayModalOptions}
       />
       <CartStack.Screen name="PaymentSuccess" getComponent={() => require("@/pages/payment-success").default} />
       <CartStack.Screen name="PaymentCanceled" getComponent={() => require("@/pages/payment-canceled").default} />
@@ -87,7 +97,7 @@ function CartStackNavigator() {
 
 function BookingsStackNavigator() {
   return (
-    <BookingsStack.Navigator initialRouteName="BookingsMain" screenOptions={nativeStackPushScreenOptions}>
+    <BookingsStack.Navigator initialRouteName="BookingsMain" screenOptions={stackScreenOptions}>
       <BookingsStack.Screen name="BookingsMain" getComponent={() => require("@/pages/bookings").default} />
       {renderBrowseFlowScreens(BookingsStack.Screen as BrowseFlowStackScreen)}
     </BookingsStack.Navigator>
@@ -96,7 +106,7 @@ function BookingsStackNavigator() {
 
 function ProfileStackNavigator() {
   return (
-    <ProfileStack.Navigator initialRouteName="ProfileMain" screenOptions={nativeStackPushScreenOptions}>
+    <ProfileStack.Navigator initialRouteName="ProfileMain" screenOptions={stackScreenOptions}>
       <ProfileStack.Screen name="ProfileMain" getComponent={() => require("@/pages/profile").default} />
       <ProfileStack.Screen name="MyPurchases" getComponent={() => require("@/pages/my-purchases").default} />
       <ProfileStack.Screen name="Auth" getComponent={() => require("@/pages/auth").default} />
@@ -191,8 +201,6 @@ export default function AppNavigator() {
     () => ({
       title: "Messages",
       tabBarButton: isAuthorized ? undefined : hiddenTabBarButton,
-      lazy: false,
-      freezeOnBlur: false,
     }),
     [hiddenTabBarButton, isAuthorized],
   );
@@ -221,7 +229,7 @@ export default function AppNavigator() {
   return (
     <Tab.Navigator
       initialRouteName="Home"
-      detachInactiveScreens={false}
+      detachInactiveScreens
       screenOptions={tabScreenOptions}
     >
       <Tab.Screen name="Feed" component={FeedStackNavigator} options={{ title: "Feed" }} />

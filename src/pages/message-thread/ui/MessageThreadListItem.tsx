@@ -1,5 +1,14 @@
 import { memo, useCallback, useMemo, useRef } from "react";
-import { Linking, Pressable, Text, View, type StyleProp, type TextStyle } from "react-native";
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector, Swipeable } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
@@ -37,6 +46,7 @@ type Props = {
   onCloseReactionPicker: () => void;
   onOpenSharedPlace?: (placeId: string) => void;
   onOpenSharedStory?: (storyId: string) => void;
+  openingStoryId?: string | null;
   onOpenAttachment?: (uri: string) => void;
   enableLinkPreview?: boolean;
 };
@@ -60,18 +70,33 @@ async function openExternalUrl(url: string) {
   }
 }
 
+function trimTextBeforeStoryLink(text: string): string {
+  return text.replace(/\n+$/g, "");
+}
+
+/** Spinner on white story-share pill (readable without themed merge). */
+const STORY_SHARE_SPINNER_ON_WHITE = "#111111";
+
 function MessageBodyText({
   content,
   baseStyle,
   linkColor,
+  storyButtonStyle,
+  storyButtonTextStyle,
+  storyButtonSpinnerColor,
   onOpenPlace,
   onOpenStory,
+  openingStoryId,
 }: {
   content: string;
   baseStyle: StyleProp<TextStyle>;
   linkColor: string;
+  storyButtonStyle?: StyleProp<ViewStyle>;
+  storyButtonTextStyle?: StyleProp<TextStyle>;
+  storyButtonSpinnerColor: string;
   onOpenPlace?: (placeId: string) => void;
   onOpenStory?: (storyId: string) => void;
+  openingStoryId?: string | null;
 }) {
   if (!onOpenPlace && !onOpenStory) {
     const urlParts = splitTextWithUrls(content);
@@ -125,20 +150,78 @@ function MessageBodyText({
     );
   }
 
+  const hasStoryLink = segments.some((seg) => seg.kind === "story");
+  const storyLinkStyle = { color: linkColor, fontWeight: "700" as const };
+
+  if (hasStoryLink) {
+    return (
+      <View>
+        {segments.map((seg, i) => {
+          if (seg.kind === "story") {
+            const isOpening = openingStoryId === seg.id;
+            return (
+              <Pressable
+                key={`s-${i}-${seg.id}`}
+                style={storyButtonStyle}
+                onPress={() => void onOpenStory?.(seg.id)}
+                disabled={isOpening}
+                accessibilityRole="button"
+                accessibilityState={{ busy: isOpening }}
+              >
+                <Text style={[storyButtonTextStyle, isOpening ? { opacity: 0.55 } : null]}>{seg.label}</Text>
+                {isOpening ? (
+                  <ActivityIndicator size="small" color={storyButtonSpinnerColor} style={{ marginLeft: 6 }} />
+                ) : null}
+              </Pressable>
+            );
+          }
+          if (seg.kind === "place") {
+            return (
+              <Text
+                key={`p-${i}-${seg.id}`}
+                style={storyLinkStyle}
+                onPress={() => onOpenPlace?.(seg.id)}
+              >
+                {seg.label}
+              </Text>
+            );
+          }
+          const nextIsStory = segments[i + 1]?.kind === "story";
+          const segmentText = nextIsStory ? trimTextBeforeStoryLink(seg.text) : seg.text;
+          const urlParts = splitTextWithUrls(segmentText);
+          const hasUrl = urlParts.some((s) => s.kind === "url");
+          if (!hasUrl) {
+            return (
+              <Text key={`t-${i}`} style={baseStyle}>
+                {segmentText}
+              </Text>
+            );
+          }
+          return (
+            <Text key={`t-${i}`} style={baseStyle}>
+              {urlParts.map((u, j) =>
+                u.kind === "text" ? (
+                  <Text key={`${i}-${j}`}>{u.text}</Text>
+                ) : (
+                  <Text
+                    key={`${i}-${j}-url`}
+                    style={{ color: linkColor, fontWeight: "600", textDecorationLine: "underline" }}
+                    onPress={() => void openExternalUrl(u.url)}
+                  >
+                    {u.text}
+                  </Text>
+                ),
+              )}
+            </Text>
+          );
+        })}
+      </View>
+    );
+  }
+
   return (
     <Text style={baseStyle}>
       {segments.map((seg, i) => {
-        if (seg.kind === "story") {
-          return (
-            <Text
-              key={`s-${i}-${seg.id}`}
-              style={{ color: linkColor, fontWeight: "700" }}
-              onPress={() => onOpenStory?.(seg.id)}
-            >
-              {seg.label}
-            </Text>
-          );
-        }
         if (seg.kind === "place") {
           return (
             <Text
@@ -193,6 +276,7 @@ function MessageThreadListItemComponent({
   onCloseReactionPicker,
   onOpenSharedPlace,
   onOpenSharedStory,
+  openingStoryId,
   onOpenAttachment,
   enableLinkPreview = true,
 }: Props) {
@@ -235,6 +319,26 @@ function MessageThreadListItemComponent({
   );
 
   const isMine = message.mine;
+  const storyShareButtonStyle = useMemo(
+    () =>
+      isMine
+        ? [s.storyShareButton, s.storyShareButtonMine]
+        : [s.storyShareButton, s.storyShareButtonPeer],
+    [isMine, s.storyShareButton, s.storyShareButtonMine, s.storyShareButtonPeer],
+  );
+  const storyShareButtonTextStyle = useMemo(
+    () =>
+      isMine
+        ? [s.storyShareButtonText, s.storyShareButtonTextMine]
+        : [s.storyShareButtonText, s.storyShareButtonTextPeer],
+    [isMine, s.storyShareButtonText, s.storyShareButtonTextMine, s.storyShareButtonTextPeer],
+  );
+  const storyShareSpinnerColor = useMemo(() => {
+    if (isMine) {
+      return (s.storyShareButtonSpinnerMine as { color?: string }).color ?? STORY_SHARE_SPINNER_ON_WHITE;
+    }
+    return (s.storyShareButtonSpinnerPeer as { color?: string }).color ?? colors.onPrimary;
+  }, [colors.onPrimary, isMine, s.storyShareButtonSpinnerMine, s.storyShareButtonSpinnerPeer]);
   const isReadByPeer =
     isMine && !!peerLastReadAt && new Date(message.created_at).getTime() <= new Date(peerLastReadAt).getTime();
 
@@ -393,8 +497,12 @@ function MessageThreadListItemComponent({
                   content={bubblePlainText ?? ""}
                   baseStyle={isMine ? s.bubbleTextMine : s.bubbleTextPeer}
                   linkColor={colors.primary}
+                  storyButtonStyle={storyShareButtonStyle}
+                  storyButtonTextStyle={storyShareButtonTextStyle}
+                  storyButtonSpinnerColor={storyShareSpinnerColor}
                   onOpenPlace={onOpenSharedPlace}
                   onOpenStory={onOpenSharedStory}
+                  openingStoryId={openingStoryId}
                 />
                 {enableLinkPreview && previewUrl ? <MessageUrlPreviewBlock url={previewUrl} /> : null}
                 <View style={[s.bubbleMetaRow, isMine ? s.bubbleMetaRowMine : s.bubbleMetaRowPeer]}>
@@ -452,8 +560,12 @@ function MessageThreadListItemComponent({
                   content={bubblePlainText ?? ""}
                   baseStyle={isMine ? s.bubbleTextMine : s.bubbleTextPeer}
                   linkColor={colors.primary}
+                  storyButtonStyle={storyShareButtonStyle}
+                  storyButtonTextStyle={storyShareButtonTextStyle}
+                  storyButtonSpinnerColor={storyShareSpinnerColor}
                   onOpenPlace={onOpenSharedPlace}
                   onOpenStory={onOpenSharedStory}
+                  openingStoryId={openingStoryId}
                 />
                 {enableLinkPreview && previewUrl ? <MessageUrlPreviewBlock url={previewUrl} /> : null}
               </>

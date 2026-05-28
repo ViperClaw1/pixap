@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { OtpInput } from "react-native-otp-entry";
@@ -19,14 +19,6 @@ import { verifyEmailOtpStaticStyles, verifyEmailOtpThemeStyles } from "./verifyE
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "VerifyEmailOtp">;
 type ScreenRoute = RouteProp<ProfileStackParamList, "VerifyEmailOtp">;
 
-const RESEND_COOLDOWN_SEC = 60;
-
-function formatResendCooldown(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
 export default function VerifyEmailOtpPage() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<ScreenRoute>();
@@ -38,10 +30,6 @@ export default function VerifyEmailOtpPage() {
   const [code, setCode] = useState("");
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const initialSendStartedRef = useRef(false);
-  const resendCooldownRef = useRef(0);
-  resendCooldownRef.current = resendCooldown;
 
   const flow = route.params?.flow ?? "verify";
   const flowEmail = route.params?.email?.trim() ?? "";
@@ -57,21 +45,11 @@ export default function VerifyEmailOtpPage() {
     [themed],
   );
 
-  useEffect(() => {
-    if (resendCooldown <= 0) return undefined;
-    const timer = setInterval(() => {
-      setResendCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [resendCooldown]);
-
-  const sendCode = useCallback(async () => {
+  const sendCode = async () => {
     if (!email) {
       Toast.show({ type: "error", text1: "Verification failed", text2: "Email is missing." });
       return;
     }
-    if (sending || resendCooldownRef.current > 0) return;
-
     setSending(true);
     const { error } = flow === "verify" ? await sendVerificationOtp(email) : await sendRecoveryOtp(email);
     setSending(false);
@@ -79,19 +57,15 @@ export default function VerifyEmailOtpPage() {
       Toast.show({ type: "error", text1: "Verification failed", text2: error });
       return;
     }
-    setResendCooldown(RESEND_COOLDOWN_SEC);
     Toast.show({
       type: "success",
       text1: "Verification code sent",
       text2: "Check your email and enter the 6-digit code.",
     });
-  }, [email, flow, sendRecoveryOtp, sendVerificationOtp, sending]);
+  };
 
   useEffect(() => {
-    if (initialSendStartedRef.current) return;
-    initialSendStartedRef.current = true;
     void sendCode();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- send once on mount
   }, []);
 
   const submitCode = async (nextCode: string) => {
@@ -156,24 +130,11 @@ export default function VerifyEmailOtpPage() {
           }}
         />
       </View>
-      <Pressable
-        style={styles.resendBtn}
-        onPress={() => void sendCode()}
-        disabled={sending || resendCooldown > 0}
-      >
+      <Pressable style={styles.resendBtn} onPress={() => void sendCode()} disabled={sending}>
         {sending ? (
           <ActivityIndicator size="small" color={colors.primary} />
         ) : (
-          <Text
-            style={[
-              styles.resendBtnText,
-              resendCooldown > 0 ? styles.resendBtnTextDisabled : themed.resendBtnText,
-            ]}
-          >
-            {resendCooldown > 0
-              ? `Resend code in ${formatResendCooldown(resendCooldown)}`
-              : "Resend code"}
-          </Text>
+          <Text style={styles.resendBtnText}>Resend code</Text>
         )}
       </Pressable>
       <Pressable style={styles.verifyBtn} onPress={() => void submitCode(code)} disabled={verifying}>

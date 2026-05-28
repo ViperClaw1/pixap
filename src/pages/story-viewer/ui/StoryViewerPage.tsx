@@ -129,7 +129,6 @@ export default function StoryViewerScreen() {
     gap: 0,
     ignoreWindowResize: true,
     enabled: Platform.OS === "android",
-    native: false,
     onKeyboardChange: (_keyboardTop, keyboardHeight) => {
       setKeyboardOpen(keyboardHeight > 0);
     },

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -8,7 +9,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -40,6 +41,9 @@ export type DiscussionGlassSheetPanelProps = {
   onClose: () => void;
   onListContentSizeChange: (width: number, height: number) => void;
   onRequireAuth: () => void;
+  onDismissDragStart?: () => void;
+  onDismissDragUpdate?: (translationY: number) => void;
+  onDismissDragEnd?: (translationY: number, velocityY: number) => void;
 };
 
 type Props = {
@@ -73,35 +77,6 @@ export function DiscussionGlassSheet({ visible, navigation, onDismiss, children 
   const sheetMaxH = windowHeight * SHEET_MAX_HEIGHT_RATIO;
   const maxListViewport = Math.max(DISCUSSION_LIST_MIN_VIEWPORT, sheetMaxH - CHROME_FIXED - FOOTER_FIXED);
   const [listContentH, setListContentH] = useState(0);
-  const listContentHRef = useRef(0);
-  const listContentHDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleListContentSizeChange = useCallback((width: number, height: number) => {
-    if (Platform.OS !== "ios") {
-      setListContentH(height);
-      return;
-    }
-    if (Math.abs(height - listContentHRef.current) < 4) {
-      return;
-    }
-    if (listContentHDebounceRef.current) {
-      clearTimeout(listContentHDebounceRef.current);
-    }
-    listContentHDebounceRef.current = setTimeout(() => {
-      listContentHDebounceRef.current = null;
-      listContentHRef.current = height;
-      setListContentH(height);
-    }, 120);
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (listContentHDebounceRef.current) {
-        clearTimeout(listContentHDebounceRef.current);
-      }
-    },
-    [],
-  );
 
   const sheetH = useMemo(() => {
     const clippedList = Math.min(Math.max(listContentH, 0), maxListViewport);
@@ -129,7 +104,6 @@ export function DiscussionGlassSheet({ visible, navigation, onDismiss, children 
     isClosingRef.current = false;
     dismissWindowHeightRef.current = windowHeight;
     setRenderModal(true);
-    listContentHRef.current = 0;
     setListContentH(0);
     backdropOpacity.value = 0;
     sheetTranslate.value = windowHeight;
@@ -178,11 +152,19 @@ export function DiscussionGlassSheet({ visible, navigation, onDismiss, children 
     }
   }, [animateCloseThenDismiss, openSheet, renderModal, visible]);
 
-  const handlePanEnd = useCallback(
-    (dy: number, vy: number) => {
+  const handleDismissDragStart = useCallback(() => {
+    panStart.value = sheetTranslate.value;
+  }, [panStart, sheetTranslate]);
+
+  const handleDismissDragEnd = useCallback(
+    (translationY: number, velocityY: number) => {
       const sh = metricsRef.current.sheetH;
       const threshold = Math.min(100, sh * 0.14);
-      if (dy > threshold || vy > 450) {
+      if (
+        translationY > threshold ||
+        (translationY > 48 && velocityY > 700) ||
+        velocityY > 450
+      ) {
         animateCloseThenDismiss();
         return;
       }
@@ -191,20 +173,12 @@ export function DiscussionGlassSheet({ visible, navigation, onDismiss, children 
     [animateCloseThenDismiss, sheetTranslate],
   );
 
-  const panGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .onStart(() => {
-          panStart.value = sheetTranslate.value;
-        })
-        .onUpdate((e) => {
-          const next = panStart.value + e.translationY;
-          sheetTranslate.value = next > 0 ? next : 0;
-        })
-        .onEnd((e) => {
-          runOnJS(handlePanEnd)(sheetTranslate.value, e.velocityY);
-        }),
-    [handlePanEnd, panStart, sheetTranslate],
+  const handleDismissDragUpdate = useCallback(
+    (translationY: number) => {
+      const next = panStart.value + translationY;
+      sheetTranslate.value = next > 0 ? next : 0;
+    },
+    [panStart, sheetTranslate],
   );
 
   const onRequireAuth = useCallback(() => {
@@ -228,27 +202,38 @@ export function DiscussionGlassSheet({ visible, navigation, onDismiss, children 
     [backdropOpacity],
   );
 
-  const sheetGrabber = (
-    <Pressable onPress={() => Keyboard.dismiss()} style={styles.grabberOuter}>
-      <View style={styles.grabberInner} />
-    </Pressable>
-  );
-
   const panelProps = useMemo<DiscussionGlassSheetPanelProps>(
     () => ({
       onClose: animateCloseThenDismiss,
-      onListContentSizeChange: handleListContentSizeChange,
+      onListContentSizeChange: setListContentH,
       onRequireAuth,
+      onDismissDragStart: handleDismissDragStart,
+      onDismissDragUpdate: handleDismissDragUpdate,
+      onDismissDragEnd: handleDismissDragEnd,
     }),
-    [animateCloseThenDismiss, handleListContentSizeChange, onRequireAuth],
+    [
+      animateCloseThenDismiss,
+      handleDismissDragEnd,
+      handleDismissDragStart,
+      handleDismissDragUpdate,
+      onRequireAuth,
+    ],
   );
 
-  const sheetChrome = (
-    <View style={styles.keyboardArea}>
-      <GestureDetector gesture={panGesture}>{sheetGrabber}</GestureDetector>
-      <View style={styles.innerClip}>{children(panelProps)}</View>
-    </View>
-  );
+  const sheetChrome =
+    Platform.OS === "ios" ? (
+      <KeyboardAvoidingView
+        style={styles.keyboardArea}
+        behavior="padding"
+        keyboardVerticalOffset={0}
+      >
+        <View style={styles.innerClip}>{children(panelProps)}</View>
+      </KeyboardAvoidingView>
+    ) : (
+      <View style={styles.keyboardArea}>
+        <View style={styles.innerClip}>{children(panelProps)}</View>
+      </View>
+    );
 
   const modalBody = (
     <View style={styles.root}>
@@ -352,16 +337,5 @@ const styles = StyleSheet.create({
   innerClip: {
     flex: 1,
     minHeight: 0,
-  },
-  grabberOuter: {
-    alignItems: "center",
-    paddingTop: 10,
-    paddingBottom: 6,
-  },
-  grabberInner: {
-    width: 42,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.35)",
   },
 });
