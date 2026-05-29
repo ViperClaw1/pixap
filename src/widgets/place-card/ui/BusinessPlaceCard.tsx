@@ -11,6 +11,7 @@ import type { BusinessCard } from "@/entities/business-card";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCardDisplayUrl";
+import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { useNavigateOnce } from "@/shared/lib/navigation/useNavigateOnce";
 import { prefetchBusinessCard } from "@/shared/lib/navigation/prefetchBusinessCard";
@@ -77,7 +78,13 @@ function placeCardPropsEqual(prev: Props, next: Props): boolean {
   if (prev.place.id !== next.place.id) return false;
   const prevThumb = prev.place.images?.[0] ?? prev.place.image ?? "";
   const nextThumb = next.place.images?.[0] ?? next.place.image ?? "";
-  return prevThumb === nextThumb && prev.place.name === next.place.name;
+  const prevBlur = getBusinessCardCoverBlurhash(prev.place.blurhashes) ?? "";
+  const nextBlur = getBusinessCardCoverBlurhash(next.place.blurhashes) ?? "";
+  return (
+    prevThumb === nextThumb &&
+    prevBlur === nextBlur &&
+    prev.place.name === next.place.name
+  );
 }
 
 type PlaceHeroImageProps = {
@@ -112,15 +119,13 @@ function PlaceHeroImage({
     });
   }, [layoutHeight, layoutWidth, place, primaryImageRaw, targetDensity, variant]);
 
-  const coverBlurhash =
-    typeof place.blurhashes?.[0] === "string" && place.blurhashes[0].trim().length > 0
-      ? place.blurhashes[0]
-      : undefined;
+  const coverBlurhash = getBusinessCardCoverBlurhash(place.blurhashes);
 
   if (!thumb.raw) {
     return (
       <SmartImage
         bundledFallback={PLACE_IMAGE_FALLBACK}
+        blurhash={coverBlurhash}
         recyclingKey={`${place.id}-placeholder`}
         style={imageStyle}
         contentFit="cover"

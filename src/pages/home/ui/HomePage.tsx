@@ -64,6 +64,7 @@ import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-
 import { DailyPicksHero } from "@/widgets/daily-picks-hero";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCardDisplayUrl";
+import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
 
 const VIBE_TOOLBAR_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
 const FEATURED_THUMB_W = 200;
@@ -205,7 +206,10 @@ export default function HomeScreen() {
   const recommendedListExtraData = useMemo(
     () =>
       visibleRecommended
-        .map((p) => `${p.id}:${p.images[0] ?? p.image ?? ""}`)
+        .map(
+          (p) =>
+            `${p.id}:${p.images[0] ?? p.image ?? ""}:${getBusinessCardCoverBlurhash(p.blurhashes) ?? ""}`,
+        )
         .join("|"),
     [visibleRecommended],
   );
