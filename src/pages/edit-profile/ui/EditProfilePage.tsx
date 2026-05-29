@@ -259,7 +259,14 @@ function EditProfileScreenContent() {
           { text: t("common.ok"), onPress: goToProfile },
           {
             text: t("editProfile.personalizeCta"),
-            onPress: () => navigation.navigate("PreferenceOnboarding", { source: "edit_profile" }),
+            onPress: () =>
+              navigation.reset({
+                index: 1,
+                routes: [
+                  { name: "ProfileMain" },
+                  { name: "PreferenceOnboarding", params: { source: "edit_profile" } },
+                ],
+              }),
           },
         ],
         "success",

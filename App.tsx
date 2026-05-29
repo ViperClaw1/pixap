@@ -24,6 +24,7 @@ import {
 import { handlePushNotificationOpen } from "@/shared/lib/push/handlePushNotificationOpen";
 import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
+import { TermsAcceptanceGate } from "@/features/terms-acceptance";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -82,6 +83,7 @@ function NavigationRoot() {
         }}
       >
         <AppNavigator />
+        <TermsAcceptanceGate />
         <StatusBar style={isDark ? "light" : "dark"} />
         <Toast config={toastConfig} />
       </NavigationContainer>

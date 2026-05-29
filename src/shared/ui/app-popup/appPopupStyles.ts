@@ -59,6 +59,7 @@ export const appPopupStaticStyles = StyleSheet.create({
   },
   actionFlex: {
     flex: 1,
+    minWidth: 0,
   },
   btn: {
     minHeight: 48,
@@ -67,13 +68,21 @@ export const appPopupStaticStyles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 16,
   },
+  btnRow: {
+    alignSelf: "stretch",
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
   btnPressed: {
     opacity: 0.88,
   },
   btnText: {
+    width: "100%",
     fontSize: 15,
     fontWeight: "700",
     lineHeight: 20,
+    textAlign: "center",
+    flexShrink: 1,
   },
   btnPrimary: {},
   btnSecondary: {},

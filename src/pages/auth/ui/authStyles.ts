@@ -57,6 +57,18 @@ export const authStaticStyles = StyleSheet.create({
   passwordRules: { marginTop: -2, marginBottom: 8, gap: 4 },
   passwordRuleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   passwordRuleText: { fontSize: 14 },
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 20,
+  },
 });
 
 export function authThemeStyles(colors: ThemeColors) {

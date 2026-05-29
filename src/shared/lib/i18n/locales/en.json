@@ -27,7 +27,9 @@
     "empty": "No favorites yet"
   },
   "feed": {
-    "addStory": "Add story"
+    "addStory": "Add story",
+    "follow": "Follow",
+    "following": "Following"
   },
   "common": {
     "loading": "Loading...",
@@ -270,6 +272,10 @@
     "listUpdatedMessage": "The assistant removed or re-ranked places and your previous pick is no longer available. Choose another place.",
     "searchFailed": "Could not search places.",
     "searchResultsLine": "I found {{count}} {{requestType}} {{scopeText}}. Pick one and I will suggest the best available slots.",
+    "searchNoMatchingPlaces": "Could not find matching places. Try changing city, category, or search scope.",
+    "searchOrchestratorFailed": "Something went wrong with the booking assistant and no matching places were found. Check your connection, try again, or adjust city and category.",
+    "scopeInCity": "in {{city}}",
+    "yourCity": "your city",
     "placesFallback": "places",
     "summaryCity": "City: {{value}}",
     "summaryRequest": "Request: {{value}}",
@@ -805,5 +811,53 @@
     "feedDescription": "We couldn't load the feed. Tap below to try again.",
     "bookingTitle": "Booking unavailable",
     "bookingDescription": "Something went wrong while opening booking. Tap below to try again."
+  },
+  "moderation": {
+    "moreActions": "More actions",
+    "actionsTitle": "Actions",
+    "report": "Report",
+    "reportTitle": "Report content",
+    "reportHint": "Choose a reason. Our team reviews reports within 24–48 hours.",
+    "reportSubmittedTitle": "Report sent",
+    "reportSubmittedMessage": "Thank you. We will review this content.",
+    "blockUser": "Block user",
+    "blockConfirmTitle": "Block {{name}}?",
+    "blockConfirmMessage": "You will no longer see their posts, stories, or messages.",
+    "blockedTitle": "User blocked",
+    "blockedMessage": "You will no longer see content from {{name}}.",
+    "reasons": {
+      "spam": "Spam",
+      "harassment": "Harassment or bullying",
+      "hate_speech": "Hate speech",
+      "nudity": "Nudity or sexual content",
+      "violence": "Violence or threats",
+      "illegal": "Illegal activity",
+      "other": "Other"
+    }
+  },
+  "legal": {
+    "terms": "Terms of Service",
+    "communityGuidelines": "Community Guidelines",
+    "acceptTermsPrefix": "I accept the",
+    "acceptTermsAnd": "and",
+    "acceptTermsRequired": "Please accept the Terms of Service to continue.",
+    "termsGateTitle": "Community rules",
+    "termsGateMessagePrefix": "To use Pixap you must accept our",
+    "termsGateMessageSuffix": "They explain acceptable content and moderation.",
+    "termsGateAcceptFailedTitle": "Could not continue",
+    "termsGateAcceptFailed": "Could not save your acceptance. Please try again or sign out and sign back in.",
+    "termsGateAccept": "Accept and continue",
+    "termsGateDecline": "Sign out"
+  },
+  "aiConsent": {
+    "title": "AI data sharing",
+    "message": "PixAI booking assistant sends your messages, booking details, and matching places to Google Gemini to generate responses. You can use the rest of the app without AI.",
+    "providerLabel": "Provider: Google Gemini",
+    "allow": "Allow",
+    "decline": "Not now",
+    "aiGeneratedBadge": "AI-generated",
+    "reportAiResponse": "Report AI response",
+    "saveFailedTitle": "Could not save",
+    "saveFailed": "We could not save your AI consent choice. Check your connection and try again."
   }
 }

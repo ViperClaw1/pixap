@@ -18,6 +18,9 @@ export interface Profile {
   city: string | null;
   is_verified: boolean;
   account_role: "user" | "admin";
+  terms_accepted_at?: string | null;
+  ai_data_consent_at?: string | null;
+  ai_data_consent_declined_at?: string | null;
   promo_codes: string[] | null;
   created_at: string;
   updated_at: string;

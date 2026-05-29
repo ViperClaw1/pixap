@@ -12,6 +12,7 @@ import {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -20,12 +21,13 @@ import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
 import { profileName } from "@/pages/stories-feed/lib/feedPostHelpers";
 import { PostMediaCarousel } from "@/widgets/feed-post-carousel";
 import { CommentPreview } from "@/widgets/feed-list";
-import { PostBoostCrownBadge, PostBoostStarButton } from "@/features/post-boost";
+import { PostBoostCrownBadge, PostBoostStarButton, usePostBoostBadgeVisible } from "@/features/post-boost";
 import type { FeedPostVm } from "@/pages/stories-feed/lib/feedPostHelpers";
 import { DOUBLE_TAP_DELAY_MS } from "@/pages/stories-feed/model/constants";
 import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import { useDeletePost, useUpdatePost } from "@/entities/post";
 import { AppPopupModal, appAlert } from "@/shared/ui/app-popup";
+import { UgcModerationOverflow } from "@/features/ugc-moderation";
 
 interface FeedPostCardProps {
   vm: FeedPostVm;
@@ -77,6 +79,7 @@ export const FeedPostCard = memo(function FeedPostCard({
   onTitleInputLayout,
 }: FeedPostCardProps) {
   const { colors } = useAppTheme();
+  const { t } = useTranslation();
   const item = vm.post;
   const updatePostMutation = useUpdatePost();
   const deletePostMutation = useDeletePost();
@@ -209,6 +212,7 @@ export const FeedPostCard = memo(function FeedPostCard({
   );
 
   const hasCarousel = vm.postImages.length > 1;
+  const showTopBadge = usePostBoostBadgeVisible(item.boosted_at);
 
   return (
     <View style={[styles.content, { backgroundColor: colors.background }]}>
@@ -227,7 +231,7 @@ export const FeedPostCard = memo(function FeedPostCard({
               <Ionicons name="person-outline" size={18} color={colors.text} />
             </View>
           )}
-          <View style={styles.authorMeta}>
+          <View style={styles.authorContent}>
             <View style={styles.authorMetaHeader}>
               <View style={styles.authorNameRow}>
                 <Text style={[styles.authorName, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
@@ -237,7 +241,7 @@ export const FeedPostCard = memo(function FeedPostCard({
                   <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
                 ) : null}
               </View>
-              {isBoosted ? (
+              {showTopBadge ? (
                 <View style={styles.authorBadgesRow}>
                   {item.user_id !== currentUserId ? (
                     <Pressable
@@ -252,39 +256,61 @@ export const FeedPostCard = memo(function FeedPostCard({
                       disabled={followPending}
                     >
                       <Text style={[styles.compactBadgeText, { color: isFollowing ? colors.accent : colors.text }]}>
-                        {isFollowing ? "Following" : "Follow"}
+                        {isFollowing ? t("feed.following") : t("feed.follow")}
                       </Text>
                     </Pressable>
                   ) : null}
                   <PostBoostCrownBadge />
                 </View>
               ) : null}
+              {item.user_id !== currentUserId && !showTopBadge ? (
+                <View style={styles.authorActionsRow}>
+                  <Pressable
+                    style={[
+                      styles.compactBadge,
+                      {
+                        borderColor: isFollowing ? colors.accent : colors.border,
+                        backgroundColor: isFollowing ? colors.accentSurface : colors.background,
+                      },
+                    ]}
+                    onPress={onToggleFollow}
+                    disabled={followPending}
+                  >
+                    <Text style={[styles.compactBadgeText, { color: isFollowing ? colors.accent : colors.text }]}>
+                      {isFollowing ? t("feed.following") : t("feed.follow")}
+                    </Text>
+                  </Pressable>
+                  <UgcModerationOverflow
+                    hidden={!item.user_id}
+                    subject={{
+                      targetType: "post",
+                      targetId: item.id,
+                      reportedUserId: item.user_id,
+                      authorLabel: profileName(item.profile?.first_name, item.profile?.last_name),
+                    }}
+                  />
+                </View>
+              ) : item.user_id !== currentUserId ? (
+                <UgcModerationOverflow
+                  subject={{
+                    targetType: "post",
+                    targetId: item.id,
+                    reportedUserId: item.user_id,
+                    authorLabel: profileName(item.profile?.first_name, item.profile?.last_name),
+                  }}
+                />
+              ) : null}
             </View>
             {geoFormattedAddress ? (
               <View style={styles.authorGeoRow}>
-                <Ionicons name="location-outline" size={14} color={colors.textMuted} style={styles.authorGeoIcon} />
-                <Text style={[styles.authorGeo, { color: colors.textMuted }]}>{geoFormattedAddress}</Text>
+                <View style={styles.authorGeoContent}>
+                  <Ionicons name="location-outline" size={14} color={colors.textMuted} style={styles.authorGeoIcon} />
+                  <Text style={[styles.authorGeo, { color: colors.textMuted }]}>{geoFormattedAddress}</Text>
+                </View>
               </View>
             ) : null}
           </View>
         </View>
-        {item.user_id !== currentUserId && !isBoosted ? (
-          <Pressable
-            style={[
-              styles.followBtn,
-              {
-                borderColor: isFollowing ? colors.accent : colors.border,
-                backgroundColor: isFollowing ? colors.accentSurface : colors.background,
-              },
-            ]}
-            onPress={onToggleFollow}
-            disabled={followPending}
-          >
-            <Text style={[styles.followText, { color: isFollowing ? colors.accent : colors.text }]}>
-              {isFollowing ? "Following" : "Follow"}
-            </Text>
-          </Pressable>
-        ) : null}
       </View>
 
       <View style={[styles.mediaFrame, { height: sliderHeight }]}>
@@ -525,23 +551,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 12,
     paddingBottom: 10,
+  },
+  authorMain: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  authorContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  authorMetaHeader: { flexDirection: "row", alignItems: "center", gap: 8, minWidth: 0 },
+  authorBadgesRow: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 },
+  authorNameRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 4, minWidth: 0 },
+  authorGeoRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
   },
-  authorMain: {
+  authorGeoContent: {
     flex: 1,
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 10,
+    gap: 4,
     minWidth: 0,
   },
-  authorMeta: { flex: 1, minWidth: 0, gap: 4 },
-  authorMetaHeader: { flexDirection: "row", alignItems: "center", gap: 8, minWidth: 0 },
-  authorBadgesRow: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 },
-  authorNameRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 4, minWidth: 0 },
-  authorGeoRow: { flexDirection: "row", alignItems: "flex-start", gap: 4, marginTop: 2 },
-  authorGeoIcon: { marginTop: 1 },
+  authorGeoIcon: { marginTop: 1, flexShrink: 0 },
   authorGeo: {
     flex: 1,
     minWidth: 0,
@@ -555,10 +590,12 @@ const styles = StyleSheet.create({
   compactBadge: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 3,
+    minHeight: 24,
     flexShrink: 0,
   },
   compactBadgeText: {
@@ -566,14 +603,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.2,
   },
-  followBtn: {
-    flexShrink: 0,
-    minWidth: 86,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  authorActionsRow: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 4,
+    flexShrink: 0,
   },
-  followText: { fontSize: 14, fontWeight: "700" },
 });

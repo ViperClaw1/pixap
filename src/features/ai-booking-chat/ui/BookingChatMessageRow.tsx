@@ -3,6 +3,7 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BookingChatMessage } from "../model/types";
 import { isPixBookingAssistantGreeting } from "../model/constants";
 import { BookingGreetingTypewriterText } from "./BookingGreetingTypewriterText";
+import { AssistantMessageMeta } from "@/features/ai-data-consent";
 
 type Props = {
   item: BookingChatMessage;
@@ -34,6 +35,7 @@ export function BookingChatMessageRow({ item }: Props) {
           </Text>
         )}
       </View>
+      {!isUser ? <AssistantMessageMeta messageId={item.id} /> : null}
     </View>
   );
 }

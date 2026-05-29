@@ -27,7 +27,9 @@
     "empty": "Noch keine Favoriten"
   },
   "feed": {
-    "addStory": "Story hinzufügen"
+    "addStory": "Story hinzufügen",
+    "follow": "Folgen",
+    "following": "Folge ich"
   },
   "common": {
     "loading": "Wird geladen...",
@@ -155,6 +157,10 @@
     "listUpdatedMessage": "Der Assistent hat Orte entfernt oder neu sortiert. Ihre vorherige Auswahl ist nicht mehr verfügbar. Wählen Sie einen anderen Ort.",
     "searchFailed": "Orte konnten nicht gesucht werden.",
     "searchResultsLine": "Ich habe {{count}} {{requestType}} {{scopeText}} gefunden. Wählen Sie eines — ich schlage die besten verfügbaren Slots vor.",
+    "searchNoMatchingPlaces": "Keine passenden Orte gefunden. Versuchen Sie, Stadt, Kategorie oder Suchbereich zu ändern.",
+    "searchOrchestratorFailed": "Beim Buchungsassistenten ist ein Fehler aufgetreten, es wurden keine passenden Orte gefunden. Prüfen Sie die Verbindung und versuchen Sie es erneut.",
+    "scopeInCity": "in {{city}}",
+    "yourCity": "Ihrer Stadt",
     "placesFallback": "Orte",
     "summaryCity": "Stadt: {{value}}",
     "summaryRequest": "Anfrage: {{value}}",

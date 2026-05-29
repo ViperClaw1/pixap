@@ -592,10 +592,12 @@ export default function MessageThreadPage() {
         onOpenSharedStory={openSharedStory}
         openingStoryId={openingStoryId}
         onOpenAttachment={(uri) => openAttachmentViewer(uri, null)}
+        peerUserId={isSupport ? null : (peer?.id ?? params.peerId ?? null)}
       />
     ),
     [
       colors,
+      isSupport,
       mode,
       onCloseReactionPicker,
       onReact,
@@ -606,6 +608,8 @@ export default function MessageThreadPage() {
       openSharedPlace,
       openSharedStory,
       openingStoryId,
+      params.peerId,
+      peer?.id,
       peerLastReadAt,
       reactionPickerMessageId,
       startEditingMessage,
@@ -623,6 +627,7 @@ export default function MessageThreadPage() {
         presenceIsOnline={peerPresence.isOnline}
         isSupport={isSupport}
         peerAvatar={peerAvatar}
+        peerUserId={isSupport ? null : (peer?.id ?? params.peerId ?? null)}
         onBack={leaveThread}
       />
 

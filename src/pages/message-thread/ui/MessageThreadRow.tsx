@@ -23,6 +23,7 @@ type Props = {
   onOpenSharedStory: (storyId: string) => void;
   openingStoryId: string | null;
   onOpenAttachment: (uri: string) => void;
+  peerUserId?: string | null;
 };
 
 function MessageThreadRowComponent({
@@ -42,6 +43,7 @@ function MessageThreadRowComponent({
   onOpenSharedStory,
   openingStoryId,
   onOpenAttachment,
+  peerUserId,
 }: Props) {
   if (item.kind === "divider") {
     return (
@@ -71,6 +73,7 @@ function MessageThreadRowComponent({
       openingStoryId={openingStoryId}
       onOpenAttachment={onOpenAttachment}
       enableLinkPreview={item.isLatestPage}
+      peerUserId={peerUserId}
     />
   );
 }

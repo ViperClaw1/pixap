@@ -9,8 +9,8 @@ export const USER_FOLLOWS_QUERY_KEY = "user_follows" as const;
 
 export const queryKeys = {
   posts: {
-    feed: (userId: string | null, followingSignature: string, authorUserId: string | null = null) =>
-      ["posts", "feed", userId, followingSignature, authorUserId] as const,
+    feed: (userId: string | null, authorUserId: string | null = null) =>
+      ["posts", "feed", userId, authorUserId] as const,
     /** Prefix: all post feeds for any user / following combo */
     feedPrefix: ["posts", "feed"] as const,
     byId: (postId: string, viewerUserId: string | null) =>
@@ -22,8 +22,7 @@ export const queryKeys = {
   },
   stories: {
     strip: ["stories", "strip"] as const,
-    feed: (userId: string | null, followingSignature: string) =>
-      ["stories", "feed", userId, followingSignature] as const,
+    feed: (userId: string | null) => ["stories", "feed", userId] as const,
     feedPrefix: ["stories", "feed"] as const,
     place: (placeId: string, viewerUserId: string | null) =>
       [STORIES_ROOT, "place", placeId, viewerUserId] as const,
@@ -160,5 +159,15 @@ export const queryKeys = {
     byPeriod: (period: number, userId: string | null) =>
       ["admin-analytics", period, userId] as const,
     prefix: ["admin-analytics"] as const,
+  },
+  moderation: {
+    root: ["moderation"] as const,
+    blocked: (userId: string | undefined | null) => ["moderation", "blocked", userId ?? null] as const,
+  },
+  postsFeed: {
+    root: ["posts", "feed"] as const,
+  },
+  storiesFeed: {
+    root: ["stories", "feed"] as const,
   },
 } as const;

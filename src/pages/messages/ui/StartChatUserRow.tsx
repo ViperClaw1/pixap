@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import type { PublicProfileItem } from "@/entities/user";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
+import { UgcModerationOverflow } from "@/features/ugc-moderation";
 import type { useMessagesStyles } from "./messagesStyles";
 
 type MessagesStyles = ReturnType<typeof useMessagesStyles>;
@@ -40,6 +41,13 @@ function StartChatUserRowComponent({ person, styles, isCompact, unknownLabel, on
           @{username}
         </Text>
       </View>
+      <UgcModerationOverflow
+        subject={{
+          targetType: "user",
+          reportedUserId: person.id,
+          authorLabel: displayName,
+        }}
+      />
     </AppPressable>
   );
 }

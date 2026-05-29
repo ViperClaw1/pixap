@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import type { MessageThreadStyles } from "@/shared/theme/messageThreadStyles";
+import { UgcModerationOverflow } from "@/features/ugc-moderation";
 
 type Props = {
   styles: MessageThreadStyles;
@@ -13,6 +14,7 @@ type Props = {
   presenceIsOnline: boolean;
   isSupport: boolean;
   peerAvatar: string | null;
+  peerUserId?: string | null;
   onBack: () => void;
 };
 
@@ -24,6 +26,7 @@ function ThreadHeaderComponent({
   presenceIsOnline,
   isSupport,
   peerAvatar,
+  peerUserId,
   onBack,
 }: Props) {
   return (
@@ -37,7 +40,15 @@ function ThreadHeaderComponent({
         </Text>
         <Text style={[styles.peerSeen, presenceIsOnline && styles.peerTyping]}>{presenceLabel}</Text>
       </View>
-      {isSupport ? (
+      {!isSupport && peerUserId ? (
+        <UgcModerationOverflow
+          subject={{
+            targetType: "user",
+            reportedUserId: peerUserId,
+            authorLabel: peerName,
+          }}
+        />
+      ) : isSupport ? (
         <View style={[styles.peerAvatar, styles.supportPeerAvatar, { backgroundColor: colors.accent }]}>
           <Ionicons name="headset-outline" size={20} color={colors.onAccent} />
         </View>

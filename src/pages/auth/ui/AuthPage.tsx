@@ -9,6 +9,7 @@ import {
   Platform,
   Dimensions,
   ScrollView,
+  Linking,
 } from "react-native";
 import { runOnJS, useAnimatedReaction } from "react-native-reanimated";
 import { useFocusedOverlapKeyboardInset } from "@/shared/lib/keyboard";
@@ -35,6 +36,7 @@ import { authStaticStyles, authThemeStyles } from "./authStyles";
 import { devError, devInfo } from "@/shared/lib/devLog";
 import { appAlert } from "@/shared/ui/app-popup";
 import type { AppPopupVariant } from "@/shared/ui/app-popup";
+import { COMMUNITY_GUIDELINES_URL, TERMS_URL } from "@/shared/lib/legalUrls";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -75,6 +77,7 @@ export default function AuthScreen() {
   const [emailTouched, setEmailTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [keyboardOverlapPad, setKeyboardOverlapPad] = useState(0);
   const baseScrollPaddingBottom = Math.max(insets.bottom, 48);
   const { extraInset: keyboardExtraInset, recalculate: recalculateKeyboardInset } =
@@ -298,7 +301,11 @@ export default function AuthScreen() {
           showUserAlert(t("auth.alerts.validationTitle"), t("auth.alerts.passwordsMismatch"));
           return;
         }
-        const { error, isUserAlreadyExists } = await signUp(email, password, firstName, lastName);
+        if (!termsAccepted) {
+          showUserAlert(t("auth.alerts.validationTitle"), t("legal.acceptTermsRequired"));
+          return;
+        }
+        const { error, isUserAlreadyExists } = await signUp(email, password, firstName, lastName, true);
         if (error) {
           if (isUserAlreadyExists) {
             showUserAlert(t("auth.alerts.emailAlreadyRegisteredTitle"), t("auth.alerts.emailAlreadyRegisteredBody"), "info");
@@ -499,6 +506,23 @@ export default function AuthScreen() {
                 </Pressable>
               </View>
               {showPasswordsMismatch ? <Text style={styles.inlineError}>{t("auth.inlinePasswordsMismatch")}</Text> : null}
+              <Pressable style={styles.termsRow} onPress={() => setTermsAccepted((v) => !v)}>
+                <Ionicons
+                  name={termsAccepted ? "checkbox" : "square-outline"}
+                  size={22}
+                  color={termsAccepted ? colors.primary : colors.textMuted}
+                />
+                <Text style={[styles.termsText, { color: colors.textMuted }]}>
+                  {t("legal.acceptTermsPrefix")}{" "}
+                  <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(TERMS_URL)}>
+                    {t("legal.terms")}
+                  </Text>{" "}
+                  {t("legal.acceptTermsAnd")}{" "}
+                  <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(COMMUNITY_GUIDELINES_URL)}>
+                    {t("legal.communityGuidelines")}
+                  </Text>
+                </Text>
+              </Pressable>
             </>
           ) : null}
         </>

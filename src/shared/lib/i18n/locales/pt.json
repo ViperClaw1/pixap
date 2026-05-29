@@ -27,7 +27,9 @@
     "empty": "Ainda não há favoritos"
   },
   "feed": {
-    "addStory": "Adicionar story"
+    "addStory": "Adicionar story",
+    "follow": "Seguir",
+    "following": "Seguindo"
   },
   "common": {
     "loading": "A carregar...",
@@ -155,6 +157,10 @@
     "listUpdatedMessage": "O assistente removeu ou reordenou locais e a tua escolha anterior já não está disponível. Escolhe outro local.",
     "searchFailed": "Não foi possível pesquisar locais.",
     "searchResultsLine": "Encontrei {{count}} {{requestType}} {{scopeText}}. Escolhe um e sugerirei os melhores horários disponíveis.",
+    "searchNoMatchingPlaces": "Não encontrei locais correspondentes. Tenta alterar a cidade, a categoria ou a área de pesquisa.",
+    "searchOrchestratorFailed": "Ocorreu um erro no assistente de reservas e não foram encontrados locais. Verifica a ligação e tenta novamente.",
+    "scopeInCity": "em {{city}}",
+    "yourCity": "a tua cidade",
     "placesFallback": "locais",
     "summaryCity": "Cidade: {{value}}",
     "summaryRequest": "Pedido: {{value}}",

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Text, type StyleProp, type TextStyle } from "react-native";
+import { Platform, Text, type StyleProp, type TextStyle } from "react-native";
 import {
   isBookingOpeningTypewriterComplete,
   markBookingOpeningTypewriterComplete,
@@ -21,6 +21,7 @@ export function BookingTypewriterText({ fullText, textStyle, tickMs = DEFAULT_AS
     runOnceKey && isBookingOpeningTypewriterComplete(runOnceKey) ? fullText : "",
   );
   const lastLayoutAt = useRef(0);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (runOnceKey && isBookingOpeningTypewriterComplete(runOnceKey)) {
@@ -30,6 +31,15 @@ export function BookingTypewriterText({ fullText, textStyle, tickMs = DEFAULT_AS
 
     let cancelled = false;
     let cancelReveal: (() => void) | null = null;
+
+    if (Platform.OS === "android") {
+      fallbackTimerRef.current = setTimeout(() => {
+        if (!cancelled && fullText.length > 0) {
+          setVisible((current) => (current.length > 0 ? current : fullText));
+        }
+      }, 700);
+    }
+
     const run = async () => {
       const reveal = revealAssistantText({
         fullText,
@@ -57,6 +67,10 @@ export function BookingTypewriterText({ fullText, textStyle, tickMs = DEFAULT_AS
     return () => {
       cancelled = true;
       cancelReveal?.();
+      if (fallbackTimerRef.current != null) {
+        clearTimeout(fallbackTimerRef.current);
+        fallbackTimerRef.current = null;
+      }
     };
   }, [fullText, tickMs, runOnceKey]);
 
