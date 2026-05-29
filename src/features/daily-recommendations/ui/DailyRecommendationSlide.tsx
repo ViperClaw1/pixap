@@ -1,8 +1,10 @@
 import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { DailyRecommendation } from "@/entities/daily-recommendation";
 import BusinessPlaceCard from "@/widgets/place-card";
 import { recommendationToBusinessCard } from "../lib/recommendationToBusinessCard";
+import { translateRecommendationReason } from "../lib/translateRecommendationReason";
 
 type Props = {
   item: DailyRecommendation;
@@ -21,6 +23,8 @@ function DailyRecommendationSlideInner({
   textMutedColor,
   heroLoadingSpinnerColor,
 }: Props) {
+  const { t } = useTranslation();
+
   return (
     <View style={[styles.slide, { width: slideWidth, marginRight: slideGap, height: slideHeight }]}>
       <View style={styles.cardBody}>
@@ -37,7 +41,7 @@ function DailyRecommendationSlideInner({
       <View style={styles.reasons}>
         {(item.recommendation_reasons ?? []).slice(0, 3).map((reason) => (
           <Text key={`${item.venue_id}-${reason}`} style={[styles.reasonText, { color: textMutedColor }]}>
-            • {reason}
+            • {translateRecommendationReason(reason, t)}
           </Text>
         ))}
       </View>

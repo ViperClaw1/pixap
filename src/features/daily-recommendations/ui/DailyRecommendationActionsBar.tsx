@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { ThemeColors } from "@/shared/theme/palettes";
 
@@ -46,12 +46,9 @@ function DailyRecommendationActionsBarInner({
       >
         <Ionicons
           name={isFavorite ? "bookmark" : "bookmark-outline"}
-          size={18}
+          size={22}
           color={isFavorite ? colors.danger : colors.text}
         />
-        <Text style={[styles.actionLabel, { color: isFavorite ? colors.danger : colors.text }]} numberOfLines={1}>
-          {saveLabel}
-        </Text>
       </Pressable>
 
       <Pressable
@@ -60,10 +57,7 @@ function DailyRecommendationActionsBarInner({
         accessibilityRole="button"
         accessibilityLabel={shareLabel}
       >
-        <Ionicons name="share-social-outline" size={18} color={colors.primary} />
-        <Text style={[styles.actionLabel, { color: colors.primary }]} numberOfLines={1}>
-          {shareLabel}
-        </Text>
+        <Ionicons name="share-social-outline" size={22} color={colors.primary} />
       </Pressable>
 
       <Pressable
@@ -72,10 +66,7 @@ function DailyRecommendationActionsBarInner({
         accessibilityRole="button"
         accessibilityLabel={dislikeLabel}
       >
-        <Ionicons name="thumbs-down-outline" size={18} color={colors.textMuted} />
-        <Text style={[styles.actionLabel, { color: colors.textMuted }]} numberOfLines={1}>
-          {dislikeLabel}
-        </Text>
+        <Ionicons name="thumbs-down-outline" size={22} color={colors.textMuted} />
       </Pressable>
 
       <Pressable
@@ -84,10 +75,7 @@ function DailyRecommendationActionsBarInner({
         accessibilityRole="button"
         accessibilityLabel={bookLabel}
       >
-        <Ionicons name="calendar-outline" size={18} color={colors.onPrimary ?? "#fff"} />
-        <Text style={[styles.bookLabel, { color: colors.onPrimary ?? "#fff" }]} numberOfLines={1}>
-          {bookLabel}
-        </Text>
+        <Ionicons name="calendar-outline" size={22} color={colors.onPrimary ?? "#fff"} />
       </Pressable>
     </View>
   );
@@ -102,29 +90,17 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    minHeight: 52,
+    minHeight: 48,
     borderWidth: 1,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-    paddingHorizontal: 4,
-  },
-  actionLabel: {
-    fontSize: 10,
-    fontWeight: "600",
   },
   bookBtn: {
-    flex: 1.15,
-    minHeight: 52,
+    flex: 1,
+    minHeight: 48,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-    paddingHorizontal: 4,
-  },
-  bookLabel: {
-    fontSize: 10,
-    fontWeight: "700",
   },
 });

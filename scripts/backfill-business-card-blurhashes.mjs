@@ -3,7 +3,7 @@
  * Backfill business_cards.blurhashes from the first image URL.
  *
  * Usage:
- *   node scripts/backfill-business-card-blurhashes.mjs [--dry-run] [--limit 50]
+ *   node scripts/backfill-business-card-blurhashes.mjs [--dry-run] [--limit 50] [--order-asc]
  */
 import { encode } from "blurhash";
 import { createSupabaseAdmin, loadEnv, log } from "./seed-business-cards/lib.mjs";
@@ -19,6 +19,7 @@ function parseArgs(argv) {
   const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 200;
   return {
     dryRun: args.includes("--dry-run"),
+    orderAsc: args.includes("--order-asc"),
     limit: Number.isFinite(limit) && limit > 0 ? limit : 200,
   };
 }
@@ -67,24 +68,20 @@ async function main() {
   const { data: rows, error } = await supabase
     .from("business_cards")
     .select("id, images, image, blurhashes")
-    .order("created_at", { ascending: false })
+    .or("blurhashes.is.null,blurhashes.eq.{}")
+    .order("created_at", { ascending: cli.orderAsc })
     .limit(cli.limit);
 
   if (error) throw error;
 
   let updated = 0;
   for (const row of rows ?? []) {
-    const hasBlur =
-      Array.isArray(row.blurhashes) &&
-      row.blurhashes.some((h) => typeof h === "string" && h.trim().length > 0);
-    if (hasBlur) continue;
-
     const firstImage = Array.isArray(row.images) && row.images[0] ? row.images[0] : row.image;
-    const url = publicImageUrl(supabaseUrl, firstImage);
-    if (!url) continue;
+    const imageUrl = publicImageUrl(supabaseUrl, firstImage);
+    if (!imageUrl) continue;
 
     try {
-      const downloadUrl = thumbPublicUrlFromOriginalPublicUrl(url) ?? url;
+      const downloadUrl = thumbPublicUrlFromOriginalPublicUrl(imageUrl) ?? imageUrl;
       const { pixels, width, height } = await fetchImageRgb(downloadUrl);
       const hash = encode(pixels, width, height, 4, 3);
       if (cli.dryRun) {

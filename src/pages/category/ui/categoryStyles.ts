@@ -2,7 +2,7 @@ import { StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
 
 export const categoryStaticStyles = StyleSheet.create({
-  img: { width: 80, height: 80, borderRadius: 8 },
+  img: { width: 80, height: 80, borderRadius: 8, overflow: "hidden" },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   root: { flex: 1 },
   list: {},

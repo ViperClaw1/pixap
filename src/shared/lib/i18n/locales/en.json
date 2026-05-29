@@ -26,6 +26,9 @@
   "favorites": {
     "empty": "No favorites yet"
   },
+  "feed": {
+    "addStory": "Add story"
+  },
   "common": {
     "loading": "Loading...",
     "unknownError": "Unknown error",
@@ -708,7 +711,15 @@
     "unsave": "Unsave",
     "share": "Share",
     "dislike": "Dislike",
-    "book": "Book now"
+    "book": "Book now",
+    "reasons": {
+      "matchesNightlifeVibe": "Matches your nightlife vibe",
+      "trendingTonight": "Trending tonight",
+      "buzzingRightNow": "Buzzing right now",
+      "newSpotForYou": "New spot for you",
+      "popularWithCommunity": "Popular with the community",
+      "goodFitForTonight": "Good fit for tonight"
+    }
   },
   "adminDashboard": {
     "title": "Admin dashboard",

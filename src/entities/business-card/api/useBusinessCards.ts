@@ -2,7 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
-import { localizeBusinessCard, normalizeBusinessCardRowImages } from "../lib/localizeBusinessCard";
+import {
+  BUSINESS_CARD_LIST_SELECT,
+  localizeBusinessCard,
+  normalizeBusinessCardRowImages,
+} from "../lib/localizeBusinessCard";
+import { normalizeBusinessCardBlurhashes } from "@/shared/lib/business-card/businessCardBlurhash";
 
 export const ALL_CITIES_OPTION = "All cities";
 const BUSINESS_CARDS_STARTUP_LIMIT = 120;
@@ -72,8 +77,21 @@ function mapRpcBusinessCard(row: LocalizedBusinessCardRpcRow): BusinessCard {
     created_at: row.created_at,
     latitude: row.latitude ?? null,
     longitude: row.longitude ?? null,
-    blurhashes: row.blurhashes ?? [],
+    blurhashes: normalizeBusinessCardBlurhashes(row.blurhashes),
     category: row.category ?? null,
+  };
+}
+
+function mapTableBusinessCard(
+  row: Parameters<typeof localizeBusinessCard>[0],
+  language: string,
+): BusinessCard {
+  const localized = localizeBusinessCard(row, language);
+  return {
+    ...(localized as BusinessCard),
+    blurhashes: normalizeBusinessCardBlurhashes(
+      (localized as { blurhashes?: unknown }).blurhashes,
+    ),
   };
 }
 
@@ -149,14 +167,14 @@ export const useBusinessCardsByCategory = (categoryId: string, city?: string | n
     queryFn: async () => {
       let query = supabase
         .from("business_cards")
-        .select("*, category:categories(id, name)")
+        .select(BUSINESS_CARD_LIST_SELECT)
         .eq("category_id", categoryId);
       if (city && city !== ALL_CITIES_OPTION) query = query.eq("city", city);
       const { data, error } = await query;
       if (error) throw error;
       return ((data ?? []) as unknown as Parameters<typeof localizeBusinessCard>[0][]).map((row) =>
-        localizeBusinessCard(row, language),
-      ) as BusinessCard[];
+        mapTableBusinessCard(row, language),
+      );
     },
     enabled: !!categoryId,
   });
