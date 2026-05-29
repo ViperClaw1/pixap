@@ -5,6 +5,11 @@ export const searchStaticStyles = StyleSheet.create({
   thumb: { width: 56, height: 56, borderRadius: 8, overflow: "hidden" },
   root: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 16 },
+  cityRow: {
+    marginBottom: 8,
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+  },
   list: { flex: 1 },
   inputWrap: {
     flexDirection: "row",

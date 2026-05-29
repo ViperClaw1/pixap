@@ -6,7 +6,7 @@ import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useBusinessCards, type BusinessCard } from "@/entities/business-card";
-import { useProfile } from "@/entities/user";
+import { CityPickerField, useProfileCityPicker } from "@/shared/ui/city-picker";
 import type { SearchStackParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
@@ -20,6 +20,8 @@ import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullS
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { PLACE_LIST_BATCH_SIZE } from "@/shared/lib/placeListBatchSize";
+import { useExpandVisibleBatch } from "@/shared/lib/useExpandVisibleBatch";
+import { ShowMoreButton } from "@/shared/ui/show-more-button";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { ShimmerProvider, PlaceRowSkeletonList } from "@/shared/ui/shimmer";
 import { searchStaticStyles, searchThemeStyles } from "./searchStyles";
@@ -84,11 +86,11 @@ export default function SearchScreen() {
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
   };
-  const { data: profile } = useProfile();
-  const profileCity = profile?.city?.trim() || null;
-  const { data: places = [], isLoading } = useBusinessCards(undefined, profileCity);
+  const { selectedCity, profileCityFilter, selectCity } = useProfileCityPicker();
+  const { data: places = [], isLoading } = useBusinessCards(undefined, selectedCity);
   const [q, setQ] = useState("");
   const [visibleCount, setVisibleCount] = useState(PLACE_LIST_BATCH_SIZE);
+  const { isLoadingMore, expand: expandVisibleBatch } = useExpandVisibleBatch();
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -103,7 +105,7 @@ export default function SearchScreen() {
 
   useEffect(() => {
     setVisibleCount(PLACE_LIST_BATCH_SIZE);
-  }, [places]);
+  }, [places, profileCityFilter]);
 
   const visibleFiltered = useMemo(
     () => filtered.slice(0, visibleCount),
@@ -132,17 +134,25 @@ export default function SearchScreen() {
     [navigation],
   );
 
+  const handleShowMore = useCallback(() => {
+    expandVisibleBatch(() => {
+      setVisibleCount((prev) => prev + PLACE_LIST_BATCH_SIZE);
+    });
+  }, [expandVisibleBatch]);
+
   const listFooter = useMemo(
     () =>
-      !isLoading && canShowMore ? (
-        <Pressable
+      !isLoading && (canShowMore || isLoadingMore) ? (
+        <ShowMoreButton
+          label={t("home.showMore")}
+          loading={isLoadingMore}
+          onPress={handleShowMore}
           style={styles.showMoreBtn}
-          onPress={() => setVisibleCount((prev) => prev + PLACE_LIST_BATCH_SIZE)}
-        >
-          <Text style={styles.showMoreBtnText}>{t("home.showMore")}</Text>
-        </Pressable>
+          textStyle={styles.showMoreBtnText}
+          spinnerColor={colors.onAccent}
+        />
       ) : null,
-    [canShowMore, isLoading, styles.showMoreBtn, styles.showMoreBtnText, t],
+    [canShowMore, colors.onAccent, handleShowMore, isLoading, isLoadingMore, styles.showMoreBtn, styles.showMoreBtnText, t],
   );
 
   return (
@@ -155,6 +165,9 @@ export default function SearchScreen() {
         onRightPress={toggleThemeMode}
       />
       <View style={styles.content}>
+      <View style={styles.cityRow}>
+        <CityPickerField value={selectedCity} onChange={selectCity} />
+      </View>
       <View style={styles.inputWrap}>
         <TextInput
           style={styles.input}

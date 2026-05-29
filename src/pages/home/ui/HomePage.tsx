@@ -5,8 +5,6 @@ import {
   Text,
   Pressable,
   useWindowDimensions,
-  Alert,
-  TextInput,
   PixelRatio,
   InteractionManager,
 } from "react-native";
@@ -20,11 +18,6 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   useBusinessCards,
-  useAvailableCities,
-  ALL_CITIES_OPTION,
-  groupCitiesByCountry,
-  filterCityGroups,
-  matchesSearchTokens,
   type BusinessCard,
 } from "@/entities/business-card";
 import { useCategories, CategoryIcon, resolveCategoryIconSpec, localizeCategoryName } from "@/entities/category";
@@ -34,7 +27,6 @@ import {
   useTrackRecommendationEvent,
   useTrackRecommendationInteraction,
 } from "@/entities/daily-recommendation";
-import { useProfile, useUpdateProfile } from "@/entities/user";
 import type { HomeStackParamList, RootTabParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import ThemeToggle from "@/shared/ui/theme-toggle/ThemeToggle";
@@ -45,9 +37,9 @@ import {
   FeaturedSkeletonRow,
   RecommendedSkeletonList,
 } from "@/shared/ui/shimmer";
-import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { LanguagePickerModal } from "@/shared/ui/app-header/LanguagePickerModal";
 import { NotificationsSheetModal } from "@/shared/ui/notifications-sheet";
+import { CityPickerField, useProfileCityPicker } from "@/shared/ui/city-picker";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { homePageStaticStyles, homePageThemeStyles } from "./homePageStyles";
@@ -65,6 +57,8 @@ import { DailyPicksHero } from "@/widgets/daily-picks-hero";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
+import { useExpandVisibleBatch } from "@/shared/lib/useExpandVisibleBatch";
+import { ShowMoreButton } from "@/shared/ui/show-more-button";
 
 const VIBE_TOOLBAR_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
 const FEATURED_THUMB_W = 200;
@@ -91,30 +85,11 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
-  const { data: profile } = useProfile();
-  const updateProfile = useUpdateProfile();
-  const [selectedCity, setSelectedCity] = useState(ALL_CITIES_OPTION);
-  const [cityModalVisible, setCityModalVisible] = useState(false);
+  const { selectedCity, selectCity } = useProfileCityPicker();
   const [languageOpen, setLanguageOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [citySearchQuery, setCitySearchQuery] = useState("");
   const [visibleRecommendedCount, setVisibleRecommendedCount] = useState(RECOMMENDED_BATCH_SIZE);
-  const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
-
-  const concreteCities = useMemo(
-    () => availableCities.filter((c) => c !== ALL_CITIES_OPTION),
-    [availableCities],
-  );
-
-  const filteredCityGroups = useMemo(() => {
-    const grouped = groupCitiesByCountry(concreteCities);
-    return filterCityGroups(grouped, citySearchQuery);
-  }, [concreteCities, citySearchQuery]);
-
-  const showAllCitiesOption = useMemo(() => {
-    if (!availableCities.includes(ALL_CITIES_OPTION)) return false;
-    return matchesSearchTokens(ALL_CITIES_OPTION, citySearchQuery);
-  }, [availableCities, citySearchQuery]);
+  const { isLoadingMore: isLoadingMoreRecommended, expand: expandRecommendedBatch } = useExpandVisibleBatch();
   const { data: featured = [], isLoading: lf } = useBusinessCards("featured", selectedCity);
   const { data: recommended = [], isLoading: lr } = useBusinessCards("recommended", selectedCity);
   const { data: categories = [], isLoading: lc } = useCategories();
@@ -130,26 +105,8 @@ export default function HomeScreen() {
   const homeQueriesLoading = lc || lf || lr;
 
   useEffect(() => {
-    const cityFromProfile = profile?.city?.trim();
-    setSelectedCity(cityFromProfile ? cityFromProfile : ALL_CITIES_OPTION);
-  }, [profile?.city]);
-
-  useEffect(() => {
     setVisibleRecommendedCount(RECOMMENDED_BATCH_SIZE);
   }, [recommended, selectedCity]);
-
-  const handleSelectCity = async (city: string) => {
-    setCityModalVisible(false);
-    if (city === selectedCity) return;
-    const previous = selectedCity;
-    setSelectedCity(city);
-    try {
-      await updateProfile.mutateAsync({ city: city === ALL_CITIES_OPTION ? null : city });
-    } catch {
-      setSelectedCity(previous);
-      Alert.alert(t("home.alerts.citySaveTitle"), t("home.alerts.citySaveBody"));
-    }
-  };
 
   const themed = useThemeStyles(
     ({ colors: c, isDark: dark }) => homePageThemeStyles(c, dark),
@@ -337,17 +294,11 @@ export default function HomeScreen() {
         <LanguagePickerModal visible={languageOpen} onClose={() => setLanguageOpen(false)} />
         <NotificationsSheetModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
         <View style={styles.cityToolbarRow}>
-          <Pressable
-            style={styles.citySelector}
-            onPress={() => {
-              setCitySearchQuery("");
-              setCityModalVisible(true);
-            }}
-          >
-            <Text style={styles.citySelectorText} numberOfLines={1}>
-              {selectedCity === ALL_CITIES_OPTION ? t("home.allCities") : selectedCity}
-            </Text>
-          </Pressable>
+          <CityPickerField
+            value={selectedCity}
+            onChange={selectCity}
+            triggerStyle={styles.citySelector}
+          />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("home.a11y.openPixaiVibeMatch")}
@@ -439,17 +390,35 @@ export default function HomeScreen() {
     ],
   );
 
+  const handleShowMoreRecommended = useCallback(() => {
+    expandRecommendedBatch(() => {
+      setVisibleRecommendedCount((prev) => prev + RECOMMENDED_BATCH_SIZE);
+    });
+  }, [expandRecommendedBatch]);
+
   const listFooter = useMemo(
     () =>
-      !lr && canShowMoreRecommended ? (
-        <Pressable
+      !lr && (canShowMoreRecommended || isLoadingMoreRecommended) ? (
+        <ShowMoreButton
+          label={t("home.showMore")}
+          loading={isLoadingMoreRecommended}
+          onPress={handleShowMoreRecommended}
           style={styles.showMoreBtn}
-          onPress={() => setVisibleRecommendedCount((prev) => prev + RECOMMENDED_BATCH_SIZE)}
-        >
-          <Text style={styles.showMoreBtnText}>{t("home.showMore")}</Text>
-        </Pressable>
+          textStyle={styles.showMoreBtnText}
+          spinnerColor={colors.onAccent}
+        />
       ) : null,
-    [canShowMoreRecommended, i18n.language, lr, styles.showMoreBtn, styles.showMoreBtnText, t],
+    [
+      canShowMoreRecommended,
+      colors.onAccent,
+      handleShowMoreRecommended,
+      i18n.language,
+      isLoadingMoreRecommended,
+      lr,
+      styles.showMoreBtn,
+      styles.showMoreBtnText,
+      t,
+    ],
   );
 
   const listContentStyle = useMemo(
@@ -476,61 +445,6 @@ export default function HomeScreen() {
         windowSize={8}
         updateCellsBatchingPeriod={40}
       />
-
-      <BottomSheetPickerModal
-        visible={cityModalVisible}
-        onClose={() => {
-          setCitySearchQuery("");
-          setCityModalVisible(false);
-        }}
-        title={t("home.chooseCity")}
-        maxHeightFraction={0.72}
-      >
-        <View style={styles.citySearchBox}>
-          <Ionicons name="search-outline" size={20} color={colors.textMuted} />
-          <TextInput
-            value={citySearchQuery}
-            onChangeText={setCitySearchQuery}
-            placeholder={t("home.citySearchPlaceholder")}
-            placeholderTextColor={colors.textMuted}
-            style={styles.citySearchInput}
-            autoCorrect={false}
-            autoCapitalize="none"
-            clearButtonMode="while-editing"
-          />
-        </View>
-
-        {showAllCitiesOption ? (
-          <Pressable
-            key={ALL_CITIES_OPTION}
-            style={styles.cityRow}
-            onPress={() => void handleSelectCity(ALL_CITIES_OPTION)}
-          >
-            <Text style={styles.cityRowText}>{t("home.allCities")}</Text>
-            {selectedCity === ALL_CITIES_OPTION ? <Text style={styles.cityCheck}>{t("home.selected")}</Text> : null}
-          </Pressable>
-        ) : null}
-
-        {filteredCityGroups.map(({ country, cities }) => (
-          <View key={country}>
-            <View style={styles.countryHeader}>
-              <Text style={styles.countryHeaderText}>{country}</Text>
-            </View>
-            {cities.map((city) => (
-              <Pressable key={city} style={styles.cityRow} onPress={() => void handleSelectCity(city)}>
-                <Text style={styles.cityRowText}>{city}</Text>
-                {city === selectedCity ? <Text style={styles.cityCheck}>{t("home.selected")}</Text> : null}
-              </Pressable>
-            ))}
-          </View>
-        ))}
-
-        {!showAllCitiesOption && filteredCityGroups.length === 0 ? (
-          <View style={styles.cityPickerEmpty}>
-            <Text style={styles.cityPickerEmptyText}>{t("home.noCitiesMatch")}</Text>
-          </View>
-        ) : null}
-      </BottomSheetPickerModal>
     </ShimmerProvider>
   );
 }

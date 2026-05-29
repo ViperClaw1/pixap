@@ -21,7 +21,7 @@ function parseStep(raw: unknown): OnboardingStep {
   if (typeof raw === "string" && (ONBOARDING_STEPS as readonly string[]).includes(raw)) {
     return raw as OnboardingStep;
   }
-  return "venue_categories";
+  return "city_selection";
 }
 
 export function parseUserPreferencesRow(row: Record<string, unknown>): UserPreferences {

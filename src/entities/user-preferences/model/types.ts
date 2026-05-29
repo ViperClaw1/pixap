@@ -1,4 +1,5 @@
 export const ONBOARDING_STEPS = [
+  "city_selection",
   "venue_categories",
   "vibe_preferences",
   "habits",

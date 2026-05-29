@@ -178,9 +178,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const signIn = useCallback(async (email: string, password: string): Promise<SignInResult> => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (!error) return { error: null };
-    return { error: error.message ?? "Sign in failed" };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: error.message ?? "Sign in failed" };
+    if (data.session) {
+      setSession(data.session);
+      setUser(data.session.user);
+    }
+    return { error: null };
   }, []);
 
   const signOut = useCallback(async () => {

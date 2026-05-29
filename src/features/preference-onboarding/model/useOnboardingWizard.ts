@@ -10,17 +10,22 @@ import {
   type UserPreferencesPatch,
 } from "@/entities/user-preferences";
 import { bootstrapMyDailyRecommendations } from "@/entities/daily-recommendation";
+import { useProfile, useUpdateProfile } from "@/entities/user";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { saveOnboardingDraft } from "../lib/onboardingDraftStorage";
 
 const AUTOSAVE_MS = 300;
+const PROGRESS_STEPS = STAGE1_STEPS.length + 1;
 
 export function useOnboardingWizard(initialStep?: OnboardingStep) {
-  const { data: serverPrefs, isLoading } = useUserPreferences();
+  const { data: serverPrefs, isLoading: prefsLoading } = useUserPreferences();
+  const { data: profile, isLoading: profileLoading } = useProfile();
   const upsert = useUpsertUserPreferences();
+  const updateProfile = useUpdateProfile();
   const queryClient = useQueryClient();
 
-  const [step, setStep] = useState<OnboardingStep>(initialStep ?? "venue_categories");
+  const [step, setStep] = useState<OnboardingStep>(initialStep ?? "city_selection");
+  const [selectedCity, setSelectedCity] = useState("");
   const [favoriteCategories, setFavoriteCategories] = useState<string[]>([]);
   const [vibePreferences, setVibePreferences] = useState<string[]>([]);
   const [habits, setHabits] = useState<string[]>([]);
@@ -28,6 +33,8 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
   const [temperament, setTemperament] = useState<Temperament>({ ...DEFAULT_TEMPERAMENT });
   const hydratedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isLoading = prefsLoading || profileLoading;
 
   useEffect(() => {
     if (isLoading || hydratedRef.current) return;
@@ -39,10 +46,20 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
     setHabits(serverPrefs.habits);
     setFavoriteMusic(serverPrefs.favorite_music);
     setTemperament(serverPrefs.temperament);
-    if (!initialStep && serverPrefs.onboarding_step !== "completed") {
-      setStep(serverPrefs.onboarding_step);
+
+    const profileCity = profile?.city?.trim() ?? "";
+    if (profileCity) {
+      setSelectedCity(profileCity);
     }
-  }, [serverPrefs, isLoading, initialStep]);
+
+    if (!initialStep && serverPrefs.onboarding_step !== "completed") {
+      let nextStep = serverPrefs.onboarding_step;
+      if (!profileCity && nextStep !== "city_selection" && nextStep !== "completed") {
+        nextStep = "city_selection";
+      }
+      setStep(nextStep);
+    }
+  }, [profile?.city, serverPrefs, isLoading, initialStep]);
 
   const patchForStep = useCallback((): UserPreferencesPatch => {
     return {
@@ -82,6 +99,8 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
 
   const canContinue = useMemo(() => {
     switch (step) {
+      case "city_selection":
+        return selectedCity.trim().length > 0;
       case "venue_categories":
         return favoriteCategories.length > 0;
       case "vibe_preferences":
@@ -95,17 +114,28 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
       default:
         return true;
     }
-  }, [step, favoriteCategories, vibePreferences, habits, favoriteMusic]);
+  }, [step, selectedCity, favoriteCategories, vibePreferences, habits, favoriteMusic]);
 
   const progress = useMemo(() => {
-    if (step === "venue_ratings") return 0.85;
+    if (step === "venue_ratings") return (PROGRESS_STEPS + 0.85) / (PROGRESS_STEPS + 1);
     if (step === "completed") return 1;
-    if (isStage1) return (stage1Index + 1) / (STAGE1_STEPS.length + 1);
+    if (step === "city_selection") return 1 / (PROGRESS_STEPS + 1);
+    if (isStage1) return (stage1Index + 2) / (PROGRESS_STEPS + 1);
     return 0;
   }, [isStage1, stage1Index, step]);
 
   const goNext = useCallback(async () => {
     if (!canContinue) return;
+
+    if (step === "city_selection") {
+      const city = selectedCity.trim();
+      await updateProfile.mutateAsync({ city });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.businessCards.listPrefix });
+      setStep("venue_categories");
+      await flushSave({ onboarding_step: "venue_categories" });
+      return;
+    }
+
     if (isStage1 && stage1Index < STAGE1_STEPS.length - 1) {
       const next = STAGE1_STEPS[stage1Index + 1] as OnboardingStep;
       setStep(next);
@@ -115,14 +145,27 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
     if (step === "temperament") {
       setStep("venue_ratings");
       await flushSave({ onboarding_step: "venue_ratings" });
-      return;
     }
-  }, [canContinue, flushSave, isStage1, stage1Index, step]);
+  }, [
+    canContinue,
+    flushSave,
+    isStage1,
+    queryClient,
+    selectedCity,
+    stage1Index,
+    step,
+    updateProfile,
+  ]);
 
   const goBack = useCallback(() => {
     if (step === "venue_ratings") {
       setStep("temperament");
       void scheduleSave({ onboarding_step: "temperament" });
+      return;
+    }
+    if (step === "venue_categories") {
+      setStep("city_selection");
+      void scheduleSave({ onboarding_step: "city_selection" });
       return;
     }
     if (isStage1 && stage1Index > 0) {
@@ -181,7 +224,9 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
     setStep,
     progress,
     isStage1,
-    canGoBack: step !== "venue_categories",
+    canGoBack: step !== "city_selection",
+    selectedCity,
+    setSelectedCity,
     favoriteCategories,
     vibePreferences,
     habits,
