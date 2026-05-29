@@ -2,6 +2,7 @@ import type { OnboardingStep, Temperament } from "@/entities/user-preferences";
 
 export type OnboardingWizardSnapshot = {
   step: OnboardingStep;
+  selectedCity: string;
   favoriteCategories: string[];
   vibePreferences: string[];
   habits: string[];
@@ -13,6 +14,8 @@ export type OnboardingWizardSnapshot = {
 export function buildStepCompletedPayload(snapshot: OnboardingWizardSnapshot): Record<string, unknown> {
   const { step } = snapshot;
   switch (step) {
+    case "city_selection":
+      return { city: snapshot.selectedCity.trim() || null };
     case "venue_categories":
       return selectionPayload(snapshot.favoriteCategories);
     case "vibe_preferences":

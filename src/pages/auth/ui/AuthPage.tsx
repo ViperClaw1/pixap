@@ -25,6 +25,8 @@ import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession"
 import { env } from "@/shared/lib/env";
 import { getOAuthRedirectUri } from "@/shared/lib/oauthRedirect";
 import type { ProfileStackParamList } from "@/app/navigation/types";
+
+type PostAuthRoute = "ProfileMain" | "EditProfile";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { AUTH_PRIMARY_COLOR } from "@/shared/theme/primaryPressable";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
@@ -65,6 +67,9 @@ export default function AuthScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [authTransition, setAuthTransition] = useState(false);
+  const postAuthRouteRef = useRef<PostAuthRoute>("ProfileMain");
+  const hadUserWhenAuthReadyRef = useRef<boolean | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
@@ -146,14 +151,36 @@ export default function AuthScreen() {
     ensureFocusedInputVisible(keyboardTop);
   };
 
+  const beginAuthTransition = useCallback((route: PostAuthRoute) => {
+    postAuthRouteRef.current = route;
+    setAuthTransition(true);
+  }, []);
+
   useEffect(() => {
-    if (!authLoading && user) {
-      navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
-    }
-  }, [authLoading, user, navigation]);
+    if (authLoading || !user || !authTransition) return;
+    setAuthTransition(false);
+    setLoading(false);
+    navigation.reset({ index: 0, routes: [{ name: postAuthRouteRef.current }] });
+  }, [authLoading, authTransition, navigation, user]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (hadUserWhenAuthReadyRef.current !== null) return;
+    hadUserWhenAuthReadyRef.current = Boolean(user);
+  }, [authLoading, user]);
+
+  useEffect(() => {
+    if (authLoading || !user || authTransition || !hadUserWhenAuthReadyRef.current) return;
+    navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
+  }, [authLoading, authTransition, navigation, user]);
+
+  const finishAuthAttempt = useCallback((keepLoading: boolean) => {
+    if (!keepLoading) setLoading(false);
+  }, []);
 
   const social = async (provider: "google" | "apple") => {
     setLoading(true);
+    let keepLoading = false;
     try {
       const isExpoGo = Constants.appOwnership === "expo";
       devInfo("[Auth][social] provider:", provider, "platform:", Platform.OS, "expoGo:", isExpoGo);
@@ -189,6 +216,8 @@ export default function AuthScreen() {
           return;
         }
         devInfo("[Apple][native] signInWithIdToken success");
+        beginAuthTransition("ProfileMain");
+        keepLoading = true;
         return;
       }
 
@@ -221,6 +250,8 @@ export default function AuthScreen() {
           showUserAlert(t("auth.alerts.signInFailed"), finished.message);
           return;
         }
+        beginAuthTransition("ProfileMain");
+        keepLoading = true;
         return;
       }
       if (result.type !== "success") {
@@ -229,12 +260,13 @@ export default function AuthScreen() {
     } catch (e: unknown) {
       showUserAlert(t("auth.alerts.oauthError"), e instanceof Error ? e.message : t("auth.alerts.unknown"));
     } finally {
-      setLoading(false);
+      finishAuthAttempt(keepLoading);
     }
   };
 
   const submit = async () => {
     setLoading(true);
+    let keepLoading = false;
     try {
       if (mode === "login") {
         const { error } = await signIn(email, password);
@@ -242,6 +274,8 @@ export default function AuthScreen() {
           showUserAlert(t("auth.alerts.signInFailed"), error);
           return;
         }
+        beginAuthTransition("ProfileMain");
+        keepLoading = true;
         return;
       }
       if (mode === "signup") {
@@ -279,7 +313,8 @@ export default function AuthScreen() {
           setMode("login");
           return;
         }
-        navigation.reset({ index: 0, routes: [{ name: "EditProfile" }] });
+        beginAuthTransition("EditProfile");
+        keepLoading = true;
         return;
       }
       setEmailTouched(true);
@@ -293,10 +328,11 @@ export default function AuthScreen() {
       }
       navigation.navigate("VerifyEmailOtp", { flow: "recovery", email: email.trim() });
     } finally {
-      setLoading(false);
+      finishAuthAttempt(keepLoading);
     }
   };
 
+  const showSubmitLoading = loading || authTransition;
   const ph = colors.textMuted;
 
   return (
@@ -468,7 +504,7 @@ export default function AuthScreen() {
         </>
       )}
 
-      {loading ? (
+      {showSubmitLoading ? (
         <ActivityIndicator style={{ marginTop: 16 }} color={colors.primary} />
       ) : (
         <Pressable style={styles.primary} onPress={() => void submit()}>
@@ -496,12 +532,12 @@ export default function AuthScreen() {
             <Text style={styles.orText}>{t("auth.or")}</Text>
             <View style={styles.orLine} />
           </View>
-          <Pressable style={styles.outline} onPress={() => void social("google")} disabled={loading}>
+          <Pressable style={styles.outline} onPress={() => void social("google")} disabled={showSubmitLoading}>
             <FontAwesome name="google" size={18} color={colors.accent} />
             <Text style={styles.outlineText}>{t("auth.continueGoogle")}</Text>
           </Pressable>
           {Platform.OS !== "android" ? (
-            <Pressable style={styles.outline} onPress={() => void social("apple")} disabled={loading}>
+            <Pressable style={styles.outline} onPress={() => void social("apple")} disabled={showSubmitLoading}>
               <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? colors.onAccent : colors.accent} />
               <Text style={styles.outlineText}>{t("auth.continueApple")}</Text>
             </Pressable>

@@ -66,6 +66,11 @@ export const categoryStaticStyles = StyleSheet.create({
     justifyContent: "center",
   },
   showMoreBtnText: { fontSize: 14, fontWeight: "700" },
+  cityRow: {
+    marginBottom: 8,
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+  },
   emptyWrap: {
     flex: 1,
     alignItems: "center",

@@ -16,7 +16,7 @@ import {
 import { PageI18nProvider } from "@/shared/lib/i18n";
 import { OnboardingProgressBar } from "@/shared/ui/onboarding/OnboardingProgressBar";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
-import { OnboardingChipStep } from "./steps/OnboardingChipStep";
+import { CitySelectionStep } from "./steps/CitySelectionStep";
 import { HabitsStep } from "./steps/HabitsStep";
 import { MusicTasteStep } from "./steps/MusicTasteStep";
 import { OnboardingVenueRatingStep } from "./steps/OnboardingVenueRatingStep";
@@ -37,13 +37,14 @@ function PreferenceOnboardingContent() {
   const { colors } = useAppTheme();
   const { track } = useTrackOnboardingEvent();
 
-  const wizard = useOnboardingWizard(route.params?.retake ? "venue_categories" : undefined);
+  const wizard = useOnboardingWizard(route.params?.retake ? "city_selection" : undefined);
   const sessionStartedRef = useRef(false);
   const [stepDirection, setStepDirection] = useState<1 | -1>(1);
 
   const wizardSnapshot = useMemo(
     () => ({
       step: wizard.step,
+      selectedCity: wizard.selectedCity,
       favoriteCategories: wizard.favoriteCategories,
       vibePreferences: wizard.vibePreferences,
       habits: wizard.habits,
@@ -52,6 +53,7 @@ function PreferenceOnboardingContent() {
     }),
     [
       wizard.step,
+      wizard.selectedCity,
       wizard.favoriteCategories,
       wizard.vibePreferences,
       wizard.habits,
@@ -119,7 +121,7 @@ function PreferenceOnboardingContent() {
     wizard.goBack();
   }, [wizard]);
 
-  const isFirstStep = wizard.step === "venue_categories";
+  const isFirstStep = wizard.step === "city_selection";
   const isVenueStep = wizard.step === "venue_ratings";
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
     swipeBackFallback: exit,
@@ -181,6 +183,13 @@ function PreferenceOnboardingContent() {
 
   const renderStep = () => {
     switch (wizard.step) {
+      case "city_selection":
+        return (
+          <CitySelectionStep
+            selected={wizard.selectedCity}
+            onSelect={wizard.setSelectedCity}
+          />
+        );
       case "venue_categories":
         return <VenueCategoriesStep selected={wizard.favoriteCategories} onToggle={wizard.toggleCategory} />;
       case "vibe_preferences":

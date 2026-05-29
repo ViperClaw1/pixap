@@ -53,7 +53,7 @@ function ProfileOnboardingActionsContent({
       await clearOnboardingRatings.mutateAsync();
       await upsertUserPrefs.mutateAsync({
         onboarding_completed: false,
-        onboarding_step: "venue_categories",
+        onboarding_step: "city_selection",
         clear_skipped: true,
       });
       openPreferenceOnboarding(true);

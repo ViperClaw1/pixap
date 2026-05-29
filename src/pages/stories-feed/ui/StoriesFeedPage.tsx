@@ -37,6 +37,7 @@ import { ShimmerProvider } from "@/shared/ui/shimmer/ShimmerProvider";
 import { ShimmerSurface } from "@/shared/ui/shimmer/ShimmerSurface";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { AppPressable } from "@/shared/ui/app-pressable";
+import { ShowMoreButton } from "@/shared/ui/show-more-button";
 import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomSheet";
 import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 import { profileDisplayName } from "@/shared/lib/profileDisplayName";
@@ -252,6 +253,22 @@ export default function StoriesFeedScreen() {
     if (!hasMorePosts || isFetchingMorePosts) return;
     loadMorePosts();
   }, [hasMorePosts, isFetchingMorePosts, loadMorePosts]);
+
+  const listFooter = useMemo(
+    () =>
+      !isLoading && (hasMorePosts || isFetchingMorePosts) ? (
+        <ShowMoreButton
+          label={t("home.showMore")}
+          loading={isFetchingMorePosts}
+          onPress={onLoadMorePosts}
+          style={[styles.showMoreBtn, { backgroundColor: colors.accent }]}
+          textStyle={[styles.showMoreBtnText, { color: colors.onAccent }]}
+          spinnerColor={colors.onAccent}
+          disabled={!hasMorePosts}
+        />
+      ) : null,
+    [colors.accent, colors.onAccent, hasMorePosts, isFetchingMorePosts, isLoading, onLoadMorePosts, t],
+  );
 
   const onFeedEndReached = useCallback(() => {
     onLoadMorePosts();
@@ -512,13 +529,7 @@ export default function StoriesFeedScreen() {
         onEndReached={onFeedEndReached}
         renderItem={renderFocusedFeedPost}
         ItemSeparatorComponent={renderPostSeparator}
-        ListFooterComponent={
-          isFetchingMorePosts ? (
-            <View style={styles.feedFooterLoader}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
-          ) : null
-        }
+        ListFooterComponent={listFooter}
         ListHeaderComponent={
           <StoriesStripHeader
             topStories={topStories}
@@ -712,7 +723,17 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14 },
   emptyStateWrap: { alignItems: "center", justifyContent: "center" },
   feedContent: { paddingBottom: 12 },
-  feedFooterLoader: { paddingVertical: 24, alignItems: "center" },
+  showMoreBtn: {
+    marginTop: 4,
+    marginBottom: 8,
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  showMoreBtnText: { fontSize: 14, fontWeight: "700" },
   postDivider: { height: 10, width: "100%" },
   storiesHeaderWrap: { paddingTop: 8, paddingBottom: 8 },
   storiesHeaderContent: { paddingHorizontal: 12, gap: 12 },

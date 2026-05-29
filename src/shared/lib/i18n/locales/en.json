@@ -53,6 +53,10 @@
       "next": "Next"
     },
     "steps": {
+      "city": {
+        "title": "Which city do you usually go out in?",
+        "subtitle": "We'll tailor venues and recommendations to your city."
+      },
       "venueCategories": {
         "title": "What venues do you love?",
         "subtitle": "Pick all that match your vibe — we'll tailor recommendations."

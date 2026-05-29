@@ -10,8 +10,8 @@ import { useRoute, useNavigation, type RouteProp } from "@react-navigation/nativ
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCardsByCategory } from "@/entities/business-card";
-import { useProfile } from "@/entities/user";
 import { useCategories } from "@/entities/category";
+import { CityPickerField, useProfileCityPicker } from "@/shared/ui/city-picker";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCardDisplayUrl";
@@ -25,6 +25,8 @@ import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { categoryStaticStyles, categoryThemeStyles } from "./categoryStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import { PLACE_LIST_BATCH_SIZE } from "@/shared/lib/placeListBatchSize";
+import { useExpandVisibleBatch } from "@/shared/lib/useExpandVisibleBatch";
+import { ShowMoreButton } from "@/shared/ui/show-more-button";
 import { ShimmerProvider, PlaceRowSkeletonList } from "@/shared/ui/shimmer";
 
 const PLACE_CARD_MAX_TAGS = 4;
@@ -119,19 +121,19 @@ export default function CategoryScreen() {
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
-  const { data: profile } = useProfile();
-  const profileCity = profile?.city?.trim() || null;
-  const { data = [], isLoading } = useBusinessCardsByCategory(id, profileCity);
+  const { selectedCity, profileCityFilter, selectCity } = useProfileCityPicker();
+  const { data = [], isLoading } = useBusinessCardsByCategory(id, profileCityFilter);
   const { data: categories = [] } = useCategories();
   const categoryName = categories.find((category) => category.id === id)?.name ?? t("category.fallbackName");
   const [visibleCount, setVisibleCount] = useState(PLACE_LIST_BATCH_SIZE);
+  const { isLoadingMore, expand: expandVisibleBatch } = useExpandVisibleBatch();
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
       setVisibleCount(PLACE_LIST_BATCH_SIZE);
     });
     return () => task.cancel();
-  }, [data, id]);
+  }, [data, id, profileCityFilter]);
 
   const visiblePlaces = useMemo(() => data.slice(0, visibleCount), [data, visibleCount]);
   const canShowMore = visibleCount < data.length;
@@ -143,8 +145,8 @@ export default function CategoryScreen() {
     [visiblePlaces],
   );
   const showEmptyState = !isLoading && data.length === 0;
-  const emptyMessage = profileCity
-    ? t("category.noPlacesInCity", { city: profileCity })
+  const emptyMessage = profileCityFilter
+    ? t("category.noPlacesInCity", { city: profileCityFilter })
     : t("category.noPlaces");
 
   const themed = useThemeStyles(
@@ -174,14 +176,25 @@ export default function CategoryScreen() {
     openPlaceDetailRef.current(placeId);
   }, []);
 
+  const handleShowMore = useCallback(() => {
+    expandVisibleBatch(() => {
+      setVisibleCount((prev) => prev + PLACE_LIST_BATCH_SIZE);
+    });
+  }, [expandVisibleBatch]);
+
   const listFooter = useMemo(
     () =>
-      !isLoading && canShowMore ? (
-        <AppPressable style={styles.showMoreBtn} onPress={() => setVisibleCount((prev) => prev + PLACE_LIST_BATCH_SIZE)}>
-          <Text style={styles.showMoreBtnText}>{t("home.showMore")}</Text>
-        </AppPressable>
+      !isLoading && (canShowMore || isLoadingMore) ? (
+        <ShowMoreButton
+          label={t("home.showMore")}
+          loading={isLoadingMore}
+          onPress={handleShowMore}
+          style={styles.showMoreBtn}
+          textStyle={styles.showMoreBtnText}
+          spinnerColor={colors.onAccent}
+        />
       ) : null,
-    [canShowMore, isLoading, styles.showMoreBtn, styles.showMoreBtnText, t],
+    [canShowMore, colors.onAccent, handleShowMore, isLoading, isLoadingMore, styles.showMoreBtn, styles.showMoreBtnText, t],
   );
 
   const renderPlaceRow = useCallback<ListRenderItem<(typeof visiblePlaces)[number]>>(
@@ -211,6 +224,9 @@ export default function CategoryScreen() {
           <View style={styles.headerRight}>
             <ThemeToggle />
           </View>
+        </View>
+        <View style={styles.cityRow}>
+          <CityPickerField value={selectedCity} onChange={selectCity} />
         </View>
       </View>
 
