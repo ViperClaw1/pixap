@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useState, useMemo } from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useTranslation } from "react-i18next";
 import { CommonActions, useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -237,9 +238,9 @@ export default function BookingFlowPage() {
     <View style={[styles.root, { backgroundColor: colors.background }]} {...androidSwipeBackPanHandlers}>
       {step === 1 ? (
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
-          <Pressable onPress={() => setStep(step - 1)}>
+          <AppPressable onPress={() => setStep(step - 1)}>
             <Text style={[styles.back, themedStyles.headerBack]}>←</Text>
-          </Pressable>
+          </AppPressable>
           <View>
             <Text style={[styles.title, themedStyles.headerTitle]}>Book {place.name}</Text>
             <Text style={[styles.stepText, themedStyles.headerStep]}>
@@ -255,7 +256,7 @@ export default function BookingFlowPage() {
             <Text style={[styles.section, themedStyles.sectionText]}>Select date & time</Text>
             <View style={[styles.calendarPanel, themedStyles.calendarPanel]}>
               <View style={styles.calendarNav}>
-                <Pressable
+                <AppPressable
                   accessibilityRole="button"
                   accessibilityLabel="Previous month"
                   disabled={!canGoPrevMonth}
@@ -269,11 +270,11 @@ export default function BookingFlowPage() {
                   style={[styles.calendarNavBtn, themedStyles.calendarNavBtn, !canGoPrevMonth && styles.calendarNavBtnDisabled]}
                 >
                   <Ionicons name="chevron-back" size={22} color={canGoPrevMonth ? colors.text : colors.textMuted} />
-                </Pressable>
+                </AppPressable>
                 <Text style={[styles.calendarMonthTitle, themedStyles.calendarMonthTitle]}>
                   {visibleCalendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
                 </Text>
-                <Pressable
+                <AppPressable
                   accessibilityRole="button"
                   accessibilityLabel="Next month"
                   disabled={!canGoNextMonth}
@@ -287,7 +288,7 @@ export default function BookingFlowPage() {
                   style={[styles.calendarNavBtn, themedStyles.calendarNavBtn, !canGoNextMonth && styles.calendarNavBtnDisabled]}
                 >
                   <Ionicons name="chevron-forward" size={22} color={canGoNextMonth ? colors.text : colors.textMuted} />
-                </Pressable>
+                </AppPressable>
               </View>
               <View style={styles.calendarDowRow}>
                 {WEEKDAY_LABELS.map((label) => (
@@ -308,7 +309,7 @@ export default function BookingFlowPage() {
                     const isPast = ymd < todayYmd;
                     return (
                       <View key={ymd} style={styles.calendarCell}>
-                        <Pressable
+                        <AppPressable
                           accessibilityRole="button"
                           accessibilityLabel={`${ymd}`}
                           disabled={isPast}
@@ -327,7 +328,7 @@ export default function BookingFlowPage() {
                           <Text style={[styles.calendarCellDayText, themedStyles.calendarCellDayText, isPast && themedStyles.calendarCellPastText]}>
                             {day}
                           </Text>
-                        </Pressable>
+                        </AppPressable>
                       </View>
                     );
                   })}
@@ -338,7 +339,7 @@ export default function BookingFlowPage() {
               {chunkCells([...BOOKING_FLOW_TIME_SLOTS], BOOKING_SLOT_GRID_COLUMNS).map((row, rowIdx) => (
                 <View key={`time-row-${rowIdx}`} style={styles.timeGridRow}>
                   {row.map((t) => (
-                    <Pressable
+                    <AppPressable
                       key={t}
                       style={[styles.timeCell, themedStyles.timeCell, selectedTime === t && styles.timeCellSel, selectedTime === t && themedStyles.timeCellSel]}
                       onPress={() => setSelectedTime(t)}
@@ -346,7 +347,7 @@ export default function BookingFlowPage() {
                       <Text style={[themedStyles.timeCellText, selectedTime === t && styles.timeCellTextSel, selectedTime === t && themedStyles.timeCellTextSel]}>
                         {t}
                       </Text>
-                    </Pressable>
+                    </AppPressable>
                   ))}
                 </View>
               ))}
@@ -373,13 +374,13 @@ export default function BookingFlowPage() {
             >
               <Text style={[styles.section, themedStyles.sectionText]}>Number of guests</Text>
               <View style={styles.guestRow}>
-                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.max(BOOKING_FLOW_MIN_GUESTS, guests - 1))}>
+                <AppPressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.max(BOOKING_FLOW_MIN_GUESTS, guests - 1))}>
                   <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>−</Text>
-                </Pressable>
+                </AppPressable>
                 <Text style={[styles.guestCount, themedStyles.guestCountText]}>{guests}</Text>
-                <Pressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.min(BOOKING_FLOW_MAX_GUESTS, guests + 1))}>
+                <AppPressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.min(BOOKING_FLOW_MAX_GUESTS, guests + 1))}>
                   <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>+</Text>
-                </Pressable>
+                </AppPressable>
               </View>
             </BookingFlowPlacePanel>
           ) : null}
@@ -411,7 +412,7 @@ export default function BookingFlowPage() {
 
       <View style={[styles.footer, themedStyles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         {step < BOOKING_FLOW_TOTAL_STEPS ? (
-          <Pressable
+          <AppPressable
             style={styles.primary}
             onPress={() => {
               if (step === 0 && !isProfileComplete(profile)) {
@@ -432,9 +433,9 @@ export default function BookingFlowPage() {
             }}
           >
             <Text style={styles.primaryText}>Continue</Text>
-          </Pressable>
+          </AppPressable>
         ) : (
-          <Pressable
+          <AppPressable
             style={[styles.primary, confirming && { opacity: 0.55 }]}
             disabled={confirming}
             accessibilityState={{ disabled: confirming }}
@@ -445,7 +446,7 @@ export default function BookingFlowPage() {
             ) : (
               <Text style={styles.primaryText}>Confirm booking</Text>
             )}
-          </Pressable>
+          </AppPressable>
         )}
       </View>
     </View>

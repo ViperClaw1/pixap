@@ -1,14 +1,14 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
-  Pressable,
   StyleSheet,
   Text,
   View,
   type StyleProp,
   type TextStyle,
-  type ViewStyle,
+  type ViewStyle
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector, Swipeable } from "react-native-gesture-handler";
@@ -177,7 +177,7 @@ function MessageBodyText({
           if (seg.kind === "story") {
             const isOpening = openingStoryId === seg.id;
             return (
-              <Pressable
+              <AppPressable
                 key={`s-${i}-${seg.id}`}
                 style={storyButtonStyle}
                 onPress={() => void onOpenStory?.(seg.id)}
@@ -189,7 +189,7 @@ function MessageBodyText({
                 {isOpening ? (
                   <ActivityIndicator size="small" color={storyButtonSpinnerColor} style={{ marginLeft: 6 }} />
                 ) : null}
-              </Pressable>
+              </AppPressable>
             );
           }
           if (seg.kind === "place") {
@@ -415,13 +415,13 @@ function MessageThreadListItemComponent({
           : () => (
               <View style={s.swipeActionWrap}>
                 <View style={s.swipeActionRow}>
-                  <Pressable style={s.swipeActionBtn} onPress={handleOpenReactionPicker}>
+                  <AppPressable style={s.swipeActionBtn} onPress={handleOpenReactionPicker}>
                     <Ionicons name="happy-outline" size={16} color={colors.textMuted} />
-                  </Pressable>
+                  </AppPressable>
                   {peerUserId ? (
-                    <Pressable style={s.swipeActionBtn} onPress={handleOpenReport}>
+                    <AppPressable style={s.swipeActionBtn} onPress={handleOpenReport}>
                       <Ionicons name="flag-outline" size={16} color={colors.textMuted} />
-                    </Pressable>
+                    </AppPressable>
                   ) : null}
                 </View>
               </View>
@@ -432,11 +432,11 @@ function MessageThreadListItemComponent({
           ? () => (
               <View style={s.swipeActionWrap}>
                 <View style={s.swipeActionRow}>
-                  <Pressable style={s.swipeActionBtn} onPress={handleOpenReactionPicker}>
+                  <AppPressable style={s.swipeActionBtn} onPress={handleOpenReactionPicker}>
                     <Ionicons name="happy-outline" size={16} color={colors.textMuted} />
-                  </Pressable>
+                  </AppPressable>
                   {canEditMessage(message) && onOpenEdit ? (
-                    <Pressable
+                    <AppPressable
                       style={s.swipeActionBtn}
                       onPress={() => {
                         closeSwipeActions();
@@ -444,11 +444,11 @@ function MessageThreadListItemComponent({
                       }}
                     >
                       <Ionicons name="create-outline" size={16} color={colors.textMuted} />
-                    </Pressable>
+                    </AppPressable>
                   ) : null}
-                  <Pressable style={s.swipeActionBtn} onPress={() => onOpenDelete(message.id, isMine)}>
+                  <AppPressable style={s.swipeActionBtn} onPress={() => onOpenDelete(message.id, isMine)}>
                     <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
-                  </Pressable>
+                  </AppPressable>
                 </View>
               </View>
             )
@@ -475,7 +475,7 @@ function MessageThreadListItemComponent({
                 const sticker = isStickerAssetUri(uri);
                 const boxStyle = sticker ? s.bubbleAttachmentSticker : s.bubbleAttachmentImage;
                 return (
-                  <Pressable
+                  <AppPressable
                     key={`${message.id}-${uri}`}
                     onPress={() => onOpenAttachment?.(uri)}
                     disabled={!onOpenAttachment}
@@ -487,7 +487,7 @@ function MessageThreadListItemComponent({
                       iconColor={colors.textMuted}
                       blurhash={attachmentBlurhashAt(message.attachment_blurhashes, attachmentIndex)}
                     />
-                  </Pressable>
+                  </AppPressable>
                 );
               })}
             </View>
@@ -528,7 +528,7 @@ function MessageThreadListItemComponent({
                         : s.bubbleAttachmentBleedSinglePeer
                       : s.bubbleAttachmentImage;
                   return (
-                    <Pressable
+                    <AppPressable
                       key={`${message.id}-${uri}`}
                       style={singleBleed ? { alignSelf: "stretch" } : undefined}
                       onPress={() => onOpenAttachment?.(uri)}
@@ -542,7 +542,7 @@ function MessageThreadListItemComponent({
                         imageLayout={singleBleed ? "bleed" : "thumb"}
                         blurhash={attachmentBlurhashAt(message.attachment_blurhashes, attachmentIndex)}
                       />
-                    </Pressable>
+                    </AppPressable>
                   );
                 })}
               </View>
@@ -591,7 +591,7 @@ function MessageThreadListItemComponent({
                   const sticker = isStickerAssetUri(uri);
                   const boxStyle = sticker ? s.bubbleAttachmentSticker : s.bubbleAttachmentImage;
                   return (
-                    <Pressable
+                    <AppPressable
                       key={`${message.id}-${uri}`}
                       onPress={() => onOpenAttachment?.(uri)}
                       disabled={!onOpenAttachment}
@@ -603,7 +603,7 @@ function MessageThreadListItemComponent({
                         iconColor={colors.textMuted}
                         blurhash={attachmentBlurhashAt(message.attachment_blurhashes, attachmentIndex)}
                       />
-                    </Pressable>
+                    </AppPressable>
                   );
                 })}
               </View>
@@ -654,7 +654,7 @@ function MessageThreadListItemComponent({
         {message.reactions.length ? (
           <View style={s.reactionRow}>
             {message.reactions.map((reaction) => (
-              <Pressable
+              <AppPressable
                 key={`${message.id}-${reaction.reaction}`}
                 style={[s.reactionChip, reaction.mine ? s.reactionChipActive : null]}
                 onPress={() => void onReact(message.id, reaction.reaction, reaction.mine)}
@@ -662,20 +662,20 @@ function MessageThreadListItemComponent({
                 <Text style={s.reactionText}>
                   {reaction.reaction} {reaction.count}
                 </Text>
-              </Pressable>
+              </AppPressable>
             ))}
           </View>
         ) : null}
         {reactionPickerMessageId === message.id ? (
           <View style={s.pickerRow}>
             {REACTION_SET.map((reaction) => (
-              <Pressable
+              <AppPressable
                 key={`${message.id}-picker-${reaction}`}
                 style={s.pickerBtn}
                 onPress={() => handlePickReaction(reaction)}
               >
                 <Text>{reaction}</Text>
-              </Pressable>
+              </AppPressable>
             ))}
           </View>
         ) : null}
@@ -691,14 +691,14 @@ function MessageThreadListItemComponent({
         {t("moderation.reportHint")}
       </Text>
       {REPORT_REASONS.map((reason) => (
-        <Pressable
+        <AppPressable
           key={reason}
           style={{ paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}
           disabled={reportMutation.isPending}
           onPress={() => void submitReport(reason)}
         >
           <Text style={{ fontSize: 16, fontWeight: "500", color: colors.text }}>{t(`moderation.reasons.${reason}`)}</Text>
-        </Pressable>
+        </AppPressable>
       ))}
     </BottomSheetPickerModal>
     </>

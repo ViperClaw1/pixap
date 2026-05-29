@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View, StyleSheet } from "react-native";
+import { ActivityIndicator, Text, View, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
@@ -198,12 +199,12 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
       <View style={styles.centered}>
         <Text style={{ color: colors.text }}>{t("empty", { keyPrefix: "onboarding.venue" })}</Text>
         {canFinishEarly ? (
-          <Pressable
+          <AppPressable
             style={[primaryPressableStyle, styles.finishBtn]}
             onPress={() => void finishSession("finish_button", ratedCount)}
           >
             <Text style={primaryPressableTextStyle}>{t("finish", { keyPrefix: "onboarding.actions" })}</Text>
-          </Pressable>
+          </AppPressable>
         ) : null}
       </View>
     );
@@ -221,10 +222,10 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
       </GestureDetector>
       <View style={styles.bottomControls}>
         <View style={styles.navRow}>
-          <Pressable disabled={index === 0} onPress={() => goToIndex(index - 1)} style={styles.navBtn}>
+          <AppPressable disabled={index === 0} onPress={() => goToIndex(index - 1)} style={styles.navBtn}>
             <Text style={{ color: index === 0 ? colors.textMuted : colors.text }}>{t("prev", { keyPrefix: "onboarding.actions" })}</Text>
-          </Pressable>
-          <Pressable
+          </AppPressable>
+          <AppPressable
             disabled={index >= venues.length - 1}
             onPress={() => goToIndex(index + 1)}
             style={styles.navBtn}
@@ -232,16 +233,16 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
             <Text style={{ color: index >= venues.length - 1 ? colors.textMuted : colors.text }}>
               {t("next", { keyPrefix: "onboarding.actions" })}
             </Text>
-          </Pressable>
+          </AppPressable>
         </View>
         <RatingScale selected={selectedRating} onSelect={(r) => void submitRating(r)} />
         {canFinishEarly ? (
-          <Pressable
+          <AppPressable
             style={[primaryPressableStyle, styles.finishBtn]}
             onPress={() => void finishSession("finish_button", ratedCount)}
           >
             <Text style={primaryPressableTextStyle}>{t("finish", { keyPrefix: "onboarding.actions" })}</Text>
-          </Pressable>
+          </AppPressable>
         ) : null}
       </View>
       {submitting ? <ActivityIndicator style={styles.spinner} color={colors.primary} /> : null}

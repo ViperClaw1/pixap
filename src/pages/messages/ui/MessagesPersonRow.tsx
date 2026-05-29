@@ -22,6 +22,7 @@ type Props = {
   onOpenChat: () => void;
   onPrefetchChat?: () => void;
   onToggleFollow: () => void;
+  onPressProfile?: () => void;
 };
 
 function PersonRowContent({
@@ -36,17 +37,24 @@ function PersonRowContent({
   onOpenChat,
   onPrefetchChat,
   onToggleFollow,
+  onPressProfile,
 }: Props) {
   const displayName = `${person.first_name?.trim() ?? ""} ${person.last_name?.trim() ?? ""}`.trim() || unknownLabel;
 
   return (
     <View style={[styles.card, isCompact ? styles.cardCompact : null]}>
-      <UserAvatarImage
-        uri={person.avatar_url}
-        style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
-        contentFit="cover"
-      />
-      <View style={styles.cardMain}>
+      <AppPressable onPress={onPressProfile} disabled={!onPressProfile}>
+        <UserAvatarImage
+          uri={person.avatar_url}
+          style={[styles.avatar, isCompact ? styles.avatarCompact : null]}
+          contentFit="cover"
+        />
+      </AppPressable>
+      <AppPressable
+        style={styles.cardMain}
+        onPress={onPressProfile}
+        disabled={!onPressProfile}
+      >
         <Text style={[styles.title, isCompact ? styles.titleCompact : null]} numberOfLines={1}>
           {displayName}
         </Text>
@@ -62,7 +70,7 @@ function PersonRowContent({
             </View>
           ) : null}
         </View>
-      </View>
+      </AppPressable>
       <View style={[styles.actionsWrap, isCompact ? styles.actionsWrapCompact : null]}>
         <AppPressable
           style={[styles.iconActionBtn, styles.followBtn, isCompact ? styles.iconActionBtnCompact : null]}

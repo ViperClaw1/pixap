@@ -1,5 +1,6 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { memo } from "react";
-import { StyleSheet, View, useWindowDimensions, type StyleProp, type ViewStyle } from "react-native";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { ShimmerSurface } from "./ShimmerSurface";
 
@@ -20,7 +21,7 @@ type Props = {
 
 function PlaceRowSkeletonListInner({ variant, count = DEFAULT_COUNT, contentContainerStyle }: Props) {
   const { colors } = useAppTheme();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useStaticWindowSize();
   const thumb = THUMB[variant];
 
   const horizontalPad = variant === "search" ? 32 : 32;

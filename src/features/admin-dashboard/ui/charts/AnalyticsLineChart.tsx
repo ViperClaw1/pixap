@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, useWindowDimensions } from "react-native";
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
+import { View, Text, StyleSheet } from "react-native";
 import { LineChart } from "react-native-gifted-charts";
 import type { AnalyticsPeriod, TimeSeriesPoint } from "@/entities/admin-analytics";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -14,7 +15,7 @@ type AnalyticsLineChartProps = {
 };
 
 export function AnalyticsLineChart({ title, points, period, area = false }: AnalyticsLineChartProps) {
-  const { width } = useWindowDimensions();
+  const { width } = useStaticWindowSize();
   const { colors } = useAppTheme();
   const styles = useThemeStyles(createStyles);
   const chartWidth = Math.max(200, width - CHART_CARD_H_PAD * 2 - 32);

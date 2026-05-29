@@ -1,5 +1,6 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { useEffect, useRef, type ReactNode } from "react";
-import { StyleSheet, useWindowDimensions } from "react-native";
+import { StyleSheet } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -38,7 +39,7 @@ export function OnboardingStepTransition({
   onSwipeBack,
   children,
 }: Props) {
-  const { width } = useWindowDimensions();
+  const { width } = useStaticWindowSize();
   const translateX = useSharedValue(0);
   const isExiting = useSharedValue(false);
   const mountedStepRef = useRef<string | null>(null);

@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, useWindowDimensions } from "react-native";
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
+import { View, Text, StyleSheet } from "react-native";
 import { BarChart } from "react-native-gifted-charts";
 import { useTranslation } from "react-i18next";
 import type { WaOutcomeCounts, WaOutcomeKey } from "@/entities/admin-analytics";
@@ -27,7 +28,7 @@ type AnalyticsBarChartProps = {
 
 export function AnalyticsBarChart({ title, outcomes }: AnalyticsBarChartProps) {
   const { t } = useTranslation();
-  const { width } = useWindowDimensions();
+  const { width } = useStaticWindowSize();
   const { colors } = useAppTheme();
   const styles = useThemeStyles(createStyles);
   const chartWidth = Math.max(200, width - CHART_CARD_H_PAD * 2 - 32);

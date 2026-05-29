@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { memo } from "react";
-import { Alert, Linking, PixelRatio, Pressable, Text, View } from "react-native";
+import { Alert, Linking, PixelRatio, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -125,7 +126,7 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
   };
 
   return (
-    <Pressable style={styles.card} onPress={() => navigation.navigate("PlaceDetail", { id: item.business_card_id })}>
+    <AppPressable style={styles.card} onPress={() => navigation.navigate("PlaceDetail", { id: item.business_card_id })}>
       <SmartImage
         uri={thumbUri}
         fallbackUri={thumbFallback}
@@ -142,7 +143,7 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
             </Text>
           </View>
           {canCancel ? (
-            <Pressable
+            <AppPressable
               style={styles.cancelBtn}
               onPress={() => {
                 Alert.alert(t("bookings.cancelBookingTitle"), t("bookings.cancelBookingMessage"), [
@@ -158,7 +159,7 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
               }}
             >
               <Text style={styles.cancelBtnText}>{t("bookings.cancel")}</Text>
-            </Pressable>
+            </AppPressable>
           ) : null}
         </View>
         <Text style={styles.meta}>{formatBookingDateTime(item.date_time)}</Text>
@@ -172,7 +173,7 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
           </Text>
         ) : null}
         {canPay ? (
-          <Pressable
+          <AppPressable
             style={styles.payBtn}
             onPress={(event) => {
               event.stopPropagation?.();
@@ -180,7 +181,7 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
             }}
           >
             <Text style={styles.payBtnText}>{t("bookings.pay")}</Text>
-          </Pressable>
+          </AppPressable>
         ) : null}
         {item.displayStatus === "draft" ? (
           <View style={styles.waitingBadge}>
@@ -202,7 +203,7 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
           </View>
         </View>
       </View>
-    </Pressable>
+    </AppPressable>
   );
 }
 

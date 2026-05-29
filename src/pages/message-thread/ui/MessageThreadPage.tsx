@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AppPressable } from "@/shared/ui/app-pressable";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -6,13 +7,12 @@ import {
   Keyboard,
   Modal,
   Platform,
-  Pressable,
   Text,
   View,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  type TextInput,
+  type TextInput
 } from "react-native";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import Animated, {
@@ -44,9 +44,12 @@ import {
 import { useIsUserOnline } from "@/entities/user-presence";
 import { navigateFeedPlaceDetail } from "@/app/navigation/appNavigation";
 import { navigateToFeedStoryViewer } from "@/app/navigation/navigateToStoryViewer";
-import type { CartStackParamList } from "@/app/navigation/types";
+import { leaveMessageThreadToReturnTarget, resetCartStackToMain } from "@/app/navigation/navigationHelpers";
+import type { BrowseFlowParamList, CartStackParamList } from "@/app/navigation/types";
 import Toast from "react-native-toast-message";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { useAndroidHardwareBack } from "@/shared/lib/useAndroidHardwareBack";
+import { useInterceptNativeStackBack } from "@/shared/lib/useInterceptNativeStackBack";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { KeyboardStickyView, useKeyboardInset } from "@/shared/lib/keyboard";
 import {
@@ -74,8 +77,11 @@ import {
 import { AppPopupModal } from "@/shared/ui/app-popup";
 import type { AppPopupButton } from "@/shared/ui/app-popup/types";
 
-type MessageThreadRoute = RouteProp<CartStackParamList, "MessageThread">;
-type MessageThreadNav = NativeStackNavigationProp<CartStackParamList, "MessageThread">;
+type MessageThreadRoute = RouteProp<CartStackParamList | BrowseFlowParamList, "MessageThread">;
+type MessageThreadNav = NativeStackNavigationProp<
+  CartStackParamList | BrowseFlowParamList,
+  "MessageThread"
+>;
 
 const SCROLL_AT_BOTTOM_THRESHOLD_PX = 48;
 const SCROLL_TO_BOTTOM_SHOW_THRESHOLD_PX = 500;
@@ -110,6 +116,7 @@ export default function MessageThreadPage() {
   const [openingStoryId, setOpeningStoryId] = useState<string | null>(null);
   const [deleteMessageTargetId, setDeleteMessageTargetId] = useState<string | null>(null);
   const openingStoryInFlightRef = useRef<string | null>(null);
+  const programmaticPopRef = useRef(false);
   const { user } = useAuth();
   const { threadId, isResolvingThread, resolveError } = useResolvedMessageThreadId({
     threadId: params.threadId,
@@ -163,16 +170,32 @@ export default function MessageThreadPage() {
   }, [resolveError, t]);
 
   const leaveThread = useCallback(() => {
+    if (params.returnTo) {
+      leaveMessageThreadToReturnTarget(navigation, params.returnTo, programmaticPopRef);
+      return;
+    }
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
     }
-    navigation.reset({ index: 0, routes: [{ name: "CartMain" }] });
-  }, [navigation]);
+    resetCartStackToMain(navigation);
+  }, [navigation, params.returnTo]);
 
-  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
-    swipeBackFallback: leaveThread,
+  useInterceptNativeStackBack(navigation, Boolean(params.returnTo), leaveThread, {
+    isProgrammaticPopRef: programmaticPopRef,
   });
+
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(
+    useMemo(
+      () => ({
+        goBack: leaveThread,
+        canGoBack: () => true,
+      }),
+      [leaveThread],
+    ),
+  );
+
+  useAndroidHardwareBack(leaveThread);
 
   const openSharedPlace = useCallback(
     (placeId: string) => {
@@ -676,14 +699,14 @@ export default function MessageThreadPage() {
               style={[styles.scrollToBottomBtn, scrollFabPositionStyle, scrollFabAnimatedStyle]}
               pointerEvents={showScrollFab ? "auto" : "none"}
             >
-              <Pressable
+              <AppPressable
                 accessibilityRole="button"
                 accessibilityLabel="Scroll to latest messages"
                 style={styles.scrollToBottomPressable}
                 onPress={() => scrollToBottom()}
               >
                 <Ionicons name="chevron-down" size={22} color={colors.text} />
-              </Pressable>
+              </AppPressable>
             </Animated.View>
           </View>
         )}
@@ -700,27 +723,27 @@ export default function MessageThreadPage() {
             {editingMessage ? (
               <View style={styles.editingBar}>
                 <Text style={styles.editingBarText}>Editing message</Text>
-                <Pressable
+                <AppPressable
                   accessibilityRole="button"
                   accessibilityLabel="Cancel editing"
                   hitSlop={8}
                   onPress={cancelEditingMessage}
                 >
                   <Ionicons name="close" size={18} color={colors.textMuted} />
-                </Pressable>
+                </AppPressable>
               </View>
             ) : null}
             {isStickerPanelOpen && !editingMessage ? (
               <View style={styles.stickerPanel}>
                 {COMMENT_STICKERS.map((sticker) => (
-                  <Pressable
+                  <AppPressable
                     key={sticker.id}
                     style={styles.stickerChip}
                     accessibilityLabel={sticker.emoji}
                     onPress={() => appendStickerToDraft(sticker.emoji)}
                   >
                     <SmartImage uri={sticker.imageUrl} style={styles.stickerImage} contentFit="contain" />
-                  </Pressable>
+                  </AppPressable>
                 ))}
               </View>
             ) : null}
@@ -730,7 +753,7 @@ export default function MessageThreadPage() {
                   const k = detectAttachmentKind(a.uri, a.mimeType);
                   return (
                     <View key={a.uri} style={styles.attachmentThumbWrap}>
-                      <Pressable onPress={() => openAttachmentViewer(a.uri, a)}>
+                      <AppPressable onPress={() => openAttachmentViewer(a.uri, a)}>
                         {k === "image" ? (
                           <SmartImage uri={a.uri} style={styles.attachmentThumb} contentFit="cover" />
                         ) : (
@@ -742,13 +765,13 @@ export default function MessageThreadPage() {
                             />
                           </View>
                         )}
-                      </Pressable>
-                      <Pressable
+                      </AppPressable>
+                      <AppPressable
                         style={styles.attachmentRemove}
                         onPress={() => setAttachments((prev) => prev.filter((item) => item.uri !== a.uri))}
                       >
                         <Ionicons name="close" size={12} color={colors.textMuted} />
-                      </Pressable>
+                      </AppPressable>
                     </View>
                   );
                 })}
@@ -756,7 +779,7 @@ export default function MessageThreadPage() {
             ) : null}
             <View style={styles.composerRow}>
               {!editingMessage ? (
-                <Pressable
+                <AppPressable
                   accessibilityHint="Long press to attach a file"
                   style={styles.attachBtn}
                   onPress={handleAttachPress}
@@ -765,7 +788,7 @@ export default function MessageThreadPage() {
                   <View style={styles.composerIconTouchTarget}>
                     <Ionicons name="attach-outline" size={18} color={colors.textMuted} />
                   </View>
-                </Pressable>
+                </AppPressable>
               ) : null}
               <View style={editingMessage ? styles.composerInputShell : styles.inputWrap}>
                 <RichTextarea
@@ -778,7 +801,7 @@ export default function MessageThreadPage() {
                   editable={!editMessage.isPending}
                 />
                 {editingMessage ? (
-                  <Pressable
+                  <AppPressable
                     accessibilityRole="button"
                     accessibilityLabel="Save edited message"
                     style={[
@@ -793,17 +816,17 @@ export default function MessageThreadPage() {
                     ) : (
                       <Ionicons name="checkmark" size={18} color={colors.onPrimary} />
                     )}
-                  </Pressable>
+                  </AppPressable>
                 ) : null}
               </View>
               {!editingMessage ? (
                 <>
-                  <Pressable style={styles.stickerBtn} onPress={handleStickerPress}>
+                  <AppPressable style={styles.stickerBtn} onPress={handleStickerPress}>
                     <View style={styles.composerIconTouchTarget}>
                       <Ionicons name="happy-outline" size={18} color={colors.textMuted} />
                     </View>
-                  </Pressable>
-                  <Pressable
+                  </AppPressable>
+                  <AppPressable
                     style={[styles.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}
                     disabled={
                       !threadReady || (!draft.trim().length && !attachments.length) || sendMessage.isPending
@@ -840,7 +863,7 @@ export default function MessageThreadPage() {
                     ) : (
                       <Ionicons name="paper-plane-outline" size={17} color={colors.onPrimary} />
                     )}
-                  </Pressable>
+                  </AppPressable>
                 </>
               ) : null}
             </View>

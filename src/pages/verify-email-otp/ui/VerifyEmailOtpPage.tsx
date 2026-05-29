@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { OtpInput } from "react-native-otp-entry";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
@@ -95,12 +96,12 @@ export default function VerifyEmailOtpPage() {
 
   return (
     <View style={styles.root}>
-      <Pressable
+      <AppPressable
         style={styles.backButton}
         onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate("ProfileMain"))}
       >
         <Ionicons name="chevron-back" size={20} color={colors.text} />
-      </Pressable>
+      </AppPressable>
       <Text style={styles.title}>Verify your email</Text>
       <Text style={styles.description}>
         {flow === "verify"
@@ -130,20 +131,20 @@ export default function VerifyEmailOtpPage() {
           }}
         />
       </View>
-      <Pressable style={styles.resendBtn} onPress={() => void sendCode()} disabled={sending}>
+      <AppPressable style={styles.resendBtn} onPress={() => void sendCode()} disabled={sending}>
         {sending ? (
           <ActivityIndicator size="small" color={colors.primary} />
         ) : (
           <Text style={styles.resendBtnText}>Resend code</Text>
         )}
-      </Pressable>
-      <Pressable style={styles.verifyBtn} onPress={() => void submitCode(code)} disabled={verifying}>
+      </AppPressable>
+      <AppPressable style={styles.verifyBtn} onPress={() => void submitCode(code)} disabled={verifying}>
         {verifying ? (
           <ActivityIndicator size="small" color={colors.onPrimary} />
         ) : (
           <Text style={styles.verifyBtnText}>Verify</Text>
         )}
-      </Pressable>
+      </AppPressable>
     </View>
   );
 }

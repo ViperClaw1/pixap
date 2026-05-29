@@ -116,6 +116,16 @@ export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
         getComponent={() => require("@/pages/subscription-paywall").default}
         options={fullWidthSwipeBackOptions}
       />
+      <Screen
+        name="PublicProfile"
+        getComponent={() => require("@/pages/public-profile").default}
+        options={fullWidthSwipeBackOptions}
+      />
+      <Screen
+        name="MessageThread"
+        getComponent={() => require("@/pages/message-thread").default}
+        options={fullWidthSwipeBackOptions}
+      />
     </>
   );
 }

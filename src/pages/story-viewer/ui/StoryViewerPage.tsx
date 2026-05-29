@@ -1,3 +1,4 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -5,12 +6,11 @@ import {
   InteractionManager,
   Keyboard,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
-  type TextInput,
+  type TextInput
 } from "react-native";
 import Animated, {
   runOnJS,
@@ -69,7 +69,7 @@ export default function StoryViewerScreen() {
   const navigation = useNavigation<StoryViewerNav>();
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions(); // orientation-aware by design (fullscreen story media)
   const flatListRef = useRef<FlatList<ReturnType<typeof buildMediaSlidesForStory>[number]>>(null);
   const composerInputRef = useRef<TextInput>(null);
   const frozenLayoutHeightRef = useRef(height);
@@ -391,9 +391,9 @@ export default function StoryViewerScreen() {
       >
         <View style={styles.emptyWrap}>
           <Text style={{ color: colors.text }}>No stories available.</Text>
-          <Pressable onPress={() => navigation.goBack()}>
+          <AppPressable onPress={() => navigation.goBack()}>
             <Text style={{ color: colors.primary, marginTop: 12, fontWeight: "700" }}>Close</Text>
-          </Pressable>
+          </AppPressable>
         </View>
       </SafeAreaView>
     );
@@ -552,18 +552,18 @@ export default function StoryViewerScreen() {
               />
             </View>
             <View style={styles.igActions}>
-              <Pressable hitSlop={12} style={styles.igIconHit} onPress={() => void onReact("like")}>
+              <AppPressable hitSlop={12} style={styles.igIconHit} onPress={() => void onReact("like")}>
                 <AnimatedLikeHeart
                   liked={localReaction === "like"}
                   size={26}
                   color="#FFFFFF"
                   likedColor="#F4212E"
                 />
-              </Pressable>
-              <Pressable hitSlop={12} style={styles.igIconHit} onPress={() => setDiscussionOpen(true)}>
+              </AppPressable>
+              <AppPressable hitSlop={12} style={styles.igIconHit} onPress={() => setDiscussionOpen(true)}>
                 <Ionicons name="chatbubble-outline" size={24} color="#FFFFFF" />
-              </Pressable>
-              <Pressable
+              </AppPressable>
+              <AppPressable
                 hitSlop={12}
                 style={styles.igIconHit}
                 onPress={() => void submitQuickComment()}
@@ -574,7 +574,7 @@ export default function StoryViewerScreen() {
                   size={25}
                   color={quickComment.trim() && !replyMutation.isPending ? "#FFFFFF" : "rgba(255,255,255,0.35)"}
                 />
-              </Pressable>
+              </AppPressable>
             </View>
           </View>
         </View>

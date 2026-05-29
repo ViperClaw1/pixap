@@ -7,6 +7,7 @@ import {
   prepareImageForStorageUpload,
 } from "@/shared/lib/prepareImageForStorageUpload";
 import { buildStorageUploadOptions } from "@/shared/lib/storageUploadOptions";
+import { devWarn } from "@/shared/lib/devLog";
 
 const AVATARS_BUCKET = "avatars";
 
@@ -29,10 +30,10 @@ async function uploadAvatarThumbPregen(asset: ImagePickerAsset, primaryPath: str
       buildStorageUploadOptions(prepared.contentType, "immutable"),
     );
     if (error) {
-      console.warn("[uploadProfileAvatar] thumb pregen failed", error.message);
+      devWarn("[uploadProfileAvatar] thumb pregen failed", error.message);
     }
   } catch (e) {
-    console.warn("[uploadProfileAvatar] thumb pregen failed", e);
+    devWarn("[uploadProfileAvatar] thumb pregen failed", e);
   }
 }
 

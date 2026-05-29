@@ -10,7 +10,7 @@
   },
   "header": {
     "bookings": "Bookings",
-    "editProfile": "Edit profile",
+    "editProfile": "Edit",
     "messages": "Messages",
     "favorites": "Favorites",
     "profile": "Profile",
@@ -42,7 +42,17 @@
   "editProfile": {
     "savedTitle": "Saved",
     "savedBody": "Your profile data was updated.",
-    "personalizeCta": "Personalize"
+    "personalizeCta": "Personalize",
+    "usernameLabel": "Username",
+    "usernamePlaceholder": "username",
+    "firstNameLabel": "First name",
+    "lastNameLabel": "Last name",
+    "emailLabel": "Email",
+    "phoneLabel": "Phone",
+    "bioLabel": "Bio (optional)",
+    "bioPlaceholder": "Tell people about yourself...",
+    "save": "Save",
+    "saving": "Saving..."
   },
   "onboarding": {
     "actions": {
@@ -562,7 +572,22 @@
       "retakeTasteConfirm": "Retake",
       "archive": "Archive",
       "privacy": "Privacy & Security",
+      "dataDeletion": "Account & data deletion",
       "settings": "Settings"
+    },
+    "dangerZone": {
+      "title": "Danger zone",
+      "description": "Deleting your account permanently removes your personal data from Pixap. This action cannot be undone.",
+      "confirmLabel": "Confirmation",
+      "confirmHint": "Type {{phrase}} below to confirm:",
+      "confirmPlaceholder": "{{phrase}}",
+      "deleteButton": "Delete account",
+      "deleting": "Deleting...",
+      "successTitle": "Account deleted",
+      "successBody": "Your account and personal data have been removed.",
+      "failedTitle": "Deletion failed",
+      "failedBody": "Could not delete your account. Please try again or email support@pixap.kz.",
+      "usernameRequired": "Set a username in Edit Profile before you can delete your account."
     },
     "adminDashboard": "Admin dashboard",
     "partnerUpload": "Partner: upload listing image",
@@ -848,6 +873,14 @@
     "termsGateAcceptFailed": "Could not save your acceptance. Please try again or sign out and sign back in.",
     "termsGateAccept": "Accept and continue",
     "termsGateDecline": "Sign out"
+  },
+  "publicProfile": {
+    "title": "Profile",
+    "follow": "Follow",
+    "following": "Following",
+    "message": "Message",
+    "notFound": "Profile not found",
+    "retry": "Try again"
   },
   "aiConsent": {
     "title": "AI data sharing",

@@ -1,5 +1,6 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { memo } from "react";
-import { ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 import { useProfileStyles } from "./profileStyles";
@@ -28,7 +29,7 @@ type Props = {
 function ProfilePageSkeletonInner({ isCompact = false }: Props) {
   const { colors } = useAppTheme();
   const styles = useProfileStyles();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useStaticWindowSize();
   const pagePadding = isCompact ? 12 : 16;
   const contentWidth = windowWidth - pagePadding * 2;
   const bioTextW = Math.max(120, contentWidth - 28);

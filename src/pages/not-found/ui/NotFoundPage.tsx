@@ -1,6 +1,7 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,9 +29,9 @@ export default function NotFoundScreen() {
   return (
     <View style={styles.root}>
       <Text style={styles.title}>{t("notFound.title")}</Text>
-      <Pressable style={styles.btn} onPress={() => navigateToHomeMain(navigation)}>
+      <AppPressable style={styles.btn} onPress={() => navigateToHomeMain(navigation)}>
         <Text style={styles.btnText}>{t("notFound.goHome")}</Text>
-      </Pressable>
+      </AppPressable>
     </View>
   );
 }

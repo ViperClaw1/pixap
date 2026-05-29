@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import type { Dispatch, SetStateAction } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { PixAIPlace } from "@/entities/pixai";
@@ -84,7 +85,7 @@ export function AIBookingCustomerForm({
             placeholderTextColor={colors.textMuted}
           />
         </View>
-        <Pressable
+        <AppPressable
           style={[s.primaryBtn, submitting && { opacity: 0.55 }]}
           disabled={submitting}
           accessibilityState={{ disabled: submitting }}
@@ -95,7 +96,7 @@ export function AIBookingCustomerForm({
           ) : (
             <Text style={s.primaryBtnText}>{submitLabel}</Text>
           )}
-        </Pressable>
+        </AppPressable>
       </View>
     </>
   );

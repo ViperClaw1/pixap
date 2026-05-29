@@ -1,9 +1,8 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import { useAuth } from "@/app/providers/AuthProvider";
-import type { CartStackParamList } from "@/app/navigation/types";
+import { isCartStackNavigation } from "@/app/navigation/navigationHelpers";
 import { directThreadQueryOptions, invalidateMessagesInbox } from "@/entities/messages/lib/ensureDirectThread";
 
 type Params = {
@@ -15,7 +14,7 @@ type Params = {
 export function useResolvedMessageThreadId(params: Params) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const navigation = useNavigation<NativeStackNavigationProp<CartStackParamList>>();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const userId = user?.id ?? null;
   const hasThreadId = params.threadId.trim().length > 0;
   const shouldResolve = !params.isSupport && !hasThreadId && !!params.peerId && !!userId;
@@ -34,7 +33,9 @@ export function useResolvedMessageThreadId(params: Params) {
     if (!shouldResolve || !directThreadQuery.isError) return;
     if (navigation.canGoBack()) {
       navigation.goBack();
-    } else {
+      return;
+    }
+    if (isCartStackNavigation(navigation)) {
       navigation.reset({ index: 0, routes: [{ name: "CartMain" }] });
     }
   }, [directThreadQuery.isError, navigation, shouldResolve]);

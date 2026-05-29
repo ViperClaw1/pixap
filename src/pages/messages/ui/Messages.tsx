@@ -31,6 +31,7 @@ import type { FollowSuggestion } from "@/entities/messages/api/usePeopleToFollow
 import type { MessageThreadItem } from "@/shared/model/types/messages";
 import { SupportChatCard } from "./SupportChatCard";
 import { SupportTicketsSection } from "./SupportTicketsSection";
+import { navigateToPublicProfile } from "@/app/navigation/navigationHelpers";
 import type { CartStackParamList } from "@/app/navigation/types";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
@@ -54,7 +55,7 @@ type MessagesListRow =
 export default function MessagesPage() {
   const { t } = useTranslation();
   const unknownLabel = t("common.unknownUser");
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions(); // orientation-aware by design (compact layout)
   const isCompact = windowWidth < MESSAGES_COMPACT_WIDTH;
   const actionIconSize = isCompact ? 18 : 22;
   const navigation = useNavigation<NativeStackNavigationProp<CartStackParamList>>();
@@ -473,6 +474,7 @@ export default function MessagesPage() {
           onOpenChat={() => onOpenChat(item.person)}
           onPrefetchChat={() => onPrefetchChat(item.person)}
           onToggleFollow={() => onToggleFollower(item.person)}
+          onPressProfile={() => navigateToPublicProfile(navigation, item.person.id)}
         />
       );
     },

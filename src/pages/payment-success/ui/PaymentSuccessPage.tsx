@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useEffect, useMemo } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -58,12 +59,12 @@ export default function PaymentSuccessScreen() {
     <View style={styles.root}>
       <Text style={styles.title}>Payment successful</Text>
       <Text style={styles.body}>Thank you! Your order is confirmed.</Text>
-      <Pressable style={styles.btn} onPress={() => navigation.navigate("CartMain")}>
+      <AppPressable style={styles.btn} onPress={() => navigation.navigate("CartMain")}>
         <Text style={styles.btnText}>Back to cart</Text>
-      </Pressable>
-      <Pressable style={styles.secondaryBtn} onPress={goBookings}>
+      </AppPressable>
+      <AppPressable style={styles.secondaryBtn} onPress={goBookings}>
         <Text style={styles.secondaryBtnText}>View bookings</Text>
-      </Pressable>
+      </AppPressable>
     </View>
   );
 }

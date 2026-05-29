@@ -1,5 +1,6 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { useMemo } from "react";
-import { useWindowDimensions, View } from "react-native";
+import { View } from "react-native";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 import type { MessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 
@@ -11,7 +12,7 @@ type Props = {
 };
 
 export function MessageThreadSkeleton({ styles }: Props) {
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useStaticWindowSize();
   const bubbles = useMemo(
     () =>
       SKELETON_WIDTH_RATIOS.map((ratio, index) => ({

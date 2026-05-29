@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useMemo } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -40,9 +41,9 @@ export default function PasswordResetSentPage() {
       ) : (
         <Text style={styles.description}>Reset link was successfully sent to your email.</Text>
       )}
-      <Pressable style={styles.button} onPress={() => navigation.reset({ index: 0, routes: [{ name: "Auth" }] })}>
+      <AppPressable style={styles.button} onPress={() => navigation.reset({ index: 0, routes: [{ name: "Auth" }] })}>
         <Text style={styles.buttonText}>Back to Log in</Text>
-      </Pressable>
+      </AppPressable>
     </View>
   );
 }

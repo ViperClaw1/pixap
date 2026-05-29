@@ -1,11 +1,12 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { useState } from "react";
 import {
   View,
   Text,
   ScrollView,
+  StyleSheet,
   ActivityIndicator,
   Pressable,
-  useWindowDimensions,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useNavigation } from "@react-navigation/native";
@@ -32,7 +33,7 @@ function formatMrr(minor: number): string {
 function AdminDashboardContent() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width } = useStaticWindowSize();
   const styles = useThemeStyles(createStyles);
   const [period, setPeriod] = useState<AnalyticsPeriod>(DEFAULT_ANALYTICS_PERIOD);
   const { data, isLoading, isError, refetch, isFetching } = useAdminAnalytics(period);
@@ -211,9 +212,9 @@ export default function AdminDashboardPage() {
 }
 
 function createPageStyles({ colors }: { colors: { background: string } }) {
-  return {
+  return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.background },
-  };
+  });
 }
 
 function createStyles({
@@ -221,7 +222,7 @@ function createStyles({
 }: {
   colors: { background: string; text: string; textMuted: string; primary: string; onPrimary: string; accentSurface: string };
 }) {
-  return {
+  return StyleSheet.create({
     scroll: { flex: 1 },
     content: { padding: 16, gap: 8 },
     centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 12 },
@@ -247,5 +248,5 @@ function createStyles({
     periodRange: { fontSize: 12, color: colors.textMuted, marginBottom: 8 },
     empty: { fontSize: 14, color: colors.textMuted, textAlign: "center", paddingVertical: 24 },
     metricsRow: { flexDirection: "row", flexWrap: "wrap" },
-  };
+  });
 }

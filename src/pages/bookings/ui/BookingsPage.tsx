@@ -1,12 +1,12 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
-  Pressable,
   ScrollView,
-  useWindowDimensions,
-  ActivityIndicator,
+  ActivityIndicator
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import Toast from "react-native-toast-message";
@@ -56,7 +56,7 @@ export default function BookingsScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useStaticWindowSize();
   const { colors, mode, setMode } = useAppTheme();
   const { user, loading } = useAuth();
   useAuthSessionRedirect({
@@ -183,13 +183,13 @@ export default function BookingsScreen() {
       />
       <View style={styles.filters}>
         {filters.map((f) => (
-          <Pressable
+          <AppPressable
             key={f}
             style={[styles.fpill, filter === f && styles.fpillActive]}
             onPress={() => setFilter(f)}
           >
             <Text style={filter === f ? styles.fpillTextA : styles.fpillText}>{t(bookingFilterTranslationKey(f))}</Text>
-          </Pressable>
+          </AppPressable>
         ))}
       </View>
       {showSkeleton ? (
@@ -244,7 +244,7 @@ export default function BookingsScreen() {
                     {item.tags?.slice(0, 4).join(", ") || t("bookings.noTags")}
                   </Text>
                 </View>
-                <Pressable
+                <AppPressable
                   style={styles.payBtn}
                   onPress={() => {
                     setPlacePickerOpen(false);
@@ -252,7 +252,7 @@ export default function BookingsScreen() {
                   }}
                 >
                   <Text style={styles.payBtnText}>{t("bookings.book")}</Text>
-                </Pressable>
+                </AppPressable>
               </View>
             );
             })

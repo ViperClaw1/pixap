@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useEffect, useMemo } from "react";
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -74,9 +75,9 @@ export default function MyPurchasesScreen() {
   return (
     <View style={[styles.root, { paddingTop: Math.max(insets.top, 12) }]}>
       <View style={styles.header}>
-        <Pressable style={{ padding: 8 }} onPress={() => navigation.goBack()} hitSlop={12}>
+        <AppPressable style={{ padding: 8 }} onPress={() => navigation.goBack()} hitSlop={12}>
           <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        </AppPressable>
         <Ionicons name="bag-handle-outline" size={22} color={colors.textMuted} />
         <Text style={styles.headerTitle}>My purchases</Text>
       </View>

@@ -1,16 +1,16 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   TextInput,
   ScrollView,
   ActivityIndicator,
   Alert,
   Platform,
-  PixelRatio,
+  PixelRatio
 } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
@@ -588,9 +588,9 @@ function VibeMatchPageContent() {
     <Animated.View style={[styles.root, keyboardRootStyle]} {...androidSwipeBackPanHandlers}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.topRow}>
-          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel={t("bookingCommon.goBack")}>
+          <AppPressable style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel={t("bookingCommon.goBack")}>
             <Ionicons name="chevron-back" size={22} color={colors.text} />
-          </Pressable>
+          </AppPressable>
           <Text style={styles.title}>{t("vibeMatch.title")}</Text>
         </View>
         <BookingCreditsBadge
@@ -602,7 +602,7 @@ function VibeMatchPageContent() {
 
         <View style={styles.section}>
           <Text style={styles.label}>{t("vibeMatch.cityLabel")}</Text>
-          <Pressable
+          <AppPressable
             onPress={() => {
               setCitySearchQuery("");
               setCityPickerVisible(true);
@@ -612,7 +612,7 @@ function VibeMatchPageContent() {
             <Text style={{ color: city.trim() ? colors.text : colors.textMuted }}>
               {city.trim() || t("bookingCommon.selectCity")}
             </Text>
-          </Pressable>
+          </AppPressable>
           <Text style={styles.label}>{t("vibeMatch.moodLabel")}</Text>
           <OnboardingChipGrid options={VIBE_MATCH_MOOD_OPTIONS} selected={selectedMoods} onToggle={toggleMood} />
           <TextInput
@@ -625,7 +625,7 @@ function VibeMatchPageContent() {
           <Text style={styles.label}>{t("vibeMatch.timelineLabel")}</Text>
           <View style={styles.timelineRow}>
             {(["evening", "night", "late_night"] as const).map((timelineKey) => (
-              <Pressable
+              <AppPressable
                 key={timelineKey}
                 onPress={() => setTimeline(timelineKey)}
                 style={[styles.chip, timeline === timelineKey && styles.chipOn]}
@@ -633,10 +633,10 @@ function VibeMatchPageContent() {
                 <Text style={styles.chipText}>
                   {t(`vibeMatch.timeline.${timelineKey === "late_night" ? "lateNight" : timelineKey}`)}
                 </Text>
-              </Pressable>
+              </AppPressable>
             ))}
           </View>
-          <Pressable
+          <AppPressable
             style={[primaryPressableStyle, { height: SHARED_PRESSABLE_HEIGHT, borderRadius: SHARED_PRESSABLE_RADIUS }]}
             onPress={() => void onGenerate()}
             disabled={isVibeLoading}
@@ -646,13 +646,13 @@ function VibeMatchPageContent() {
             ) : (
               <Text style={primaryPressableTextStyle}>{t("vibeMatch.generatePlan")}</Text>
             )}
-          </Pressable>
+          </AppPressable>
           {vibeError ? (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{errMsg || t("vibeMatch.couldNotGeneratePlan")}</Text>
-              <Pressable onPress={onRetryGenerate} style={{ marginTop: 8 }}>
+              <AppPressable onPress={onRetryGenerate} style={{ marginTop: 8 }}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>{t("bookingCommon.retry")}</Text>
-              </Pressable>
+              </AppPressable>
             </View>
           ) : null}
         </View>
@@ -705,7 +705,7 @@ function VibeMatchPageContent() {
                           <Text style={styles.planName}>{stop.name}</Text>
                         </View>
                         {!isSingleStopRoute ? (
-                          <Pressable
+                          <AppPressable
                             accessibilityRole="checkbox"
                             accessibilityState={{ checked, disabled: !bookable }}
                             accessibilityLabel={
@@ -722,7 +722,7 @@ function VibeMatchPageContent() {
                             ]}
                           >
                             {checked ? <Ionicons name="checkmark" size={16} color={colors.onAccent} /> : null}
-                          </Pressable>
+                          </AppPressable>
                         ) : null}
                       </View>
                       {stop.description ? <Text style={styles.planDesc}>{stop.description}</Text> : null}
@@ -785,7 +785,7 @@ function VibeMatchPageContent() {
               value={comment}
               onChangeText={setComment}
             />
-            <Pressable
+            <AppPressable
               style={[
                 primaryPressableStyle,
                 { height: SHARED_PRESSABLE_HEIGHT, borderRadius: SHARED_PRESSABLE_RADIUS },
@@ -804,9 +804,9 @@ function VibeMatchPageContent() {
                   {isSingleStopRoute ? t("vibeMatch.book") : t("vibeMatch.bookAll")}
                 </Text>
               )}
-            </Pressable>
+            </AppPressable>
             {!isSingleStopRoute ? (
-              <Pressable
+              <AppPressable
                 style={[
                   primaryPressableStyle,
                   { height: SHARED_PRESSABLE_HEIGHT, borderRadius: SHARED_PRESSABLE_RADIUS },
@@ -825,10 +825,10 @@ function VibeMatchPageContent() {
                       : t("vibeMatch.partialBook")}
                   </Text>
                 )}
-              </Pressable>
+              </AppPressable>
             ) : null}
             {failedStops.length > 0 ? (
-              <Pressable
+              <AppPressable
                 onPress={() => void onRetryFailed()}
                 disabled={bookingBusy}
                 style={{ alignItems: "center", paddingVertical: 8, flexDirection: "row", justifyContent: "center", gap: 8 }}
@@ -837,7 +837,7 @@ function VibeMatchPageContent() {
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>
                   {t("vibeMatch.retryFailed", { count: failedStops.length })}
                 </Text>
-              </Pressable>
+              </AppPressable>
             ) : null}
             {lastBookResults ? (
               <View style={{ gap: 6 }}>
@@ -851,9 +851,9 @@ function VibeMatchPageContent() {
           </View>
         ) : null}
 
-        <Pressable onPress={onClearPlan} style={{ alignItems: "center" }}>
+        <AppPressable onPress={onClearPlan} style={{ alignItems: "center" }}>
           <Text style={{ color: colors.textMuted, fontSize: 13 }}>{t("vibeMatch.clearPlan")}</Text>
-        </Pressable>
+        </AppPressable>
       </ScrollView>
 
       <BottomSheetPickerModal
@@ -885,7 +885,7 @@ function VibeMatchPageContent() {
               <Text style={styles.countryHeaderText}>{country}</Text>
             </View>
             {cities.map((c) => (
-              <Pressable
+              <AppPressable
                 key={c}
                 style={styles.pickerRow}
                 onPress={() => {
@@ -896,7 +896,7 @@ function VibeMatchPageContent() {
               >
                 <Text style={styles.pickerRowText}>{c}</Text>
                 {city.trim() === c ? <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text> : null}
-              </Pressable>
+              </AppPressable>
             ))}
           </View>
         ))}

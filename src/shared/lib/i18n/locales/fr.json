@@ -10,7 +10,7 @@
   },
   "header": {
     "bookings": "Réservations",
-    "editProfile": "Modifier le profil",
+    "editProfile": "Modifier",
     "messages": "Messages",
     "favorites": "Favoris",
     "profile": "Profil",
@@ -42,7 +42,17 @@
   "editProfile": {
     "savedTitle": "Enregistré",
     "savedBody": "Votre profil a été mis à jour.",
-    "personalizeCta": "Personnaliser"
+    "personalizeCta": "Personnaliser",
+    "usernameLabel": "Nom d'utilisateur",
+    "usernamePlaceholder": "nom_utilisateur",
+    "firstNameLabel": "Prénom",
+    "lastNameLabel": "Nom",
+    "emailLabel": "E-mail",
+    "phoneLabel": "Téléphone",
+    "bioLabel": "Bio (facultatif)",
+    "bioPlaceholder": "Parlez de vous...",
+    "save": "Enregistrer",
+    "saving": "Enregistrement..."
   },
   "home": {
     "searchPlaceholder": "Rechercher restaurants, salons, événements…",
@@ -444,7 +454,22 @@
       "retakeTasteConfirm": "Recommencer",
       "archive": "Archives",
       "privacy": "Confidentialité et sécurité",
+      "dataDeletion": "Suppression du compte et des données",
       "settings": "Paramètres"
+    },
+    "dangerZone": {
+      "title": "Zone dangereuse",
+      "description": "La suppression de votre compte efface définitivement vos données personnelles de Pixap. Cette action est irréversible.",
+      "confirmLabel": "Confirmation",
+      "confirmHint": "Saisissez {{phrase}} pour confirmer :",
+      "confirmPlaceholder": "{{phrase}}",
+      "deleteButton": "Supprimer le compte",
+      "deleting": "Suppression...",
+      "successTitle": "Compte supprimé",
+      "successBody": "Votre compte et vos données personnelles ont été supprimés.",
+      "failedTitle": "Échec de la suppression",
+      "failedBody": "Impossible de supprimer le compte. Réessayez ou écrivez à support@pixap.kz.",
+      "usernameRequired": "Définissez un nom d'utilisateur dans « Modifier le profil » avant de supprimer votre compte."
     },
     "adminDashboard": "Tableau de bord admin",
     "partnerUpload": "Partenaire : téléverser l'image de l'annonce",
@@ -660,6 +685,14 @@
       "loud": "Animé",
       "cozy": "Cosy"
     }
+  },
+  "publicProfile": {
+    "title": "Profil",
+    "follow": "Suivre",
+    "following": "Abonné",
+    "message": "Message",
+    "notFound": "Profil introuvable",
+    "retry": "Réessayer"
   },
   "errorBoundary": {
     "retry": "Réessayer",

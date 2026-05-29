@@ -1,6 +1,7 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, Pressable, ActivityIndicator, Alert, RefreshControl } from "react-native";
+import { View, Text, ActivityIndicator, Alert, RefreshControl } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Linking from "expo-linking";
@@ -159,12 +160,12 @@ export default function CartPage() {
     <View style={stylesThemed.root}>
       <Text style={[stylesThemed.header, { paddingTop: Math.max(insets.top, 12) }]}>{t("cart.title")}</Text>
       <View style={stylesThemed.tabs}>
-        <Pressable style={[stylesThemed.tab, tab === "services" && stylesThemed.tabActive]} onPress={() => setTab("services")}>
+        <AppPressable style={[stylesThemed.tab, tab === "services" && stylesThemed.tabActive]} onPress={() => setTab("services")}>
           <Text style={tab === "services" ? stylesThemed.tabTextActive : stylesThemed.tabText}>{t("cart.tabServices")}</Text>
-        </Pressable>
-        <Pressable style={[stylesThemed.tab, tab === "shopping" && stylesThemed.tabActive]} onPress={() => setTab("shopping")}>
+        </AppPressable>
+        <AppPressable style={[stylesThemed.tab, tab === "shopping" && stylesThemed.tabActive]} onPress={() => setTab("shopping")}>
           <Text style={tab === "shopping" ? stylesThemed.tabTextActive : stylesThemed.tabText}>{t("cart.tabShopping")}</Text>
-        </Pressable>
+        </AppPressable>
       </View>
 
       {tab === "services" ? (
@@ -209,7 +210,7 @@ export default function CartPage() {
               <View style={stylesThemed.payBar}>
                 <Text style={stylesThemed.totalLabel}>{t("cart.total")}</Text>
                 <Text style={stylesThemed.totalVal}>{shoppingTotal.toLocaleString()} $</Text>
-                <Pressable
+                <AppPressable
                   style={[stylesThemed.payBtn, checkingShopWa && { opacity: 0.6 }]}
                   disabled={checkingShopWa}
                   onPress={() => void checkShoppingAvailability()}
@@ -217,7 +218,7 @@ export default function CartPage() {
                   <Text style={stylesThemed.payBtnText}>
                     {checkingShopWa ? t("cart.opening") : t("cart.checkAvailability")}
                   </Text>
-                </Pressable>
+                </AppPressable>
               </View>
             ) : null
           }

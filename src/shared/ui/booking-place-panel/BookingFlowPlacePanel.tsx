@@ -1,5 +1,6 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useBookingFlowPlacePanelStyles } from "./bookingFlowPlacePanelStyles";
 import Carousel from "react-native-reanimated-carousel";
@@ -41,7 +42,7 @@ export function BookingFlowPlacePanel({
   useMonotoneDarkBackground = false,
   fillContent = false,
 }: Props) {
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useStaticWindowSize();
   const [heroSlide, setHeroSlide] = useState(0);
   const heroWidth = Math.max(280, windowWidth);
 

@@ -1,14 +1,14 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
   TextInput,
-  Pressable,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Platform,
+  Platform
 } from "react-native";
 import { appAlert } from "@/shared/ui/app-popup";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
@@ -289,43 +289,43 @@ function EditProfileScreenContent() {
 
   return (
     <View style={styles.root} {...androidSwipeBackPanHandlers}>
+      <AppHeader
+        title={t("header.editProfile")}
+        compactTitle
+        leftIcon="arrow-back"
+        onLeftPress={() => navigation.goBack()}
+        rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+        onRightPress={toggleThemeMode}
+      />
       <Animated.View style={[styles.root, keyboardWrapStyle]}>
-      <ScrollView
-        ref={scrollRef}
-        style={styles.root}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-      >
-        <AppHeader
-          title={t("header.editProfile")}
-          leftIcon="arrow-back"
-          onLeftPress={() => navigation.goBack()}
-          rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
-          onRightPress={toggleThemeMode}
-        />
-
+        <ScrollView
+          ref={scrollRef}
+          style={styles.root}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        >
         <View style={styles.avatarBlock}>
           <View style={styles.avatarFrame}>
             <UserAvatarImage
               uri={avatarUrl?.trim() || null}
               recyclingKey={avatarUrl || "edit-profile-avatar"}
-              blurhash={avatarBlurhash}
+              blurhash={avatarBlurhash ?? undefined}
               style={styles.avatar}
               contentFit="cover"
               iconSize={48}
             />
-            <Pressable style={styles.avatarCameraBtn} onPress={pickAvatar} disabled={uploadingAvatar}>
+            <AppPressable style={styles.avatarCameraBtn} onPress={pickAvatar} disabled={uploadingAvatar}>
               {uploadingAvatar ? (
                 <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
                 <Ionicons name="camera-outline" size={16} color={colors.onPrimary} />
               )}
-            </Pressable>
+            </AppPressable>
           </View>
         </View>
 
-        <Text style={styles.label}>Username</Text>
+        <Text style={styles.label}>{t("editProfile.usernameLabel")}</Text>
         <TextInput
           style={[styles.input, usernameError ? styles.inputError : null]}
           value={username}
@@ -337,11 +337,11 @@ function EditProfileScreenContent() {
           autoCapitalize="none"
           autoCorrect={false}
           spellCheck={false}
-          placeholder="username"
+          placeholder={t("editProfile.usernamePlaceholder")}
           placeholderTextColor={colors.textMuted}
         />
         {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
-        <Text style={styles.label}>First name</Text>
+        <Text style={styles.label}>{t("editProfile.firstNameLabel")}</Text>
         <TextInput
           style={[styles.input, firstError ? styles.inputError : null]}
           value={first}
@@ -352,7 +352,7 @@ function EditProfileScreenContent() {
           placeholderTextColor={colors.textMuted}
         />
         {firstError ? <Text style={styles.errorText}>{firstError}</Text> : null}
-        <Text style={styles.label}>Last name</Text>
+        <Text style={styles.label}>{t("editProfile.lastNameLabel")}</Text>
         <TextInput
           style={[styles.input, lastError ? styles.inputError : null]}
           value={last}
@@ -363,9 +363,9 @@ function EditProfileScreenContent() {
           placeholderTextColor={colors.textMuted}
         />
         {lastError ? <Text style={styles.errorText}>{lastError}</Text> : null}
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>{t("editProfile.emailLabel")}</Text>
         <TextInput style={[styles.input, styles.disabledInput]} value={profile?.email ?? user?.email ?? ""} editable={false} />
-        <Text style={styles.label}>Phone</Text>
+        <Text style={styles.label}>{t("editProfile.phoneLabel")}</Text>
         <View style={styles.phoneInputWrap}>
           <PhoneInput
             value={phoneValue}
@@ -378,19 +378,19 @@ function EditProfileScreenContent() {
           />
         </View>
         {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
-        <Text style={styles.label}>Bio (optional)</Text>
+        <Text style={styles.label}>{t("editProfile.bioLabel")}</Text>
         <RichTextarea
           value={bio}
           onChangeText={setBio}
-          placeholder="Tell people about yourself..."
+          placeholder={t("editProfile.bioPlaceholder")}
           placeholderTextColor={colors.textMuted}
           style={[styles.input, { minHeight: 96, maxHeight: 180 }]}
         />
         {avatarError ? <Text style={styles.errorText}>{avatarError}</Text> : null}
-        <Pressable style={styles.btn} onPress={() => void save()} disabled={update.isPending || uploadingAvatar}>
-          <Text style={styles.btnText}>{update.isPending ? "Saving..." : "Save"}</Text>
-        </Pressable>
-      </ScrollView>
+        <AppPressable style={styles.btn} onPress={() => void save()} disabled={update.isPending || uploadingAvatar}>
+          <Text style={styles.btnText}>{update.isPending ? t("editProfile.saving") : t("editProfile.save")}</Text>
+        </AppPressable>
+        </ScrollView>
       </Animated.View>
       <StorySourcePickerModal
         visible={avatarSourcePickerVisible}

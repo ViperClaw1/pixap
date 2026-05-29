@@ -1,12 +1,12 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
-  Pressable,
-  useWindowDimensions,
   PixelRatio,
-  InteractionManager,
+  InteractionManager
 } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
@@ -83,7 +83,7 @@ export default function HomeScreen() {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useStaticWindowSize();
   const { colors, isDark } = useAppTheme();
   const { selectedCity, selectCity } = useProfileCityPicker();
   const [languageOpen, setLanguageOpen] = useState(false);
@@ -177,7 +177,7 @@ export default function HomeScreen() {
       const iconSpec = resolveCategoryIconSpec(item.name);
       const label = localizeCategoryName(item.name, t);
       return (
-        <Pressable
+        <AppPressable
           style={[styles.pill, item.isComingSoon && styles.pillComingSoon]}
           disabled={item.isComingSoon}
           accessibilityRole="button"
@@ -203,7 +203,7 @@ export default function HomeScreen() {
               </View>
             ) : null}
           </View>
-        </Pressable>
+        </AppPressable>
       );
     },
     [colors.primary, navigation, styles, t],
@@ -249,7 +249,7 @@ export default function HomeScreen() {
       <>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Pressable
+            <AppPressable
               style={styles.aiBookingBtn}
               accessibilityRole="button"
               accessibilityLabel={t("home.a11y.openPixaiBooking")}
@@ -263,11 +263,11 @@ export default function HomeScreen() {
               >
                 {t("home.pixAiBooking", { defaultValue: "Pix AI booking" })}
               </Text>
-            </Pressable>
+            </AppPressable>
           </View>
           <Text style={styles.logo}>Pixap</Text>
           <View style={styles.headerRight}>
-          <Pressable
+          <AppPressable
               style={[styles.vibeMatchBtn, styles.bellWrap]}
               accessibilityRole="button"
               accessibilityLabel={t("home.a11y.openNotifications")}
@@ -279,15 +279,15 @@ export default function HomeScreen() {
                   <Text style={styles.bellBadgeText}>{unread > 9 ? "9+" : String(unread)}</Text>
                 </View>
               ) : null}
-            </Pressable>
-            <Pressable
+            </AppPressable>
+            <AppPressable
               style={styles.vibeMatchBtn}
               accessibilityRole="button"
               accessibilityLabel={t("language.choose")}
               onPress={() => setLanguageOpen(true)}
             >
               <Ionicons name="language-outline" size={20} color={colors.text} />
-            </Pressable>
+            </AppPressable>
             <ThemeToggle size={20} style={styles.vibeMatchBtn} />
           </View>
         </View>
@@ -299,7 +299,7 @@ export default function HomeScreen() {
             onChange={selectCity}
             triggerStyle={styles.citySelector}
           />
-          <Pressable
+          <AppPressable
             accessibilityRole="button"
             accessibilityLabel={t("home.a11y.openPixaiVibeMatch")}
             onPress={() => openVibeMatch()}
@@ -316,12 +316,12 @@ export default function HomeScreen() {
                 {t("home.vibeMatching", { defaultValue: "Vibe Matching" })}
               </Text>
             </LinearGradient>
-          </Pressable>
+          </AppPressable>
         </View>
 
-        <Pressable style={styles.searchBtn} onPress={() => navigation.navigate("SearchMain")}>
+        <AppPressable style={styles.searchBtn} onPress={() => navigation.navigate("SearchMain")}>
           <Text style={styles.searchBtnText}>{t("home.searchPlaceholder")}</Text>
-        </Pressable>
+        </AppPressable>
 
         <DailyPicksHero recommendation={dailyRecommendations[0] ?? null} onOpen={openDailyRecommendations} />
 
@@ -344,9 +344,9 @@ export default function HomeScreen() {
 
         <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>{t("home.featured")}</Text>
-          <Pressable onPress={() => navigation.navigate("SearchMain")}>
+          <AppPressable onPress={() => navigation.navigate("SearchMain")}>
             <Text style={styles.link}>{t("home.seeAll")}</Text>
-          </Pressable>
+          </AppPressable>
         </View>
         {lf ? (
           <FeaturedSkeletonRow />

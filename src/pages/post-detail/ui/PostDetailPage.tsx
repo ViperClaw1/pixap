@@ -1,12 +1,12 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
+  useWindowDimensions
 } from "react-native";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -43,6 +43,7 @@ import {
   type FeedPostVm,
 } from "@/pages/stories-feed/lib/feedPostHelpers";
 import type { BrowseFlowParamList, RootTabParamList } from "@/app/navigation/types";
+import { navigateToPublicProfile } from "@/app/navigation/navigationHelpers";
 import { getFeedPostCarouselImageUrls } from "@/shared/lib/feedMediaUrls";
 import { profileMentionTag } from "@/shared/lib/profileMentionTag";
 
@@ -55,7 +56,7 @@ export default function PostDetailPage() {
   const route = useRoute<PostDetailRoute>();
   const postId = route.params.postId.trim();
   const { user } = useAuth();
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions(); // orientation-aware by design (post carousel viewport)
 
   const { data: post, isLoading, isError, refetch } = usePostById(postId);
   const { followingSet } = useMyFollowing();
@@ -152,12 +153,12 @@ export default function PostDetailPage() {
         <Text style={[styles.errorBody, { color: colors.textMuted }]}>
           This post may have been removed or is unavailable.
         </Text>
-        <Pressable style={[styles.retryBtn, { backgroundColor: colors.primary }]} onPress={() => void refetch()}>
+        <AppPressable style={[styles.retryBtn, { backgroundColor: colors.primary }]} onPress={() => void refetch()}>
           <Text style={{ color: colors.onPrimary, fontWeight: "600" }}>Retry</Text>
-        </Pressable>
-        <Pressable onPress={goBack} style={styles.backLink}>
+        </AppPressable>
+        <AppPressable onPress={goBack} style={styles.backLink}>
           <Text style={{ color: colors.primary }}>Go back</Text>
-        </Pressable>
+        </AppPressable>
       </SafeAreaView>
     );
   }
@@ -165,9 +166,9 @@ export default function PostDetailPage() {
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={goBack} hitSlop={12} style={styles.backBtn}>
+        <AppPressable onPress={goBack} hitSlop={12} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </Pressable>
+        </AppPressable>
         <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
           Post
         </Text>
@@ -201,6 +202,9 @@ export default function PostDetailPage() {
           }
           onToggleContent={() => comments.toggleExpandContent(post.id)}
           onToggleFollow={() => void onToggleFollowAuthor(post.user_id)}
+          onPressAuthor={() => {
+            if (post.user_id) navigateToPublicProfile(navigation, post.user_id);
+          }}
         />
       </ScrollView>
 

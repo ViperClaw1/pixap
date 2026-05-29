@@ -1,13 +1,13 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   InteractionManager,
   LayoutChangeEvent,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
@@ -185,7 +185,7 @@ function DailyRecommendationsPageContent() {
     () => (
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
-          <Pressable
+          <AppPressable
             onPress={goBack}
             hitSlop={16}
             style={styles.backBtn}
@@ -193,7 +193,7 @@ function DailyRecommendationsPageContent() {
             accessibilityLabel={t("common.goBack", { defaultValue: "Go back" })}
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </Pressable>
+          </AppPressable>
           <Text style={[styles.headerTitle, { color: colors.text }]} pointerEvents="none" numberOfLines={1}>
             {pageTitle}
           </Text>

@@ -16,6 +16,8 @@ import {
 
 type AppHeaderProps = {
   title: string;
+  /** Smaller title — fits long strings on one line (e.g. Edit Profile). */
+  compactTitle?: boolean;
   leftIcon: keyof typeof Ionicons.glyphMap;
   onLeftPress: () => void;
   rightIcon?: keyof typeof Ionicons.glyphMap;
@@ -31,6 +33,7 @@ type AppHeaderProps = {
 
 function AppHeaderComponent({
   title,
+  compactTitle = false,
   leftIcon,
   onLeftPress,
   rightIcon,
@@ -89,8 +92,14 @@ function AppHeaderComponent({
           ) : null}
         </View>
         <Text
-          style={[styles.title, { color: colors.text, left: titleInsetLeft, right: titleInsetRight }]}
+          style={[
+            styles.title,
+            compactTitle ? styles.titleCompact : null,
+            { color: colors.text, left: titleInsetLeft, right: titleInsetRight },
+          ]}
           numberOfLines={1}
+          adjustsFontSizeToFit={compactTitle}
+          minimumFontScale={compactTitle ? 0.85 : 1}
         >
           {title}
         </Text>
@@ -177,6 +186,11 @@ const styles = StyleSheet.create({
   title: {
     position: "absolute",
     textAlign: "center",
+    fontSize: 24,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+  },
+  titleCompact: {
     fontSize: 24,
     fontWeight: "800",
     letterSpacing: -0.3,

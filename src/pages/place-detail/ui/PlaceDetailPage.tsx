@@ -1,3 +1,5 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -5,12 +7,10 @@ import {
   Platform,
   View,
   Text,
-  Pressable,
   ScrollView,
   ActivityIndicator,
   Linking,
-  Alert,
-  useWindowDimensions,
+  Alert
 } from "react-native";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -74,7 +74,7 @@ export default function PlaceDetailScreen() {
   const isScreenFocused = useIsFocused();
   const { colors } = useAppTheme();
   const { data: place, isLoading } = useBusinessCard(id);
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useStaticWindowSize();
   const { data: reviews = [] } = useReviews(id);
   const {
     groupedStories,
@@ -332,7 +332,7 @@ export default function PlaceDetailScreen() {
 
   const renderHeroItem = useCallback(
     ({ item, index }: { item: string; index: number }) => (
-      <Pressable
+      <AppPressable
         onPress={() => handleHeroTap(index)}
         onLongPress={() => setHeroPaused(true)}
         onPressOut={() => setHeroPaused(false)}
@@ -349,7 +349,7 @@ export default function PlaceDetailScreen() {
           showLoadingSpinner
           loadingSpinnerColor={colors.primary}
         />
-      </Pressable>
+      </AppPressable>
     ),
     [colors.primary, handleHeroTap, imageVm.heroImagesRaw, place?.id, styles.hero],
   );
@@ -393,7 +393,7 @@ export default function PlaceDetailScreen() {
             </View>
           </>
         ) : (
-          <Pressable
+          <AppPressable
             onPress={() => handleHeroTap(0)}
             onLongPress={() => setHeroPaused(true)}
             onPressOut={() => setHeroPaused(false)}
@@ -409,19 +409,19 @@ export default function PlaceDetailScreen() {
               showLoadingSpinner
               loadingSpinnerColor={colors.primary}
             />
-          </Pressable>
+          </AppPressable>
         )}
         <View style={[styles.heroBar, { top: heroTop + 18 }]}>
-          <Pressable style={styles.iconBtn} onPress={() => navigation.goBack()} accessibilityLabel="Back">
+          <AppPressable style={styles.iconBtn} onPress={() => navigation.goBack()} accessibilityLabel="Back">
             <Ionicons name="arrow-back" size={20} color={colors.mediaOverlayText} />
-          </Pressable>
+          </AppPressable>
           <View style={styles.heroBarActions}>
-            <Pressable style={styles.iconBtn} onPress={onShare} accessibilityLabel="Share">
+            <AppPressable style={styles.iconBtn} onPress={onShare} accessibilityLabel="Share">
               <Ionicons name="share-outline" size={20} color={colors.mediaOverlayText} />
-            </Pressable>
-            <Pressable style={styles.iconBtn} onPress={onFavorite} accessibilityLabel="Favorite">
+            </AppPressable>
+            <AppPressable style={styles.iconBtn} onPress={onFavorite} accessibilityLabel="Favorite">
               <Text style={styles.iconBtnText}>{isFavorite ? "♥" : "♡"}</Text>
-            </Pressable>
+            </AppPressable>
           </View>
         </View>
       </View>
@@ -468,7 +468,7 @@ export default function PlaceDetailScreen() {
         <Text style={styles.addr}>📍 {place.address}</Text>
 
         <View style={styles.actions}>
-          <Pressable
+          <AppPressable
             style={[styles.secondaryBtn, isCalling && { opacity: 0.65 }]}
             onPress={() => void onCall()}
             disabled={isCalling}
@@ -479,21 +479,21 @@ export default function PlaceDetailScreen() {
             ) : (
               <Text style={styles.secondaryBtnText}>Call</Text>
             )}
-          </Pressable>
-          <Pressable style={styles.secondaryBtn} onPress={() => setDirectionsOpen(true)}>
+          </AppPressable>
+          <AppPressable style={styles.secondaryBtn} onPress={() => setDirectionsOpen(true)}>
             <Text style={styles.secondaryBtnText}>Directions</Text>
-          </Pressable>
+          </AppPressable>
         </View>
 
-        <Pressable style={styles.primaryBtn} onPress={() => openBookingFlow({ id: place.id })}>
+        <AppPressable style={styles.primaryBtn} onPress={() => openBookingFlow({ id: place.id })}>
           <Text style={styles.primaryBtnText}>Book now</Text>
-        </Pressable>
-        <Pressable style={styles.outlineBtn} onPress={() => openAIBooking({ id: place.id })}>
+        </AppPressable>
+        <AppPressable style={styles.outlineBtn} onPress={() => openAIBooking({ id: place.id })}>
           <Text style={styles.outlineBtnText}>Book with PixAI</Text>
-        </Pressable>
-        {/* <Pressable style={styles.outlineBtn} onPress={() => navigation.navigate("ShoppingItems", { id: place.id })}>
+        </AppPressable>
+        {/* <AppPressable style={styles.outlineBtn} onPress={() => navigation.navigate("ShoppingItems", { id: place.id })}>
           <Text style={styles.outlineBtnText}>Order items</Text>
-        </Pressable> */}
+        </AppPressable> */}
       </View>
 
       <DirectionsModal

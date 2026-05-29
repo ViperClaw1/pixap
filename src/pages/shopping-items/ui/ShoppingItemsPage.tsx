@@ -1,12 +1,12 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
-  Pressable,
   Modal,
   ActivityIndicator,
   Alert,
-  ScrollView,
+  ScrollView
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -104,7 +104,7 @@ export default function ShoppingItemsScreen() {
 
   const renderShoppingItem = useCallback(
     ({ item }: { item: ShoppingItem }) => (
-      <Pressable style={styles.row} onPress={() => openFlow(item)}>
+      <AppPressable style={styles.row} onPress={() => openFlow(item)}>
         <SmartImage
           uri={item.image}
           fallbackUri={getPrimaryBusinessCardImage(place?.images)}
@@ -117,7 +117,7 @@ export default function ShoppingItemsScreen() {
           <Text style={styles.price}>{Number(item.price).toLocaleString()} ₸</Text>
         </View>
         <Text style={styles.plus}>+</Text>
-      </Pressable>
+      </AppPressable>
     ),
     [id, place?.images, styles.name, styles.plus, styles.price, styles.row],
   );
@@ -133,9 +133,9 @@ export default function ShoppingItemsScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
-        <Pressable onPress={() => navigation.goBack()}>
+        <AppPressable onPress={() => navigation.goBack()}>
           <Text style={styles.back}>←</Text>
-        </Pressable>
+        </AppPressable>
         <View>
           <Text style={styles.title}>{isRestaurant ? "Menu" : "Shop items"}</Text>
           <Text style={styles.sub}>{place?.name}</Text>
@@ -163,7 +163,7 @@ export default function ShoppingItemsScreen() {
               {additionalItems.map((ex) => (
                 <View key={ex.id} style={styles.extraRow}>
                   <Text style={styles.extraLabel}>{ex.name}</Text>
-                  <Pressable
+                  <AppPressable
                     onPress={() =>
                       setExtraQty((q) => ({
                         ...q,
@@ -172,9 +172,9 @@ export default function ShoppingItemsScreen() {
                     }
                   >
                     <Text style={styles.qtyBtn}>−</Text>
-                  </Pressable>
+                  </AppPressable>
                   <Text style={styles.qtyVal}>{extraQty[ex.id] ?? 0}</Text>
-                  <Pressable
+                  <AppPressable
                     onPress={() =>
                       setExtraQty((q) => ({
                         ...q,
@@ -183,19 +183,19 @@ export default function ShoppingItemsScreen() {
                     }
                   >
                     <Text style={styles.qtyBtn}>+</Text>
-                  </Pressable>
+                  </AppPressable>
                 </View>
               ))}
             </ScrollView>
-            <Pressable
+            <AppPressable
               style={styles.primary}
               onPress={() => selectedItem && void confirmAdd(selectedItem, extraQty)}
             >
               <Text style={styles.primaryText}>Add to cart</Text>
-            </Pressable>
-            <Pressable onPress={() => setModalOpen(false)}>
+            </AppPressable>
+            <AppPressable onPress={() => setModalOpen(false)}>
               <Text style={styles.cancel}>Cancel</Text>
-            </Pressable>
+            </AppPressable>
           </View>
         </View>
       </Modal>

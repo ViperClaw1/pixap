@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useEffect, useMemo, useState } from "react";
-import { Text, TextInput, Pressable, Alert, ActivityIndicator, Platform, Keyboard } from "react-native";
+import { Text, TextInput, Alert, ActivityIndicator, Platform, Keyboard } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
@@ -85,7 +86,7 @@ export default function ResetPasswordScreen() {
       ) : (
         <Text style={styles.hint}>{t(RESET_PASSWORD_COPY_KEYS.hintChooseNew)}</Text>
       )}
-      <Pressable
+      <AppPressable
         style={[styles.fieldWrap]}
         onPress={() => undefined}
       >
@@ -101,12 +102,12 @@ export default function ResetPasswordScreen() {
           secureTextEntry={!showPassword}
           onBlur={() => setPasswordTouched(true)}
         />
-        <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
+        <AppPressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
           <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
-        </Pressable>
-      </Pressable>
+        </AppPressable>
+      </AppPressable>
       {passwordTouched ? (
-        <Pressable style={styles.passwordRules} onPress={() => undefined}>
+        <AppPressable style={styles.passwordRules} onPress={() => undefined}>
           {RESET_PASSWORD_RULE_KEYS.map((ruleKey, idx) => {
             const isSatisfied = passwordRuleStates[idx] ?? false;
             return (
@@ -115,9 +116,9 @@ export default function ResetPasswordScreen() {
               </Text>
             );
           })}
-        </Pressable>
+        </AppPressable>
       ) : null}
-      <Pressable
+      <AppPressable
         style={[styles.fieldWrap, showPasswordsMismatch ? styles.fieldWrapError : null]}
         onPress={() => undefined}
       >
@@ -130,13 +131,13 @@ export default function ResetPasswordScreen() {
           secureTextEntry={!showConfirmPassword}
           onBlur={() => setConfirmPasswordTouched(true)}
         />
-        <Pressable onPress={() => setShowConfirmPassword((v) => !v)} hitSlop={8}>
+        <AppPressable onPress={() => setShowConfirmPassword((v) => !v)} hitSlop={8}>
           <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
-        </Pressable>
-      </Pressable>
+        </AppPressable>
+      </AppPressable>
       {showPasswordsMismatch ? <Text style={styles.inlineError}>{t("auth.inlinePasswordsMismatch")}</Text> : null}
       {busy ? <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} /> : null}
-      <Pressable
+      <AppPressable
         style={[styles.btn, busy ? styles.btnDisabled : null]}
         disabled={busy}
         onPress={async () => {
@@ -178,7 +179,7 @@ export default function ResetPasswordScreen() {
         }}
       >
         <Text style={styles.btnText}>{t(RESET_PASSWORD_COPY_KEYS.btnUpdate)}</Text>
-      </Pressable>
+      </AppPressable>
     </Animated.ScrollView>
   );
 }

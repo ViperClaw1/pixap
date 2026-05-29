@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { memo } from "react";
-import { PixelRatio, Pressable, Text, View } from "react-native";
+import { PixelRatio, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { PixAIPlace } from "@/entities/pixai";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
@@ -33,7 +34,7 @@ function AIBookingSuggestedPlaceCardInner({ styles: s, place, selected, onSelect
   const { uri, fallbackUri } = placeThumbUris(place.images);
 
   return (
-    <Pressable
+    <AppPressable
       onPress={() => onSelect(place)}
       style={[s.placeCard, selected && s.placeCardSelected]}
     >
@@ -56,7 +57,7 @@ function AIBookingSuggestedPlaceCardInner({ styles: s, place, selected, onSelect
           </Text>
         </View>
       </View>
-    </Pressable>
+    </AppPressable>
   );
 }
 
