@@ -19,6 +19,7 @@ import {
   businessCardDisplayFallback,
   getBusinessCardDisplayUrl,
 } from "@/shared/lib/business-card/businessCardDisplayUrl";
+import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
 import { useNavigateOnce } from "@/shared/lib/navigation/useNavigateOnce";
 import { prefetchBusinessCard } from "@/shared/lib/navigation/prefetchBusinessCard";
 import ThemeToggle from "@/shared/ui/theme-toggle/ThemeToggle";
@@ -61,6 +62,13 @@ export default function CategoryScreen() {
 
   const visiblePlaces = useMemo(() => data.slice(0, visibleCount), [data, visibleCount]);
   const canShowMore = visibleCount < data.length;
+  const listExtraData = useMemo(
+    () =>
+      visiblePlaces
+        .map((p) => `${p.id}:${getBusinessCardCoverBlurhash(p.blurhashes) ?? ""}`)
+        .join("|"),
+    [visiblePlaces],
+  );
   const showEmptyState = !isLoading && data.length === 0;
   const emptyMessage = profileCity
     ? t("category.noPlacesInCity", { city: profileCity })
@@ -108,6 +116,7 @@ export default function CategoryScreen() {
       const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
       const heroRaw = getPrimaryBusinessCardImage(item.images);
       const heroDisplay = getBusinessCardDisplayUrl(heroRaw, { size: "list" });
+      const coverBlurhash = getBusinessCardCoverBlurhash(item.blurhashes);
       return (
         <AppPressable
           style={styles.row}
@@ -117,6 +126,7 @@ export default function CategoryScreen() {
           <SmartImage
             uri={heroDisplay}
             fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
+            blurhash={coverBlurhash}
             bundledFallback={PLACE_IMAGE_FALLBACK}
             recyclingKey={item.id}
             style={categoryStaticStyles.img}
@@ -180,6 +190,7 @@ export default function CategoryScreen() {
       ) : (
         <FlashList
           data={visiblePlaces}
+          extraData={listExtraData}
           keyExtractor={(p) => p.id}
           estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.categoryPlace}
           contentContainerStyle={[styles.list, { paddingTop: 0 }]}

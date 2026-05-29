@@ -15,6 +15,7 @@ import {
   businessCardDisplayFallback,
   getBusinessCardDisplayUrl,
 } from "@/shared/lib/business-card/businessCardDisplayUrl";
+import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
@@ -37,12 +38,14 @@ function SearchPlaceRow({ item, styles, onPress }: SearchPlaceRowProps) {
   const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
   const heroRaw = getPrimaryBusinessCardImage(item.images);
   const heroDisplay = getBusinessCardDisplayUrl(heroRaw, { layoutPx: 168, layoutPxHeight: 168 });
+  const coverBlurhash = getBusinessCardCoverBlurhash(item.blurhashes);
 
   return (
     <Pressable style={styles.row} onPress={() => onPress(item.id)}>
       <SmartImage
         uri={heroDisplay}
         fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
+        blurhash={coverBlurhash}
         bundledFallback={PLACE_IMAGE_FALLBACK}
         recyclingKey={item.id}
         style={styles.thumb}
