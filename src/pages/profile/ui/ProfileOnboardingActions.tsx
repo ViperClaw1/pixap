@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useMemo, useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Modal, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
@@ -98,11 +99,11 @@ function ProfileOnboardingActionsContent({
   return (
     <>
       {rows.map((item) => (
-        <Pressable key={item.key} style={linkStyle} onPress={item.onPress}>
+        <AppPressable key={item.key} style={linkStyle} onPress={item.onPress}>
           <Ionicons name={item.icon} size={20} color={textMuted} style={linkIconStyle} />
           <Text style={linkTextStyle}>{item.label}</Text>
           <Ionicons name="chevron-forward" size={18} color={textMuted} style={linkIconStyle} />
-        </Pressable>
+        </AppPressable>
       ))}
       <Modal
         visible={retakeConfirmVisible}

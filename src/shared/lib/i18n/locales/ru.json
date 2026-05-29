@@ -10,7 +10,7 @@
   },
   "header": {
     "bookings": "Бронирования",
-    "editProfile": "Редактировать профиль",
+    "editProfile": "Редактировать",
     "messages": "Сообщения",
     "favorites": "Избранное",
     "profile": "Профиль",
@@ -42,7 +42,17 @@
   "editProfile": {
     "savedTitle": "Сохранено",
     "savedBody": "Данные профиля обновлены.",
-    "personalizeCta": "Настроить"
+    "personalizeCta": "Настроить",
+    "usernameLabel": "Имя пользователя",
+    "usernamePlaceholder": "username",
+    "firstNameLabel": "Имя",
+    "lastNameLabel": "Фамилия",
+    "emailLabel": "Email",
+    "phoneLabel": "Телефон",
+    "bioLabel": "О себе (необязательно)",
+    "bioPlaceholder": "Расскажите о себе...",
+    "save": "Сохранить",
+    "saving": "Сохранение..."
   },
   "onboarding": {
     "actions": {
@@ -562,7 +572,22 @@
       "retakeTasteConfirm": "Начать заново",
       "archive": "Архив",
       "privacy": "Конфиденциальность и безопасность",
+      "dataDeletion": "Удаление аккаунта и данных",
       "settings": "Настройки"
+    },
+    "dangerZone": {
+      "title": "Опасная зона",
+      "description": "Удаление аккаунта навсегда удалит ваши персональные данные из Pixap. Это действие нельзя отменить.",
+      "confirmLabel": "Подтверждение",
+      "confirmHint": "Введите {{phrase}} для подтверждения:",
+      "confirmPlaceholder": "{{phrase}}",
+      "deleteButton": "Удалить аккаунт",
+      "deleting": "Удаление...",
+      "successTitle": "Аккаунт удалён",
+      "successBody": "Ваш аккаунт и персональные данные удалены.",
+      "failedTitle": "Не удалось удалить",
+      "failedBody": "Не удалось удалить аккаунт. Попробуйте снова или напишите на support@pixap.kz.",
+      "usernameRequired": "Укажите имя пользователя в разделе «Изменить», чтобы удалить аккаунт."
     },
     "adminDashboard": "Панель администратора",
     "partnerUpload": "Партнёр: загрузить фото объявления",
@@ -837,6 +862,14 @@
     "termsGateAcceptFailed": "Не удалось сохранить принятие условий. Попробуйте ещё раз или выйдите и войдите снова.",
     "termsGateAccept": "Принять и продолжить",
     "termsGateDecline": "Выйти"
+  },
+  "publicProfile": {
+    "title": "Профиль",
+    "follow": "Подписаться",
+    "following": "В подписках",
+    "message": "Написать",
+    "notFound": "Профиль не найден",
+    "retry": "Повторить"
   },
   "aiConsent": {
     "title": "Передача данных в AI",

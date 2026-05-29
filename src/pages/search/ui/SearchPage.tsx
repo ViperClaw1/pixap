@@ -1,6 +1,7 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
+import { View, Text, TextInput, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
@@ -43,7 +44,7 @@ function SearchPlaceRow({ item, styles, onPress }: SearchPlaceRowProps) {
   const coverBlurhash = getBusinessCardCoverBlurhash(item.blurhashes);
 
   return (
-    <Pressable style={styles.row} onPress={() => onPress(item.id)}>
+    <AppPressable style={styles.row} onPress={() => onPress(item.id)}>
       <SmartImage
         uri={heroDisplay}
         fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
@@ -74,7 +75,7 @@ function SearchPlaceRow({ item, styles, onPress }: SearchPlaceRowProps) {
           </View>
         ) : null}
       </View>
-    </Pressable>
+    </AppPressable>
   );
 }
 
@@ -180,7 +181,7 @@ export default function SearchScreen() {
           returnKeyType="search"
         />
         {q.length > 0 ? (
-          <Pressable
+          <AppPressable
             style={styles.clearBtn}
             onPress={clearQuery}
             accessibilityRole="button"
@@ -188,7 +189,7 @@ export default function SearchScreen() {
             hitSlop={8}
           >
             <Ionicons name="close-circle" size={22} color={colors.textMuted} />
-          </Pressable>
+          </AppPressable>
         ) : null}
       </View>
 

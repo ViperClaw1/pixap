@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { memo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
@@ -31,9 +32,9 @@ function ThreadHeaderComponent({
 }: Props) {
   return (
     <View style={styles.header}>
-      <Pressable style={styles.backBtn} onPress={onBack}>
+      <AppPressable style={styles.backBtn} onPress={onBack}>
         <Ionicons name="arrow-back" size={20} color={colors.text} />
-      </Pressable>
+      </AppPressable>
       <View style={styles.headerCenter}>
         <Text style={styles.peerName} numberOfLines={1}>
           {peerName}

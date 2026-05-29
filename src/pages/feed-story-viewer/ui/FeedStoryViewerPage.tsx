@@ -1,3 +1,4 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -6,12 +7,11 @@ import {
   InteractionManager,
   Keyboard,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
-  useWindowDimensions,
+  useWindowDimensions
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -67,7 +67,7 @@ export default function FeedStoryViewerPage() {
   const navigation = useNavigation<FeedStoryViewerNav>();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions(); // orientation-aware by design (fullscreen story media)
   const deepLinkStoryId = params.storyId?.trim() ?? "";
   const hasInlineGroups = (params.groups?.length ?? 0) > 0;
   const [resolvedGroups, setResolvedGroups] = useState<StoryGroup[] | null>(null);
@@ -534,9 +534,9 @@ export default function FeedStoryViewerPage() {
     return (
       <View style={[styles.root, styles.deepLinkState]}>
         <Text style={styles.deepLinkStateText}>Story is unavailable or has expired.</Text>
-        <Pressable style={styles.deepLinkCloseBtn} onPress={closeViewer}>
+        <AppPressable style={styles.deepLinkCloseBtn} onPress={closeViewer}>
           <Text style={styles.deepLinkCloseBtnText}>Close</Text>
-        </Pressable>
+        </AppPressable>
       </View>
     );
   }
@@ -581,9 +581,9 @@ export default function FeedStoryViewerPage() {
         </View>
 
         <View style={[styles.topRow, { top: Math.max(22, insets.top + 22) }]}>
-          <Pressable style={styles.iconButton} onPress={closeViewer}>
+          <AppPressable style={styles.iconButton} onPress={closeViewer}>
             <Ionicons name="arrow-back" size={22} color="#111111" />
-          </Pressable>
+          </AppPressable>
           <View style={styles.authorRow}>
             {authorAvatar ? (
               <SmartImage
@@ -663,28 +663,28 @@ export default function FeedStoryViewerPage() {
               />
             </View>
             <View style={styles.actionsRight}>
-              <Pressable style={styles.actionIcon} hitSlop={12} onPress={() => void onToggleLike()}>
+              <AppPressable style={styles.actionIcon} hitSlop={12} onPress={() => void onToggleLike()}>
                 <AnimatedLikeHeart
                   liked={likeActive}
                   size={26}
                   color={composerTheme.icon}
                   likedColor="#F4212E"
                 />
-              </Pressable>
-              <Pressable
+              </AppPressable>
+              <AppPressable
                 style={styles.actionIcon}
                 hitSlop={12}
                 onPress={() => navigation.navigate("StoryDiscussion", { storyId: activeStory.id, placeId: activeStory.place_id })}
               >
                 <Ionicons name="chatbubble-outline" size={24} color={composerTheme.icon} />
-              </Pressable>
-              <Pressable style={styles.actionIcon} hitSlop={12} onPress={() => void onSubmitReply()}>
+              </AppPressable>
+              <AppPressable style={styles.actionIcon} hitSlop={12} onPress={() => void onSubmitReply()}>
                 <Ionicons
                   name="paper-plane-outline"
                   size={25}
                   color={inputValue.trim() ? composerTheme.icon : composerTheme.iconMuted}
                 />
-              </Pressable>
+              </AppPressable>
             </View>
           </View>
         </Animated.View>
@@ -692,7 +692,7 @@ export default function FeedStoryViewerPage() {
 
       {previewOpen ? (
         <View style={styles.previewOverlayRoot} pointerEvents="box-none">
-          <Pressable style={styles.absoluteFill} onPress={closeImagePreview}>
+          <AppPressable style={styles.absoluteFill} onPress={closeImagePreview}>
             {Platform.OS === "web" ? (
               <View style={[styles.absoluteFill, { backgroundColor: "rgba(0,0,0,0.58)" }]} />
             ) : (
@@ -708,7 +708,7 @@ export default function FeedStoryViewerPage() {
                 <View style={[styles.absoluteFill, styles.previewDimOverlay]} pointerEvents="none" />
               </>
             )}
-          </Pressable>
+          </AppPressable>
           <View
             style={[
               styles.modalCard,
@@ -749,9 +749,9 @@ export default function FeedStoryViewerPage() {
                   {authorName}
                 </Text>
               </View>
-              <Pressable style={styles.copyIconButton} onPress={() => void onCopyStoryImage()}>
+              <AppPressable style={styles.copyIconButton} onPress={() => void onCopyStoryImage()}>
                 <Ionicons name={copied ? "checkmark" : "copy-outline"} size={20} color="#111111" />
-              </Pressable>
+              </AppPressable>
             </View>
             <View style={styles.modalCardFooter}>
               <Text style={styles.modalFooterText} numberOfLines={3}>

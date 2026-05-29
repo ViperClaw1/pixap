@@ -5,7 +5,7 @@ import { AUTH_PRIMARY_COLOR, primaryPressableStyle, primaryPressableTextStyle } 
 
 export const editProfileStaticStyles = StyleSheet.create({
   root: { flex: 1 },
-  content: { padding: 16, paddingTop: 12, paddingBottom: 36 },
+  content: { paddingTop: 12, paddingBottom: 36, paddingHorizontal: 12 },
   avatarBlock: { alignItems: "center", marginBottom: 12 },
   avatarFrame: {
     position: "relative",

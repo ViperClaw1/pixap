@@ -10,7 +10,7 @@
   },
   "header": {
     "bookings": "Buchungen",
-    "editProfile": "Profil bearbeiten",
+    "editProfile": "Bearbeiten",
     "messages": "Nachrichten",
     "favorites": "Favoriten",
     "profile": "Profil",
@@ -42,7 +42,17 @@
   "editProfile": {
     "savedTitle": "Gespeichert",
     "savedBody": "Dein Profil wurde aktualisiert.",
-    "personalizeCta": "Anpassen"
+    "personalizeCta": "Anpassen",
+    "usernameLabel": "Benutzername",
+    "usernamePlaceholder": "benutzername",
+    "firstNameLabel": "Vorname",
+    "lastNameLabel": "Nachname",
+    "emailLabel": "E-Mail",
+    "phoneLabel": "Telefon",
+    "bioLabel": "Bio (optional)",
+    "bioPlaceholder": "Erzähle etwas über dich...",
+    "save": "Speichern",
+    "saving": "Speichern..."
   },
   "home": {
     "searchPlaceholder": "Restaurants, Salons, Events suchen…",
@@ -444,7 +454,22 @@
       "retakeTasteConfirm": "Neu starten",
       "archive": "Archiv",
       "privacy": "Datenschutz & Sicherheit",
+      "dataDeletion": "Konto- & Datenlöschung",
       "settings": "Einstellungen"
+    },
+    "dangerZone": {
+      "title": "Gefahrenzone",
+      "description": "Das Löschen deines Kontos entfernt deine personenbezogenen Daten dauerhaft aus Pixap. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "confirmLabel": "Bestätigung",
+      "confirmHint": "Gib zur Bestätigung {{phrase}} ein:",
+      "confirmPlaceholder": "{{phrase}}",
+      "deleteButton": "Konto löschen",
+      "deleting": "Wird gelöscht...",
+      "successTitle": "Konto gelöscht",
+      "successBody": "Dein Konto und deine personenbezogenen Daten wurden entfernt.",
+      "failedTitle": "Löschen fehlgeschlagen",
+      "failedBody": "Konto konnte nicht gelöscht werden. Bitte erneut versuchen oder support@pixap.kz kontaktieren.",
+      "usernameRequired": "Lege zuerst in „Profil bearbeiten“ einen Benutzernamen fest, um dein Konto zu löschen."
     },
     "adminDashboard": "Admin-Dashboard",
     "partnerUpload": "Partner: Listing-Bild hochladen",
@@ -660,6 +685,14 @@
       "loud": "Laut",
       "cozy": "Gemütlich"
     }
+  },
+  "publicProfile": {
+    "title": "Profil",
+    "follow": "Folgen",
+    "following": "Folge ich",
+    "message": "Nachricht",
+    "notFound": "Profil nicht gefunden",
+    "retry": "Erneut versuchen"
   },
   "errorBoundary": {
     "retry": "Erneut versuchen",

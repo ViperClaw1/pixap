@@ -1,3 +1,4 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -5,13 +6,12 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableWithoutFeedback,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
@@ -148,9 +148,9 @@ export default function StoryComposerScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.header}>
-              <Pressable onPress={() => navigation.goBack()}>
+              <AppPressable onPress={() => navigation.goBack()}>
                 <Text style={[styles.backText, { color: colors.text }]}>Back</Text>
-              </Pressable>
+              </AppPressable>
               <Text style={[styles.title, { color: colors.text }]}>Add Story</Text>
               <View style={styles.headerSpacer} />
             </View>
@@ -194,7 +194,7 @@ export default function StoryComposerScreen() {
                   </View>
                 )}
                 <View style={styles.photoActions}>
-                  <Pressable
+                  <AppPressable
                     style={[
                       styles.photoBtn,
                       {
@@ -213,19 +213,19 @@ export default function StoryComposerScreen() {
                         {mediaUrls.length ? "Change photo" : "Upload photo"}
                       </Text>
                     )}
-                  </Pressable>
+                  </AppPressable>
                   {mediaUrls.length ? (
-                    <Pressable
+                    <AppPressable
                       style={[styles.photoBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
                       onPress={() => setMediaUrls([])}
                       disabled={uploadingPhoto}
                     >
                       <Text style={[styles.photoBtnText, { color: colors.textMuted }]}>Remove</Text>
-                    </Pressable>
+                    </AppPressable>
                   ) : null}
                 </View>
               </View>
-              <Pressable
+              <AppPressable
                 style={[
                   styles.submitBtn,
                   {
@@ -238,7 +238,7 @@ export default function StoryComposerScreen() {
                 <Text style={styles.submitText}>
                   {createStory.isPending ? "Posting..." : "Post story"}
                 </Text>
-              </Pressable>
+              </AppPressable>
             </View>
           </ScrollView>
         </TouchableWithoutFeedback>

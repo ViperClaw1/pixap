@@ -1,5 +1,6 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { memo, useMemo } from "react";
-import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
+import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 
 const AVATAR = 32;
@@ -53,7 +54,7 @@ function DiscussionCommentSkeletonCard({
 }
 
 function DiscussionCommentSkeletonListInner({ onLayout }: Props) {
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useStaticWindowSize();
   const midWidth = useMemo(
     () => Math.max(120, windowWidth - HORIZONTAL_PAD * 2 - AVATAR - ROW_GAP - ACTION_COL),
     [windowWidth],

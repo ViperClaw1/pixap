@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -74,19 +75,19 @@ export default function SubscriptionPaywallScreen() {
     <>
       <ScrollView style={styles.root} contentContainerStyle={styles.content} {...androidSwipeBackPanHandlers}>
         <View style={styles.card}>
-          <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" style={{ alignSelf: "flex-start" }}>
+          <AppPressable onPress={() => navigation.goBack()} accessibilityRole="button" style={{ alignSelf: "flex-start" }}>
             <Ionicons name="arrow-back" size={20} color={colors.text} />
-          </Pressable>
+          </AppPressable>
           <Text style={styles.title}>{t("subscriptionPaywall.title")}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
           <BookingCreditsBadge balance={balance} isIntroActive={isIntroActive} introPeriodEndsAt={introPeriodEndsAt} />
-          <Pressable accessibilityRole="button" onPress={openTour} style={styles.tourLink}>
+          <AppPressable accessibilityRole="button" onPress={openTour} style={styles.tourLink}>
             <Ionicons name="play-circle-outline" size={18} color={colors.primary} />
             <Text style={[styles.tourLinkText, { color: colors.primary }]}>{t("subscriptionPaywall.tour.rewatch")}</Text>
-          </Pressable>
+          </AppPressable>
         </View>
 
-      <Pressable
+      <AppPressable
         style={[styles.card, selectedSku === env.pixAiMonthlySubscriptionSku && { borderColor: colors.primary, borderWidth: 2 }]}
         onPress={() => setSelectedSku(env.pixAiMonthlySubscriptionSku)}
       >
@@ -95,9 +96,9 @@ export default function SubscriptionPaywallScreen() {
         <Text style={styles.feature}>{t("subscriptionPaywall.featureAiBooking")}</Text>
         <Text style={styles.feature}>{t("subscriptionPaywall.featureVibeMatch")}</Text>
         {monthlyPrice ? <Text style={styles.subtitle}>{monthlyPrice}{t("subscriptionPaywall.perMonth")}</Text> : null}
-      </Pressable>
+      </AppPressable>
 
-      <Pressable
+      <AppPressable
         style={[styles.card, selectedSku === env.pixAiAnnualSubscriptionSku && { borderColor: colors.primary, borderWidth: 2 }]}
         onPress={() => setSelectedSku(env.pixAiAnnualSubscriptionSku)}
       >
@@ -107,13 +108,13 @@ export default function SubscriptionPaywallScreen() {
         <Text style={styles.feature}>{t("subscriptionPaywall.featureVibeMatch")}</Text>
         <Text style={styles.feature}>{t("subscriptionPaywall.featurePostBoost")}</Text>
         {annualPrice ? <Text style={styles.subtitle}>{annualPrice}{t("subscriptionPaywall.perYear")}</Text> : null}
-      </Pressable>
+      </AppPressable>
 
       <View style={styles.card}>
         {!iapSupported ? (
           <Text style={styles.subtitle}>{t("subscriptionPaywall.expoGoHint")}</Text>
         ) : null}
-        <Pressable
+        <AppPressable
           disabled={!iapSupported || purchasePending || productsLoading}
           style={styles.cta}
           onPress={() => void purchase(selectedSku)}
@@ -123,19 +124,19 @@ export default function SubscriptionPaywallScreen() {
           ) : (
             <Text style={styles.ctaText}>{purchaseLabel}</Text>
           )}
-        </Pressable>
-        <Pressable disabled={!iapSupported || restorePending} style={styles.secondary} onPress={() => void restore()}>
+        </AppPressable>
+        <AppPressable disabled={!iapSupported || restorePending} style={styles.secondary} onPress={() => void restore()}>
           {restorePending ? <ActivityIndicator color={colors.text} /> : <Text style={styles.secondaryText}>{t("subscriptionPaywall.restore")}</Text>}
-        </Pressable>
+        </AppPressable>
         {Platform.OS === "ios" ? (
-          <Pressable style={styles.secondary} onPress={() => void Linking.openURL(APPLE_SUBSCRIPTION_URL)}>
+          <AppPressable style={styles.secondary} onPress={() => void Linking.openURL(APPLE_SUBSCRIPTION_URL)}>
             <Text style={styles.secondaryText}>{t("subscriptionPaywall.manageApple")}</Text>
-          </Pressable>
+          </AppPressable>
         ) : null}
         {Platform.OS === "android" ? (
-          <Pressable style={styles.secondary} onPress={() => void Linking.openURL(GOOGLE_SUBSCRIPTION_URL)}>
+          <AppPressable style={styles.secondary} onPress={() => void Linking.openURL(GOOGLE_SUBSCRIPTION_URL)}>
             <Text style={styles.secondaryText}>{t("subscriptionPaywall.manageGoogle")}</Text>
-          </Pressable>
+          </AppPressable>
         ) : null}
         <Text style={styles.legal}>{t("subscriptionPaywall.legal")}</Text>
       </View>

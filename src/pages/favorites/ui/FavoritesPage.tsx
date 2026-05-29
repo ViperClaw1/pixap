@@ -1,6 +1,7 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
@@ -67,7 +68,7 @@ export default function FavoritesScreen() {
       const heroRaw = getPrimaryBusinessCardImage(b.images);
       const heroDisplay = getBusinessCardDisplayUrl(heroRaw, { layoutPx: 168, layoutPxHeight: 168 });
       return (
-        <Pressable style={styles.row} onPress={() => navigation.navigate("PlaceDetail", { id: b.id })}>
+        <AppPressable style={styles.row} onPress={() => navigation.navigate("PlaceDetail", { id: b.id })}>
           <SmartImage
             uri={heroDisplay}
             fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
@@ -82,7 +83,7 @@ export default function FavoritesScreen() {
               {b.address}
             </Text>
           </View>
-        </Pressable>
+        </AppPressable>
       );
     },
     [navigation, styles.meta, styles.name, styles.row, styles.thumb],

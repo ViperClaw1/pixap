@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, BackHandler, Platform, Pressable, Text, View, StyleSheet } from "react-native";
+import { ActivityIndicator, BackHandler, Platform, Text, View, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -228,19 +229,19 @@ function PreferenceOnboardingContent() {
     >
       <View style={styles.header}>
         {wizard.canGoBack ? (
-          <Pressable onPress={navigateBack} hitSlop={12} disabled={isAdvancing}>
+          <AppPressable onPress={navigateBack} hitSlop={12} disabled={isAdvancing}>
             <Text style={{ color: colors.primary, fontWeight: "600", opacity: isAdvancing ? 0.45 : 1 }}>
               {t("back", { keyPrefix: "onboarding.actions" })}
             </Text>
-          </Pressable>
+          </AppPressable>
         ) : (
           <View style={styles.headerSpacer} />
         )}
-        <Pressable onPress={() => void handleSkip()} hitSlop={12} disabled={isAdvancing}>
+        <AppPressable onPress={() => void handleSkip()} hitSlop={12} disabled={isAdvancing}>
           <Text style={{ color: colors.textMuted, fontWeight: "600", opacity: isAdvancing ? 0.45 : 1 }}>
             {t("skip", { keyPrefix: "onboarding.actions" })}
           </Text>
-        </Pressable>
+        </AppPressable>
       </View>
 
       <OnboardingProgressBar progress={wizard.progress} />
@@ -261,7 +262,7 @@ function PreferenceOnboardingContent() {
 
       {!isVenueStep ? (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-          <Pressable
+          <AppPressable
             style={[primaryPressableStyle, continueDisabled && styles.continueDisabled]}
             onPress={navigateForward}
             disabled={continueDisabled}
@@ -282,7 +283,7 @@ function PreferenceOnboardingContent() {
                   : t("continue", { keyPrefix: "onboarding.actions" })}
               </Text>
             )}
-          </Pressable>
+          </AppPressable>
         </View>
       ) : null}
     </View>

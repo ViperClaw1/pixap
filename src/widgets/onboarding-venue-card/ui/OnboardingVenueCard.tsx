@@ -1,5 +1,6 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, Text, View, StyleSheet, useWindowDimensions, InteractionManager, type LayoutChangeEvent } from "react-native";
+import { ScrollView, Text, View, StyleSheet, InteractionManager, type LayoutChangeEvent } from "react-native";
 import { useTranslation } from "react-i18next";
 import { SmartImage, preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -34,7 +35,7 @@ function resolveHeroHeight(cardHeight: number, windowHeight: number): number {
 function OnboardingVenueCardInner({ venue }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight } = useStaticWindowSize();
   const [heroLoading, setHeroLoading] = useState(true);
   const [cardHeight, setCardHeight] = useState(0);
 

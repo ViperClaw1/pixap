@@ -1,4 +1,5 @@
 import type { AppPopupOptions, AppPopupVariant } from "./types";
+import { devWarn } from "@/shared/lib/devLog";
 
 type ShowHandler = (options: AppPopupOptions) => void;
 type HideHandler = () => void;
@@ -18,9 +19,7 @@ export function unregisterAppPopupHandlers() {
 
 export function showAppPopup(options: AppPopupOptions) {
   if (!showHandler) {
-    if (__DEV__) {
-      console.warn("[AppPopup] showAppPopup called before AppPopupProvider mounted");
-    }
+    devWarn("[AppPopup] showAppPopup called before AppPopupProvider mounted");
     return;
   }
   showHandler(options);

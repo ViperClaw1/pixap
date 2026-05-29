@@ -1,16 +1,16 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
   Linking,
   Platform,
   Alert,
-  useWindowDimensions,
+  useWindowDimensions
 } from "react-native";
 import { useNavigation, useRoute, useIsFocused, type RouteProp } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
@@ -28,6 +28,7 @@ import { useBookings } from "@/entities/booking";
 import { useCreatePost } from "@/entities/post";
 import { useCreateStory } from "@/entities/story";
 import type { ProfileStackParamList, RootTabParamList } from "@/app/navigation/types";
+import { navigateToPublicProfile } from "@/app/navigation/navigationHelpers";
 import { StoriesArchiveView } from "@/widgets/stories-archive";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { PROFILE_COMPACT_WIDTH, useProfileStyles } from "./profileStyles";
@@ -38,6 +39,7 @@ import { useBookingCredits } from "@/entities/booking-credits";
 import { usePreferenceOnboardingGate } from "@/features/preference-onboarding";
 import { ProfileBookingCreditsBadge } from "./ProfileBookingCreditsBadge";
 import { ProfileOnboardingActions } from "./ProfileOnboardingActions";
+import { ProfileDangerZone } from "./ProfileDangerZone";
 import { ProfilePageSkeleton } from "./ProfilePageSkeleton";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
@@ -48,6 +50,7 @@ import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import {
   APPLE_SUBSCRIPTION_URL,
+  DATA_DELETION_URL,
   GOOGLE_SUBSCRIPTION_URL,
   MAX_POST_PHOTOS,
   PRIVACY_URL,
@@ -145,11 +148,11 @@ function ProfileScreenContent() {
     navigation.setParams({ openCreateStep: undefined, openCreateModal: undefined });
   }, [navigation, route.params?.openCreateModal, route.params?.openCreateStep]);
 
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions(); // orientation-aware by design (compact layout)
   const isCompact = windowWidth < PROFILE_COMPACT_WIDTH;
   const styles = useProfileStyles();
   const linkRowStyle = isCompact ? [styles.link, styles.linkCompact] : styles.link;
-  const scrollBottomPadding = 16;
+  const scrollBottomPadding = 32;
 
   const userName = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || t("profile.defaultUserName");
   const isEmailVerified = Boolean(profile?.is_verified);
@@ -159,6 +162,9 @@ function ProfileScreenContent() {
   };
   const openTerms = () => {
     void Linking.openURL(TERMS_URL);
+  };
+  const openDataDeletion = () => {
+    void Linking.openURL(DATA_DELETION_URL);
   };
   const openManageSubscription = () => {
     void Linking.openURL(Platform.OS === "ios" ? APPLE_SUBSCRIPTION_URL : GOOGLE_SUBSCRIPTION_URL);
@@ -367,11 +373,17 @@ function ProfileScreenContent() {
         icon: "archive-outline",
         onPress: () => setStoriesArchiveVisible(true),
       },
+      { key: "settings", label: t("profile.actions.settings"), icon: "settings-outline", onPress: openEditProfile },
       { key: "privacy", label: t("profile.actions.privacy"), icon: "shield-outline", onPress: openPrivacy },
       { key: "terms", label: t("legal.terms"), icon: "document-text-outline", onPress: openTerms },
-      { key: "settings", label: t("profile.actions.settings"), icon: "settings-outline", onPress: openEditProfile },
+      {
+        key: "data-deletion",
+        label: t("profile.actions.dataDeletion"),
+        icon: "information-circle-outline",
+        onPress: openDataDeletion,
+      },
     ],
-    [isActive, navigation, openEditProfile, openManageSubscription, openPrivacy, openTerms, t, unreadNotifications],
+    [isActive, navigation, openEditProfile, openDataDeletion, openManageSubscription, openPrivacy, openTerms, t, unreadNotifications],
   );
 
   const showAdminDashboard = isProfileAdmin(profile?.account_role);
@@ -438,19 +450,19 @@ function ProfileScreenContent() {
                 </Text>
               </View>
               {!isEmailVerified ? (
-                <Pressable style={styles.verifyBtn} onPress={() => navigation.navigate("VerifyEmailOtp", { flow: "verify" })}>
+                <AppPressable style={styles.verifyBtn} onPress={() => navigation.navigate("VerifyEmailOtp", { flow: "verify" })}>
                   <Text style={styles.verifyBtnText}>{t("profile.verifyEmail")}</Text>
-                </Pressable>
+                </AppPressable>
               ) : null}
             </View>
           </View>
-          <Pressable
+          <AppPressable
             style={styles.settingsBtn}
             onPressIn={ensureEditProfileScreenReady}
             onPress={openEditProfile}
           >
             <Ionicons name="settings-outline" size={16} color={colors.text} />
-          </Pressable>
+          </AppPressable>
         </View>
         <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
           <Text style={{ color: colors.text, fontWeight: "700" }}>
@@ -473,7 +485,7 @@ function ProfileScreenContent() {
         </View>
       </View>
       <View style={styles.statRow}>
-        <Pressable
+        <AppPressable
           style={styles.statCard}
           onPress={() => navigation.navigate("Bookings", { screen: "BookingsMain" })}
           accessibilityRole="button"
@@ -481,9 +493,9 @@ function ProfileScreenContent() {
         >
           <Text style={styles.statValue}>{bookings.length}</Text>
           <Text style={styles.statLabel}>{t("profile.stats.bookings")}</Text>
-        </Pressable>
+        </AppPressable>
         
-        <Pressable
+        <AppPressable
           style={styles.statCard}
           onPress={() => navigation.navigate("Favorites")}
           accessibilityRole="button"
@@ -491,14 +503,14 @@ function ProfileScreenContent() {
         >
           <Text style={styles.statValue}>{favorites.length}</Text>
           <Text style={styles.statLabel}>{t("profile.stats.favorites")}</Text>
-        </Pressable>
+        </AppPressable>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>0</Text>
           <Text style={styles.statLabel}>{t("profile.stats.reviews")}</Text>
         </View>
       </View>
       <View style={styles.statRow}>
-        <Pressable
+        <AppPressable
           style={styles.statCard}
           onPress={() =>
             navigation.navigate("Feed", {
@@ -511,8 +523,8 @@ function ProfileScreenContent() {
         >
           <Text style={styles.statValue}>{postsCount}</Text>
           <Text style={styles.statLabel}>{t("profile.stats.posts")}</Text>
-        </Pressable>
-        <Pressable
+        </AppPressable>
+        <AppPressable
           style={styles.statCard}
           onPress={() => navigation.navigate("Cart", { screen: "CartMain" })}
           accessibilityRole="button"
@@ -520,8 +532,8 @@ function ProfileScreenContent() {
         >
           <Text style={styles.statValue}>{followersCount}</Text>
           <Text style={styles.statLabel}>{t("profile.stats.followed")}</Text>
-        </Pressable>
-        <Pressable
+        </AppPressable>
+        <AppPressable
           style={styles.statCard}
           onPress={() => navigation.navigate("Cart", { screen: "CartMain" })}
           accessibilityRole="button"
@@ -529,7 +541,7 @@ function ProfileScreenContent() {
         >
           <Text style={styles.statValue}>{followingCount}</Text>
           <Text style={styles.statLabel}>{t("profile.stats.following")}</Text>
-        </Pressable>
+        </AppPressable>
         
       </View>
       <View style={styles.suggestionsSection}>
@@ -541,27 +553,29 @@ function ProfileScreenContent() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionScrollContent}>
             {suggestions.map((item) => (
               <View key={item.id} style={styles.suggestionCard}>
-                <View style={styles.suggestionAvatarWrap}>
-                  <UserAvatarImage
-                    uri={item.avatar_url}
-                    style={{ width: 66, height: 66, borderRadius: 33 }}
-                    contentFit="cover"
-                    iconSize={30}
-                  />
-                </View>
-                <Text style={styles.suggestionName} numberOfLines={1}>
-                  {profileFullName(item.first_name, item.last_name)}
-                </Text>
-                <Text style={styles.suggestionReason} numberOfLines={1}>
-                  {item.reason}
-                </Text>
-                <Pressable
+                <AppPressable onPress={() => navigateToPublicProfile(navigation, item.id)}>
+                  <View style={styles.suggestionAvatarWrap}>
+                    <UserAvatarImage
+                      uri={item.avatar_url}
+                      style={{ width: 66, height: 66, borderRadius: 33 }}
+                      contentFit="cover"
+                      iconSize={30}
+                    />
+                  </View>
+                  <Text style={styles.suggestionName} numberOfLines={1}>
+                    {profileFullName(item.first_name, item.last_name)}
+                  </Text>
+                  <Text style={styles.suggestionReason} numberOfLines={1}>
+                    {item.reason}
+                  </Text>
+                </AppPressable>
+                <AppPressable
                   style={styles.suggestionFollowBtn}
                   onPress={() => void toggleFollow.mutateAsync({ followingId: item.id, isFollowing: false })}
                   disabled={toggleFollow.isPending}
                 >
                   <Text style={styles.suggestionFollowBtnText}>{t("profile.suggestions.follow")}</Text>
-                </Pressable>
+                </AppPressable>
               </View>
             ))}
           </ScrollView>
@@ -578,11 +592,11 @@ function ProfileScreenContent() {
 
       <View style={styles.actionsCard}>
         {actions.slice(0, 1).map((item) => (
-          <Pressable key={item.key} style={linkRowStyle} onPress={item.onPress}>
+          <AppPressable key={item.key} style={linkRowStyle} onPress={item.onPress}>
             <Ionicons name={item.icon} size={20} color={colors.textMuted} style={styles.linkIcon} />
             <Text style={styles.linkText}>{item.label}</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
-          </Pressable>
+          </AppPressable>
         ))}
         <ProfileOnboardingActions
           navigation={navigation}
@@ -596,7 +610,7 @@ function ProfileScreenContent() {
           const isLastInCard =
             !showAdminDashboard && index === trailingActions.length - 1;
           return (
-            <Pressable
+            <AppPressable
               key={item.key}
               style={[linkRowStyle, isLastInCard ? styles.linkLastInCard : null]}
               onPress={item.onPress}
@@ -609,26 +623,26 @@ function ProfileScreenContent() {
                 </View>
               ) : null}
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
-            </Pressable>
+            </AppPressable>
           );
         })}
         {showAdminDashboard ? (
-          <Pressable
+          <AppPressable
             style={[linkRowStyle, styles.linkLastInCard]}
             onPress={() => navigation.navigate("AdminDashboard")}
           >
             <Ionicons name="stats-chart-outline" size={20} color={colors.textMuted} style={styles.linkIcon} />
             <Text style={styles.linkText}>{t("profile.adminDashboard")}</Text>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
-          </Pressable>
+          </AppPressable>
         ) : null}
       </View>
       {(role === "admin" || role === "partner") && (
-        <Pressable style={[linkRowStyle, { marginTop: 10 }]} onPress={() => navigation.navigate("AdminImageUpload")}>
+        <AppPressable style={[linkRowStyle, { marginTop: 10 }]} onPress={() => navigation.navigate("AdminImageUpload")}>
           <Text style={styles.linkText}>{t("profile.partnerUpload")}</Text>
-        </Pressable>
+        </AppPressable>
       )}
-      <Pressable
+      <AppPressable
         style={[styles.signOut, isSigningOut ? { opacity: 0.6 } : null]}
         onPress={() => void handleSignOut()}
         disabled={isSigningOut}
@@ -641,7 +655,8 @@ function ProfileScreenContent() {
         ) : (
           <Text style={styles.signOutText}>{t("profile.logOut")}</Text>
         )}
-      </Pressable>
+      </AppPressable>
+      <ProfileDangerZone username={profile?.username?.trim() ?? ""} />
         </>
       )}
     </ScrollView>
@@ -661,12 +676,12 @@ function ProfileScreenContent() {
         {createStep === "menu" ? (
           <View style={styles.createMenuBody}>
             <View style={styles.createOptionGrid}>
-              <Pressable style={styles.createOptionCard} onPress={() => setCreateStep("post")}>
+              <AppPressable style={styles.createOptionCard} onPress={() => setCreateStep("post")}>
                 <Ionicons name="grid-outline" size={34} color={colors.text} />
                 <Text style={styles.createOptionLabel}>{t("profile.create.post")}</Text>
                 <Text style={styles.createOptionHint}>{t("profile.create.postHint")}</Text>
-              </Pressable>
-              <Pressable
+              </AppPressable>
+              <AppPressable
                 style={styles.createOptionCard}
                 onPress={() => {
                   setCreateStep("story");
@@ -680,7 +695,7 @@ function ProfileScreenContent() {
                 ) : (
                   <Text style={styles.createOptionHint}>{t("profile.create.storyHint")}</Text>
                 )}
-              </Pressable>
+              </AppPressable>
             </View>
           </View>
         ) : createStep === "post" ? (
@@ -697,7 +712,7 @@ function ProfileScreenContent() {
             ) : null}
             {!(createPost.isPending || uploadingPostPhotos) ? (
               <>
-                <Pressable style={styles.postUploaderBox} onPress={() => void pickPostPhotos()}>
+                <AppPressable style={styles.postUploaderBox} onPress={() => void pickPostPhotos()}>
                   <Ionicons name="images-outline" size={22} color={colors.textMuted} />
                   <Text style={styles.postUploaderText}>{t("profile.create.tapAddPhotos")}</Text>
                   <Text style={styles.postPhotoCount}>
@@ -705,26 +720,26 @@ function ProfileScreenContent() {
                       ? t("profile.create.photosSelected", { count: postPhotos.length, max: MAX_POST_PHOTOS })
                       : t("profile.create.photosUpTo", { max: MAX_POST_PHOTOS })}
                   </Text>
-                </Pressable>
+                </AppPressable>
                 <Text style={styles.postRequiredHint}>{t("profile.create.requiredPost")}</Text>
                 {postPhotos.length ? (
                   <View style={styles.postPhotosList}>
                     {postPhotos.map((photo) => (
                       <View key={photo.uri} style={styles.postPhotoItem}>
                         <SmartImage uri={photo.uri} style={styles.postPhotoThumb} contentFit="cover" />
-                        <Pressable
+                        <AppPressable
                           style={styles.postPhotoRemoveBtn}
                           onPress={() => {
                             setPostPhotos((prev) => prev.filter((item) => item.uri !== photo.uri));
                           }}
                         >
                           <Ionicons name="close" size={11} color={colors.text} />
-                        </Pressable>
+                        </AppPressable>
                       </View>
                     ))}
                   </View>
                 ) : null}
-                <Pressable
+                <AppPressable
                   style={[
                     styles.postPlaceSelectTrigger,
                     postPlaceError ? styles.postPlaceSelectTriggerError : null,
@@ -738,11 +753,11 @@ function ProfileScreenContent() {
                       : t("profile.create.selectPlace")}
                   </Text>
                   <Ionicons name={postPlacePickerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
-                </Pressable>
+                </AppPressable>
                 {postPlacePickerOpen ? (
                   <View style={styles.postPlaceOptionsWrap}>
                     {postPlaceOptions.map((option, index) => (
-                      <Pressable
+                      <AppPressable
                         key={option.id}
                         style={[styles.postPlaceOption, index === postPlaceOptions.length - 1 ? { borderBottomWidth: 0 } : null]}
                         onPress={() => {
@@ -753,7 +768,7 @@ function ProfileScreenContent() {
                       >
                         <Text style={styles.postPlaceOptionText}>{option.name}</Text>
                         {selectedPostPlaceId === option.id ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
-                      </Pressable>
+                      </AppPressable>
                     ))}
                   </View>
                 ) : null}
@@ -780,9 +795,9 @@ function ProfileScreenContent() {
             ) : null}
             {!(createPost.isPending || uploadingPostPhotos) ? (
               <View style={styles.createPostBackRow}>
-                <Pressable style={styles.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
+                <AppPressable style={styles.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
                   <Text style={styles.createFlowBackBtnText}>{t("profile.create.backToMenu")}</Text>
-                </Pressable>
+                </AppPressable>
               </View>
             ) : null}
           </View>
@@ -800,7 +815,7 @@ function ProfileScreenContent() {
             ) : null}
             {!(createStory.isPending || uploadingStory) ? (
               <>
-                <Pressable
+                <AppPressable
                   style={[styles.postUploaderBox, storyPhotosError ? styles.postUploaderBoxError : null]}
                   onPress={() => void pickStoryPhotos()}
                 >
@@ -811,26 +826,26 @@ function ProfileScreenContent() {
                       ? t("profile.create.photosSelected", { count: storyPhotos.length, max: MAX_POST_PHOTOS })
                       : t("profile.create.photosUpTo", { max: MAX_POST_PHOTOS })}
                   </Text>
-                </Pressable>
+                </AppPressable>
                 <Text style={styles.postRequiredHint}>{t("profile.create.requiredStory")}</Text>
                 {storyPhotos.length ? (
                   <View style={styles.postPhotosList}>
                     {storyPhotos.map((photo) => (
                       <View key={photo.uri} style={styles.postPhotoItem}>
                         <SmartImage uri={photo.uri} style={styles.postPhotoThumb} contentFit="cover" />
-                        <Pressable
+                        <AppPressable
                           style={styles.postPhotoRemoveBtn}
                           onPress={() => {
                             setStoryPhotos((prev) => prev.filter((item) => item.uri !== photo.uri));
                           }}
                         >
                           <Ionicons name="close" size={11} color={colors.text} />
-                        </Pressable>
+                        </AppPressable>
                       </View>
                     ))}
                   </View>
                 ) : null}
-                <Pressable
+                <AppPressable
                   style={[
                     styles.postPlaceSelectTrigger,
                     storyPlaceError ? styles.postPlaceSelectTriggerError : null,
@@ -844,11 +859,11 @@ function ProfileScreenContent() {
                       : t("profile.create.selectPlace")}
                   </Text>
                   <Ionicons name={storyPlacePickerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
-                </Pressable>
+                </AppPressable>
                 {storyPlacePickerOpen ? (
                   <View style={styles.postPlaceOptionsWrap}>
                     {postPlaceOptions.map((option, index) => (
-                      <Pressable
+                      <AppPressable
                         key={option.id}
                         style={[styles.postPlaceOption, index === postPlaceOptions.length - 1 ? { borderBottomWidth: 0 } : null]}
                         onPress={() => {
@@ -859,7 +874,7 @@ function ProfileScreenContent() {
                       >
                         <Text style={styles.postPlaceOptionText}>{option.name}</Text>
                         {selectedStoryPlaceId === option.id ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
-                      </Pressable>
+                      </AppPressable>
                     ))}
                   </View>
                 ) : null}
@@ -867,16 +882,16 @@ function ProfileScreenContent() {
             ) : null}
             {!(createStory.isPending || uploadingStory) ? (
               <View style={styles.createStoryActionsRow}>
-                <Pressable style={styles.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
+                <AppPressable style={styles.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
                   <Text style={styles.createFlowBackBtnText}>{t("profile.create.backToMenu")}</Text>
-                </Pressable>
-                <Pressable
+                </AppPressable>
+                <AppPressable
                   style={styles.createStoryPublishBtn}
                   onPress={() => void submitStory()}
                   disabled={createStory.isPending || uploadingStory}
                 >
                   <Text style={styles.createStoryPublishBtnText}>{t("profile.create.publishStory")}</Text>
-                </Pressable>
+                </AppPressable>
               </View>
             ) : null}
           </View>

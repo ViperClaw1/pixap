@@ -1,5 +1,7 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { InteractionManager, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
+import { InteractionManager, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, useIsFocused, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -41,7 +43,7 @@ export default function PlaceGalleryPage() {
   const navigation = useNavigation<PlaceGalleryNav>();
   const insets = useSafeAreaInsets();
   const isScreenFocused = useIsFocused();
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useStaticWindowSize();
 
   const images = useMemo(
     () => uniqueStrings(params.images.filter((item) => item.trim().length > 0 && isValidImageSource(item))),
@@ -100,7 +102,7 @@ export default function PlaceGalleryPage() {
 
   const renderGalleryItem = useCallback(
     ({ item, index }: { item: string; index: number }) => (
-      <Pressable
+      <AppPressable
         style={styles.absoluteFill}
         onLongPress={() => setPaused(true)}
         onPressOut={() => setPaused(false)}
@@ -114,7 +116,7 @@ export default function PlaceGalleryPage() {
           contentFit="contain"
           transition={100}
         />
-      </Pressable>
+      </AppPressable>
     ),
     [galleryUri, rawImages, styles.absoluteFill],
   );
@@ -138,14 +140,14 @@ export default function PlaceGalleryPage() {
       </View>
 
       <View style={[styles.topRow, { top: Math.max(8, insets.top + 8) }]}>
-        <Pressable
+        <AppPressable
           accessibilityRole="button"
           accessibilityLabel="Go back"
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={22} color="#111111" />
-        </Pressable>
+        </AppPressable>
         <View style={styles.topProgressWrap}>
           <StoryProgressBar count={Math.max(1, images.length)} currentIndex={activeIndex} progress={progress} />
         </View>

@@ -1,5 +1,7 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { Keyboard, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,7 +27,7 @@ type AddStoryNav = NativeStackNavigationProp<BrowseFlowParamList, "AddStoryFromP
 
 export default function AddStoryFromPostPage() {
   const { colors } = useAppTheme();
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useStaticWindowSize();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<AddStoryNav>();
   const isScreenFocused = useIsFocused();
@@ -93,9 +95,9 @@ export default function AddStoryFromPostPage() {
 
   const renderStoryImage = useCallback(
     ({ item }: { item: string }) => (
-      <Pressable style={styles.absoluteFill} onPress={() => Keyboard.dismiss()}>
+      <AppPressable style={styles.absoluteFill} onPress={() => Keyboard.dismiss()}>
         <SmartImage uri={item} recyclingKey={`add-story-${item}`} style={styles.absoluteFill} contentFit="cover" />
-      </Pressable>
+      </AppPressable>
     ),
     [styles.absoluteFill],
   );
@@ -125,9 +127,9 @@ export default function AddStoryFromPostPage() {
       <View style={[styles.overlay, { paddingTop: insets.top + 8 }]}>
         <StoryProgressBar count={Math.max(1, safeImages.length)} currentIndex={index} progress={progress} />
         <View style={styles.topRow}>
-          <Pressable style={styles.closeBtn} onPress={() => navigation.goBack()}>
+          <AppPressable style={styles.closeBtn} onPress={() => navigation.goBack()}>
             <Ionicons name="close" size={22} color="#ffffff" />
-          </Pressable>
+          </AppPressable>
         </View>
       </View>
 
@@ -154,16 +156,16 @@ export default function AddStoryFromPostPage() {
           />
         </View>
         <View style={styles.actionsRow}>
-          <Pressable
+          <AppPressable
             style={[styles.storyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
             disabled={isSubmitting}
             onPress={() => void onSubmitYourStory()}
           >
             <Text style={[styles.storyBtnText, { color: colors.text }]}>Your story</Text>
-          </Pressable>
-          <Pressable style={[styles.friendsBtn, { backgroundColor: colors.primary }]} disabled={isSubmitting} onPress={openFriendsModal}>
+          </AppPressable>
+          <AppPressable style={[styles.friendsBtn, { backgroundColor: colors.primary }]} disabled={isSubmitting} onPress={openFriendsModal}>
             <Text style={[styles.friendsBtnText, { color: colors.onPrimary }]}>Share with friends</Text>
-          </Pressable>
+          </AppPressable>
         </View>
       </Animated.View>
 
@@ -183,7 +185,7 @@ export default function AddStoryFromPostPage() {
             {followers.map((follower) => {
               const selected = selectedFriendIds.includes(follower.id);
               return (
-                <Pressable key={follower.id} style={styles.modalUserCard} onPress={() => toggleFriend(follower.id)}>
+                <AppPressable key={follower.id} style={styles.modalUserCard} onPress={() => toggleFriend(follower.id)}>
                   <View style={[styles.modalAvatarWrap, { borderColor: selected ? colors.primary : colors.border }]}>
                     <UserAvatarImage uri={follower.avatar_url} style={styles.modalAvatar} contentFit="cover" />
                     {selected ? (
@@ -195,7 +197,7 @@ export default function AddStoryFromPostPage() {
                   <Text style={[styles.modalName, { color: colors.text }]} numberOfLines={2}>
                     {follower.fullName}
                   </Text>
-                </Pressable>
+                </AppPressable>
               );
             })}
           </View>
@@ -204,7 +206,7 @@ export default function AddStoryFromPostPage() {
           ) : (
             <Text style={[styles.modalHint, { color: colors.textMuted }]}>Selected: {selectedFriendIds.length}</Text>
           )}
-          <Pressable
+          <AppPressable
             style={[
               styles.modalShareBtn,
               { backgroundColor: colors.primary, opacity: selectedFriendIds.length && !isSubmitting ? 1 : 0.5 },
@@ -213,7 +215,7 @@ export default function AddStoryFromPostPage() {
             onPress={() => void onSubmitShareFriends()}
           >
             <Text style={[styles.modalShareText, { color: colors.onPrimary }]}>Share</Text>
-          </Pressable>
+          </AppPressable>
         </View>
       </BottomSheetPickerModal>
     </SafeAreaView>

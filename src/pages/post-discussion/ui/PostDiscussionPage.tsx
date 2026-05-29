@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useMemo } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -33,7 +34,7 @@ export default function PostDiscussionPage() {
           <View style={styles.headerSide} />
           <Text style={[styles.headerTitle, { color: palette.text }]}>Comments</Text>
           <View style={styles.headerSide}>
-            <Pressable
+            <AppPressable
               hitSlop={8}
               style={styles.headerIconBtn}
               accessibilityRole="button"
@@ -41,7 +42,7 @@ export default function PostDiscussionPage() {
               onPress={() => navigation.goBack()}
             >
               <Ionicons name="close" size={24} color={palette.text} />
-            </Pressable>
+            </AppPressable>
           </View>
         </View>
       </View>

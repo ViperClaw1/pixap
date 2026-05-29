@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, useWindowDimensions } from "react-native";
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
+import { View, Text, StyleSheet } from "react-native";
 import { PieChart } from "react-native-gifted-charts";
 import { useTranslation } from "react-i18next";
 import type { WaOutcomeCounts, WaOutcomeKey } from "@/entities/admin-analytics";
@@ -26,7 +27,7 @@ type AnalyticsPieChartProps = {
 
 export function AnalyticsPieChart({ title, outcomes }: AnalyticsPieChartProps) {
   const { t } = useTranslation();
-  const { width } = useWindowDimensions();
+  const { width } = useStaticWindowSize();
   const { colors } = useAppTheme();
   const styles = useThemeStyles(createStyles);
   const radius = Math.min(90, (width - 80) / 4);

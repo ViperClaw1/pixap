@@ -11,6 +11,7 @@ import { StorageEgressMetricsDev } from "@/app/providers/StorageEgressMetricsDev
 import { RealtimeMetricsDev } from "@/app/providers/RealtimeMetricsDev";
 import { AppErrorBoundary } from "@/shared/ui/error-boundary";
 import { AppPopupProvider } from "@/shared/ui/app-popup";
+import { TermsAcceptanceGate } from "@/features/terms-acceptance";
 import { i18n } from "@/shared/lib/i18n";
 
 const queryClient = new QueryClient({
@@ -40,7 +41,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
                   <AppPopupProvider>
                     <StorageEgressMetricsDev />
                     <RealtimeMetricsDev />
-                    <AppErrorBoundary>{children}</AppErrorBoundary>
+                    <AppErrorBoundary>
+                      {children}
+                      <TermsAcceptanceGate />
+                    </AppErrorBoundary>
                   </AppPopupProvider>
                 </UserPresenceProvider>
                 </RealtimeLifecycleProvider>

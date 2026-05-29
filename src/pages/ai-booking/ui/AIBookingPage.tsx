@@ -1,15 +1,15 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
-  Pressable,
   TextInput,
   Alert,
   ActivityIndicator,
   Platform,
   ScrollView,
   Keyboard,
-  type KeyboardEvent,
+  type KeyboardEvent
 } from "react-native";
 import { CommonActions, useFocusEffect, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -738,9 +738,9 @@ function AIBookingPageContent() {
       >
         <View style={styles.semanticSection}>
           <View style={styles.topRow}>
-            <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <AppPressable style={styles.backBtn} onPress={() => navigation.goBack()}>
               <Ionicons name="arrow-back" size={18} color={colors.text} />
-            </Pressable>
+            </AppPressable>
             <Text style={styles.title}>{t("aiBooking.title")}</Text>
           </View>
           <Text style={styles.subtitle}>{t("aiBooking.subtitle")}</Text>
@@ -749,7 +749,7 @@ function AIBookingPageContent() {
         {currentStep === "city" ? (
           <View style={styles.semanticSection}>
             <Text style={styles.stepTitle}>{t("aiBooking.step1Title")}</Text>
-            <Pressable
+            <AppPressable
               accessibilityRole="button"
               accessibilityLabel={t("bookingCommon.chooseCity")}
               style={styles.dropdownTrigger}
@@ -765,14 +765,14 @@ function AIBookingPageContent() {
                 {selectedCity || t("bookingCommon.selectCity")}
               </Text>
               <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
-            </Pressable>
+            </AppPressable>
           </View>
         ) : null}
 
         {currentStep === "category" ? (
           <View style={styles.semanticSection}>
             <Text style={styles.stepTitle}>{t("aiBooking.step2Title")}</Text>
-            <Pressable
+            <AppPressable
               accessibilityRole="button"
               accessibilityLabel={t("bookingCommon.chooseServiceOrTable")}
               style={styles.dropdownTrigger}
@@ -795,7 +795,7 @@ function AIBookingPageContent() {
                 </Text>
               </View>
               <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
-            </Pressable>
+            </AppPressable>
             <TextInput
               style={[styles.field, styles.fieldOnCard, styles.commentField, { height: commentInputHeight }]}
               multiline
@@ -805,13 +805,13 @@ function AIBookingPageContent() {
               placeholder={t("aiBooking.commentPlaceholder")}
               placeholderTextColor={colors.textMuted}
             />
-            <Pressable
+            <AppPressable
               disabled={!canContinueFromCategory}
               style={[styles.primaryBtn, !canContinueFromCategory && styles.primaryBtnDisabled]}
               onPress={() => setCurrentStep("scope")}
             >
               <Text style={styles.primaryBtnText}>{t("bookingCommon.continue")}</Text>
-            </Pressable>
+            </AppPressable>
             {!canContinueFromCategory && continueValidationHint ? (
               <Text style={styles.inlineValidationText}>{continueValidationHint}</Text>
             ) : null}
@@ -821,20 +821,20 @@ function AIBookingPageContent() {
         {currentStep === "scope" ? (
           <View style={styles.semanticSection}>
             <Text style={styles.stepTitle}>{t("aiBooking.step3Title")}</Text>
-            <Pressable
+            <AppPressable
               style={[styles.optionChip, scope === "nearby" && styles.optionChipSelected]}
               onPress={() => setScope("nearby")}
             >
               <Text style={styles.optionChipText}>{nearMeLabel}</Text>
-            </Pressable>
-            <Pressable
+            </AppPressable>
+            <AppPressable
               style={[styles.optionChip, scope === "city" && styles.optionChipSelected]}
               onPress={() => setScope("city")}
             >
               <Text style={styles.optionChipText}>{allPlacesInMyCityLabel}</Text>
-            </Pressable>
+            </AppPressable>
             <Text style={styles.helperText}>{t("aiBooking.nearbyHelper")}</Text>
-            <Pressable
+            <AppPressable
               disabled={searchPlacesBusy}
               style={[styles.primaryBtn, searchPlacesBusy && styles.primaryBtnDisabled]}
               onPress={() => void onSearchPlaces()}
@@ -847,7 +847,7 @@ function AIBookingPageContent() {
               ) : (
                 <Text style={styles.primaryBtnText}>{t("aiBooking.searchPlaces")}</Text>
               )}
-            </Pressable>
+            </AppPressable>
           </View>
         ) : null}
 
@@ -921,7 +921,7 @@ function AIBookingPageContent() {
       <View style={styles.footer}>
         <View style={styles.row}>
           {currentStep !== "city" ? (
-            <Pressable
+            <AppPressable
               style={[styles.footerBtn, { flex: 1 }]}
               onPress={() =>
                 setCurrentStep((step) =>
@@ -937,10 +937,10 @@ function AIBookingPageContent() {
               >
                 {t("bookingCommon.backStep")}
               </Text>
-            </Pressable>
+            </AppPressable>
           ) : null}
           {currentStep === "places" ? (
-            <Pressable style={[styles.footerBtn, styles.footerPrimaryBtn, { flex: 1 }]} onPress={() => setCurrentStep("scope")}>
+            <AppPressable style={[styles.footerBtn, styles.footerPrimaryBtn, { flex: 1 }]} onPress={() => setCurrentStep("scope")}>
               <Text
                 style={styles.footerPrimaryBtnText}
                 numberOfLines={1}
@@ -949,7 +949,7 @@ function AIBookingPageContent() {
               >
                 {t("aiBooking.refineSearch")}
               </Text>
-            </Pressable>
+            </AppPressable>
           ) : null}
         </View>
       </View>
@@ -983,7 +983,7 @@ function AIBookingPageContent() {
               <Text style={styles.countryHeaderText}>{country}</Text>
             </View>
             {cities.map((city) => (
-              <Pressable
+              <AppPressable
                 key={city}
                 style={styles.pickerRow}
                 onPress={() => {
@@ -995,7 +995,7 @@ function AIBookingPageContent() {
               >
                 <Text style={styles.pickerRowText}>{city}</Text>
                 {selectedCity === city ? <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text> : null}
-              </Pressable>
+              </AppPressable>
             ))}
           </View>
         ))}
@@ -1021,7 +1021,7 @@ function AIBookingPageContent() {
           const isSelectable = !category.isComingSoon && (isRestaurantCategoryName(category.name) || isHomeCategorySelectable(category));
 
           return (
-            <Pressable
+            <AppPressable
               key={category.id}
               style={[styles.pickerRow, category.isComingSoon && styles.pickerRowComingSoon]}
               disabled={!isSelectable}
@@ -1058,7 +1058,7 @@ function AIBookingPageContent() {
                 ) : null}
                 {isSelected ? <Text style={styles.pickerCheck}>{t("bookingCommon.selected")}</Text> : null}
               </View>
-            </Pressable>
+            </AppPressable>
           );
         })}
       </BottomSheetPickerModal>

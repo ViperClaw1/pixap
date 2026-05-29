@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import type { Dispatch, SetStateAction } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -58,7 +59,7 @@ export function AIBookingSlotPicker({
       </Text>
       <View style={s.calendarPanel}>
         <View style={s.calendarNav}>
-          <Pressable
+          <AppPressable
             accessibilityRole="button"
             accessibilityLabel={t("bookingCommon.previousMonth")}
             disabled={!canGoPrevMonth}
@@ -72,11 +73,11 @@ export function AIBookingSlotPicker({
             style={[s.calendarNavBtn, !canGoPrevMonth && s.calendarNavBtnDisabled]}
           >
             <Ionicons name="chevron-back" size={22} color={colors.text} />
-          </Pressable>
+          </AppPressable>
           <Text style={s.calendarMonthTitle}>
             {visibleCalendarMonth.toLocaleDateString(i18n.language, { month: "long", year: "numeric" })}
           </Text>
-          <Pressable
+          <AppPressable
             accessibilityRole="button"
             accessibilityLabel={t("bookingCommon.nextMonth")}
             disabled={!canGoNextMonth}
@@ -90,7 +91,7 @@ export function AIBookingSlotPicker({
             style={[s.calendarNavBtn, !canGoNextMonth && s.calendarNavBtnDisabled]}
           >
             <Ionicons name="chevron-forward" size={22} color={colors.text} />
-          </Pressable>
+          </AppPressable>
         </View>
         <View style={s.calendarDowRow}>
           {WEEKDAY_LABELS.map((label) => (
@@ -111,7 +112,7 @@ export function AIBookingSlotPicker({
               const isPast = ymd < todayYmd;
               return (
                 <View key={ymd} style={s.calendarCell}>
-                  <Pressable
+                  <AppPressable
                     accessibilityRole="button"
                     accessibilityLabel={`${ymd}`}
                     disabled={isPast}
@@ -127,7 +128,7 @@ export function AIBookingSlotPicker({
                     ]}
                   >
                     <Text style={s.calendarCellDayText}>{day}</Text>
-                  </Pressable>
+                  </AppPressable>
                 </View>
               );
             })}
@@ -142,9 +143,9 @@ export function AIBookingSlotPicker({
       ) : slotsError ? (
         <View style={{ marginTop: 12, gap: 8 }}>
           <Text style={s.helperText}>{t("aiBooking.couldNotLoadSlots")}</Text>
-          <Pressable style={s.secondaryBtn} onPress={() => void refetchSlots()}>
+          <AppPressable style={s.secondaryBtn} onPress={() => void refetchSlots()}>
             <Text style={s.secondaryBtnText}>{t("bookingCommon.retry")}</Text>
-          </Pressable>
+          </AppPressable>
         </View>
       ) : slotsForDate.length === 0 ? (
         <Text style={s.calendarHint}>{t("aiBooking.noTimeSlotsForDate")}</Text>
@@ -156,7 +157,7 @@ export function AIBookingSlotPicker({
                 const inCart = cartReservedSlotTimes.has(new Date(slot.dateTimeIso).getTime());
                 const disabled = !slot.available || inCart;
                 return (
-                  <Pressable
+                  <AppPressable
                     disabled={disabled}
                     key={slot.dateTimeIso}
                     onPress={() => setSelectedSlot(slot)}
@@ -167,7 +168,7 @@ export function AIBookingSlotPicker({
                     ]}
                   >
                     <Text style={s.slotText}>{slot.label}</Text>
-                  </Pressable>
+                  </AppPressable>
                 );
               })}
             </View>

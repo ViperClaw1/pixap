@@ -1,3 +1,4 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
@@ -5,10 +6,9 @@ import {
   Pressable,
   Text,
   View,
-  useWindowDimensions,
   type ListRenderItem,
   type NativeScrollEvent,
-  type NativeSyntheticEvent,
+  type NativeSyntheticEvent
 } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,7 +25,7 @@ type Props = {
 export function SubscriptionPaywallTourModal({ visible, onClose }: Props) {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width } = useStaticWindowSize();
   const listRef = useRef<FlatList<PaywallTourSlide>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const tourLocale = resolvePaywallTourLocale(i18n.language);

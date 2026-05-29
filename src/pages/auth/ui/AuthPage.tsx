@@ -1,15 +1,15 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
   TextInput,
-  Pressable,
   ActivityIndicator,
   Platform,
   Dimensions,
   ScrollView,
-  Linking,
+  Linking
 } from "react-native";
 import { runOnJS, useAnimatedReaction } from "react-native-reanimated";
 import { useFocusedOverlapKeyboardInset } from "@/shared/lib/keyboard";
@@ -434,9 +434,9 @@ export default function AuthScreen() {
               }}
               secureTextEntry={!showPassword}
             />
-            <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
+            <AppPressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
               <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
-            </Pressable>
+            </AppPressable>
           </View>
           {mode === "signup" && passwordTouched ? (
             <View style={styles.passwordRules}>
@@ -501,12 +501,12 @@ export default function AuthScreen() {
                   }}
                   secureTextEntry={!showConfirmPassword}
                 />
-                <Pressable onPress={() => setShowConfirmPassword((v) => !v)} hitSlop={8}>
+                <AppPressable onPress={() => setShowConfirmPassword((v) => !v)} hitSlop={8}>
                   <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
-                </Pressable>
+                </AppPressable>
               </View>
               {showPasswordsMismatch ? <Text style={styles.inlineError}>{t("auth.inlinePasswordsMismatch")}</Text> : null}
-              <Pressable style={styles.termsRow} onPress={() => setTermsAccepted((v) => !v)}>
+              <AppPressable style={styles.termsRow} onPress={() => setTermsAccepted((v) => !v)}>
                 <Ionicons
                   name={termsAccepted ? "checkbox" : "square-outline"}
                   size={22}
@@ -522,7 +522,7 @@ export default function AuthScreen() {
                     {t("legal.communityGuidelines")}
                   </Text>
                 </Text>
-              </Pressable>
+              </AppPressable>
             </>
           ) : null}
         </>
@@ -531,22 +531,22 @@ export default function AuthScreen() {
       {showSubmitLoading ? (
         <ActivityIndicator style={{ marginTop: 16 }} color={colors.primary} />
       ) : (
-        <Pressable style={styles.primary} onPress={() => void submit()}>
+        <AppPressable style={styles.primary} onPress={() => void submit()}>
           <Text style={styles.primaryText}>
             {mode === "login" ? t("auth.btnSignIn") : mode === "signup" ? t("auth.btnSignUp") : t("auth.btnSendReset")}
           </Text>
-        </Pressable>
+        </AppPressable>
       )}
 
       {mode === "login" ? (
-        <Pressable style={styles.smallLink} onPress={() => setMode("forgot")}>
+        <AppPressable style={styles.smallLink} onPress={() => setMode("forgot")}>
           <Text style={styles.smallLinkText}>{t("auth.forgotPassword")}</Text>
-        </Pressable>
+        </AppPressable>
       ) : null}
       {mode === "forgot" ? (
-        <Pressable style={styles.smallLink} onPress={() => setMode("login")}>
+        <AppPressable style={styles.smallLink} onPress={() => setMode("login")}>
           <Text style={styles.smallLinkText}>{t("auth.backToSignIn")}</Text>
-        </Pressable>
+        </AppPressable>
       ) : null}
 
       {mode !== "forgot" && (
@@ -556,30 +556,30 @@ export default function AuthScreen() {
             <Text style={styles.orText}>{t("auth.or")}</Text>
             <View style={styles.orLine} />
           </View>
-          <Pressable style={styles.outline} onPress={() => void social("google")} disabled={showSubmitLoading}>
+          <AppPressable style={styles.outline} onPress={() => void social("google")} disabled={showSubmitLoading}>
             <FontAwesome name="google" size={18} color={colors.accent} />
             <Text style={styles.outlineText}>{t("auth.continueGoogle")}</Text>
-          </Pressable>
+          </AppPressable>
           {Platform.OS !== "android" ? (
-            <Pressable style={styles.outline} onPress={() => void social("apple")} disabled={showSubmitLoading}>
+            <AppPressable style={styles.outline} onPress={() => void social("apple")} disabled={showSubmitLoading}>
               <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? colors.onAccent : colors.accent} />
               <Text style={styles.outlineText}>{t("auth.continueApple")}</Text>
-            </Pressable>
+            </AppPressable>
           ) : null}
         </>
       )}
 
       {mode === "login" ? (
-        <Pressable style={styles.bottomSwitch} onPress={() => setMode("signup")}>
+        <AppPressable style={styles.bottomSwitch} onPress={() => setMode("signup")}>
           <Text style={styles.bottomSwitchText}>{t("auth.noAccount")}</Text>
           <Text style={styles.bottomSwitchLink}>{t("auth.signUpLink")}</Text>
-        </Pressable>
+        </AppPressable>
       ) : null}
       {mode === "signup" ? (
-        <Pressable style={styles.bottomSwitch} onPress={() => setMode("login")}>
+        <AppPressable style={styles.bottomSwitch} onPress={() => setMode("login")}>
           <Text style={styles.bottomSwitchText}>{t("auth.haveAccount")}</Text>
           <Text style={styles.bottomSwitchLink}>{t("auth.signInLink")}</Text>
-        </Pressable>
+        </AppPressable>
       ) : null}
     </ScrollView>
   );

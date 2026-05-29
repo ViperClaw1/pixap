@@ -7,6 +7,36 @@ import type {
 } from "@/shared/model/types/stories";
 import type { PostDiscussionRouteParams } from "@/shared/model/types/postDiscussion";
 
+export type RootTabName = "Home" | "Feed" | "Bookings" | "Cart" | "Profile";
+
+/** Cross-tab return target (e.g. MessageThread → PublicProfile). */
+export type NavigationReturnTarget = {
+  tab: RootTabName;
+  screen: string;
+  params?: Record<string, unknown>;
+};
+
+export type PublicProfileRouteParams = {
+  userId: string;
+  /** When opened from another tab (e.g. Cart), back returns here instead of the browse stack root. */
+  returnTab?: RootTabName;
+  returnScreen?: string;
+};
+
+export type MessageThreadRouteParams = {
+  /** Empty string — thread is resolved from `peerId` on screen mount. */
+  threadId: string;
+  peerId: string;
+  peerFirstName?: string | null;
+  peerLastName?: string | null;
+  peerAvatarUrl?: string | null;
+  initialDraft?: string;
+  isSupport?: boolean;
+  threadTitle?: string;
+  /** Legacy Cart-only cross-tab back; unused when MessageThread lives in the browse stack. */
+  returnTo?: NavigationReturnTarget;
+};
+
 /** Shared routes for browse/detail flows (mounted on Home + Feed stacks). */
 export type BrowseFlowParamList = {
   PostDetail: { postId: string };
@@ -24,6 +54,8 @@ export type BrowseFlowParamList = {
   AIBooking: { id?: string } | undefined;
   VibeMatch: undefined;
   SubscriptionPaywall: { reason?: "no_credits" | "upgrade" } | undefined;
+  PublicProfile: PublicProfileRouteParams;
+  MessageThread: MessageThreadRouteParams;
 };
 
 /** Home tab stack */
@@ -56,16 +88,8 @@ export type SearchStackParamList = {
 
 export type CartStackParamList = {
   CartMain: undefined;
-  MessageThread: {
-    threadId: string;
-    peerId: string;
-    peerFirstName?: string | null;
-    peerLastName?: string | null;
-    peerAvatarUrl?: string | null;
-    initialDraft?: string;
-    isSupport?: boolean;
-    threadTitle?: string;
-  };
+  PublicProfile: PublicProfileRouteParams;
+  MessageThread: MessageThreadRouteParams;
   FeedStoryViewer: StoryViewerRouteParams;
   PaymentSuccess: { next?: "bookings" } | undefined;
   PaymentCanceled: undefined;
@@ -108,8 +132,6 @@ export type ProfileStackParamList = {
   AdminDashboard: undefined;
   SubscriptionPaywall: { reason?: "no_credits" | "upgrade" } | undefined;
 } & BrowseFlowParamList;
-
-/** Root is bottom tabs — tab bar is always mounted. */
 export type RootTabParamList = {
   Home: NavigatorScreenParams<HomeStackParamList>;
   Feed: NavigatorScreenParams<FeedStackParamList>;

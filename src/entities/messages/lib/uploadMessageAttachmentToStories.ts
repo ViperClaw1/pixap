@@ -12,6 +12,7 @@ import {
   prepareImageForStorageUpload,
 } from "@/shared/lib/prepareImageForStorageUpload";
 import { buildStorageUploadOptions } from "@/shared/lib/storageUploadOptions";
+import { devWarn } from "@/shared/lib/devLog";
 
 const STORIES_BUCKET = "stories";
 
@@ -106,10 +107,10 @@ async function uploadMessageFeedPregen(asset: ImagePickerAsset, primaryPath: str
       buildStorageUploadOptions(prepared.contentType, "immutable"),
     );
     if (error) {
-      console.warn("[uploadMessageAttachment] feed pregen upload failed", error.message);
+      devWarn("[uploadMessageAttachment] feed pregen upload failed", error.message);
     }
   } catch (e) {
-    console.warn("[uploadMessageAttachment] feed pregen failed", e);
+    devWarn("[uploadMessageAttachment] feed pregen failed", e);
   }
 }
 
@@ -133,11 +134,11 @@ async function uploadVideoPosterFromLocalUri(
       buildStorageUploadOptions(contentType, "immutable"),
     );
     if (error) {
-      console.warn("[uploadMessageAttachment] poster upload failed", error.message);
+      devWarn("[uploadMessageAttachment] poster upload failed", error.message);
     }
     return blurhash;
   } catch (e) {
-    console.warn("[uploadMessageAttachment] poster generation failed", e);
+    devWarn("[uploadMessageAttachment] poster generation failed", e);
     return null;
   }
 }

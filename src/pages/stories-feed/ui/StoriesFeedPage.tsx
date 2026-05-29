@@ -43,6 +43,7 @@ import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySou
 import { profileDisplayName } from "@/shared/lib/profileDisplayName";
 import { profileAvatar, profileAvatarDisplay, profileName, getPostImages, slideBlurhashesForPost, type FeedPostVm } from "@/pages/stories-feed/lib/feedPostHelpers";
 import type { BrowseFlowParamList, FeedStackParamList, RootTabParamList } from "@/app/navigation/types";
+import { navigateToPublicProfile } from "@/app/navigation/navigationHelpers";
 import type { StoryGroup } from "@/shared/model/types/stories";
 import { useCreatePostComposer, CreatePostModal } from "@/features/create-post";
 import { useBatchStoryUpload } from "@/features/create-story";
@@ -70,7 +71,7 @@ export default function StoriesFeedScreen() {
   const rootNavigation = useNavigation<NavigationProp<RootTabParamList>>();
   const route = useRoute<RouteProp<FeedStackParamList, "FeedMain">>();
   const { user } = useAuth();
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions(); // orientation-aware by design (feed carousel viewport)
   const insets = useSafeAreaInsets();
   const isScreenFocused = useIsFocused();
 
@@ -447,6 +448,9 @@ export default function StoriesFeedScreen() {
           onBoost={() => handleFeedBoost(vm.post.id, vm.post.boosted_at)}
           carouselAutoPlay={h.isScreenFocused}
           onTitleInputLayout={handleTitleInputLayout}
+          onPressAuthor={() => {
+            if (vm.post.user_id) navigateToPublicProfile(navigation, vm.post.user_id);
+          }}
         />
       );
     },

@@ -1,5 +1,6 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { StoryReactionType } from "@/shared/model/types/stories";
 import type { FeedStoryItem } from "@/entities/story";
@@ -11,6 +12,7 @@ import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { getFeedStoryPreviewImageUrl } from "@/shared/lib/feedMediaUrls";
 import { UgcModerationOverflow } from "@/features/ugc-moderation";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { navigateToPublicProfile } from "@/app/navigation/navigationHelpers";
 
 interface FeedStoryCardProps {
   story: FeedStoryItem;
@@ -18,7 +20,7 @@ interface FeedStoryCardProps {
   followPending: boolean;
   onPressStory: () => void;
   onPressComments: () => void;
-  onPressUser: () => void;
+  onPressUser?: () => void;
   onToggleFollow: (isCurrentlyFollowing: boolean) => Promise<void>;
   onReact: (type: StoryReactionType) => Promise<void>;
   onAuthRequired: () => void;
@@ -37,6 +39,7 @@ function FeedStoryCardComponent({
 }: FeedStoryCardProps) {
   const { colors } = useAppTheme();
   const { user } = useAuth();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const [localReaction, setLocalReaction] = useState<StoryReactionType | null>(story.my_reaction);
   const [localReactionCount, setLocalReactionCount] = useState(story.reaction_count);
 
@@ -55,6 +58,16 @@ function FeedStoryCardComponent({
     [avatarRaw],
   );
   const coverBlurhash = story.media_blurhashes?.find((h): h is string => typeof h === "string" && h.length > 0);
+
+  const handlePressUser = useCallback(() => {
+    if (onPressUser) {
+      onPressUser();
+      return;
+    }
+    if (story.user_id) {
+      navigateToPublicProfile(navigation, story.user_id);
+    }
+  }, [navigation, onPressUser, story.user_id]);
 
   const onReactPress = async (type: StoryReactionType) => {
     const previousReaction = localReaction;
@@ -94,7 +107,7 @@ function FeedStoryCardComponent({
   return (
     <Pressable style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={onPressStory}>
       <View style={styles.header}>
-        <Pressable style={styles.userRow} onPress={onPressUser}>
+        <Pressable style={styles.userRow} onPress={handlePressUser}>
           <View style={[styles.avatar, { borderColor: colors.border }]}>
             {story.profile?.avatar_url ? (
               <SmartImage

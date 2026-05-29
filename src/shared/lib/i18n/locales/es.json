@@ -10,7 +10,7 @@
   },
   "header": {
     "bookings": "Reservas",
-    "editProfile": "Editar perfil",
+    "editProfile": "Editar",
     "messages": "Mensajes",
     "favorites": "Favoritos",
     "profile": "Perfil",
@@ -42,7 +42,17 @@
   "editProfile": {
     "savedTitle": "Guardado",
     "savedBody": "Tu perfil se actualizó.",
-    "personalizeCta": "Personalizar"
+    "personalizeCta": "Personalizar",
+    "usernameLabel": "Usuario",
+    "usernamePlaceholder": "usuario",
+    "firstNameLabel": "Nombre",
+    "lastNameLabel": "Apellido",
+    "emailLabel": "Correo",
+    "phoneLabel": "Teléfono",
+    "bioLabel": "Bio (opcional)",
+    "bioPlaceholder": "Cuéntanos sobre ti...",
+    "save": "Guardar",
+    "saving": "Guardando..."
   },
   "home": {
     "searchPlaceholder": "Buscar restaurantes, salones, eventos…",
@@ -444,7 +454,22 @@
       "retakeTasteConfirm": "Repetir",
       "archive": "Archivo",
       "privacy": "Privacidad y seguridad",
+      "dataDeletion": "Eliminación de cuenta y datos",
       "settings": "Ajustes"
+    },
+    "dangerZone": {
+      "title": "Zona de riesgo",
+      "description": "Eliminar tu cuenta borra permanentemente tus datos personales de Pixap. Esta acción no se puede deshacer.",
+      "confirmLabel": "Confirmación",
+      "confirmHint": "Escribe {{phrase}} para confirmar:",
+      "confirmPlaceholder": "{{phrase}}",
+      "deleteButton": "Eliminar cuenta",
+      "deleting": "Eliminando...",
+      "successTitle": "Cuenta eliminada",
+      "successBody": "Tu cuenta y tus datos personales han sido eliminados.",
+      "failedTitle": "Error al eliminar",
+      "failedBody": "No se pudo eliminar la cuenta. Inténtalo de nuevo o escribe a support@pixap.kz.",
+      "usernameRequired": "Define un nombre de usuario en «Editar perfil» antes de eliminar tu cuenta."
     },
     "adminDashboard": "Panel de administración",
     "partnerUpload": "Socio: subir imagen del anuncio",
@@ -660,6 +685,14 @@
       "loud": "Animado",
       "cozy": "Acogedor"
     }
+  },
+  "publicProfile": {
+    "title": "Perfil",
+    "follow": "Seguir",
+    "following": "Siguiendo",
+    "message": "Mensaje",
+    "notFound": "Perfil no encontrado",
+    "retry": "Reintentar"
   },
   "errorBoundary": {
     "retry": "Reintentar",

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import type { RouteProp } from "@react-navigation/native";
@@ -14,7 +14,6 @@ import type {
   RootTabParamList,
 } from "./types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { useAuth } from "@/app/providers/AuthProvider";
 import OAuthCallbackScreen from "@/pages/oauth-callback";
 import PrivacyPolicyScreen from "@/pages/privacy-policy";
 import NotFoundScreen from "@/pages/not-found";
@@ -22,6 +21,8 @@ import { renderBrowseFlowScreens, type BrowseFlowStackScreen } from "./BrowseFlo
 import MessagesScreen from "@/pages/messages";
 import MessageThreadScreen from "@/pages/message-thread";
 import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
+import { BOOKINGS_TAB_OPTIONS, CART_TAB_OPTIONS, PROFILE_TAB_OPTIONS } from "./tabBarButtons";
+import { resetCartStackToMain } from "./navigationHelpers";
 
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const FeedStack = createNativeStackNavigator<FeedStackParamList>();
@@ -79,6 +80,11 @@ function CartStackNavigator() {
   return (
     <CartStack.Navigator initialRouteName="CartMain" screenOptions={stackScreenOptions}>
       <CartStack.Screen name="CartMain" component={MessagesScreen} />
+      <CartStack.Screen
+        name="PublicProfile"
+        getComponent={() => require("@/pages/public-profile").default}
+        options={fullWidthSwipeBackOptions}
+      />
       <CartStack.Screen
         name="MessageThread"
         component={MessageThreadScreen}
@@ -148,8 +154,6 @@ const TAB_ICON_SIZE = 24;
 export default function AppNavigator() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const { user } = useAuth();
-  const isAuthorized = Boolean(user);
   const androidTabLift = Platform.OS === "android" ? 8 : 0;
   const tabBottomPadding = Math.max(insets.bottom, 6) + androidTabLift;
 
@@ -188,64 +192,27 @@ export default function AppNavigator() {
     [colors.border, colors.tabActive, colors.tabBar, colors.tabInactive, tabBottomPadding],
   );
 
-  const profileTabTitle = useMemo(() => (isAuthorized ? "Profile" : "Login"), [isAuthorized]);
-  const hiddenTabBarButton = useMemo(() => () => null, []);
-  const bookingsTabOptions = useMemo(
-    () => ({
-      title: "Bookings",
-      tabBarButton: isAuthorized ? undefined : hiddenTabBarButton,
-    }),
-    [hiddenTabBarButton, isAuthorized],
-  );
-  const cartTabOptions = useMemo(
-    () => ({
-      title: "Messages",
-      tabBarButton: isAuthorized ? undefined : hiddenTabBarButton,
-    }),
-    [hiddenTabBarButton, isAuthorized],
-  );
-  const profileTabOptions = useMemo(
-    () => ({
-      title: profileTabTitle,
-      tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
-        <Ionicons
-          name={
-            isAuthorized
-              ? focused
-                ? "person"
-                : "person-outline"
-              : focused
-                ? "log-in"
-                : "log-in-outline"
-          }
-          size={TAB_ICON_SIZE}
-          color={color}
-        />
-      ),
-    }),
-    [isAuthorized, profileTabTitle],
-  );
-
   return (
     <Tab.Navigator
       initialRouteName="Home"
-      detachInactiveScreens
+      detachInactiveScreens={false}
       screenOptions={tabScreenOptions}
     >
       <Tab.Screen name="Feed" component={FeedStackNavigator} options={{ title: "Feed" }} />
-      <Tab.Screen name="Bookings" component={BookingsStackNavigator} options={bookingsTabOptions} />
+      <Tab.Screen name="Bookings" component={BookingsStackNavigator} options={BOOKINGS_TAB_OPTIONS} />
       <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: "Home" }} />
       <Tab.Screen
         name="Cart"
         component={CartStackNavigator}
-        options={cartTabOptions}
-        listeners={{
+        options={CART_TAB_OPTIONS}
+        listeners={({ navigation }) => ({
           tabPress: () => {
             ensureMessagesScreensReady();
+            resetCartStackToMain(navigation);
           },
-        }}
+        })}
       />
-      <Tab.Screen name="Profile" component={ProfileStackNavigator} options={profileTabOptions} />
+      <Tab.Screen name="Profile" component={ProfileStackNavigator} options={PROFILE_TAB_OPTIONS} />
     </Tab.Navigator>
   );
 }

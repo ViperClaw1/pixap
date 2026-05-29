@@ -1,12 +1,12 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useState } from "react";
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   Alert,
   ActivityIndicator,
-  ScrollView,
+  ScrollView
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from "@react-navigation/native";
@@ -32,9 +32,9 @@ export default function AdminImageUploadScreen() {
       <View style={styles.root}>
         <Text style={styles.title}>Not available</Text>
         <Text style={styles.body}>This screen is for partners and admins.</Text>
-        <Pressable style={styles.btn} onPress={() => navigation.goBack()}>
+        <AppPressable style={styles.btn} onPress={() => navigation.goBack()}>
           <Text style={styles.btnText}>Go back</Text>
-        </Pressable>
+        </AppPressable>
       </View>
     );
   }
@@ -93,14 +93,14 @@ export default function AdminImageUploadScreen() {
         Images are stored as WebP (max 1600px) in the business-cards bucket with long CDN cache. Assign the
         returned URL to a business_cards.images entry in admin tools.
       </Text>
-      <Pressable style={styles.btn} onPress={explainAndPick} disabled={uploading}>
+      <AppPressable style={styles.btn} onPress={explainAndPick} disabled={uploading}>
         <Text style={styles.btnText}>Choose photo</Text>
-      </Pressable>
+      </AppPressable>
       {previewUri ? (
         <SmartImage uri={previewUri} fallbackUri={publicUrl ?? localUri} style={styles.preview} contentFit="cover" />
       ) : null}
       {localUri && !publicUrl ? (
-        <Pressable
+        <AppPressable
           style={[styles.btn, styles.btnPrimary, uploading && styles.btnDisabled]}
           onPress={() => void upload()}
           disabled={uploading}
@@ -110,7 +110,7 @@ export default function AdminImageUploadScreen() {
           ) : (
             <Text style={styles.btnText}>Upload to storage</Text>
           )}
-        </Pressable>
+        </AppPressable>
       ) : null}
       {publicUrl ? (
         <Text style={styles.url} selectable>

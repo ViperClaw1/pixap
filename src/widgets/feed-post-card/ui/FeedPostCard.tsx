@@ -51,6 +51,8 @@ interface FeedPostCardProps {
   onPostDeleted?: () => void;
   /** Reports title edit input position; parent scrolls once when keyboard is visible. */
   onTitleInputLayout?: (layout: { y: number; height: number }) => void;
+  /** Opens the author's public profile (avatar / name tap). */
+  onPressAuthor?: () => void;
 }
 
 /** Matches comment / boost icons in the actions row. */
@@ -77,6 +79,7 @@ export const FeedPostCard = memo(function FeedPostCard({
   carouselAutoPlay = true,
   onPostDeleted,
   onTitleInputLayout,
+  onPressAuthor,
 }: FeedPostCardProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
@@ -218,7 +221,12 @@ export const FeedPostCard = memo(function FeedPostCard({
     <View style={[styles.content, { backgroundColor: colors.background }]}>
       <View style={[styles.authorSection, { borderBottomColor: colors.border }]}>
         <View style={styles.authorMain}>
-          {vm.authorAvatar ? (
+          <Pressable
+            onPress={onPressAuthor}
+            disabled={!onPressAuthor || !item.user_id}
+            style={({ pressed }) => [pressed && onPressAuthor ? { opacity: 0.7 } : null]}
+          >
+            {vm.authorAvatar ? (
             <SmartImage
               uri={vm.authorAvatar}
               fallbackUri={vm.authorAvatarRaw}
@@ -226,21 +234,26 @@ export const FeedPostCard = memo(function FeedPostCard({
               contentFit="cover"
               skipBundledPlaceholder
             />
-          ) : (
+            ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: colors.card }]}>
               <Ionicons name="person-outline" size={18} color={colors.text} />
             </View>
           )}
+          </Pressable>
           <View style={styles.authorContent}>
             <View style={styles.authorMetaHeader}>
-              <View style={styles.authorNameRow}>
+              <Pressable
+                style={styles.authorNameRow}
+                onPress={onPressAuthor}
+                disabled={!onPressAuthor || !item.user_id}
+              >
                 <Text style={[styles.authorName, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
                   {profileName(item.profile?.first_name, item.profile?.last_name)}
                 </Text>
                 {item.profile?.is_verified ? (
                   <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
                 ) : null}
-              </View>
+              </Pressable>
               {showTopBadge ? (
                 <View style={styles.authorBadgesRow}>
                   {item.user_id !== currentUserId ? (

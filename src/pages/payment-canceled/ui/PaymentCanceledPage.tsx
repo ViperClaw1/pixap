@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useMemo } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,9 +27,9 @@ export default function PaymentCanceledScreen() {
     <View style={styles.root}>
       <Text style={styles.title}>Payment canceled</Text>
       <Text style={styles.body}>You can return to your cart and try again.</Text>
-      <Pressable style={styles.btn} onPress={() => navigation.navigate("CartMain")}>
+      <AppPressable style={styles.btn} onPress={() => navigation.navigate("CartMain")}>
         <Text style={styles.btnText}>Back to cart</Text>
-      </Pressable>
+      </AppPressable>
     </View>
   );
 }

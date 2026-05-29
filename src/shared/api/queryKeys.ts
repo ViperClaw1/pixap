@@ -61,6 +61,7 @@ export const queryKeys = {
   },
   publicProfiles: {
     search: (q: string, accountRole: "all" | "user" = "all") => ["public_profiles", "search", q, accountRole] as const,
+    byId: (userId: string | undefined | null) => ["public_profiles", "byId", userId ?? null] as const,
     root: ["public_profiles"] as const,
   },
   messages: {

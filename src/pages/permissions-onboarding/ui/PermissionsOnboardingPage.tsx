@@ -1,5 +1,6 @@
+import { AppPressable } from "@/shared/ui/app-pressable";
 import { useState } from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import * as Notifications from "expo-notifications";
 import { supabase } from "@/shared/api/supabase/client";
 import { registerNativePushToken } from "@/shared/lib/push/pushNotifications";
@@ -52,12 +53,12 @@ export default function PermissionsOnboardingScreen({ onComplete }: Props) {
         <ActivityIndicator size="large" style={{ marginTop: 24 }} />
       ) : (
         <View style={styles.actions}>
-          <Pressable style={styles.primary} onPress={() => void enableNotifications()}>
+          <AppPressable style={styles.primary} onPress={() => void enableNotifications()}>
             <Text style={styles.primaryText}>Enable notifications</Text>
-          </Pressable>
-          <Pressable style={styles.secondary} onPress={() => void finish()}>
+          </AppPressable>
+          <AppPressable style={styles.secondary} onPress={() => void finish()}>
             <Text style={styles.secondaryText}>Not now</Text>
-          </Pressable>
+          </AppPressable>
         </View>
       )}
     </View>

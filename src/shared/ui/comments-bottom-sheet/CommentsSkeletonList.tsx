@@ -1,5 +1,6 @@
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { memo } from "react";
-import { StyleSheet, View, useWindowDimensions } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 
 const SKELETON_COUNT = 4;
@@ -19,7 +20,7 @@ function CommentSkeletonCard({ bodyWidth }: { bodyWidth: number }) {
 }
 
 function CommentsSkeletonListInner() {
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useStaticWindowSize();
   const bodyWidth = Math.max(120, windowWidth - HORIZONTAL_PAD * 2);
 
   return (
