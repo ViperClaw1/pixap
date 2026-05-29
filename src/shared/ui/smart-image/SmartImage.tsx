@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-import { Image, type ImageErrorEventData, type ImageProps, type ImageSource, type ImageSourceProps } from "expo-image";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  View,
+  type ImageStyle,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
+import { Image, type ImageErrorEventData, type ImageProps, type ImageSource } from "expo-image";
 import { getSupabaseStorageObjectFallbackUrl } from "@/shared/lib/imageUtils";
 import { recordStorageImageRequest } from "@/shared/lib/storageEgressMetrics";
 
@@ -68,6 +75,28 @@ function buildUriChain(uri?: string | null, fallbackUri?: string | null): string
   return out;
 }
 
+function placeholderLayoutFromStyle(style?: StyleProp<ImageStyle>): { width: number; height: number } {
+  const flat = StyleSheet.flatten(style);
+  const width = typeof flat?.width === "number" ? flat.width : 32;
+  const height = typeof flat?.height === "number" ? flat.height : 32;
+  return {
+    width: Math.max(1, Math.round(width)),
+    height: Math.max(1, Math.round(height)),
+  };
+}
+
+function clipRoundedHostStyle(style?: StyleProp<ImageStyle>): ViewStyle | undefined {
+  const flat = StyleSheet.flatten(style);
+  if (!flat) return undefined;
+  const hasRadius =
+    flat.borderRadius != null ||
+    flat.borderTopLeftRadius != null ||
+    flat.borderTopRightRadius != null ||
+    flat.borderBottomLeftRadius != null ||
+    flat.borderBottomRightRadius != null;
+  return hasRadius ? { overflow: "hidden" } : undefined;
+}
+
 /**
  * Remote/local image with one bundled fallback asset.
  * Handles null/undefined/empty/invalid strings; steps through fallbackUri on load error.
@@ -92,7 +121,11 @@ export function SmartImage({
   style,
   ...rest
 }: SmartImageProps) {
-  const transition = transitionProp ?? (skipBundledPlaceholder ? 0 : 150);
+  const trimmedBlurhash = blurhash?.trim() || undefined;
+  const hasBlurhashPlaceholder = Boolean(trimmedBlurhash);
+  const placeholderLayout = useMemo(() => placeholderLayoutFromStyle(style), [style]);
+  const transition =
+    transitionProp ?? (skipBundledPlaceholder || hasBlurhashPlaceholder ? 0 : 150);
   const chain = useMemo(() => buildUriChain(uri, fallbackUri), [uri, fallbackUri]);
   const chainKey = chain.join("|");
   const retryCount = Math.max(0, retryCountProp ?? 1);
@@ -174,31 +207,76 @@ export function SmartImage({
   );
 
   const rk = recyclingKey ?? (chainKey ? `${chainKey}#${attempt}` : "smartimg-fallback");
-  const effectiveSkipBundledPlaceholder = skipBundledPlaceholder || showLoadingSpinner;
+  const effectiveSkipBundledPlaceholder =
+    skipBundledPlaceholder || showLoadingSpinner || hasBlurhashPlaceholder;
   const shouldShowBundledPlaceholder = !effectiveSkipBundledPlaceholder;
-  const bundledAsset = bundledFallback ?? FALLBACK;
-  const finalSource = source ?? (shouldShowBundledPlaceholder ? bundledAsset : undefined);
-  const placeholderSource = blurhash
-    ? ({ blurhash } as ImageSourceProps)
-    : shouldShowBundledPlaceholder
+  const bundledAsset = bundledFallback ?? (hasBlurhashPlaceholder ? undefined : FALLBACK);
+  const finalSource =
+    source ?? (shouldShowBundledPlaceholder && bundledAsset != null ? bundledAsset : undefined);
+  const placeholderSource = hasBlurhashPlaceholder
+    ? ({
+        blurhash: trimmedBlurhash,
+        width: placeholderLayout.width,
+        height: placeholderLayout.height,
+      } satisfies ImageSource)
+    : shouldShowBundledPlaceholder && bundledAsset != null
       ? (bundledAsset as ImageProps["placeholder"])
       : undefined;
+
+  const blurhashSource = hasBlurhashPlaceholder
+    ? ({
+        blurhash: trimmedBlurhash,
+        width: placeholderLayout.width,
+        height: placeholderLayout.height,
+      } satisfies ImageSource)
+    : undefined;
+
+  const remoteImageProps = {
+    ...rest,
+    recyclingKey: rk,
+    source: finalSource,
+    placeholder: hasBlurhashPlaceholder ? undefined : placeholderSource,
+    placeholderContentFit: (rest.contentFit ?? "cover") as ImageProps["placeholderContentFit"],
+    onError: handleError,
+    onLoadStart: handleLoadStart,
+    onLoad: handleLoad,
+    cachePolicy: "memory-disk" as const,
+    transition,
+  };
+
+  if (hasBlurhashPlaceholder) {
+    const hostStyle = [
+      showLoadingSpinner ? style : (style as StyleProp<ViewStyle>),
+      clipRoundedHostStyle(style),
+    ];
+
+    return (
+      <View style={hostStyle}>
+        <Image
+          source={blurhashSource}
+          style={StyleSheet.absoluteFillObject}
+          contentFit={rest.contentFit ?? "cover"}
+          cachePolicy="memory-disk"
+          transition={0}
+        />
+        {finalSource ? (
+          <Image {...remoteImageProps} style={StyleSheet.absoluteFillObject} />
+        ) : null}
+        {showLoadingSpinner && loading && activeUri ? (
+          <View style={styles.spinnerHost}>
+            <ActivityIndicator size="large" color={loadingSpinnerColor} />
+          </View>
+        ) : null}
+      </View>
+    );
+  }
 
   const imageStyle = showLoadingSpinner ? StyleSheet.absoluteFillObject : style;
 
   const image = (
     <Image
-      {...rest}
+      {...remoteImageProps}
       style={imageStyle}
-      recyclingKey={rk}
-      source={finalSource}
-      placeholder={placeholderSource}
-      placeholderContentFit={(rest.contentFit ?? "cover") as ImageProps["placeholderContentFit"]}
-      onError={handleError}
-      onLoadStart={handleLoadStart}
-      onLoad={handleLoad}
-      cachePolicy="memory-disk"
-      transition={transition}
     />
   );
 

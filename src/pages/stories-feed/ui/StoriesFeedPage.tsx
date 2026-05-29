@@ -607,6 +607,7 @@ function StoriesStripHeader({
   onAddStory: () => void;
   onLoadMoreStories: () => void;
 }) {
+  const { t } = useTranslation();
   const onStoriesStripScroll = useCallback(
     (offsetX: number, layoutWidth: number, contentWidth: number) => {
       if (layoutWidth + offsetX < contentWidth - 48) return;
@@ -627,7 +628,11 @@ function StoriesStripHeader({
           onStoriesStripScroll(contentOffset.x, layoutMeasurement.width, contentSize.width);
         }}
       >
-        <AppPressable style={styles.storyBubble} disabled={uploadingStory} onPress={onAddStory}>
+        <AppPressable
+          style={[styles.storyBubble, styles.storyBubbleAdd]}
+          disabled={uploadingStory}
+          onPress={onAddStory}
+        >
           <View style={[styles.storyBubbleRing, { borderColor: colors.border }]}>
             <View style={[styles.storyBubbleAvatar, { backgroundColor: colors.card }]}>
               <Ionicons name="person-outline" size={28} color={colors.textMuted} />
@@ -640,7 +645,12 @@ function StoriesStripHeader({
               </View>
             </View>
           </View>
-          <Text style={[styles.storyBubbleName, { color: colors.text }]} numberOfLines={1}>Add story</Text>
+          <Text
+            style={[styles.storyBubbleName, styles.storyBubbleAddName, { color: colors.text }]}
+            numberOfLines={1}
+          >
+            {t("feed.addStory")}
+          </Text>
         </AppPressable>
 
         {(topStories ?? []).map((story) => {
@@ -707,9 +717,12 @@ const styles = StyleSheet.create({
   storiesHeaderWrap: { paddingTop: 8, paddingBottom: 8 },
   storiesHeaderContent: { paddingHorizontal: 12, gap: 12 },
   storyBubble: { width: 72, alignItems: "center", gap: 6 },
+  /** Wider label slot — longest copy is `feed.addStory` (e.g. fr «Ajouter une story»). */
+  storyBubbleAdd: { width: 112 },
   storyBubbleRing: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, alignItems: "center", justifyContent: "center" },
   storyBubbleAvatar: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
   storyPlusBadge: { position: "absolute", right: -2, bottom: -2, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   storyBubbleName: { fontSize: 12, textAlign: "center" },
+  storyBubbleAddName: { width: "100%" },
   storyStripLoader: { marginTop: 20 },
 });

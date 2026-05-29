@@ -14,9 +14,8 @@ import {
 } from "react-native";
 import { useNavigation, useRoute, useIsFocused, type RouteProp } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
-import { useBottomTabBarHeight, type BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -76,7 +75,6 @@ function ProfileScreenContent() {
   const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<ProfileStackParamList, "ProfileMain">>();
-  const insets = useSafeAreaInsets();
   const { colors, mode, setMode } = useAppTheme();
   const { user, loading, signOut } = useAuth();
   const isScreenFocused = useIsFocused();
@@ -147,12 +145,10 @@ function ProfileScreenContent() {
   }, [navigation, route.params?.openCreateModal, route.params?.openCreateStep]);
 
   const { width: windowWidth } = useWindowDimensions();
-  const tabBarHeight = useBottomTabBarHeight();
   const isCompact = windowWidth < PROFILE_COMPACT_WIDTH;
   const styles = useProfileStyles();
   const linkRowStyle = isCompact ? [styles.link, styles.linkCompact] : styles.link;
-  const scrollBottomPadding =
-    Platform.OS === "android" ? Math.max(insets.bottom, 24) + tabBarHeight : Math.max(insets.bottom, 24);
+  const scrollBottomPadding = 16;
 
   const userName = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || t("profile.defaultUserName");
   const isEmailVerified = Boolean(profile?.is_verified);

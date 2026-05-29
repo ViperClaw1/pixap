@@ -26,6 +26,9 @@
   "favorites": {
     "empty": "Noch keine Favoriten"
   },
+  "feed": {
+    "addStory": "Story hinzufügen"
+  },
   "common": {
     "loading": "Wird geladen...",
     "unknownError": "Unbekannter Fehler",
@@ -583,7 +586,15 @@
     "unsave": "Entfernen",
     "share": "Teilen",
     "dislike": "Gefällt nicht",
-    "book": "Jetzt buchen"
+    "book": "Jetzt buchen",
+    "reasons": {
+      "matchesNightlifeVibe": "Passt zu deinem Nightlife-Vibe",
+      "trendingTonight": "Heute im Trend",
+      "buzzingRightNow": "Gerade angesagt",
+      "newSpotForYou": "Neuer Spot für dich",
+      "popularWithCommunity": "Beliebt in der Community",
+      "goodFitForTonight": "Gute Wahl für heute Abend"
+    }
   },
   "adminDashboard": {
     "title": "Admin-Dashboard",

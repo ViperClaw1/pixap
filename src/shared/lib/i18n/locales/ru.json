@@ -26,6 +26,9 @@
   "favorites": {
     "empty": "Пока нет избранного"
   },
+  "feed": {
+    "addStory": "Добавить сторис"
+  },
   "common": {
     "loading": "Загрузка...",
     "unknownError": "Неизвестная ошибка",
@@ -382,7 +385,7 @@
   },
   "bookings": {
     "filter": {
-      "draft": "черновик",
+      "draft": "создано",
       "confirmed": "подтверждено",
       "cancelled": "отменено",
       "completed": "завершено",
@@ -708,7 +711,15 @@
     "unsave": "Убрать",
     "share": "Поделиться",
     "dislike": "Не нравится",
-    "book": "Забронировать"
+    "book": "Забронировать",
+    "reasons": {
+      "matchesNightlifeVibe": "Подходит под ваш вайб",
+      "trendingTonight": "В тренде сегодня",
+      "buzzingRightNow": "Сейчас на хайпе",
+      "newSpotForYou": "Новое место для вас",
+      "popularWithCommunity": "Популярно у сообщества",
+      "goodFitForTonight": "Хороший выбор на сегодня"
+    }
   },
   "adminDashboard": {
     "title": "Панель администратора",

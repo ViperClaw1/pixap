@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View, StyleSheet } from "react-native";
+import { ActivityIndicator, BackHandler, Platform, Pressable, Text, View, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -24,6 +24,7 @@ import { TemperamentStep } from "./steps/TemperamentStep";
 import { VenueCategoriesStep } from "./steps/VenueCategoriesStep";
 import { VibePreferencesStep } from "./steps/VibePreferencesStep";
 import { OnboardingStepTransition } from "./OnboardingStepTransition";
+import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 
 type Route = RouteProp<ProfileStackParamList, "PreferenceOnboarding">;
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "PreferenceOnboarding">;
@@ -118,6 +119,44 @@ function PreferenceOnboardingContent() {
     wizard.goBack();
   }, [wizard]);
 
+  const isFirstStep = wizard.step === "venue_categories";
+  const isVenueStep = wizard.step === "venue_ratings";
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
+    swipeBackFallback: exit,
+  });
+
+  const handleSwipeBack = useCallback(() => {
+    if (wizard.canGoBack) {
+      navigateBack();
+      return;
+    }
+    exit();
+  }, [exit, navigateBack, wizard.canGoBack]);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    navigation.setOptions({
+      gestureEnabled: isFirstStep,
+      fullScreenGestureEnabled: isFirstStep,
+    });
+  }, [isFirstStep, navigation]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (wizard.isLoading) return false;
+      if (isVenueStep) {
+        if (wizard.canGoBack) {
+          navigateBack();
+          return true;
+        }
+        return false;
+      }
+      handleSwipeBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [handleSwipeBack, isVenueStep, navigateBack, wizard.canGoBack, wizard.isLoading]);
+
   const venueRatingPreferences = useMemo(
     () => ({
       favoriteCategories: wizard.favoriteCategories,
@@ -128,10 +167,9 @@ function PreferenceOnboardingContent() {
     [wizard.favoriteCategories, wizard.vibePreferences, wizard.habits, wizard.favoriteMusic],
   );
 
-  const isVenueStep = wizard.step === "venue_ratings";
   const continueDisabled = useMemo(() => !wizard.canContinue, [wizard.canContinue]);
   const canSwipeForward = !isVenueStep && wizard.canContinue;
-  const canSwipeBack = wizard.canGoBack;
+  const canSwipeBack = !isVenueStep;
 
   if (wizard.isLoading) {
     return (
@@ -166,7 +204,10 @@ function PreferenceOnboardingContent() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
+    <View
+      style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}
+      {...(isFirstStep ? androidSwipeBackPanHandlers : {})}
+    >
       <View style={styles.header}>
         {wizard.canGoBack ? (
           <Pressable onPress={navigateBack} hitSlop={12}>
@@ -190,7 +231,7 @@ function PreferenceOnboardingContent() {
           canSwipeBack={canSwipeBack}
           enableSwipe={!isVenueStep}
           onSwipeForward={navigateForward}
-          onSwipeBack={navigateBack}
+          onSwipeBack={handleSwipeBack}
         >
           {renderStep()}
         </OnboardingStepTransition>

@@ -2,7 +2,7 @@ import { StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
 
 export const searchStaticStyles = StyleSheet.create({
-  thumb: { width: 56, height: 56, borderRadius: 8 },
+  thumb: { width: 56, height: 56, borderRadius: 8, overflow: "hidden" },
   root: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 16 },
   list: { flex: 1 },
