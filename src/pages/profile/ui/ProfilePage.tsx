@@ -51,6 +51,7 @@ import {
   GOOGLE_SUBSCRIPTION_URL,
   MAX_POST_PHOTOS,
   PRIVACY_URL,
+  TERMS_URL,
 } from "../model/constants";
 import { formatErrorForAlert } from "@/shared/lib/formatErrorForAlert";
 import { profileFullName } from "../model/format";
@@ -155,6 +156,9 @@ function ProfileScreenContent() {
   const warningColor = "#f59e0b";
   const openPrivacy = () => {
     void Linking.openURL(PRIVACY_URL);
+  };
+  const openTerms = () => {
+    void Linking.openURL(TERMS_URL);
   };
   const openManageSubscription = () => {
     void Linking.openURL(Platform.OS === "ios" ? APPLE_SUBSCRIPTION_URL : GOOGLE_SUBSCRIPTION_URL);
@@ -364,9 +368,10 @@ function ProfileScreenContent() {
         onPress: () => setStoriesArchiveVisible(true),
       },
       { key: "privacy", label: t("profile.actions.privacy"), icon: "shield-outline", onPress: openPrivacy },
+      { key: "terms", label: t("legal.terms"), icon: "document-text-outline", onPress: openTerms },
       { key: "settings", label: t("profile.actions.settings"), icon: "settings-outline", onPress: openEditProfile },
     ],
-    [isActive, navigation, openEditProfile, openManageSubscription, openPrivacy, t, unreadNotifications],
+    [isActive, navigation, openEditProfile, openManageSubscription, openPrivacy, openTerms, t, unreadNotifications],
   );
 
   const showAdminDashboard = isProfileAdmin(profile?.account_role);

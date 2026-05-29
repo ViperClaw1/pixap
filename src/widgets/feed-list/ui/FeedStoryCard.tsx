@@ -9,6 +9,8 @@ import { CommentPreview } from "./CommentPreview";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { getAvatarDisplayUrl } from "@/shared/lib/avatarDisplayUrl";
 import { getFeedStoryPreviewImageUrl } from "@/shared/lib/feedMediaUrls";
+import { UgcModerationOverflow } from "@/features/ugc-moderation";
+import { useAuth } from "@/app/providers/AuthProvider";
 
 interface FeedStoryCardProps {
   story: FeedStoryItem;
@@ -34,6 +36,7 @@ function FeedStoryCardComponent({
   onAuthRequired,
 }: FeedStoryCardProps) {
   const { colors } = useAppTheme();
+  const { user } = useAuth();
   const [localReaction, setLocalReaction] = useState<StoryReactionType | null>(story.my_reaction);
   const [localReactionCount, setLocalReactionCount] = useState(story.reaction_count);
 
@@ -139,6 +142,15 @@ function FeedStoryCardComponent({
             </Text>
           </Pressable>
         ) : null}
+        <UgcModerationOverflow
+          hidden={!story.user_id || story.user_id === user?.id}
+          subject={{
+            targetType: "story",
+            targetId: story.id,
+            reportedUserId: story.user_id,
+            authorLabel: fullName,
+          }}
+        />
       </View>
 
       <Text style={[styles.content, { color: colors.text }]}>{story.content}</Text>

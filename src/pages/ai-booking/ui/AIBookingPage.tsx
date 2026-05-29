@@ -22,6 +22,7 @@ import { useCartItems, useCreateCartItem, useStartN8nWaBooking } from "@/entitie
 import { useCreateBooking } from "@/entities/booking";
 import { useAvailableSlots } from "@/entities/booking";
 import { usePixAI, type PixAIFlowPayload, type PixAIPlace, type PixAISlot } from "@/entities/pixai";
+import { buildSearchResultsAssistantLine } from "@/entities/pixai/lib/buildSearchResultsAssistantLine";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import {
@@ -80,6 +81,7 @@ import {
   useBookingChatStore,
   type BookingRecommendationView,
 } from "@/features/ai-booking-chat";
+import { AiBookingAssistantGate, AiBookingStepConsentPrompt, refreshAiDataConsent, useAiDataConsent } from "@/features/ai-data-consent";
 import { devWarn } from "@/shared/lib/devLog";
 import { appAlert } from "@/shared/ui/app-popup";
 import {
@@ -197,6 +199,14 @@ function AIBookingPageContent() {
 
   const { colors } = useAppTheme();
   const { user, session, loading: authLoading } = useAuth();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id) return;
+      void refreshAiDataConsent(user.id);
+    }, [user?.id]),
+  );
+
   const { t } = useTranslation();
   const restaurantTableLabel = t("bookingCommon.restaurantTable");
   const nearMeLabel = t("bookingCommon.nearMe5Miles");
@@ -228,6 +238,7 @@ function AIBookingPageContent() {
   });
   const { messages, runFlow, isLoading, resetFlowSearchTranscript } = usePixAI();
   const { data: profile } = useProfile();
+  const { needsPrompt: needsAiConsentPrompt, status: aiConsentStatus } = useAiDataConsent();
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
   const { data: categories = [] } = useCategories();
   const bookingCategoryOptions = useMemo(() => buildHomeCategoryList(categories), [categories]);
@@ -273,11 +284,12 @@ function AIBookingPageContent() {
 
   useEffect(() => {
     if (persistedTabsCount === 0 && !lastSearchSnapshot) return;
+    if (aiConsentStatus === "loading" || needsAiConsentPrompt) return;
     setHasSearched(true);
     setCurrentStep((prev) =>
       prev === "city" || prev === "category" || prev === "scope" ? "places" : prev,
     );
-  }, [persistedTabsCount, lastSearchSnapshot]);
+  }, [aiConsentStatus, needsAiConsentPrompt, persistedTabsCount, lastSearchSnapshot]);
 
   useEffect(() => {
     const snap = lastSearchSnapshot;
@@ -325,9 +337,10 @@ function AIBookingPageContent() {
   useEffect(() => {
     const city = profile?.city?.trim();
     if (!city) return;
+    if (aiConsentStatus === "loading" || needsAiConsentPrompt) return;
     setSelectedCity(city);
     setCurrentStep((prev) => (prev === "city" ? "category" : prev));
-  }, [profile?.city]);
+  }, [profile?.city, aiConsentStatus, needsAiConsentPrompt]);
 
   useEffect(() => {
     if (!profile) return;
@@ -539,7 +552,7 @@ function AIBookingPageContent() {
         : selectedCategoryName
           ? localizeCategoryName(selectedCategoryName, t)
           : t("aiBooking.placesFallback");
-      const resultsLine = t("aiBooking.searchResultsLine", { count: placeCount, requestType, scopeText });
+      const resultsLine = buildSearchResultsAssistantLine({ count: placeCount, requestType, scopeText });
 
       setHasSearched(true);
       setCurrentStep("places");
@@ -698,11 +711,13 @@ function AIBookingPageContent() {
 
   return (
     <View style={styles.root} {...androidSwipeBackPanHandlers}>
+      <AiBookingStepConsentPrompt />
       <ScrollView
         ref={bookingScrollRef}
         style={styles.root}
         contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
+        nestedScrollEnabled
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         scrollEventThrottle={16}
         onScroll={(e) => {
@@ -844,14 +859,16 @@ function AIBookingPageContent() {
         bookingChatContext ? (
           <View style={styles.semanticSection}>
             <Text style={styles.stepTitle}>{t("aiBooking.step4AssistantTitle")}</Text>
-            <BookingInlineAssistantChat
-              catalogRevision={catalogRevision}
-              bookingContext={bookingChatContext}
-              places={placeOptions}
-              composerInputRef={bookingComposerInputRef}
-              onComposerInputFocus={onBookingComposerInputFocus}
-              onComposerInputBlur={onBookingComposerInputBlur}
-            />
+            <AiBookingAssistantGate>
+              <BookingInlineAssistantChat
+                catalogRevision={catalogRevision}
+                bookingContext={bookingChatContext}
+                places={placeOptions}
+                composerInputRef={bookingComposerInputRef}
+                onComposerInputFocus={onBookingComposerInputFocus}
+                onComposerInputBlur={onBookingComposerInputBlur}
+              />
+            </AiBookingAssistantGate>
           </View>
         ) : null}
 
@@ -905,19 +922,33 @@ function AIBookingPageContent() {
         <View style={styles.row}>
           {currentStep !== "city" ? (
             <Pressable
-              style={[styles.secondaryBtn, { flex: 1 }]}
+              style={[styles.footerBtn, { flex: 1 }]}
               onPress={() =>
                 setCurrentStep((step) =>
                   step === "booking" ? "places" : step === "places" ? "scope" : step === "scope" ? "category" : "city",
                 )
               }
             >
-              <Text style={styles.secondaryBtnText}>{t("bookingCommon.backStep")}</Text>
+              <Text
+                style={styles.footerBtnText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {t("bookingCommon.backStep")}
+              </Text>
             </Pressable>
           ) : null}
           {currentStep === "places" ? (
-            <Pressable style={[styles.primaryBtn, { flex: 1 }]} onPress={() => setCurrentStep("scope")}>
-              <Text style={styles.primaryBtnText}>{t("aiBooking.refineSearch")}</Text>
+            <Pressable style={[styles.footerBtn, styles.footerPrimaryBtn, { flex: 1 }]} onPress={() => setCurrentStep("scope")}>
+              <Text
+                style={styles.footerPrimaryBtnText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {t("aiBooking.refineSearch")}
+              </Text>
             </Pressable>
           ) : null}
         </View>

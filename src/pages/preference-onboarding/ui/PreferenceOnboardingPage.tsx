@@ -39,7 +39,9 @@ function PreferenceOnboardingContent() {
 
   const wizard = useOnboardingWizard(route.params?.retake ? "city_selection" : undefined);
   const sessionStartedRef = useRef(false);
+  const advanceLockRef = useRef(false);
   const [stepDirection, setStepDirection] = useState<1 | -1>(1);
+  const [isAdvancing, setIsAdvancing] = useState(false);
 
   const wizardSnapshot = useMemo(
     () => ({
@@ -80,11 +82,9 @@ function PreferenceOnboardingContent() {
     navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
   }, [navigation]);
 
-  const exit = useCallback(() => {
-    navigation.goBack();
-    if (navigation.canGoBack()) return;
+  const leaveOnboardingToProfile = useCallback(() => {
     resetToProfileMain();
-  }, [navigation, resetToProfileMain]);
+  }, [resetToProfileMain]);
 
   const handleSkip = useCallback(async () => {
     track({
@@ -93,8 +93,8 @@ function PreferenceOnboardingContent() {
       payload: buildStepSkippedPayload(wizardSnapshot),
     });
     await wizard.skipOnboarding();
-    exit();
-  }, [exit, track, wizard, wizardSnapshot]);
+    leaveOnboardingToProfile();
+  }, [leaveOnboardingToProfile, track, wizard, wizardSnapshot]);
 
   const handleVenueStageComplete = useCallback(async () => {
     await wizard.completeOnboarding();
@@ -103,18 +103,27 @@ function PreferenceOnboardingContent() {
   }, [resetToProfileMain, wizard]);
 
   const handleNext = useCallback(async () => {
-    track({
-      event_name: "step_completed",
-      step: wizard.step,
-      payload: buildStepCompletedPayload(wizardSnapshot),
-    });
-    await wizard.goNext();
+    if (advanceLockRef.current || !wizard.canContinue) return;
+    advanceLockRef.current = true;
+    setIsAdvancing(true);
+    try {
+      track({
+        event_name: "step_completed",
+        step: wizard.step,
+        payload: buildStepCompletedPayload(wizardSnapshot),
+      });
+      await wizard.goNext();
+    } finally {
+      advanceLockRef.current = false;
+      setIsAdvancing(false);
+    }
   }, [track, wizard, wizardSnapshot]);
 
   const navigateForward = useCallback(() => {
+    if (isAdvancing) return;
     setStepDirection(1);
     void handleNext();
-  }, [handleNext]);
+  }, [handleNext, isAdvancing]);
 
   const navigateBack = useCallback(() => {
     setStepDirection(-1);
@@ -124,7 +133,7 @@ function PreferenceOnboardingContent() {
   const isFirstStep = wizard.step === "city_selection";
   const isVenueStep = wizard.step === "venue_ratings";
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
-    swipeBackFallback: exit,
+    swipeBackFallback: leaveOnboardingToProfile,
   });
 
   const handleSwipeBack = useCallback(() => {
@@ -132,8 +141,8 @@ function PreferenceOnboardingContent() {
       navigateBack();
       return;
     }
-    exit();
-  }, [exit, navigateBack, wizard.canGoBack]);
+    leaveOnboardingToProfile();
+  }, [leaveOnboardingToProfile, navigateBack, wizard.canGoBack]);
 
   useEffect(() => {
     if (Platform.OS !== "ios") return;
@@ -169,8 +178,8 @@ function PreferenceOnboardingContent() {
     [wizard.favoriteCategories, wizard.vibePreferences, wizard.habits, wizard.favoriteMusic],
   );
 
-  const continueDisabled = useMemo(() => !wizard.canContinue, [wizard.canContinue]);
-  const canSwipeForward = !isVenueStep && wizard.canContinue;
+  const continueDisabled = useMemo(() => !wizard.canContinue || isAdvancing, [isAdvancing, wizard.canContinue]);
+  const canSwipeForward = !isVenueStep && wizard.canContinue && !isAdvancing;
   const canSwipeBack = !isVenueStep;
 
   if (wizard.isLoading) {
@@ -219,14 +228,18 @@ function PreferenceOnboardingContent() {
     >
       <View style={styles.header}>
         {wizard.canGoBack ? (
-          <Pressable onPress={navigateBack} hitSlop={12}>
-            <Text style={{ color: colors.primary, fontWeight: "600" }}>{t("back", { keyPrefix: "onboarding.actions" })}</Text>
+          <Pressable onPress={navigateBack} hitSlop={12} disabled={isAdvancing}>
+            <Text style={{ color: colors.primary, fontWeight: "600", opacity: isAdvancing ? 0.45 : 1 }}>
+              {t("back", { keyPrefix: "onboarding.actions" })}
+            </Text>
           </Pressable>
         ) : (
           <View style={styles.headerSpacer} />
         )}
-        <Pressable onPress={() => void handleSkip()} hitSlop={12}>
-          <Text style={{ color: colors.textMuted, fontWeight: "600" }}>{t("skip", { keyPrefix: "onboarding.actions" })}</Text>
+        <Pressable onPress={() => void handleSkip()} hitSlop={12} disabled={isAdvancing}>
+          <Text style={{ color: colors.textMuted, fontWeight: "600", opacity: isAdvancing ? 0.45 : 1 }}>
+            {t("skip", { keyPrefix: "onboarding.actions" })}
+          </Text>
         </Pressable>
       </View>
 
@@ -253,11 +266,22 @@ function PreferenceOnboardingContent() {
             onPress={navigateForward}
             disabled={continueDisabled}
           >
-            <Text style={primaryPressableTextStyle}>
-              {wizard.step === "temperament"
-                ? t("startRating", { keyPrefix: "onboarding.actions" })
-                : t("continue", { keyPrefix: "onboarding.actions" })}
-            </Text>
+            {isAdvancing ? (
+              <View style={styles.continueBusyRow}>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={primaryPressableTextStyle}>
+                  {wizard.step === "temperament"
+                    ? t("startRating", { keyPrefix: "onboarding.actions" })
+                    : t("continue", { keyPrefix: "onboarding.actions" })}
+                </Text>
+              </View>
+            ) : (
+              <Text style={primaryPressableTextStyle}>
+                {wizard.step === "temperament"
+                  ? t("startRating", { keyPrefix: "onboarding.actions" })
+                  : t("continue", { keyPrefix: "onboarding.actions" })}
+              </Text>
+            )}
           </Pressable>
         </View>
       ) : null}
@@ -280,4 +304,10 @@ const styles = StyleSheet.create({
   body: { flex: 1, overflow: "hidden" },
   footer: { paddingTop: 8 },
   continueDisabled: { opacity: 0.45 },
+  continueBusyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
 });

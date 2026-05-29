@@ -125,7 +125,6 @@ export async function registerNativePushToken(userId: string): Promise<void> {
     try {
       const expo = await Notifications.getExpoPushTokenAsync({ projectId });
       expoPushToken = expo.data;
-      devLog("[push] Expo token:", expoPushToken);
     } catch (e) {
       devWarn("[push] getExpoPushTokenAsync failed", e instanceof Error ? e.message : e);
     }

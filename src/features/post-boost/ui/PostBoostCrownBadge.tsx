@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
@@ -15,25 +15,18 @@ export function PostBoostCrownBadge() {
       accessibilityLabel={t("postBoost.topBadgeAccessibility")}
     >
       <Ionicons name="star" size={12} color={BOOST_STAR_COLOR} />
-      <Text style={[styles.label, { color: BOOST_STAR_COLOR }]}>{t("postBoost.topLabel")}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   badge: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    width: 24,
+    height: 24,
     flexShrink: 0,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.2,
   },
 });

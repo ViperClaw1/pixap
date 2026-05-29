@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
+import { patchAuthorFollowInAllFeedCaches } from "@/entities/post/lib/postFeedCachePatch";
 import { queryKeys, USER_FOLLOWS_QUERY_KEY } from "@/shared/api/queryKeys";
 
 export { USER_FOLLOWS_QUERY_KEY };
@@ -62,7 +63,9 @@ export function useToggleFollow() {
       if (error) throw error;
       return { skipped: false as const, nowFollowing: true };
     },
-    onSuccess: (_result, variables) => {
+    onSuccess: (result, variables) => {
+      if (result.skipped) return;
+
       const mineKey = queryKeys.userFollows.mine(user?.id ?? null);
       queryClient.setQueryData<string[]>(mineKey, (prev = []) => {
         const set = new Set(prev);
@@ -73,8 +76,7 @@ export function useToggleFollow() {
         }
         return Array.from(set);
       });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.stories.feedPrefix });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.posts.feedPrefix });
+      patchAuthorFollowInAllFeedCaches(queryClient, variables.followingId, result.nowFollowing);
       void queryClient.invalidateQueries({ queryKey: queryKeys.profile.socialMetrics(user?.id ?? null) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.profile.suggestionsPrefix });
     },

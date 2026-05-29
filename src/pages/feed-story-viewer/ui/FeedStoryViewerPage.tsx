@@ -38,6 +38,7 @@ import { StoryMediaSlide } from "@/widgets/stories-strip";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import Toast from "react-native-toast-message";
+import { UgcModerationOverflow } from "@/features/ugc-moderation";
 import { getFeedStoryFullscreenImageUrl } from "@/shared/lib/feedMediaUrls";
 import type { StoryReactionType } from "@/shared/model/types/stories";
 import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
@@ -609,7 +610,16 @@ export default function FeedStoryViewerPage() {
               </Text>
             </View>
           </View>
-          <View style={styles.rightSpacer} />
+          <UgcModerationOverflow
+            hidden={!activeStory?.user_id || activeStory.user_id === user?.id}
+            iconSize={22}
+            subject={{
+              targetType: "story",
+              targetId: activeStory?.id ?? "",
+              reportedUserId: activeStory?.user_id ?? "",
+              authorLabel: authorName,
+            }}
+          />
         </View>
 
         <Animated.View

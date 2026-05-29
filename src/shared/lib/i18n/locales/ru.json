@@ -27,7 +27,9 @@
     "empty": "Пока нет избранного"
   },
   "feed": {
-    "addStory": "Добавить сторис"
+    "addStory": "Добавить сторис",
+    "follow": "Подписаться",
+    "following": "Подписан"
   },
   "common": {
     "loading": "Загрузка...",
@@ -270,6 +272,10 @@
     "listUpdatedMessage": "Ассистент изменил список мест, и ваш предыдущий выбор больше недоступен. Выберите другое место.",
     "searchFailed": "Не удалось найти места.",
     "searchResultsLine": "Нашёл {{count}} {{requestType}} {{scopeText}}. Выберите одно — предложу лучшие доступные слоты.",
+    "searchNoMatchingPlaces": "Не удалось найти подходящие места. Попробуйте изменить город, категорию или область поиска.",
+    "searchOrchestratorFailed": "Не удалось выполнить поиск через ассистента, подходящие места не найдены. Проверьте подключение, попробуйте снова или измените город и категорию.",
+    "scopeInCity": "в {{city}}",
+    "yourCity": "вашем городе",
     "placesFallback": "мест",
     "summaryCity": "Город: {{value}}",
     "summaryRequest": "Запрос: {{value}}",
@@ -370,15 +376,15 @@
     "deleteChatMessage": "Удалить чат с «{{name}}»?",
     "toastChatDeleted": "Чат удалён",
     "toastChatRemoved": "«{{title}}» удалён из списка",
-    "toastAddedFollowers": "Добавлено в подписки",
-    "toastRemovedFollowers": "Удалено из подписок",
+    "toastAddedFollowers": "Добавлен(-а) в подписчиков",
+    "toastRemovedFollowers": "Удален(-а) из подписчиков",
     "toastFollowFailed": "Не удалось выполнить действие",
     "toastTryAgain": "Попробуйте ещё раз.",
     "toastCouldNotOpenChat": "Не удалось открыть чат",
     "toastCouldNotOpenSupport": "Не удалось открыть чат поддержки",
     "support": "Поддержка",
     "supportSubtitle": "Чат с нашей командой",
-    "mySupportTickets": "Мои обращения в поддержку",
+    "mySupportTickets": "Мои тикеты",
     "noSupportTickets": "Пока нет обращений в поддержку.",
     "followed": "Подписан",
     "thread": {
@@ -526,8 +532,8 @@
       "favorites": "Избранное",
       "reviews": "Отзывы",
       "posts": "Посты",
-      "followed": "Отслеживаю",
-      "following": "Подписки"
+      "followed": "Мои подписчики",
+      "following": "Я подписан"
     },
     "a11y": {
       "openBookings": "Открыть бронирования",
@@ -794,5 +800,53 @@
     "feedDescription": "Не удалось загрузить ленту. Нажмите ниже, чтобы повторить.",
     "bookingTitle": "Бронирование недоступно",
     "bookingDescription": "При открытии бронирования произошла ошибка. Нажмите ниже, чтобы повторить."
+  },
+  "moderation": {
+    "moreActions": "Ещё действия",
+    "actionsTitle": "Действия",
+    "report": "Пожаловаться",
+    "reportTitle": "Жалоба на контент",
+    "reportHint": "Выберите причину. Модерация рассматривает жалобы в течение 24–48 часов.",
+    "reportSubmittedTitle": "Жалоба отправлена",
+    "reportSubmittedMessage": "Спасибо. Мы проверим этот контент.",
+    "blockUser": "Заблокировать",
+    "blockConfirmTitle": "Заблокировать {{name}}?",
+    "blockConfirmMessage": "Вы больше не увидите их посты, stories и сообщения.",
+    "blockedTitle": "Пользователь заблокирован",
+    "blockedMessage": "Контент от {{name}} больше не будет показываться.",
+    "reasons": {
+      "spam": "Спам",
+      "harassment": "Оскорбления или травля",
+      "hate_speech": "Язык вражды",
+      "nudity": "Нагота или сексуальный контент",
+      "violence": "Насилие или угрозы",
+      "illegal": "Незаконная деятельность",
+      "other": "Другое"
+    }
+  },
+  "legal": {
+    "terms": "Условия использования",
+    "communityGuidelines": "Правила сообщества",
+    "acceptTermsPrefix": "Я принимаю",
+    "acceptTermsAnd": "и",
+    "acceptTermsRequired": "Примите условия использования, чтобы продолжить.",
+    "termsGateTitle": "Правила сообщества",
+    "termsGateMessagePrefix": "Для использования Pixap необходимо принять",
+    "termsGateMessageSuffix": "В них описаны допустимый контент и модерация.",
+    "termsGateAcceptFailedTitle": "Не удалось продолжить",
+    "termsGateAcceptFailed": "Не удалось сохранить принятие условий. Попробуйте ещё раз или выйдите и войдите снова.",
+    "termsGateAccept": "Принять и продолжить",
+    "termsGateDecline": "Выйти"
+  },
+  "aiConsent": {
+    "title": "Передача данных в AI",
+    "message": "Ассистент PixAI отправляет ваши сообщения, детали бронирования и подбор мест в Google Gemini для генерации ответов. Остальные функции приложения доступны без AI.",
+    "providerLabel": "Провайдер: Google Gemini",
+    "allow": "Разрешить",
+    "decline": "Не сейчас",
+    "aiGeneratedBadge": "Сгенерировано AI",
+    "reportAiResponse": "Пожаловаться на ответ AI",
+    "saveFailedTitle": "Не удалось сохранить",
+    "saveFailed": "Не удалось сохранить ваш выбор по согласию на AI. Проверьте подключение и попробуйте снова."
   }
 }

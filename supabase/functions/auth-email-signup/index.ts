@@ -7,6 +7,7 @@ type SignupBody = {
   password?: string;
   firstName?: string;
   lastName?: string;
+  acceptTerms?: boolean;
 };
 
 Deno.serve(async (req) => {
@@ -44,6 +45,9 @@ Deno.serve(async (req) => {
       { status: 400, headers: jsonHeaders() },
     );
   }
+  if (!body.acceptTerms) {
+    return new Response(JSON.stringify({ error: "Terms must be accepted" }), { status: 400, headers: jsonHeaders() });
+  }
 
   const admin = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
   const { data: userData, error: createError } = await admin.auth.admin.createUser({
@@ -61,7 +65,10 @@ Deno.serve(async (req) => {
   }
 
   if (userData.user?.id) {
-    await admin.from("profiles").update({ is_verified: false }).eq("id", userData.user.id);
+    await admin
+      .from("profiles")
+      .update({ is_verified: false, terms_accepted_at: new Date().toISOString() })
+      .eq("id", userData.user.id);
   }
 
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers: jsonHeaders() });

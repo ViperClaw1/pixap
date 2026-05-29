@@ -12,7 +12,7 @@ export type { FeedPostsCursor, FeedPostsPage };
 type FeedPage = FeedPostsPage;
 
 function authorUserIdFromFeedKey(key: readonly unknown[]): string | undefined {
-  const value = key[4];
+  const value = key[3];
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
@@ -176,6 +176,36 @@ export function patchPostInAllFeedCaches(
       return {
         ...page,
         posts: page.posts.map((post) => (post.id === postId ? patch(post) : post)),
+      };
+    });
+    if (pageTouched) {
+      touched = true;
+      queryClient.setQueryData<InfiniteData<FeedPage>>(key, { ...data, pages });
+    }
+  }
+
+  return touched;
+}
+
+export function patchAuthorFollowInAllFeedCaches(
+  queryClient: QueryClient,
+  authorUserId: string,
+  isFollowedAuthor: boolean,
+): boolean {
+  let touched = false;
+  const queries = queryClient.getQueriesData<InfiniteData<FeedPage>>({ queryKey: queryKeys.posts.feedPrefix });
+
+  for (const [key, data] of queries) {
+    if (!data?.pages?.length) continue;
+    let pageTouched = false;
+    const pages = data.pages.map((page) => {
+      if (!page.posts.some((post) => post.user_id === authorUserId)) return page;
+      pageTouched = true;
+      return {
+        ...page,
+        posts: page.posts.map((post) =>
+          post.user_id === authorUserId ? { ...post, is_followed_author: isFollowedAuthor } : post,
+        ),
       };
     });
     if (pageTouched) {

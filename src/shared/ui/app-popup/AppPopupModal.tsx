@@ -91,6 +91,7 @@ export function AppPopupModal({
         style={({ pressed }) => [
           styles.btn,
           layout === "row" ? styles.actionFlex : null,
+          layout === "row" ? styles.btnRow : null,
           isPrimary ? styles.btnPrimary : null,
           isSecondary ? styles.btnSecondary : null,
           isDestructive ? styles.btnDestructive : null,
@@ -137,7 +138,13 @@ export function AppPopupModal({
           {loading ? (
             <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 8 }} />
           ) : null}
-          {message ? <Text style={styles.message}>{message}</Text> : null}
+          {message ? (
+            typeof message === "string" ? (
+              <Text style={styles.message}>{message}</Text>
+            ) : (
+              message
+            )
+          ) : null}
         </View>
         {!loading ? (
           <View style={styles.actions}>

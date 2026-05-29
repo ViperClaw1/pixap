@@ -6,6 +6,7 @@ import {
   SHARED_PRESSABLE_RADIUS,
   primaryPressableStyle,
   primaryPressableTextStyle,
+  AUTH_PRIMARY_COLOR,
 } from "@/shared/theme/primaryPressable";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
@@ -142,6 +143,31 @@ export const aiBookingStaticStyles = StyleSheet.create({
     gap: 8,
   },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  footerBtn: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 48,
+    paddingHorizontal: 10,
+    borderRadius: SHARED_PRESSABLE_RADIUS,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  footerBtnText: {
+    fontWeight: "700",
+    fontSize: 14,
+    lineHeight: 18,
+    textAlign: "center",
+  },
+  footerPrimaryBtn: {
+    backgroundColor: AUTH_PRIMARY_COLOR,
+  },
+  footerPrimaryBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+    lineHeight: 18,
+    textAlign: "center",
+  },
   primaryBtn: {
     ...primaryPressableStyle,
   },
@@ -334,6 +360,8 @@ export function aiBookingThemeStyles(colors: ThemeColors, insets: { top: number;
     inlineValidationText: { color: colors.textMuted },
     secondaryBtn: { borderColor: colors.primary },
     secondaryBtnText: { color: colors.primary },
+    footerBtn: { borderWidth: 1, borderColor: colors.primary, backgroundColor: "transparent" },
+    footerBtnText: { color: colors.primary },
     dropdownTrigger: {
       borderColor: colors.border,
       backgroundColor: colors.background,

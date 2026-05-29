@@ -8,6 +8,7 @@ import {
 } from "@/entities/pixai/lib/bookingAssistantCopy";
 import { useSequentialTypewriterReveal } from "../lib/useSequentialTypewriterReveal";
 import { useBookingInlineThreadStyles } from "./useBookingInlineThreadStyles";
+import { AssistantMessageMeta } from "@/features/ai-data-consent";
 
 type Props = {
   variant: "inline" | "panel";
@@ -42,6 +43,7 @@ export function BookingChainedOpeningAssistantPair({ variant, first, second }: P
             </View>
           </View>
         ) : null}
+        <AssistantMessageMeta messageId={second.id} />
       </Fragment>
     );
   }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { i18n } from "@/shared/lib/i18n";
 import { supabase } from "@/shared/api/supabase/client";
 import { devInfo, devWarn } from "@/shared/lib/devLog";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -13,6 +13,7 @@ import {
   PIXAI_WELCOME_MESSAGE_ID,
 } from "@/entities/pixai/lib/bookingAssistantCopy";
 import { buildFlowUserSummary } from "../lib/buildFlowUserSummary";
+import { buildSearchResultsLineFromFlow } from "../lib/buildSearchResultsAssistantLine";
 
 export type PixAIPlace = Pick<BusinessCard, "id" | "name" | "address" | "city" | "rating" | "booking_price" | "images">;
 
@@ -114,13 +115,7 @@ function parseVibeStops(raw: unknown): VibePlanStop[] {
 }
 
 function buildAssistantFromFlow(flow: PixAIFlowPayload, placeCount: number): string {
-  if (placeCount === 0) {
-    return "I could not find matching places. Try changing city, category, or search scope.";
-  }
-  const cityLabel = flow.city.trim() || "your city";
-  const requestType = flow.isRestaurantTable ? "restaurant tables" : "services";
-  const scopeText = flow.mode === "nearby" ? "near you" : `in ${cityLabel}`;
-  return `I found ${placeCount} ${requestType} ${scopeText}. Pick one and I will suggest the best available slots.`;
+  return buildSearchResultsLineFromFlow(flow, placeCount);
 }
 
 export type PixAISearchMode = "nearby" | "city";
@@ -276,7 +271,6 @@ function buildFlowSearchTranscript(
 
 export function usePixAI() {
   const { user } = useAuth();
-  const { i18n } = useTranslation();
   const [messages, setMessages] = useState<PixAIMessage[]>(() => [
     {
       id: PIXAI_WELCOME_MESSAGE_ID,
@@ -321,9 +315,12 @@ export function usePixAI() {
       throw error ?? new Error("PixAI orchestrator failed");
     },
     onSuccess: (payload, flow) => {
+      const placeCount = payload.places?.length ?? 0;
+      const assistantContent =
+        placeCount > 0 ? buildSearchResultsLineFromFlow(flow, placeCount) : payload.assistant;
       setMessages((prev) => [
         ...keepWelcomeMessageOnly(prev),
-        ...buildFlowSearchTranscript(flow, payload.assistant, {
+        ...buildFlowSearchTranscript(flow, assistantContent, {
           places: payload.places,
           slots: payload.slots,
           draft: payload.draft,
@@ -336,7 +333,7 @@ export function usePixAI() {
         ...keepWelcomeMessageOnly(prev),
         ...buildFlowSearchTranscript(
           flow,
-          "Something went wrong with the booking assistant and no matching places were found. Check your connection, try again, or adjust city and category.",
+          i18n.t("aiBooking.searchOrchestratorFailed"),
           {
             places: [],
             slots: makeLocalSlots(),

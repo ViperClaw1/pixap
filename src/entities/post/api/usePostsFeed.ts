@@ -56,11 +56,10 @@ function dedupeAndSortFeedPosts(
   pages: FeedPostsPage[] | undefined,
   options: {
     authorUserId?: string;
-    followingSet: ReadonlySet<string>;
     interactedPlaceIds: string[];
   },
 ): FeedPostItem[] {
-  const { authorUserId, followingSet, interactedPlaceIds } = options;
+  const { authorUserId, interactedPlaceIds } = options;
   const byId = new Map<string, FeedPostItem>();
   for (const page of pages ?? []) {
     for (const post of page.posts) {
@@ -76,7 +75,7 @@ function dedupeAndSortFeedPosts(
   const interactedPlaceSet = new Set(interactedPlaceIds);
   const scored = merged.map((post) => {
     const placeKey = post.place_id ?? "";
-    const score = followingSet.has(post.user_id)
+    const score = post.is_followed_author
       ? 0
       : placeKey && interactedPlaceSet.has(placeKey)
         ? 1
@@ -90,12 +89,11 @@ function dedupeAndSortFeedPosts(
 export function usePostsFeed(options: UsePostsFeedOptions = {}) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { followingIds, followingSet } = useMyFollowing();
-  const followingSignature = useMemo(() => [...followingIds].sort().join(","), [followingIds]);
+  const { followingSet } = useMyFollowing();
   const { data: interactedPlaceIds = [] } = useInteractedPlaceIds(user?.id);
   const authorUserId = options.authorUserId?.trim() || undefined;
 
-  const feedQueryKey = queryKeys.posts.feed(user?.id ?? null, followingSignature, authorUserId ?? null);
+  const feedQueryKey = queryKeys.posts.feed(user?.id ?? null, authorUserId ?? null);
   const realtimeConnected = usePostsFeedRealtime(user?.id ?? null);
 
   const query = useInfiniteQuery({
@@ -126,10 +124,10 @@ export function usePostsFeed(options: UsePostsFeedOptions = {}) {
     const pages = query.data?.pages;
     if (!pages?.length) return [];
     if (pages.some((page) => page.viaLegacy)) {
-      return dedupeAndSortFeedPosts(pages, { authorUserId, followingSet, interactedPlaceIds });
+      return dedupeAndSortFeedPosts(pages, { authorUserId, interactedPlaceIds });
     }
     return flattenFeedPages(pages);
-  }, [query.data?.pages, authorUserId, followingSet, interactedPlaceIds]);
+  }, [query.data?.pages, authorUserId, interactedPlaceIds]);
 
   const loadMore = useCallback(() => {
     if (!query.hasNextPage || query.isFetchingNextPage) return;

@@ -6,6 +6,7 @@ import { buildBookingChatTabTitleFromUserMessage } from "./buildBookingChatTabTi
 import { revealAssistantText } from "./revealAssistantText";
 import { sanitizeAiBookingChatResult } from "./sanitizeAiBookingChatResult";
 import { scheduleBookingChatLayoutAnimation } from "./scheduleBookingChatLayoutAnimation";
+import { isAiDataConsentGranted, ensureAiDataConsentHydrated } from "@/features/ai-data-consent/model/aiDataConsentState";
 
 export type BookingChatTurnHistoryItem = { role: "user" | "assistant"; content: string };
 
@@ -20,6 +21,14 @@ export async function executeBookingAssistantTurn(input: {
   signal?: AbortSignal;
 }): Promise<void> {
   const { tabId, userText, catalogRevision, bookingContext, places, orderedIds, prior, signal } = input;
+  await ensureAiDataConsentHydrated();
+  if (!isAiDataConsentGranted()) {
+    useBookingChatStore.getState().setSendState({
+      isSending: false,
+      sendError: "AI data consent is required",
+    });
+    return;
+  }
   const store = useBookingChatStore.getState();
 
   const isFirstUserTurn = !prior.some((m) => m.role === "user");

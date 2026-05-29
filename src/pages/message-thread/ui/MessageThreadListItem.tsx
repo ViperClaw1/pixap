@@ -1,8 +1,9 @@
-import { memo, useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
   Pressable,
+  StyleSheet,
   Text,
   View,
   type StyleProp,
@@ -21,6 +22,11 @@ import { splitShareEntityContent } from "@/shared/lib/placeShareMessage";
 import { findFirstHttpUrl, splitTextWithUrls } from "@/shared/lib/messageUrlSegments";
 import { MessageUrlPreviewBlock } from "@/features/message-link-preview";
 import { detectAttachmentKind, MessageAttachmentBubble } from "@/features/message-attachments";
+import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
+import { appAlert } from "@/shared/ui/app-popup";
+import { useTranslation } from "react-i18next";
+import { useReportContent } from "@/features/ugc-moderation";
+import type { ContentReportReason } from "@/features/ugc-moderation";
 
 function attachmentBlurhashAt(
   blurhashes: (string | null)[] | null | undefined,
@@ -49,7 +55,18 @@ type Props = {
   openingStoryId?: string | null;
   onOpenAttachment?: (uri: string) => void;
   enableLinkPreview?: boolean;
+  peerUserId?: string | null;
 };
+
+const REPORT_REASONS: ContentReportReason[] = [
+  "spam",
+  "harassment",
+  "hate_speech",
+  "nudity",
+  "violence",
+  "illegal",
+  "other",
+];
 
 function messageHasVisibleText(content: string | null | undefined): boolean {
   const t = content?.trim() ?? "";
@@ -282,7 +299,11 @@ function MessageThreadListItemComponent({
   openingStoryId,
   onOpenAttachment,
   enableLinkPreview = true,
+  peerUserId,
 }: Props) {
+  const { t } = useTranslation();
+  const reportMutation = useReportContent();
+  const [reportVisible, setReportVisible] = useState(false);
   const swipeableRef = useRef<Swipeable>(null);
   const closeSwipeActions = useCallback(() => {
     swipeableRef.current?.close();
@@ -358,7 +379,32 @@ function MessageThreadListItemComponent({
     return findFirstHttpUrl(message.content);
   }, [message.content]);
 
+  const handleOpenReport = useCallback(() => {
+    closeSwipeActions();
+    setReportVisible(true);
+  }, [closeSwipeActions]);
+
+  const submitReport = useCallback(
+    async (reason: ContentReportReason) => {
+      if (!peerUserId) return;
+      try {
+        await reportMutation.mutateAsync({
+          targetType: "message",
+          targetId: message.id,
+          reportedUserId: peerUserId,
+          reason,
+        });
+        setReportVisible(false);
+        void appAlert(t("moderation.reportSubmittedTitle"), t("moderation.reportSubmittedMessage"));
+      } catch (error) {
+        void appAlert(t("common.unknownError"), error instanceof Error ? error.message : t("common.unknownError"));
+      }
+    },
+    [message.id, peerUserId, reportMutation, t],
+  );
+
   return (
+    <>
     <Swipeable
       ref={swipeableRef}
       overshootLeft={false}
@@ -372,6 +418,11 @@ function MessageThreadListItemComponent({
                   <Pressable style={s.swipeActionBtn} onPress={handleOpenReactionPicker}>
                     <Ionicons name="happy-outline" size={16} color={colors.textMuted} />
                   </Pressable>
+                  {peerUserId ? (
+                    <Pressable style={s.swipeActionBtn} onPress={handleOpenReport}>
+                      <Ionicons name="flag-outline" size={16} color={colors.textMuted} />
+                    </Pressable>
+                  ) : null}
                 </View>
               </View>
             )
@@ -630,6 +681,27 @@ function MessageThreadListItemComponent({
         ) : null}
       </View>
     </Swipeable>
+    <BottomSheetPickerModal
+      visible={reportVisible}
+      onClose={() => setReportVisible(false)}
+      title={t("moderation.reportTitle")}
+      fitContent
+    >
+      <Text style={{ fontSize: 14, lineHeight: 20, marginBottom: 8, color: colors.textMuted }}>
+        {t("moderation.reportHint")}
+      </Text>
+      {REPORT_REASONS.map((reason) => (
+        <Pressable
+          key={reason}
+          style={{ paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}
+          disabled={reportMutation.isPending}
+          onPress={() => void submitReport(reason)}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "500", color: colors.text }}>{t(`moderation.reasons.${reason}`)}</Text>
+        </Pressable>
+      ))}
+    </BottomSheetPickerModal>
+    </>
   );
 }
 

@@ -11,6 +11,8 @@ import { isOptimisticDiscussionId } from "@/shared/lib/discussionOptimisticId";
 import { getVisibleDiscussionReplies, hasHiddenDiscussionReplies } from "@/shared/lib/discussionPagination";
 import { DiscussionShowMoreButton } from "@/shared/ui/discussion-show-more/DiscussionShowMoreButton";
 import { profileDisplayName } from "../lib/storyDiscussionMention";
+import { UgcModerationOverflow } from "@/features/ugc-moderation";
+import type { ModerationSubject } from "@/features/ugc-moderation";
 
 const AVATAR = 32;
 const ACTION_ICON_SIZE = 13;
@@ -65,6 +67,7 @@ function ActionColumn({
   onEdit,
   onDelete,
   onToggleLike,
+  moderationSubject,
 }: {
   palette: DiscussionUiPalette;
   isOwner: boolean;
@@ -73,6 +76,7 @@ function ActionColumn({
   onEdit: () => void;
   onDelete: () => void;
   onToggleLike: () => void;
+  moderationSubject?: ModerationSubject | null;
 }) {
   return (
     <View style={styles.actionCol}>
@@ -86,6 +90,8 @@ function ActionColumn({
               <Ionicons name="trash-outline" size={ACTION_ICON_SIZE} color={palette.textMuted} />
             </Pressable>
           </>
+        ) : moderationSubject ? (
+          <UgcModerationOverflow subject={moderationSubject} iconSize={ACTION_ICON_SIZE} hitSlop={6} />
         ) : null}
         <View style={styles.likeCol}>
           <Pressable hitSlop={8} style={styles.actionHit} onPress={onToggleLike} accessibilityLabel="Like comment">
@@ -149,6 +155,16 @@ export function StoryDiscussionCommentThread({
           onEdit={() => onEditComment(comment.id, comment.content, "comment")}
           onDelete={() => onDeleteComment(comment.id, "comment")}
           onToggleLike={onToggleLikeComment}
+          moderationSubject={
+            isCommentOwner
+              ? null
+              : {
+                  targetType: "story_comment",
+                  targetId: comment.id,
+                  reportedUserId: comment.user_id,
+                  authorLabel: name,
+                }
+          }
         />
       </View>
 
@@ -191,6 +207,16 @@ export function StoryDiscussionCommentThread({
                 onEdit={() => onEditComment(reply.id, reply.content, "reply")}
                 onDelete={() => onDeleteComment(reply.id, "reply")}
                 onToggleLike={() => onToggleLikeReply(reply)}
+                moderationSubject={
+                  isReplyOwner
+                    ? null
+                    : {
+                        targetType: "story_comment",
+                        targetId: reply.id,
+                        reportedUserId: reply.user_id,
+                        authorLabel: rName,
+                      }
+                }
               />
             </View>
           </View>

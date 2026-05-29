@@ -2,7 +2,6 @@ import { useCallback, useMemo } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { useMyFollowing } from "@/entities/user";
 import { useStoriesFeedRealtime } from "@/entities/story/lib/useStoriesFeedRealtime";
 import { REALTIME_POLL_MS } from "@/shared/realtime/realtimePolling";
 import {
@@ -19,10 +18,7 @@ const FEED_MAX_CACHED_PAGES = 40;
 export function useStoriesFeed() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { followingIds } = useMyFollowing();
-  const followingSignature = useMemo(() => [...followingIds].sort().join(","), [followingIds]);
-
-  const feedQueryKey = queryKeys.stories.feed(user?.id ?? null, followingSignature);
+  const feedQueryKey = queryKeys.stories.feed(user?.id ?? null);
   const realtimeConnected = useStoriesFeedRealtime(user?.id ?? null);
 
   const query = useInfiniteQuery({

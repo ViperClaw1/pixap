@@ -34,6 +34,7 @@ import { bookingChatListRowKey, flattenChainedOpeningMessages } from "../lib/fla
 import { BookingChainedOpeningAssistantPair } from "./BookingChainedOpeningAssistantPair";
 import { BookingChatComposer } from "./BookingChatComposer";
 import { BookingChatMessageRow } from "./BookingChatMessageRow";
+import { AiBookingAssistantGate } from "@/features/ai-data-consent";
 import { BookingChatTabsStrip } from "./BookingChatTabsStrip";
 
 type PanelProps = {
@@ -247,6 +248,7 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
             </View>
           </GestureDetector>
 
+          <AiBookingAssistantGate>
           <BookingChatTabsStrip
             tabs={tabs}
             activeTabId={activeTabId}
@@ -271,6 +273,7 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
           </View>
 
           <BookingChatComposer disabled={places.length === 0} sending={isSending} onSend={onSend} />
+          </AiBookingAssistantGate>
         </Animated.View>
       </View>
     </View>

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type Ref } from "react";
+import { useCallback, useEffect, useMemo, type Ref } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Text, TextInput, View } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -8,11 +8,13 @@ import { useBookingChatStore } from "../model/bookingChatStore";
 import { executeBookingAssistantTurn } from "../lib/executeBookingAssistantTurn";
 import { bookingChatListRowKey, flattenChainedOpeningMessages } from "../lib/flattenChainedOpeningMessages";
 import { isPixBookingAssistantGreeting } from "../model/constants";
+import { resolveBookingTranscriptDisplay } from "@/entities/pixai/lib/bookingAssistantCopy";
 import { BookingChatComposer } from "./BookingChatComposer";
 import { BookingChainedOpeningAssistantPair } from "./BookingChainedOpeningAssistantPair";
 import { BookingGreetingTypewriterText } from "./BookingGreetingTypewriterText";
 import { BookingChatTabsStrip } from "./BookingChatTabsStrip";
 import { useBookingInlineThreadStyles } from "./useBookingInlineThreadStyles";
+import { AssistantMessageMeta } from "@/features/ai-data-consent";
 
 type Props = {
   catalogRevision: number;
@@ -63,6 +65,10 @@ export function BookingInlineAssistantChat({
 
   const orderedIds = useMemo(() => places.map((p) => p.id), [places]);
 
+  useEffect(() => {
+    useBookingChatStore.getState().ensureActiveTab(catalogRevision);
+  }, [catalogRevision]);
+
   const listRows = useMemo(() => flattenChainedOpeningMessages(activeMessages), [activeMessages]);
 
   const onSend = useCallback(
@@ -94,11 +100,11 @@ export function BookingInlineAssistantChat({
 
   return (
     <View
+      collapsable={false}
       style={{
         borderWidth: 1,
         borderColor: colors.border,
         borderRadius: 14,
-        overflow: "hidden",
         backgroundColor: colors.card,
         paddingHorizontal: 10,
         paddingTop: 10,
@@ -131,17 +137,22 @@ export function BookingInlineAssistantChat({
           const isUser = item.role === "user";
           const greetingTw = !isUser && isPixBookingAssistantGreeting(item);
           return (
-            <View key={item.id} style={isUser ? ts.bubbleWrapMine : ts.bubbleWrapPeer}>
-              <View style={[ts.bubble, isUser ? ts.bubbleMine : ts.bubblePeer]}>
-                {greetingTw ? (
-                  <BookingGreetingTypewriterText
-                    runOnceKey={item.id}
-                    textStyle={isUser ? ts.bubbleTextMine : ts.bubbleTextPeer}
-                  />
-                ) : (
-                  <Text style={isUser ? ts.bubbleTextMine : ts.bubbleTextPeer}>{item.content}</Text>
-                )}
+            <View key={item.id}>
+              <View style={isUser ? ts.bubbleWrapMine : ts.bubbleWrapPeer}>
+                <View style={[ts.bubble, isUser ? ts.bubbleMine : ts.bubblePeer]}>
+                  {greetingTw ? (
+                    <BookingGreetingTypewriterText
+                      runOnceKey={item.id}
+                      textStyle={isUser ? ts.bubbleTextMine : ts.bubbleTextPeer}
+                    />
+                  ) : (
+                    <Text style={isUser ? ts.bubbleTextMine : ts.bubbleTextPeer}>
+                      {resolveBookingTranscriptDisplay(item)}
+                    </Text>
+                  )}
+                </View>
               </View>
+              {!isUser ? <AssistantMessageMeta messageId={item.id} /> : null}
             </View>
           );
         })}

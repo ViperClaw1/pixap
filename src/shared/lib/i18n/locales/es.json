@@ -27,7 +27,9 @@
     "empty": "Aún no hay favoritos"
   },
   "feed": {
-    "addStory": "Añadir historia"
+    "addStory": "Añadir historia",
+    "follow": "Seguir",
+    "following": "Siguiendo"
   },
   "common": {
     "loading": "Cargando...",
@@ -155,6 +157,10 @@
     "listUpdatedMessage": "El asistente eliminó o reordenó lugares y tu selección anterior ya no está disponible. Elige otro lugar.",
     "searchFailed": "No se pudieron buscar lugares.",
     "searchResultsLine": "Encontré {{count}} {{requestType}} {{scopeText}}. Elige uno y te sugeriré las mejores franjas disponibles.",
+    "searchNoMatchingPlaces": "No se encontraron lugares coincidentes. Prueba a cambiar la ciudad, la categoría o el ámbito de búsqueda.",
+    "searchOrchestratorFailed": "Algo falló con el asistente de reservas y no se encontraron lugares. Comprueba la conexión e inténtalo de nuevo.",
+    "scopeInCity": "en {{city}}",
+    "yourCity": "tu ciudad",
     "placesFallback": "lugares",
     "summaryCity": "Ciudad: {{value}}",
     "summaryRequest": "Solicitud: {{value}}",

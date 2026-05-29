@@ -27,7 +27,9 @@
     "empty": "Pas encore de favoris"
   },
   "feed": {
-    "addStory": "Ajouter une story"
+    "addStory": "Ajouter une story",
+    "follow": "Suivre",
+    "following": "Abonné"
   },
   "common": {
     "loading": "Chargement...",
@@ -155,6 +157,10 @@
     "listUpdatedMessage": "L'assistant a retiré ou reclassé des lieux et votre choix précédent n'est plus disponible. Choisissez un autre lieu.",
     "searchFailed": "Impossible de rechercher des lieux.",
     "searchResultsLine": "J'ai trouvé {{count}} {{requestType}} {{scopeText}}. Choisissez-en un et je suggérerai les meilleurs créneaux disponibles.",
+    "searchNoMatchingPlaces": "Aucun lieu correspondant trouvé. Essayez de changer la ville, la catégorie ou la zone de recherche.",
+    "searchOrchestratorFailed": "Une erreur s'est produite avec l'assistant de réservation et aucun lieu n'a été trouvé. Vérifiez la connexion et réessayez.",
+    "scopeInCity": "à {{city}}",
+    "yourCity": "votre ville",
     "placesFallback": "lieux",
     "summaryCity": "Ville : {{value}}",
     "summaryRequest": "Demande : {{value}}",

@@ -10,9 +10,11 @@ export type AppPopupButton = {
   skipCloseOnPress?: boolean;
 };
 
+import type { ReactNode } from "react";
+
 export type AppPopupOptions = {
   title: string;
-  message?: string;
+  message?: string | ReactNode;
   buttons?: AppPopupButton[];
   /** Shows an icon above the title: check (success), warning (alert), info (info). */
   variant?: AppPopupVariant;
