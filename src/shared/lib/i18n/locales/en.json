@@ -345,6 +345,12 @@
     "routeAssistantMessage": "Here is a {{vibe}} route in {{city}} for “{{tags}}” — {{count}} stops with suggested times. Check live availability, then book in one tap.",
     "routeAssistantEmpty": "No venues matched that vibe in {{city}} yet. Try a different mood or broaden your search.",
     "yourRoute": "Your route",
+    "routeMapUnavailable": "Map preview is unavailable — venue locations are missing.",
+    "routeMapPartial": "{{count}} stop(s) hidden on map",
+    "routeMapRebuilding": "Rebuilding your route…",
+    "routeMapDrive": "Drive",
+    "routeMapWalk": "Walk",
+    "routeMapTransit": "Transit",
     "guestDetails": "Guest details (cart)",
     "checkingSlots": "Checking slots…",
     "slotCheckFailed": "Slot check failed",
@@ -371,6 +377,16 @@
     "bookAllStopsA11y": "Book all stops with a free slot",
     "bookSelectedStopsA11y": "Book selected stops that have a free slot",
     "chooseAtLeastOnePlace": "Please, choose at least one place",
+    "stopActivity": {
+      "dinner": "Dinner",
+      "afterParty": "After party",
+      "lateNight": "Late night"
+    },
+    "stopCategory": {
+      "restaurant": "Restaurant",
+      "bar": "Bar",
+      "club": "Club"
+    },
     "moodNotesPlaceholder": "Add details (optional)",
     "moodRequired": "Pick at least one vibe or add a short description."
   },

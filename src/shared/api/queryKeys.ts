@@ -156,6 +156,10 @@ export const queryKeys = {
       ["pixai", "generation_job", userId, jobId] as const,
     generationJobsPrefix: (userId: string | null) => ["pixai", "generation_job", userId] as const,
   },
+  vibeMatch: {
+    planCoordinates: (venueIdsKey: string) => ["vibe_match", "plan_coordinates", venueIdsKey] as const,
+    route: (mode: string, coordsKey: string) => ["vibe_match", "route", mode, coordsKey] as const,
+  },
   adminAnalytics: {
     byPeriod: (period: number, userId: string | null) =>
       ["admin-analytics", period, userId] as const,

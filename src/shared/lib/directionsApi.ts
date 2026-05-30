@@ -20,8 +20,8 @@ type GoogleDirectionsResponse = {
   routes?: Array<{
     overview_polyline?: { points?: string };
     legs?: Array<{
-      duration?: { text?: string };
-      distance?: { text?: string };
+      duration?: { text?: string; value?: number };
+      distance?: { text?: string; value?: number };
       start_location?: { lat: number; lng: number };
       end_location?: { lat: number; lng: number };
     }>;
@@ -427,4 +427,259 @@ export async function fetchDirections(params: {
       endLocation,
     },
   };
+}
+
+const ROUTE_POLYLINE_MAX_POINTS = 320;
+
+function isFiniteCoordinate(value: LatLng | null | undefined): value is LatLng {
+  return Boolean(
+    value &&
+      Number.isFinite(value.latitude) &&
+      Number.isFinite(value.longitude) &&
+      Math.abs(value.latitude) <= 90 &&
+      Math.abs(value.longitude) <= 180,
+  );
+}
+
+function compactRouteCoordinates(coords: LatLng[]): LatLng[] {
+  if (coords.length < 2) return [];
+  const safe = coords.filter(isFiniteCoordinate);
+  if (safe.length < 2) return [];
+
+  const deduped: LatLng[] = [safe[0]];
+  for (let i = 1; i < safe.length; i += 1) {
+    const prev = deduped[deduped.length - 1];
+    const cur = safe[i];
+    if (Math.abs(prev.latitude - cur.latitude) < 1e-7 && Math.abs(prev.longitude - cur.longitude) < 1e-7) {
+      continue;
+    }
+    deduped.push(cur);
+  }
+  if (deduped.length < 2) return [];
+
+  if (deduped.length <= ROUTE_POLYLINE_MAX_POINTS) return deduped;
+  const step = Math.ceil(deduped.length / ROUTE_POLYLINE_MAX_POINTS);
+  const compact: LatLng[] = [];
+  for (let i = 0; i < deduped.length; i += step) compact.push(deduped[i]);
+  const last = deduped[deduped.length - 1];
+  const tail = compact[compact.length - 1];
+  if (!tail || tail.latitude !== last.latitude || tail.longitude !== last.longitude) compact.push(last);
+  return compact;
+}
+
+function formatLatLng(coord: LatLng): string {
+  return `${coord.latitude},${coord.longitude}`;
+}
+
+function formatDurationSeconds(totalSeconds: number): string | null {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return null;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.round((totalSeconds % 3600) / 60);
+  if (hours > 0) return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  return `${Math.max(1, minutes)} min`;
+}
+
+function formatDistanceMeters(totalMeters: number): string | null {
+  if (!Number.isFinite(totalMeters) || totalMeters <= 0) return null;
+  if (totalMeters >= 1000) return `${(totalMeters / 1000).toFixed(1)} km`;
+  return `${Math.round(totalMeters)} m`;
+}
+
+export type MultiStopDirectionsResult = {
+  coordinates: LatLng[];
+  durationText: string | null;
+  distanceText: string | null;
+};
+
+async function fetchRouteSegment(
+  origin: LatLng,
+  destination: LatLng,
+  mode: TravelMode,
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<
+  | {
+      ok: true;
+      data: MultiStopDirectionsResult & { durationSeconds: number; distanceMeters: number };
+    }
+  | { ok: false; status: string; message?: string }
+> {
+  const q = new URLSearchParams({
+    origin: formatLatLng(origin),
+    destination: formatLatLng(destination),
+    mode,
+    key: apiKey,
+  });
+  const url = `${BASE}/directions/json?${q.toString()}`;
+  const res = await googleMapsWebServiceFetch(url, signal);
+  const data = (await res.json()) as GoogleDirectionsResponse;
+  debugMapsApi("directions:segment_response", {
+    httpOk: res.ok,
+    httpStatus: res.status,
+    status: data.status,
+    errorMessage: data.error_message,
+    mode,
+    hasRoute: Boolean(data.routes?.[0]),
+  });
+
+  if (data.status !== "OK" || !data.routes?.[0]) {
+    return {
+      ok: false,
+      status: data.status,
+      message: data.error_message ?? data.status,
+    };
+  }
+
+  const route = data.routes[0];
+  const encoded = route.overview_polyline?.points;
+  let coordinates: LatLng[] = [];
+  if (encoded) {
+    try {
+      coordinates = decodeGooglePolyline(encoded);
+    } catch (e) {
+      debugMapsApi("directions:polyline_decode_error", {
+        error: e instanceof Error ? e.message : String(e),
+        encodedLength: encoded.length,
+      });
+    }
+  }
+
+  const leg = route.legs?.[0];
+  const durationSeconds = leg?.duration?.value ?? 0;
+  const distanceMeters = leg?.distance?.value ?? 0;
+  return {
+    ok: true,
+    data: {
+      coordinates: compactRouteCoordinates(coordinates),
+      durationText: leg?.duration?.text ?? formatDurationSeconds(durationSeconds),
+      distanceText: leg?.distance?.text ?? formatDistanceMeters(distanceMeters),
+      durationSeconds,
+      distanceMeters,
+    },
+  };
+}
+
+/**
+ * Route through ordered stops (origin → waypoints → destination).
+ * REQUIRES: Directions API enabled for the key.
+ */
+export async function fetchRouteBetweenStops(
+  stops: LatLng[],
+  apiKey: string,
+  mode: TravelMode = "driving",
+  signal?: AbortSignal,
+): Promise<{ ok: true; data: MultiStopDirectionsResult } | { ok: false; status: string; message?: string }> {
+  const validStops = stops.filter(isFiniteCoordinate);
+  if (validStops.length < 2) {
+    return { ok: false, status: "INVALID_REQUEST", message: "At least 2 stops required" };
+  }
+
+  const origin = validStops[0];
+  const destination = validStops[validStops.length - 1];
+  const middle = validStops.slice(1, -1);
+
+  const q = new URLSearchParams({
+    origin: formatLatLng(origin),
+    destination: formatLatLng(destination),
+    mode,
+    key: apiKey,
+  });
+  if (middle.length > 0) {
+    q.set("waypoints", middle.map(formatLatLng).join("|"));
+  }
+
+  const url = `${BASE}/directions/json?${q.toString()}`;
+  const res = await googleMapsWebServiceFetch(url, signal);
+  const data = (await res.json()) as GoogleDirectionsResponse;
+  debugMapsApi("directions:multi_stop_response", {
+    httpOk: res.ok,
+    httpStatus: res.status,
+    status: data.status,
+    errorMessage: data.error_message,
+    stopCount: validStops.length,
+    mode,
+    hasRoute: Boolean(data.routes?.[0]),
+  });
+
+  if (data.status === "OK" && data.routes?.[0]) {
+    const route = data.routes[0];
+    const encoded = route.overview_polyline?.points;
+    let coordinates: LatLng[] = [];
+    if (encoded) {
+      try {
+        coordinates = decodeGooglePolyline(encoded);
+      } catch (e) {
+        debugMapsApi("directions:polyline_decode_error", {
+          error: e instanceof Error ? e.message : String(e),
+          encodedLength: encoded.length,
+        });
+      }
+    }
+
+    const legs = route.legs ?? [];
+    let totalDurationSec = 0;
+    let totalDistanceM = 0;
+    for (const leg of legs) {
+      totalDurationSec += leg.duration?.value ?? 0;
+      totalDistanceM += leg.distance?.value ?? 0;
+    }
+
+    const compact = compactRouteCoordinates(coordinates);
+    if (compact.length >= 2) {
+      return {
+        ok: true,
+        data: {
+          coordinates: compact,
+          durationText: formatDurationSeconds(totalDurationSec),
+          distanceText: formatDistanceMeters(totalDistanceM),
+        },
+      };
+    }
+  }
+
+  const merged: LatLng[] = [];
+  let totalDurationSec = 0;
+  let totalDistanceM = 0;
+  for (let i = 0; i < validStops.length - 1; i += 1) {
+    const segment = await fetchRouteSegment(validStops[i], validStops[i + 1], mode, apiKey, signal);
+    if (!segment.ok) {
+      return segment;
+    }
+    const segmentCoords = segment.data.coordinates;
+    if (segmentCoords.length === 0) continue;
+    if (merged.length === 0) {
+      merged.push(...segmentCoords);
+    } else {
+      merged.push(...segmentCoords.slice(1));
+    }
+    totalDurationSec += segment.data.durationSeconds;
+    totalDistanceM += segment.data.distanceMeters;
+  }
+
+  const compact = compactRouteCoordinates(merged);
+  if (compact.length < 2) {
+    return {
+      ok: false,
+      status: data.status ?? "ZERO_RESULTS",
+      message: data.error_message ?? `No ${mode} route found`,
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      coordinates: compact,
+      durationText: formatDurationSeconds(totalDurationSec),
+      distanceText: formatDistanceMeters(totalDistanceM),
+    },
+  };
+}
+
+/** @deprecated Use {@link fetchRouteBetweenStops} with `mode: "driving"`. */
+export async function fetchDrivingRouteBetweenStops(
+  stops: LatLng[],
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<{ ok: true; data: MultiStopDirectionsResult } | { ok: false; status: string; message?: string }> {
+  return fetchRouteBetweenStops(stops, apiKey, "driving", signal);
 }

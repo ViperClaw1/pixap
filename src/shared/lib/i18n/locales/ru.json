@@ -345,6 +345,12 @@
     "routeAssistantMessage": "Маршрут на {{vibe}} в {{city}} для «{{tags}}» — {{count}} остановок с предложенным временем. Проверьте доступность и забронируйте одним нажатием.",
     "routeAssistantEmpty": "Пока нет мест под это настроение в {{city}}. Попробуйте другое настроение или расширьте поиск.",
     "yourRoute": "Ваш маршрут",
+    "routeMapUnavailable": "Карта недоступна — у заведений нет координат.",
+    "routeMapPartial": "{{count}} точек не показано на карте",
+    "routeMapRebuilding": "Перестраиваю ваш маршрут…",
+    "routeMapDrive": "На машине",
+    "routeMapWalk": "Пешком",
+    "routeMapTransit": "Транспорт",
     "guestDetails": "Данные гостя (корзина)",
     "checkingSlots": "Проверяем слоты…",
     "slotCheckFailed": "Не удалось проверить слоты",
@@ -371,6 +377,16 @@
     "bookAllStopsA11y": "Забронировать все точки со свободными слотами",
     "bookSelectedStopsA11y": "Забронировать выбранные точки со свободными слотами",
     "chooseAtLeastOnePlace": "Пожалуйста, выберите хотя бы одно место",
+    "stopActivity": {
+      "dinner": "Ужин",
+      "afterParty": "After party",
+      "lateNight": "Late night"
+    },
+    "stopCategory": {
+      "restaurant": "Ресторан",
+      "bar": "Бар",
+      "club": "Клуб"
+    },
     "moodNotesPlaceholder": "Добавьте детали (необязательно)",
     "moodRequired": "Выберите хотя бы один вайб или кратко опишите настроение."
   },
