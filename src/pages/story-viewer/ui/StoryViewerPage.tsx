@@ -2,7 +2,6 @@ import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  FlatList,
   InteractionManager,
   Keyboard,
   Platform,
@@ -47,6 +46,9 @@ import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { getFeedStoryFullscreenImageUrl } from "@/shared/lib/feedMediaUrls";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { StoryDiscussionGlassSheet } from "./StoryDiscussionGlassSheet";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
+
+type StoryMediaSlideItem = ReturnType<typeof buildMediaSlidesForStory>[number];
 
 type StoryViewerRoute = RouteProp<BrowseFlowParamList, "StoryViewer">;
 type StoryViewerNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryViewer">;
@@ -70,7 +72,7 @@ export default function StoryViewerScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions(); // orientation-aware by design (fullscreen story media)
-  const flatListRef = useRef<FlatList<ReturnType<typeof buildMediaSlidesForStory>[number]>>(null);
+  const flatListRef = useRef<FlashListRef<StoryMediaSlideItem>>(null);
   const composerInputRef = useRef<TextInput>(null);
   const frozenLayoutHeightRef = useRef(height);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -199,24 +201,12 @@ export default function StoryViewerScreen() {
 
   useEffect(() => {
     if (!activeMediaSlides.length) return;
-    flatListRef.current?.scrollToIndex({
-      index: Math.min(mediaSlideIndex, activeMediaSlides.length - 1),
+    const index = Math.min(mediaSlideIndex, activeMediaSlides.length - 1);
+    flatListRef.current?.scrollToOffset({
+      offset: width * index,
       animated: false,
     });
-  }, [activeMediaSlides.length, activeStory?.id, mediaSlideIndex]);
-
-  const onScrollToIndexFailed = useCallback(
-    (info: { index: number; averageItemLength: number }) => {
-      flatListRef.current?.scrollToOffset({
-        offset: info.averageItemLength * info.index,
-        animated: false,
-      });
-      requestAnimationFrame(() => {
-        flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
-      });
-    },
-    [],
-  );
+  }, [activeMediaSlides.length, activeStory?.id, mediaSlideIndex, width]);
 
   useEffect(() => {
     const nextSlide = activeMediaSlides[mediaSlideIndex + 1];
@@ -367,7 +357,7 @@ export default function StoryViewerScreen() {
     : null;
 
   const renderStorySlide = useCallback(
-    ({ item }: { item: ReturnType<typeof buildMediaSlidesForStory>[number] }) => {
+    ({ item }: { item: StoryMediaSlideItem }) => {
       const rawUri = item.rawUri;
       const optimized = rawUri ? getFeedStoryFullscreenImageUrl(rawUri) : null;
       return (
@@ -412,22 +402,18 @@ export default function StoryViewerScreen() {
           dismissDragStyle,
         ]}
       >
-        <FlatList
+        <FlashList
           ref={flatListRef}
           horizontal
           pagingEnabled
           data={activeMediaSlides}
+          estimatedItemSize={width}
           scrollEnabled={false}
           keyExtractor={(item) => item.key}
-          getItemLayout={(_data, index) => ({ length: width, offset: width * index, index })}
           initialScrollIndex={Math.min(mediaSlideIndex, Math.max(0, activeMediaSlides.length - 1))}
-          onScrollToIndexFailed={onScrollToIndexFailed}
           renderItem={renderStorySlide}
           style={styles.slider}
-          removeClippedSubviews
-          initialNumToRender={1}
-          maxToRenderPerBatch={2}
-          windowSize={3}
+          drawDistance={width * 2}
         />
         <View style={styles.mediaOverlayTop}>
           <View style={styles.sheetHandleWrap}>

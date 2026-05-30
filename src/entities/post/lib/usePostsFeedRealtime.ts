@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
@@ -6,7 +6,18 @@ import { queryKeys } from "@/shared/api/queryKeys";
 import { useRealtimeChannel } from "@/shared/realtime/useRealtimeChannel";
 import { realtimeEventBus } from "@/shared/realtime/eventBus";
 import type { PostRow } from "@/shared/realtime/events";
-import { schedulePostsFeedInvalidate } from "./postFeedCachePatch";
+import {
+  buildAuthorUserIdInFilter,
+  isRelevantFeedAuthor,
+} from "@/shared/realtime/realtimeAuthorFilter";
+import { useMyFollowing } from "@/entities/user";
+import {
+  feedCachesContainPost,
+  patchPostReactionInFeedCaches,
+  removePostFromAllFeedCaches,
+  schedulePostsFeedInvalidate,
+} from "./postFeedCachePatch";
+import { parsePostReactionRow } from "./parsePostRealtimePayload";
 
 function invalidatePostComments(queryClient: QueryClient, postId: string | undefined) {
   if (postId) {
@@ -27,44 +38,109 @@ function parsePostRow(payload: { new: Record<string, unknown>; old: Record<strin
   };
 }
 
+function handlePostReactionChange(
+  queryClient: QueryClient,
+  viewerUserId: string,
+  eventType: string,
+  payload: { new: Record<string, unknown>; old: Record<string, unknown> },
+) {
+  const row = parsePostReactionRow(payload as Parameters<typeof parsePostReactionRow>[0]);
+  if (!row?.post_id || row.type !== "like") return;
+  if (!feedCachesContainPost(queryClient, row.post_id)) return;
+
+  if (eventType === "INSERT") {
+    patchPostReactionInFeedCaches(queryClient, row.post_id, {
+      reactionCountDelta: 1,
+      viewerUserId,
+      reactionUserId: row.user_id,
+      reactionType: "like",
+    });
+    realtimeEventBus.emit({ type: "engagement.updated", postId: row.post_id });
+    return;
+  }
+
+  if (eventType === "DELETE") {
+    patchPostReactionInFeedCaches(queryClient, row.post_id, {
+      reactionCountDelta: -1,
+      viewerUserId,
+      reactionUserId: row.user_id,
+      reactionType: "like",
+      removed: true,
+    });
+    realtimeEventBus.emit({ type: "engagement.updated", postId: row.post_id });
+    return;
+  }
+
+  if (eventType === "UPDATE") {
+    schedulePostsFeedInvalidate(queryClient, "post_reactions_update");
+    realtimeEventBus.emit({ type: "engagement.updated", postId: row.post_id });
+  }
+}
+
 /** Posts feed: new posts, likes, comments (debounced invalidation). */
 export function usePostsFeedRealtime(userId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const { followingIds, followingSet } = useMyFollowing();
+  const followingSignature = useMemo(() => [...followingIds].sort().join(","), [followingIds]);
 
   const createChannel = useCallback(() => {
+    const authorFilter = buildAuthorUserIdInFilter(userId!, followingIds);
+    const postsTableConfig = {
+      schema: "public" as const,
+      table: "posts" as const,
+      ...(authorFilter ? { filter: authorFilter } : {}),
+    };
+
     const onPostCommentsChange = (payload: { new: Record<string, unknown>; old: Record<string, unknown> }) => {
       const row = (payload.new?.post_id ? payload.new : payload.old) as { post_id?: string };
       const postId = typeof row.post_id === "string" ? row.post_id : undefined;
       invalidatePostComments(queryClient, postId);
-      schedulePostsFeedInvalidate(queryClient);
-      realtimeEventBus.emit({ type: "engagement.updated", postId });
+      if (postId && feedCachesContainPost(queryClient, postId)) {
+        schedulePostsFeedInvalidate(queryClient);
+        realtimeEventBus.emit({ type: "engagement.updated", postId });
+      }
     };
 
     return supabase
-      .channel(`posts_feed_${userId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, (payload) => {
+      .channel(`posts_feed_${userId}_${followingSignature}`)
+      .on("postgres_changes", { event: "INSERT", ...postsTableConfig }, (payload) => {
         const post = parsePostRow(payload as { new: Record<string, unknown>; old: Record<string, unknown> });
-        if (post) realtimeEventBus.emit({ type: "post.created", post });
+        if (!post) return;
+        if (!isRelevantFeedAuthor(post.user_id, userId, followingSet)) return;
+        realtimeEventBus.emit({ type: "post.created", post });
         schedulePostsFeedInvalidate(queryClient, "posts_insert");
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "posts" }, (payload) => {
+      .on("postgres_changes", { event: "UPDATE", ...postsTableConfig }, (payload) => {
         const post = parsePostRow(payload as { new: Record<string, unknown>; old: Record<string, unknown> });
-        if (post) realtimeEventBus.emit({ type: "post.updated", post });
+        if (!post) return;
+        if (!feedCachesContainPost(queryClient, post.id) && !isRelevantFeedAuthor(post.user_id, userId, followingSet)) {
+          return;
+        }
+        realtimeEventBus.emit({ type: "post.updated", post });
         schedulePostsFeedInvalidate(queryClient);
       })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "posts" }, (payload) => {
+      .on("postgres_changes", { event: "DELETE", ...postsTableConfig }, (payload) => {
         const post = parsePostRow(payload as { new: Record<string, unknown>; old: Record<string, unknown> });
-        if (post?.id) realtimeEventBus.emit({ type: "post.deleted", postId: post.id });
-        schedulePostsFeedInvalidate(queryClient);
+        if (!post?.id) return;
+        if (feedCachesContainPost(queryClient, post.id)) {
+          removePostFromAllFeedCaches(queryClient, post.id);
+        }
+        realtimeEventBus.emit({ type: "post.deleted", postId: post.id });
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "post_reactions" }, () => {
-        schedulePostsFeedInvalidate(queryClient, "post_reactions");
-        realtimeEventBus.emit({ type: "engagement.updated" });
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_reactions" }, (payload) => {
+        handlePostReactionChange(
+          queryClient,
+          userId,
+          payload.eventType,
+          payload as { new: Record<string, unknown>; old: Record<string, unknown> },
+        );
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, onPostCommentsChange);
-  }, [userId, queryClient]);
+  }, [userId, followingIds, followingSet, followingSignature, queryClient]);
 
-  return useRealtimeChannel(userId ? `posts_feed_${userId}` : null, userId ? createChannel : null, {
+  const channelKey = userId ? `posts_feed_${userId}_${followingSignature}` : null;
+
+  return useRealtimeChannel(channelKey, userId ? createChannel : null, {
     scope: "posts_feed",
   });
 }

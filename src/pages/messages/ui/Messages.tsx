@@ -474,7 +474,9 @@ export default function MessagesPage() {
           onOpenChat={() => onOpenChat(item.person)}
           onPrefetchChat={() => onPrefetchChat(item.person)}
           onToggleFollow={() => onToggleFollower(item.person)}
-          onPressProfile={() => navigateToPublicProfile(navigation, item.person.id)}
+          onPressProfile={() =>
+            navigateToPublicProfile(navigation, item.person.id, { viewerUserId: user?.id })
+          }
         />
       );
     },

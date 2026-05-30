@@ -24,9 +24,9 @@ import { MessageUrlPreviewBlock } from "@/features/message-link-preview";
 import { detectAttachmentKind, MessageAttachmentBubble } from "@/features/message-attachments";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { appAlert } from "@/shared/ui/app-popup";
-import { useTranslation } from "react-i18next";
 import { useReportContent } from "@/features/ugc-moderation";
 import type { ContentReportReason } from "@/features/ugc-moderation";
+import { MESSAGE_REPORT_REASONS, type MessageReportLabels } from "../model/messageReportLabels";
 
 function attachmentBlurhashAt(
   blurhashes: (string | null)[] | null | undefined,
@@ -56,17 +56,8 @@ type Props = {
   onOpenAttachment?: (uri: string) => void;
   enableLinkPreview?: boolean;
   peerUserId?: string | null;
+  reportLabels: MessageReportLabels;
 };
-
-const REPORT_REASONS: ContentReportReason[] = [
-  "spam",
-  "harassment",
-  "hate_speech",
-  "nudity",
-  "violence",
-  "illegal",
-  "other",
-];
 
 function messageHasVisibleText(content: string | null | undefined): boolean {
   const t = content?.trim() ?? "";
@@ -300,8 +291,8 @@ function MessageThreadListItemComponent({
   onOpenAttachment,
   enableLinkPreview = true,
   peerUserId,
+  reportLabels,
 }: Props) {
-  const { t } = useTranslation();
   const reportMutation = useReportContent();
   const [reportVisible, setReportVisible] = useState(false);
   const swipeableRef = useRef<Swipeable>(null);
@@ -395,12 +386,15 @@ function MessageThreadListItemComponent({
           reason,
         });
         setReportVisible(false);
-        void appAlert(t("moderation.reportSubmittedTitle"), t("moderation.reportSubmittedMessage"));
+        void appAlert(reportLabels.submittedTitle, reportLabels.submittedMessage);
       } catch (error) {
-        void appAlert(t("common.unknownError"), error instanceof Error ? error.message : t("common.unknownError"));
+        void appAlert(
+          reportLabels.unknownError,
+          error instanceof Error ? error.message : reportLabels.unknownError,
+        );
       }
     },
-    [message.id, peerUserId, reportMutation, t],
+    [message.id, peerUserId, reportLabels, reportMutation],
   );
 
   return (
@@ -684,20 +678,20 @@ function MessageThreadListItemComponent({
     <BottomSheetPickerModal
       visible={reportVisible}
       onClose={() => setReportVisible(false)}
-      title={t("moderation.reportTitle")}
+      title={reportLabels.title}
       fitContent
     >
       <Text style={{ fontSize: 14, lineHeight: 20, marginBottom: 8, color: colors.textMuted }}>
-        {t("moderation.reportHint")}
+        {reportLabels.hint}
       </Text>
-      {REPORT_REASONS.map((reason) => (
+      {MESSAGE_REPORT_REASONS.map((reason) => (
         <AppPressable
           key={reason}
           style={{ paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}
           disabled={reportMutation.isPending}
           onPress={() => void submitReport(reason)}
         >
-          <Text style={{ fontSize: 16, fontWeight: "500", color: colors.text }}>{t(`moderation.reasons.${reason}`)}</Text>
+          <Text style={{ fontSize: 16, fontWeight: "500", color: colors.text }}>{reportLabels.reasonLabels[reason]}</Text>
         </AppPressable>
       ))}
     </BottomSheetPickerModal>

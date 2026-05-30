@@ -130,6 +130,7 @@ export type ProfileStackParamList = {
   NotFound: undefined;
   AdminImageUpload: undefined;
   AdminDashboard: undefined;
+  AdminModeration: undefined;
   SubscriptionPaywall: { reason?: "no_credits" | "upgrade" } | undefined;
 } & BrowseFlowParamList;
 export type RootTabParamList = {

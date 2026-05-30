@@ -165,6 +165,11 @@ export const queryKeys = {
     root: ["moderation"] as const,
     blocked: (userId: string | undefined | null) => ["moderation", "blocked", userId ?? null] as const,
   },
+  adminModeration: {
+    prefix: ["admin-moderation"] as const,
+    list: (status: string, userId: string | null) => ["admin-moderation", "list", status, userId] as const,
+    pendingCount: (userId: string | null) => ["admin-moderation", "pending-count", userId] as const,
+  },
   postsFeed: {
     root: ["posts", "feed"] as const,
   },

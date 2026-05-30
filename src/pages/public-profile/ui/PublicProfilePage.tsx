@@ -14,6 +14,7 @@ import {
   getTabMainScreen,
   navigateToMessageThread,
   navigateToProfileAuth,
+  navigateToRootTabScreen,
 } from "@/app/navigation/navigationHelpers";
 import { useMyFollowing, usePublicProfile, useToggleFollow } from "@/entities/user";
 import { AppPressable } from "@/shared/ui/app-pressable";
@@ -57,13 +58,16 @@ export default function PublicProfilePage() {
 
   useEffect(() => {
     if (!isOwnProfile) return;
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
     rootNavigation.dispatch(
       CommonActions.navigate({
         name: "Profile",
         params: { screen: "ProfileMain" },
       }),
     );
-  }, [isOwnProfile, rootNavigation]);
+  }, [isOwnProfile, navigation, rootNavigation]);
 
   const goBack = useCallback(() => {
     if (navigation.canGoBack()) {
@@ -72,11 +76,11 @@ export default function PublicProfilePage() {
     }
     const tab = getCurrentRootTabName(navigation);
     if (tab) {
-      rootNavigation.navigate(tab, { screen: getTabMainScreen(tab) });
+      navigateToRootTabScreen(navigation, { tab, screen: getTabMainScreen(tab) });
       return;
     }
-    rootNavigation.navigate("Feed", { screen: "FeedMain" });
-  }, [navigation, rootNavigation]);
+    navigateToRootTabScreen(navigation, { tab: "Feed", screen: "FeedMain" });
+  }, [navigation]);
 
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(
     useMemo(

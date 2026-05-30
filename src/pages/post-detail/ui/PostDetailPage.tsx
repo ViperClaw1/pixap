@@ -8,7 +8,7 @@ import {
   View,
   useWindowDimensions
 } from "react-native";
-import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
+import { useIsFocused, useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -54,6 +54,7 @@ export default function PostDetailPage() {
   const navigation = useNavigation<NativeStackNavigationProp<BrowseFlowParamList>>();
   const rootNavigation = useNavigation<NavigationProp<RootTabParamList>>();
   const route = useRoute<PostDetailRoute>();
+  const isScreenFocused = useIsFocused();
   const postId = route.params.postId.trim();
   const { user } = useAuth();
   const { width, height } = useWindowDimensions(); // orientation-aware by design (post carousel viewport)
@@ -203,8 +204,9 @@ export default function PostDetailPage() {
           onToggleContent={() => comments.toggleExpandContent(post.id)}
           onToggleFollow={() => void onToggleFollowAuthor(post.user_id)}
           onPressAuthor={() => {
-            if (post.user_id) navigateToPublicProfile(navigation, post.user_id);
+            if (post.user_id) navigateToPublicProfile(navigation, post.user_id, { viewerUserId: user?.id });
           }}
+          carouselAutoPlay={isScreenFocused}
         />
       </ScrollView>
 

@@ -83,6 +83,12 @@ export const publicProfileStaticStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
+  followBtnActive: {},
+  followBtnInactive: {},
+  followBtnTextActive: {},
+  followBtnTextInactive: {},
+  messageBtn: {},
+  messageBtnText: {},
   centerState: {
     flex: 1,
     alignItems: "center",

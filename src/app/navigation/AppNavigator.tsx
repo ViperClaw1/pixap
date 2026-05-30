@@ -135,6 +135,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen name="Privacy" component={PrivacyPolicyScreen} />
       <ProfileStack.Screen name="NotFound" component={NotFoundScreen} />
       <ProfileStack.Screen name="AdminImageUpload" getComponent={() => require("@/pages/admin-image-upload").default} />
+      <ProfileStack.Screen name="AdminModeration" getComponent={() => require("@/pages/admin-moderation").default} options={fullWidthSwipeBackOptions} />
       <ProfileStack.Screen name="AdminDashboard" getComponent={() => require("@/pages/admin-dashboard").default} options={fullWidthSwipeBackOptions} />
       {renderBrowseFlowScreens(ProfileStack.Screen as BrowseFlowStackScreen)}
     </ProfileStack.Navigator>

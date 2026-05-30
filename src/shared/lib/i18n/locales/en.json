@@ -590,6 +590,7 @@
       "usernameRequired": "Set a username in Edit Profile before you can delete your account."
     },
     "adminDashboard": "Admin dashboard",
+    "adminModeration": "Content moderation",
     "partnerUpload": "Partner: upload listing image",
     "logOut": "Log Out",
     "create": {
@@ -826,6 +827,56 @@
       "whatsappBreakdown": "By category",
       "purchasesOverTime": "Purchases over time",
       "mrrTrend": "MRR trend (estimate)"
+    }
+  },
+  "adminModeration": {
+    "title": "Moderation queue",
+    "pendingHint": "{{count}} report(s) awaiting review",
+    "empty": "No reports in this filter.",
+    "reporter": "Reporter: {{name}}",
+    "reportedUser": "Reported user: {{name}}",
+    "targetType": "Content: {{type}}",
+    "openContent": "View",
+    "openContentFailed": "Could not open this content",
+    "resolvedAt": "Resolved {{date}}",
+    "toastResolved": "Report updated",
+    "toastError": "Could not update report",
+    "filters": {
+      "pending": "Pending ({{count}})",
+      "pendingEmpty": "Pending",
+      "all": "All",
+      "reviewed": "Reviewed",
+      "dismissed": "Dismissed",
+      "action_taken": "Action taken"
+    },
+    "status": {
+      "pending": "Pending",
+      "reviewed": "Reviewed",
+      "dismissed": "Dismissed",
+      "action_taken": "Action taken"
+    },
+    "targetTypes": {
+      "post": "Post",
+      "story": "Story",
+      "post_comment": "Post comment",
+      "story_comment": "Story comment",
+      "message": "Message",
+      "user": "Profile",
+      "ai_response": "AI response"
+    },
+    "actions": {
+      "dismiss": "Dismiss",
+      "reviewed": "No violation",
+      "actionTaken": "Action taken"
+    },
+    "denied": {
+      "title": "Access denied",
+      "body": "Moderation is available to admin accounts only.",
+      "back": "Go back"
+    },
+    "error": {
+      "title": "Could not load reports",
+      "retry": "Retry"
     }
   },
   "errorBoundary": {

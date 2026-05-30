@@ -65,9 +65,9 @@ function FeedStoryCardComponent({
       return;
     }
     if (story.user_id) {
-      navigateToPublicProfile(navigation, story.user_id);
+      navigateToPublicProfile(navigation, story.user_id, { viewerUserId: user?.id });
     }
-  }, [navigation, onPressUser, story.user_id]);
+  }, [navigation, onPressUser, story.user_id, user?.id]);
 
   const onReactPress = async (type: StoryReactionType) => {
     const previousReaction = localReaction;

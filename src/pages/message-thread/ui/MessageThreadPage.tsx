@@ -67,6 +67,7 @@ import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import { markMessagingPerfEnd, markMessagingPerfStart } from "@/shared/lib/messagingPerf";
 import { MessageThreadRow } from "./MessageThreadRow";
+import { buildMessageReportLabels } from "../model/messageReportLabels";
 import { MessageThreadSkeleton } from "./MessageThreadSkeleton";
 import { ThreadHeader } from "./ThreadHeader";
 import {
@@ -88,7 +89,8 @@ const SCROLL_TO_BOTTOM_SHOW_THRESHOLD_PX = 500;
 const LOAD_OLDER_SCROLL_THRESHOLD_PX = 120;
 
 export default function MessageThreadPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const reportLabels = useMemo(() => buildMessageReportLabels(t), [t, i18n.language]);
   const navigation = useNavigation<MessageThreadNav>();
   const { params } = useRoute<MessageThreadRoute>();
   const isSupport = params.isSupport === true;
@@ -616,12 +618,14 @@ export default function MessageThreadPage() {
         openingStoryId={openingStoryId}
         onOpenAttachment={(uri) => openAttachmentViewer(uri, null)}
         peerUserId={isSupport ? null : (peer?.id ?? params.peerId ?? null)}
+        reportLabels={reportLabels}
       />
     ),
     [
       colors,
       isSupport,
       mode,
+      reportLabels,
       onCloseReactionPicker,
       onReact,
       onToggleReactionPicker,

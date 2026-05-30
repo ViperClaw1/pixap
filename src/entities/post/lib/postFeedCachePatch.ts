@@ -1,5 +1,6 @@
 import type { QueryClient, InfiniteData } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/api/queryKeys";
+import type { PostReactionType } from "@/shared/model/types/posts";
 import type { FeedPostItem } from "../api/usePostsFeed";
 import type { FeedPostsCursor, FeedPostsPage } from "../api/fetchPostsFeedPage";
 import { compareFeedPosts, comparePostsByBoostThenCreated } from "./compareFeedPosts";
@@ -157,6 +158,43 @@ export function applyPostBoostInFeedCaches(
       queryClient.setQueryData<InfiniteData<FeedPage>>(key, { ...data, pages });
     }
   }
+}
+
+export function feedCachesContainPost(queryClient: QueryClient, postId: string): boolean {
+  const queries = queryClient.getQueriesData<InfiniteData<FeedPage>>({ queryKey: queryKeys.posts.feedPrefix });
+  for (const [, data] of queries) {
+    for (const page of data?.pages ?? []) {
+      if (page.posts.some((post) => post.id === postId)) return true;
+    }
+  }
+  return false;
+}
+
+export function patchPostReactionInFeedCaches(
+  queryClient: QueryClient,
+  postId: string,
+  options: {
+    reactionCountDelta: number;
+    viewerUserId?: string | null;
+    reactionUserId?: string;
+    reactionType?: PostReactionType;
+    removed?: boolean;
+  },
+): boolean {
+  return patchPostInAllFeedCaches(queryClient, postId, (post) => {
+    const reaction_count = Math.max(0, post.reaction_count + options.reactionCountDelta);
+    let my_reaction = post.my_reaction;
+
+    if (
+      options.viewerUserId &&
+      options.reactionUserId === options.viewerUserId &&
+      options.reactionType === "like"
+    ) {
+      my_reaction = options.removed ? null : "like";
+    }
+
+    return { ...post, reaction_count, my_reaction };
+  });
 }
 
 export function patchPostInAllFeedCaches(
