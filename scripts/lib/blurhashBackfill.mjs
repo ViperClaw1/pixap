@@ -9,6 +9,30 @@ const STORY_DISPLAY_FILE = "_story.webp";
 
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm|mkv|avi)(\?|#|$)/i;
 
+const MISSING_COLUMN_RE = /media_blurhashes.*does not exist|column.*media_blurhashes/i;
+
+export function isMissingMediaBlurhashesColumnError(message) {
+  return MISSING_COLUMN_RE.test(String(message ?? ""));
+}
+
+/**
+ * Ensures posts/stories.media_blurhashes exist (via RPC or helpful error).
+ * @param {import('@supabase/supabase-js').SupabaseClient} supabase
+ */
+export async function ensureFeedMediaBlurhashColumns(supabase) {
+  const { error } = await supabase.rpc("ensure_feed_media_blurhash_columns");
+  if (!error) return;
+
+  const msg = error.message ?? String(error);
+  if (/could not find the function|schema cache/i.test(msg)) {
+    throw new Error(
+      "posts.media_blurhashes / stories.media_blurhashes are missing and ensure_feed_media_blurhash_columns() is not deployed. " +
+        "Run: supabase db push (migrations 20260514_posts_stories_media_blurhashes.sql and 20260630130000_ensure_feed_media_blurhash_columns_rpc.sql).",
+    );
+  }
+  throw new Error(`ensure_feed_media_blurhash_columns: ${msg}`);
+}
+
 export function parseArgs(argv, { defaultLimit = 200 } = {}) {
   const args = argv.slice(2);
   const limitIdx = args.indexOf("--limit");

@@ -11,9 +11,15 @@ const staticStyles = StyleSheet.create({
     padding: 14,
     gap: 8,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   title: {
     fontSize: 15,
     fontWeight: "800",
+    flexShrink: 1,
   },
   description: {
     fontSize: 13,

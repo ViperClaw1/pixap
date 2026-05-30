@@ -342,6 +342,8 @@
     "couldNotGeneratePlan": "Could not generate plan.",
     "conciergeLabel": "Concierge",
     "noVenuesMatched": "No venues matched. Try another mood or city.",
+    "noBookableVenuesInWindow": "No venues with available slots in the next few hours. Try another mood or city.",
+    "checkingRouteAvailability": "Checking slot availability…",
     "routeAssistantMessage": "Here is a {{vibe}} route in {{city}} for “{{tags}}” — {{count}} stops with suggested times. Check live availability, then book in one tap.",
     "routeAssistantEmpty": "No venues matched that vibe in {{city}} yet. Try a different mood or broaden your search.",
     "yourRoute": "Your route",

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -56,7 +57,10 @@ export function ProfileDangerZone({ username }: Props) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{t("profile.dangerZone.title")}</Text>
+      <View style={styles.titleRow}>
+        <Ionicons name="warning" size={18} color={colors.danger} accessibilityElementsHidden importantForAccessibility="no" />
+        <Text style={styles.title}>{t("profile.dangerZone.title")}</Text>
+      </View>
       <Text style={styles.description}>{t("profile.dangerZone.description")}</Text>
 
       {!trimmedUsername ? (

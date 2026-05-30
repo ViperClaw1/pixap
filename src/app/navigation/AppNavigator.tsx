@@ -14,6 +14,7 @@ import type {
   RootTabParamList,
 } from "./types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 import OAuthCallbackScreen from "@/pages/oauth-callback";
 import PrivacyPolicyScreen from "@/pages/privacy-policy";
 import NotFoundScreen from "@/pages/not-found";
@@ -143,6 +144,24 @@ function ProfileStackNavigator() {
 }
 
 const TAB_ICON_SIZE = 24;
+const GUEST_HIDDEN_TAB_NAMES = new Set<keyof RootTabParamList>(["Bookings", "Cart"]);
+
+function guestTabBarItemStyle(routeName: keyof RootTabParamList, isLoggedIn: boolean) {
+  if (isLoggedIn) return undefined;
+  if (GUEST_HIDDEN_TAB_NAMES.has(routeName)) {
+    return {
+      display: "none" as const,
+      width: 0,
+      minWidth: 0,
+      maxWidth: 0,
+      flex: 0,
+      padding: 0,
+      margin: 0,
+      overflow: "hidden" as const,
+    };
+  }
+  return { flex: 1, alignItems: "center" as const };
+}
 
 /**
  * Release / manual regression (Android release build):
@@ -155,6 +174,8 @@ const TAB_ICON_SIZE = 24;
 export default function AppNavigator() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
+  const { user } = useAuth();
+  const isLoggedIn = Boolean(user);
   const androidTabLift = Platform.OS === "android" ? 8 : 0;
   const tabBottomPadding = Math.max(insets.bottom, 6) + androidTabLift;
 
@@ -173,6 +194,7 @@ export default function AppNavigator() {
         minHeight: 52 + tabBottomPadding,
       },
       tabBarLabelStyle: { fontSize: 11, fontWeight: "600" as const },
+      tabBarItemStyle: guestTabBarItemStyle(route.name, isLoggedIn),
       tabBarHideOnKeyboard: false,
       tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => {
         const iconColor = color;
@@ -190,7 +212,7 @@ export default function AppNavigator() {
         }
       },
     }),
-    [colors.border, colors.tabActive, colors.tabBar, colors.tabInactive, tabBottomPadding],
+    [colors.border, colors.tabActive, colors.tabBar, colors.tabInactive, isLoggedIn, tabBottomPadding],
   );
 
   return (

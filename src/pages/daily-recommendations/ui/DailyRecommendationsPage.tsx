@@ -188,11 +188,11 @@ function DailyRecommendationsPageContent() {
           <AppPressable
             onPress={goBack}
             hitSlop={16}
-            style={styles.backBtn}
+            style={[styles.backBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
             accessibilityRole="button"
             accessibilityLabel={t("common.goBack", { defaultValue: "Go back" })}
           >
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
+            <Ionicons name="arrow-back" size={18} color={colors.text} />
           </AppPressable>
           <Text style={[styles.headerTitle, { color: colors.text }]} pointerEvents="none" numberOfLines={1}>
             {pageTitle}
@@ -201,7 +201,7 @@ function DailyRecommendationsPageContent() {
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>{pageSubtitle}</Text>
       </View>
     ),
-    [colors.text, colors.textMuted, goBack, pageSubtitle, pageTitle, t],
+    [colors.border, colors.card, colors.text, colors.textMuted, goBack, pageSubtitle, pageTitle, t],
   );
 
   const screenBody = (
@@ -328,13 +328,14 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: -8,
     zIndex: 3,
-    elevation: 3,
   },
   headerTitle: {
     position: "absolute",

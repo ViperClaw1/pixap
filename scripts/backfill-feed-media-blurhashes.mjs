@@ -10,6 +10,8 @@
 import { createSupabaseAdmin, loadEnv, log, sleep } from "./seed-business-cards/lib.mjs";
 import {
   encodeBlurhashFromUrl,
+  ensureFeedMediaBlurhashColumns,
+  isMissingMediaBlurhashesColumnError,
   needsBlurhashBackfill,
   parseArgs,
   parseExistingBlurhashes,
@@ -20,14 +22,20 @@ import {
 
 const ROW_DELAY_MS = 80;
 
-async function backfillTable(supabase, supabaseUrl, tableName, kind, cli) {
+async function backfillTable(supabase, supabaseUrl, tableName, kind, cli, { schemaRetried = false } = {}) {
   const { data: rows, error } = await supabase
     .from(tableName)
     .select("id, media_url, media_blurhashes, created_at")
     .order("created_at", { ascending: false })
     .limit(cli.limit);
 
-  if (error) throw new Error(`${tableName}: ${error.message}`);
+  if (error) {
+    if (!schemaRetried && isMissingMediaBlurhashesColumnError(error.message)) {
+      await ensureFeedMediaBlurhashColumns(supabase);
+      return backfillTable(supabase, supabaseUrl, tableName, kind, cli, { schemaRetried: true });
+    }
+    throw new Error(`${tableName}: ${error.message}`);
+  }
 
   let updated = 0;
   let skipped = 0;
@@ -105,6 +113,8 @@ async function main() {
   const supabaseUrl = url.replace(/\/$/, "");
   const supabase = createSupabaseAdmin();
 
+  await ensureFeedMediaBlurhashColumns(supabase);
+
   let total = 0;
   if (runPosts) {
     total += await backfillTable(supabase, supabaseUrl, "posts", "post", cli);
@@ -117,6 +127,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err);
-  process.exit(1);
+  console.error(err instanceof Error ? err.message : err);
+  process.exitCode = 1;
 });
