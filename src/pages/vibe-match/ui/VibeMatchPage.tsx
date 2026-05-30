@@ -25,6 +25,13 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { vibeMatchStaticStyles, vibeMatchThemeStyles } from "./vibeMatchStyles";
+import type { TravelMode } from "@/shared/lib/directionsApi";
+import { VibeRouteMap } from "./VibeRouteMap";
+import { VibeRouteMapSkeleton } from "./VibeRouteMapSkeleton";
+import { useVibePlanMapPoints } from "../lib/useVibePlanMapPoints";
+import { useVibePlanRoute } from "../lib/useVibePlanRoute";
+import { useDebouncedVibeRouteSelection } from "../lib/useDebouncedVibeRouteSelection";
+import { useInitialVibeRouteMapReady } from "../lib/useInitialVibeRouteMapReady";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import {
@@ -91,7 +98,44 @@ const VIBE_MATCH_MOOD_OPTIONS: TaxonomyOption[] = VIBE_OPTIONS.map((option) => (
 }));
 
 const SLOT_MATCH_MS = 15 * 60 * 1000;
-const PLAN_THUMB_SIZE = 56;
+const PLAN_THUMB_SIZE = 80;
+
+function formatRouteStopTime(iso: string, locale: string): string {
+  return new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatStopAddress(stop: VibePlanStop): string | null {
+  const address = stop.address?.trim();
+  const city = stop.city?.trim();
+  if (address && city && !address.toLowerCase().includes(city.toLowerCase())) {
+    return `${address}, ${city}`;
+  }
+  return address || city || null;
+}
+
+function resolveStopActivityLabel(
+  stop: VibePlanStop,
+  index: number,
+  total: number,
+  t: (key: string) => string,
+): string {
+  const hour = new Date(stop.time_slot).getHours();
+  if (index === total - 1 && total > 1) return t("vibeMatch.stopActivity.lateNight");
+  if (hour >= 22) return t("vibeMatch.stopActivity.lateNight");
+  if (hour >= 20 || index > 0) return t("vibeMatch.stopActivity.afterParty");
+  return t("vibeMatch.stopActivity.dinner");
+}
+
+function resolveStopCategoryLabel(
+  stop: VibePlanStop,
+  index: number,
+  total: number,
+  t: (key: string) => string,
+): string {
+  if (stop.is_restaurant_table) return t("vibeMatch.stopCategory.restaurant");
+  if (index === total - 1 && total > 1) return t("vibeMatch.stopCategory.club");
+  return t("vibeMatch.stopCategory.bar");
+}
 
 function vibeStopThumbUris(images: string[] | undefined): { uri: string | null; fallbackUri: string | null } {
   const raw = getPrimaryBusinessCardImage(images ?? []);
@@ -203,6 +247,7 @@ function VibeMatchPageContent() {
     () => normalizeVibePlanStops(vibeResult?.plan ?? []),
     [vibeResult?.plan],
   );
+  const [routeTravelMode, setRouteTravelMode] = useState<TravelMode>("driving");
   const isSingleStopRoute = plan.length === 1;
   const planSelectionKey = useMemo(
     () => plan.map((s) => `${s.venue_id}:${s.time_slot}`).join("|"),
@@ -273,8 +318,6 @@ function VibeMatchPageContent() {
 
   const slotsAvailabilityReady =
     plan.length > 0 && !stopAvailability.some((x) => x.loading || x.error);
-  const allBookable =
-    plan.length > 0 && stopAvailability.every((x) => x.bookable) && slotsAvailabilityReady;
 
   const bookableVenueIds = useMemo(
     () => plan.filter((_, i) => stopAvailability[i]?.bookable).map((s) => s.venue_id),
@@ -285,7 +328,9 @@ function VibeMatchPageContent() {
     if (planSelectionKey === selectionSeededForPlanRef.current) return;
     selectionSeededForPlanRef.current = "";
     setSelectedVenueIds([]);
-  }, [planSelectionKey]);
+    setRouteTravelMode("driving");
+    resetRouteSelection();
+  }, [planSelectionKey, resetRouteSelection]);
 
   useEffect(() => {
     if (exemptFromBookingCredits) return;
@@ -298,21 +343,53 @@ function VibeMatchPageContent() {
     if (!slotsAvailabilityReady || bookableVenueIds.length === 0) return;
     if (selectionSeededForPlanRef.current === planSelectionKey) return;
     selectionSeededForPlanRef.current = planSelectionKey;
-    setSelectedVenueIds(bookableVenueIds.slice(0, Math.max(0, bookingSelectionLimit)));
-  }, [bookableVenueIds, bookingSelectionLimit, planSelectionKey, slotsAvailabilityReady]);
+    const initial = bookableVenueIds.slice(0, Math.max(0, bookingSelectionLimit));
+    setSelectedVenueIds(initial);
+    syncRouteSelectionNow(initial);
+  }, [bookableVenueIds, bookingSelectionLimit, planSelectionKey, slotsAvailabilityReady, syncRouteSelectionNow]);
 
   const selectedVenueIdSet = useMemo(() => new Set(selectedVenueIds), [selectedVenueIds]);
+
+  const {
+    routePlanStops,
+    isRebuildPending,
+    syncRouteSelectionNow,
+    resetRouteSelection,
+  } = useDebouncedVibeRouteSelection(plan, selectedVenueIds);
+
+  const { points: routeMapPoints, isLoading: routeMapLoading, missingCount: routeMapMissingCount } =
+    useVibePlanMapPoints(routePlanStops);
+  const {
+    polylineCoords: routePolylineCoords,
+    isLoadingDirections: routeDirectionsLoading,
+    durationText: routeDurationText,
+    distanceText: routeDistanceText,
+    usesStraightFallback: routeUsesStraightFallback,
+  } = useVibePlanRoute(routeMapPoints, routeTravelMode);
+
+  const initialRouteMapReady = useInitialVibeRouteMapReady({
+    planSelectionKey,
+    routePlanStopsCount: routePlanStops.length,
+    routeMapLoading,
+    routeMapPointsCount: routeMapPoints.length,
+    routeDirectionsLoading,
+  });
+
+  const isRouteUpdating =
+    !isSingleStopRoute &&
+    (isRebuildPending ||
+      routeMapLoading ||
+      (routeDirectionsLoading && routePlanStops.length >= 2));
+  const showRouteRebuildLabel =
+    !isSingleStopRoute &&
+    (isRebuildPending || (routeDirectionsLoading && routePlanStops.length >= 2));
 
   const selectedBookableStops = useMemo(
     () => plan.filter((stop, i) => selectedVenueIdSet.has(stop.venue_id) && stopAvailability[i]?.bookable),
     [plan, selectedVenueIdSet, stopAvailability],
   );
 
-  const hasVenueSelection = isSingleStopRoute || selectedBookableStops.length > 0;
-  const canBookFullRoute = isSingleStopRoute || plan.length <= bookingSelectionLimit;
-  const bookAllEnabled = allBookable && hasVenueSelection && canBookFullRoute;
-  const partialBookEnabled =
-    !isSingleStopRoute && slotsAvailabilityReady && selectedBookableStops.length >= 1;
+  const bookAllEnabled = selectedBookableStops.length > 0;
   const showSelectionWarning =
     !isSingleStopRoute &&
     slotsAvailabilityReady &&
@@ -543,23 +620,9 @@ function VibeMatchPageContent() {
   );
 
   const onBookAll = useCallback(async () => {
-    if (!bookAllEnabled) {
-      if (!canBookFullRoute) {
-        showInsufficientCreditsToast(plan.length);
-        return;
-      }
-      if (!allBookable) {
-        Alert.alert(t("vibeMatch.availabilityTitle"), t("vibeMatch.availabilityMessage"));
-      }
-      return;
-    }
-    await runBookStops(plan, "all");
-  }, [allBookable, bookAllEnabled, canBookFullRoute, plan, runBookStops, showInsufficientCreditsToast, t]);
-
-  const onPartialBook = useCallback(async () => {
-    if (!partialBookEnabled || selectedBookableStops.length === 0) return;
-    await runBookStops(selectedBookableStops, "partial");
-  }, [partialBookEnabled, runBookStops, selectedBookableStops]);
+    if (selectedBookableStops.length === 0) return;
+    await runBookStops(selectedBookableStops, "all");
+  }, [runBookStops, selectedBookableStops]);
 
   const failedStops = useMemo(
     () => (lastBookResults?.filter((r): r is Extract<BookRowResult, { ok: false }> => !r.ok) ?? []).map((r) => r.stop),
@@ -586,7 +649,7 @@ function VibeMatchPageContent() {
 
   return (
     <Animated.View style={[styles.root, keyboardRootStyle]} {...androidSwipeBackPanHandlers}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
         <View style={styles.topRow}>
           <AppPressable style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel={t("bookingCommon.goBack")}>
             <Ionicons name="chevron-back" size={22} color={colors.text} />
@@ -675,73 +738,120 @@ function VibeMatchPageContent() {
                 <Text style={styles.selectionWarningText}>{t("vibeMatch.chooseAtLeastOnePlace")}</Text>
               </View>
             ) : null}
+            {initialRouteMapReady ? (
+              <VibeRouteMap
+                points={routeMapPoints}
+                polylineCoords={routePolylineCoords}
+                travelMode={routeTravelMode}
+                onTravelModeChange={setRouteTravelMode}
+                isLoading={isRouteUpdating}
+                loadingLabel={showRouteRebuildLabel ? t("vibeMatch.routeMapRebuilding") : undefined}
+                missingCount={routeMapMissingCount}
+                durationText={showRouteRebuildLabel ? null : routeDurationText}
+                distanceText={showRouteRebuildLabel ? null : routeDistanceText}
+                usesStraightFallback={routeUsesStraightFallback}
+              />
+            ) : (
+              <VibeRouteMapSkeleton />
+            )}
             <Text style={styles.label}>{t("vibeMatch.yourRoute")}</Text>
-            {plan.map((stop, i) => {
-              const meta = stopAvailability[i];
-              const warn = meta && !meta.loading && !meta.error && !meta.bookable;
-              const bookable = Boolean(meta?.bookable);
-              const checked = selectedVenueIdSet.has(stop.venue_id);
-              const { uri: thumbUri, fallbackUri: thumbFallback } = vibeStopThumbUris(stop.images);
-              return (
-                <View key={`${stop.venue_id}-${i}`} style={[styles.planRow, warn && styles.planRowWarn]}>
-                  <View style={styles.planRowMain}>
-                    <SmartImage
-                      uri={thumbUri}
-                      fallbackUri={thumbFallback}
-                      bundledFallback={PLACE_IMAGE_FALLBACK}
-                      recyclingKey={`${stop.venue_id}-${i}-thumb`}
-                      style={styles.planThumb}
-                      contentFit="cover"
-                    />
-                    <View style={styles.planRowBody}>
-                      <View style={styles.planRowHeader}>
-                        <View style={styles.planRowHeaderMain}>
-                          <Text style={styles.planTime}>
-                            {new Date(stop.time_slot).toLocaleString(i18n.language, {
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            })}
-                          </Text>
-                          <Text style={styles.planName}>{stop.name}</Text>
-                        </View>
-                        {!isSingleStopRoute ? (
-                          <AppPressable
-                            accessibilityRole="checkbox"
-                            accessibilityState={{ checked, disabled: !bookable }}
-                            accessibilityLabel={
-                              checked
-                                ? t("vibeMatch.deselectVenueA11y", { name: stop.name })
-                                : t("vibeMatch.selectVenueA11y", { name: stop.name })
-                            }
-                            disabled={!bookable}
-                            onPress={() => toggleVenueSelection(stop.venue_id, bookable)}
-                            style={[
-                              styles.planCheckbox,
-                              checked && styles.planCheckboxChecked,
-                              !bookable && styles.planCheckboxDisabled,
-                            ]}
-                          >
-                            {checked ? <Ionicons name="checkmark" size={16} color={colors.onAccent} /> : null}
-                          </AppPressable>
-                        ) : null}
+            <View style={styles.routeTimeline}>
+              {plan.map((stop, i) => {
+                const meta = stopAvailability[i];
+                const warn = meta && !meta.loading && !meta.error && !meta.bookable;
+                const bookable = Boolean(meta?.bookable);
+                const checked = selectedVenueIdSet.has(stop.venue_id);
+                const isLast = i === plan.length - 1;
+                const { uri: thumbUri, fallbackUri: thumbFallback } = vibeStopThumbUris(stop.images);
+                const addressLine = formatStopAddress(stop);
+                const activityLabel = resolveStopActivityLabel(stop, i, plan.length, t);
+                const categoryLabel = resolveStopCategoryLabel(stop, i, plan.length, t);
+                const rating = stop.rating != null && stop.rating > 0 ? stop.rating : null;
+                return (
+                  <View key={`${stop.venue_id}-${i}`} style={[styles.routeStop, warn && styles.routeStopWarn]}>
+                    <View style={styles.routeLeftCol}>
+                      {!isSingleStopRoute ? (
+                        <AppPressable
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked, disabled: !bookable || isRouteUpdating }}
+                          accessibilityLabel={
+                            checked
+                              ? t("vibeMatch.deselectVenueA11y", { name: stop.name })
+                              : t("vibeMatch.selectVenueA11y", { name: stop.name })
+                          }
+                          disabled={!bookable || isRouteUpdating}
+                          onPress={() => toggleVenueSelection(stop.venue_id, bookable)}
+                          style={[
+                            styles.planCheckbox,
+                            checked && styles.planCheckboxChecked,
+                            !bookable && styles.planCheckboxDisabled,
+                            isRouteUpdating && styles.planCheckboxDisabled,
+                          ]}
+                        >
+                          {checked ? <Ionicons name="checkmark" size={16} color={colors.onAccent} /> : null}
+                        </AppPressable>
+                      ) : null}
+                      <View style={styles.routeRailCol}>
+                        <View style={styles.routeDot} />
+                        {!isLast ? <View style={styles.routeLine} /> : null}
                       </View>
-                      {stop.description ? <Text style={styles.planDesc}>{stop.description}</Text> : null}
-                      <View style={[styles.statusPill, meta?.bookable ? styles.statusOk : styles.statusBad]}>
-                        <Text style={[styles.statusText, { color: colors.text }]}>
-                          {meta?.loading
-                            ? t("vibeMatch.checkingSlots")
-                            : meta?.error
-                              ? t("vibeMatch.slotCheckFailed")
-                              : meta?.bookable
-                                ? t("vibeMatch.slotAvailable")
-                                : t("vibeMatch.noNearbyFreeSlot")}
-                        </Text>
+                    </View>
+                    <View style={styles.routeStopBody}>
+                      <View style={styles.routeStopMain}>
+                        <View style={styles.routeStopText}>
+                          <View style={styles.routeStopTimeRow}>
+                            <Text style={styles.routeStopTime}>
+                              {formatRouteStopTime(stop.time_slot, i18n.language)}
+                            </Text>
+                            <Text style={styles.routeStopActivity}>{activityLabel}</Text>
+                          </View>
+                          <Text style={styles.routeStopName} numberOfLines={2}>
+                            {stop.name}
+                          </Text>
+                          {addressLine ? (
+                            <Text style={styles.routeStopAddress} numberOfLines={2}>
+                              {addressLine}
+                            </Text>
+                          ) : null}
+                          <View style={styles.routeStopBadges}>
+                            <View style={styles.routeCategoryPill}>
+                              <Text style={styles.routeCategoryText}>{categoryLabel}</Text>
+                            </View>
+                            <View style={[styles.statusPill, meta?.bookable ? styles.statusOk : styles.statusBad]}>
+                              <Text style={[styles.statusText, { color: colors.text }]}>
+                                {meta?.loading
+                                  ? t("vibeMatch.checkingSlots")
+                                  : meta?.error
+                                    ? t("vibeMatch.slotCheckFailed")
+                                    : meta?.bookable
+                                      ? t("vibeMatch.slotAvailable")
+                                      : t("vibeMatch.noNearbyFreeSlot")}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                        <View style={styles.routeThumbWrap}>
+                          <SmartImage
+                            uri={thumbUri}
+                            fallbackUri={thumbFallback}
+                            bundledFallback={PLACE_IMAGE_FALLBACK}
+                            recyclingKey={`${stop.venue_id}-${i}-thumb`}
+                            style={styles.routeThumb}
+                            contentFit="cover"
+                          />
+                          {rating != null ? (
+                            <View style={styles.routeRatingBadge}>
+                              <Ionicons name="star" size={10} color="#eab308" />
+                              <Text style={styles.routeRatingText}>{rating.toFixed(1)}</Text>
+                            </View>
+                          ) : null}
+                        </View>
                       </View>
                     </View>
                   </View>
-                </View>
-              );
-            })}
+                );
+              })}
+            </View>
           </View>
         ) : null}
 
@@ -805,28 +915,6 @@ function VibeMatchPageContent() {
                 </Text>
               )}
             </AppPressable>
-            {!isSingleStopRoute ? (
-              <AppPressable
-                style={[
-                  primaryPressableStyle,
-                  { height: SHARED_PRESSABLE_HEIGHT, borderRadius: SHARED_PRESSABLE_RADIUS },
-                  (!partialBookEnabled || bookingBusy) && { opacity: 0.55 },
-                ]}
-                disabled={!partialBookEnabled || bookingBusy}
-                onPress={() => void onPartialBook()}
-                accessibilityLabel={t("vibeMatch.bookSelectedStopsA11y")}
-              >
-                {bookingAction === "partial" ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={primaryPressableTextStyle}>
-                    {partialBookEnabled
-                      ? t("vibeMatch.partialBookCount", { count: selectedBookableStops.length })
-                      : t("vibeMatch.partialBook")}
-                  </Text>
-                )}
-              </AppPressable>
-            ) : null}
             {failedStops.length > 0 ? (
               <AppPressable
                 onPress={() => void onRetryFailed()}

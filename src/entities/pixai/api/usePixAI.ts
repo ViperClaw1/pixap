@@ -67,6 +67,8 @@ export type VibePlanStop = {
   is_restaurant_table: boolean;
   address?: string;
   city?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   rating?: number;
   images?: string[];
 };
@@ -108,6 +110,8 @@ function parseVibeStops(raw: unknown): VibePlanStop[] {
       address: r.address != null ? String(r.address) : undefined,
       city: r.city != null ? String(r.city) : undefined,
       rating: r.rating != null ? Number(r.rating) : undefined,
+      latitude: r.latitude != null ? Number(r.latitude) : undefined,
+      longitude: r.longitude != null ? Number(r.longitude) : undefined,
       images,
     });
   }

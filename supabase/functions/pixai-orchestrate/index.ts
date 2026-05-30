@@ -245,7 +245,7 @@ async function handleVibe(supabase: SupabaseClient, vibe: VibeInput): Promise<Re
   if (ids.length > 0) {
     const { data: cards, error: cardErr } = await supabase
       .from("business_cards")
-      .select("id,name,address,city,rating,booking_price,images")
+      .select("id,name,address,city,rating,booking_price,images,latitude,longitude")
       .in("id", ids);
     if (!cardErr && Array.isArray(cards)) {
       cardById = new Map(cards.map((c) => [String((c as Record<string, unknown>).id), c as Record<string, unknown>]));
@@ -260,6 +260,8 @@ async function handleVibe(supabase: SupabaseClient, vibe: VibeInput): Promise<Re
       city: c?.city != null ? String(c.city) : city,
       rating: c?.rating != null ? Number(c.rating) : 0,
       images: Array.isArray(c?.images) ? c!.images : [],
+      latitude: c?.latitude != null ? Number(c.latitude) : null,
+      longitude: c?.longitude != null ? Number(c.longitude) : null,
     };
   });
 
