@@ -4,6 +4,7 @@ import type { ThemeColors } from "@/shared/theme/palettes";
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import type { MessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import type { MessageThreadListRow } from "../model/types";
+import type { MessageReportLabels } from "../model/messageReportLabels";
 import { MessageThreadListItem } from "./MessageThreadListItem";
 
 type Props = {
@@ -24,6 +25,7 @@ type Props = {
   openingStoryId: string | null;
   onOpenAttachment: (uri: string) => void;
   peerUserId?: string | null;
+  reportLabels: MessageReportLabels;
 };
 
 function MessageThreadRowComponent({
@@ -44,6 +46,7 @@ function MessageThreadRowComponent({
   openingStoryId,
   onOpenAttachment,
   peerUserId,
+  reportLabels,
 }: Props) {
   if (item.kind === "divider") {
     return (
@@ -74,6 +77,7 @@ function MessageThreadRowComponent({
       onOpenAttachment={onOpenAttachment}
       enableLinkPreview={item.isLatestPage}
       peerUserId={peerUserId}
+      reportLabels={reportLabels}
     />
   );
 }

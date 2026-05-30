@@ -449,7 +449,9 @@ export default function StoriesFeedScreen() {
           carouselAutoPlay={h.isScreenFocused}
           onTitleInputLayout={handleTitleInputLayout}
           onPressAuthor={() => {
-            if (vm.post.user_id) navigateToPublicProfile(navigation, vm.post.user_id);
+            if (vm.post.user_id) {
+              navigateToPublicProfile(navigation, vm.post.user_id, { viewerUserId: h.currentUserId });
+            }
           }}
         />
       );

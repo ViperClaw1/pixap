@@ -445,6 +445,7 @@ export default function PlaceDetailScreen() {
         {user?.id ? (
         <LiveCrowdCard
           venueId={place.id}
+          enabled={isScreenFocused}
           onCheckIn={() => void onCrowdCheckIn()}
           isCheckingIn={crowdCheckin.isCheckingIn}
           crowdCardStyle={styles.crowdCard}

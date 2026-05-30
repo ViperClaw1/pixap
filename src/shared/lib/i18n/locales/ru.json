@@ -590,6 +590,7 @@
       "usernameRequired": "Укажите имя пользователя в разделе «Изменить», чтобы удалить аккаунт."
     },
     "adminDashboard": "Панель администратора",
+    "adminModeration": "Модерация жалоб",
     "partnerUpload": "Партнёр: загрузить фото объявления",
     "logOut": "Выйти",
     "create": {
@@ -815,6 +816,56 @@
       "whatsappBreakdown": "По категориям",
       "purchasesOverTime": "Покупки по дням",
       "mrrTrend": "Тренд MRR (оценка)"
+    }
+  },
+  "adminModeration": {
+    "title": "Очередь модерации",
+    "pendingHint": "{{count}} жалоб(ы) ожидают проверки",
+    "empty": "Нет жалоб в этом фильтре.",
+    "reporter": "Жалоба от: {{name}}",
+    "reportedUser": "На пользователя: {{name}}",
+    "targetType": "Контент: {{type}}",
+    "openContent": "Открыть",
+    "openContentFailed": "Не удалось открыть контент",
+    "resolvedAt": "Обработано {{date}}",
+    "toastResolved": "Жалоба обновлена",
+    "toastError": "Не удалось обновить жалобу",
+    "filters": {
+      "pending": "Ожидают ({{count}})",
+      "pendingEmpty": "Ожидают",
+      "all": "Все",
+      "reviewed": "Проверено",
+      "dismissed": "Отклонено",
+      "action_taken": "Меры приняты"
+    },
+    "status": {
+      "pending": "Ожидает",
+      "reviewed": "Проверено",
+      "dismissed": "Отклонено",
+      "action_taken": "Меры приняты"
+    },
+    "targetTypes": {
+      "post": "Пост",
+      "story": "Story",
+      "post_comment": "Комментарий к посту",
+      "story_comment": "Комментарий к story",
+      "message": "Сообщение",
+      "user": "Профиль",
+      "ai_response": "Ответ ИИ"
+    },
+    "actions": {
+      "dismiss": "Отклонить",
+      "reviewed": "Без нарушения",
+      "actionTaken": "Меры приняты"
+    },
+    "denied": {
+      "title": "Нет доступа",
+      "body": "Модерация доступна только администраторам.",
+      "back": "Назад"
+    },
+    "error": {
+      "title": "Не удалось загрузить жалобы",
+      "retry": "Повторить"
     }
   },
   "errorBoundary": {

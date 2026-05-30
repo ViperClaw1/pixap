@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
@@ -14,6 +14,11 @@ import {
   scheduleStoriesFeedInvalidate,
 } from "./storyFeedCachePatch";
 import {
+  buildAuthorUserIdInFilter,
+  isRelevantFeedAuthor,
+} from "@/shared/realtime/realtimeAuthorFilter";
+import { useMyFollowing } from "@/entities/user";
+import {
   parseStoryCommentRow,
   parseStoryReactionRow,
   parseStoryRow,
@@ -28,6 +33,8 @@ function invalidateStoryComments(queryClient: QueryClient, storyId: string | und
 
 function handleStoryTableChange(
   queryClient: QueryClient,
+  userId: string,
+  followingSet: ReadonlySet<string>,
   eventType: string,
   payload: { new: Record<string, unknown>; old: Record<string, unknown> },
 ) {
@@ -41,6 +48,7 @@ function handleStoryTableChange(
   }
 
   if (eventType === "INSERT") {
+    if (!isRelevantFeedAuthor(row.user_id, userId, followingSet)) return;
     scheduleStoriesFeedInvalidate(queryClient, "stories_insert");
     return;
   }
@@ -148,12 +156,27 @@ function setSharedConnected(sub: SharedSubscription, connected: boolean) {
   }
 }
 
-function buildStoriesFeedChannel(queryClient: QueryClient, userId: string) {
+function buildStoriesFeedChannel(
+  queryClient: QueryClient,
+  userId: string,
+  followingIds: readonly string[],
+  followingSet: ReadonlySet<string>,
+  channelKey: string,
+) {
+  const authorFilter = buildAuthorUserIdInFilter(userId, followingIds);
+  const storiesTableConfig = {
+    schema: "public" as const,
+    table: "stories" as const,
+    ...(authorFilter ? { filter: authorFilter } : {}),
+  };
+
   return supabase
-    .channel(`stories_feed_${userId}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, (payload) => {
+    .channel(channelKey)
+    .on("postgres_changes", { event: "*", ...storiesTableConfig }, (payload) => {
       handleStoryTableChange(
         queryClient,
+        userId,
+        followingSet,
         payload.eventType,
         payload as { new: Record<string, unknown>; old: Record<string, unknown> },
       );
@@ -178,6 +201,8 @@ function buildStoriesFeedChannel(queryClient: QueryClient, userId: string) {
 /** Stories feed + strip: ref-counted channel per user via RealtimeConnectionManager. */
 export function useStoriesFeedRealtime(userId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const { followingIds, followingSet } = useMyFollowing();
+  const followingSignature = useMemo(() => [...followingIds].sort().join(","), [followingIds]);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   useEffect(() => {
@@ -186,8 +211,9 @@ export function useStoriesFeedRealtime(userId: string | null | undefined) {
       return;
     }
 
-    const key = `stories_feed_${userId}`;
-    let shared = sharedByUser.get(userId);
+    const subscriptionKey = `${userId}:${followingSignature}`;
+    const managerKey = `stories_feed_${subscriptionKey}`;
+    let shared = sharedByUser.get(subscriptionKey);
 
     if (!shared) {
       const manager = RealtimeConnectionManager.get();
@@ -198,13 +224,13 @@ export function useStoriesFeedRealtime(userId: string | null | undefined) {
         release: () => {},
       };
       entry.release = manager.acquire(
-        key,
-        () => buildStoriesFeedChannel(queryClient, userId),
+        managerKey,
+        () => buildStoriesFeedChannel(queryClient, userId, followingIds, followingSet, managerKey),
         (status) => setSharedConnected(entry, status === "subscribed"),
         "stories_feed",
       );
       shared = entry;
-      sharedByUser.set(userId, shared);
+      sharedByUser.set(subscriptionKey, shared);
     }
 
     shared.refCount += 1;
@@ -213,16 +239,16 @@ export function useStoriesFeedRealtime(userId: string | null | undefined) {
     setRealtimeConnected(shared.connected);
 
     return () => {
-      const current = sharedByUser.get(userId);
+      const current = sharedByUser.get(subscriptionKey);
       if (!current) return;
       current.listeners.delete(listener);
       current.refCount -= 1;
       if (current.refCount <= 0) {
         current.release();
-        sharedByUser.delete(userId);
+        sharedByUser.delete(subscriptionKey);
       }
     };
-  }, [userId, queryClient]);
+  }, [userId, followingIds, followingSet, followingSignature, queryClient]);
 
   return realtimeConnected;
 }

@@ -120,7 +120,7 @@ export function ShareBottomSheet({
   };
 
   const handleShareToPress = () => {
-    if (!requireSelectedUser()) return;
+    if (!actionsEnabled) return;
     void onSystemShare();
   };
 

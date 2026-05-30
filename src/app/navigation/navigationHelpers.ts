@@ -108,7 +108,29 @@ export function navigateToRootTabScreen(
 export type NavigateToPublicProfileOptions = {
   returnTab?: RootTabName;
   returnScreen?: string;
+  /** When equal to `userId`, opens Profile tab instead of pushing PublicProfile (avoids a stuck spinner on Feed). */
+  viewerUserId?: string | null;
 };
+
+function navigateToOwnProfileTab(nav: NavigationProp<ParamListBase>) {
+  const tabNav = findTabNavigator(nav);
+  if (tabNav) {
+    tabNav.dispatch(
+      CommonActions.navigate({
+        name: "Profile",
+        params: { screen: "ProfileMain" },
+      }),
+    );
+    return;
+  }
+  const parent = nav.getParent();
+  parent?.dispatch(
+    CommonActions.navigate({
+      name: "Profile",
+      params: { screen: "ProfileMain" },
+    }),
+  );
+}
 
 /** Open Profile tab → Auth (tabs stay visible). */
 export function navigateToProfileAuth(nav: NavigationProp<ParamListBase>) {
@@ -208,6 +230,11 @@ export function navigateToPublicProfile(
 ) {
   const trimmed = userId.trim();
   if (!trimmed) return;
+
+  if (options?.viewerUserId && options.viewerUserId === trimmed) {
+    navigateToOwnProfileTab(nav);
+    return;
+  }
 
   const profileParams: PublicProfileRouteParams = { userId: trimmed };
   if (options?.returnTab) {

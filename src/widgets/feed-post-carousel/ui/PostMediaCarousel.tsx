@@ -55,7 +55,7 @@ export const PostMediaCarousel = memo(function PostMediaCarousel({
   postSlideBlurhashes,
   width,
   sliderHeight,
-  autoPlay = true,
+  autoPlay = false,
 }: {
   postId: string;
   postImages: string[];

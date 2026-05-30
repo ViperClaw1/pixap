@@ -5,6 +5,7 @@ import { getCrowdPresentation } from "../lib/crowdPresentation";
 
 type Props = {
   venueId: string;
+  enabled?: boolean;
   onCheckIn?: () => void;
   isCheckingIn?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -19,6 +20,7 @@ type Props = {
 
 export function LiveCrowdCard({
   venueId,
+  enabled = true,
   onCheckIn,
   isCheckingIn = false,
   style,
@@ -31,7 +33,7 @@ export function LiveCrowdCard({
   crowdCheckInTextStyle,
 }: Props) {
   const { t } = useTranslation();
-  const { data, isLoading, isError } = useVenueLiveCrowd(venueId);
+  const { data, isLoading, isError } = useVenueLiveCrowd(venueId, { enabled });
 
   if (isLoading && !data) {
     return (

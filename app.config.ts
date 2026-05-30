@@ -48,7 +48,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       NSPhotoLibraryUsageDescription:
         "Pixap accesses your photo library when you choose images to upload for partner listings.",
       NSLocationWhenInUseUsageDescription:
-        "Pixap uses your location to show directions from you to this place on the map.",
+        "Pixap uses your location to show directions to venues and to check you in at nearby places for the Live Crowd feature.",
       UIBackgroundModes: ["remote-notification"],
     },
     config: {
@@ -140,7 +140,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "expo-location",
       {
         locationWhenInUsePermission:
-          "Pixap uses your location to show directions from you to this place on the map.",
+          "Pixap uses your location to show directions to venues and to check you in at nearby places for the Live Crowd feature.",
       },
     ],
     [

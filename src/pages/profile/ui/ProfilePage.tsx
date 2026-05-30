@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useProfile, useUserRole, isProfileAdmin } from "@/entities/user";
+import { useAdminModerationPendingCount } from "@/entities/admin-moderation";
 import { useProfileSocialMetrics, useSuggestedProfiles, useToggleFollow } from "@/entities/user";
 import { useBusinessCards } from "@/entities/business-card";
 import { useUnreadCount } from "@/entities/notification";
@@ -387,6 +388,9 @@ function ProfileScreenContent() {
   );
 
   const showAdminDashboard = isProfileAdmin(profile?.account_role);
+  const { data: moderationPendingCount = 0 } = useAdminModerationPendingCount({
+    enabled: showAdminDashboard && profileQueriesEnabled,
+  });
   const trailingActions = actions.slice(1);
   const showProfileSkeleton = Boolean(user) && (loading || (profileQueriesEnabled && profilePending && !profile));
 
@@ -553,7 +557,9 @@ function ProfileScreenContent() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionScrollContent}>
             {suggestions.map((item) => (
               <View key={item.id} style={styles.suggestionCard}>
-                <AppPressable onPress={() => navigateToPublicProfile(navigation, item.id)}>
+                <AppPressable
+                  onPress={() => navigateToPublicProfile(navigation, item.id, { viewerUserId: user?.id })}
+                >
                   <View style={styles.suggestionAvatarWrap}>
                     <UserAvatarImage
                       uri={item.avatar_url}
@@ -627,14 +633,31 @@ function ProfileScreenContent() {
           );
         })}
         {showAdminDashboard ? (
-          <AppPressable
-            style={[linkRowStyle, styles.linkLastInCard]}
-            onPress={() => navigation.navigate("AdminDashboard")}
-          >
-            <Ionicons name="stats-chart-outline" size={20} color={colors.textMuted} style={styles.linkIcon} />
-            <Text style={styles.linkText}>{t("profile.adminDashboard")}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
-          </AppPressable>
+          <>
+            <AppPressable
+              style={linkRowStyle}
+              onPress={() => navigation.navigate("AdminModeration")}
+            >
+              <Ionicons name="shield-checkmark-outline" size={20} color={colors.textMuted} style={styles.linkIcon} />
+              <Text style={styles.linkText}>{t("profile.adminModeration")}</Text>
+              {moderationPendingCount > 0 ? (
+                <View style={styles.linkMenuBadge}>
+                  <Text style={styles.linkMenuBadgeText}>
+                    {moderationPendingCount > 99 ? "99+" : String(moderationPendingCount)}
+                  </Text>
+                </View>
+              ) : null}
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
+            </AppPressable>
+            <AppPressable
+              style={[linkRowStyle, styles.linkLastInCard]}
+              onPress={() => navigation.navigate("AdminDashboard")}
+            >
+              <Ionicons name="stats-chart-outline" size={20} color={colors.textMuted} style={styles.linkIcon} />
+              <Text style={styles.linkText}>{t("profile.adminDashboard")}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.linkIcon} />
+            </AppPressable>
+          </>
         ) : null}
       </View>
       {(role === "admin" || role === "partner") && (

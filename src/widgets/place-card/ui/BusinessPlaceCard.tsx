@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo } from "react";
-import { PixelRatio, View, Text, useWindowDimensions } from "react-native";
+import { Dimensions, PixelRatio, View, Text } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
@@ -22,6 +22,8 @@ import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { businessPlaceCardStaticStyles, businessPlaceCardThemeStyles } from "./businessPlaceCardStyles";
 
 const PLACE_CARD_IMAGE_TRANSITION_MS = 200;
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 type VerticalLayout = "compact" | "fill";
 
@@ -167,7 +169,6 @@ function BusinessPlaceCardInner({
   const { i18n } = useTranslation();
   const queryClient = useQueryClient();
   const navigateOnce = useNavigateOnce();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isVerticalFill = variant === "vertical" && verticalLayout === "fill";
   const { user } = useAuth();
   const { colors } = useAppTheme();
@@ -205,14 +206,14 @@ function BusinessPlaceCardInner({
 
   const tags = place.tags ?? [];
   const displayTags = tags.length > 0 ? tags : [];
-  const verticalCardWidth = isVerticalFill ? (fillWidth ?? windowWidth - 32) : IMAGE_VERTICAL_W;
+  const verticalCardWidth = isVerticalFill ? (fillWidth ?? SCREEN_WIDTH - 32) : IMAGE_VERTICAL_W;
   const verticalImageThumbHeight = useMemo(() => {
     if (!isVerticalFill) return IMAGE_VERTICAL_H;
     const metaChrome = 52;
     const reasonsChrome = 72;
-    const bodyHeight = (fillHeight ?? windowHeight * 0.55) - reasonsChrome;
+    const bodyHeight = (fillHeight ?? SCREEN_HEIGHT * 0.55) - reasonsChrome;
     return Math.max(IMAGE_VERTICAL_H, Math.round(bodyHeight - metaChrome));
-  }, [fillHeight, isVerticalFill, windowHeight]);
+  }, [fillHeight, isVerticalFill]);
   const featuredVisibleTags = useMemo(
     () => pickTagsThatFitSingleRow(displayTags, verticalCardWidth - 4),
     [displayTags, verticalCardWidth],
@@ -231,9 +232,9 @@ function BusinessPlaceCardInner({
     () =>
       pickTagsThatFitSingleRow(
         displayTags,
-        Math.max(80, windowWidth - HORIZONTAL_CARD_LAYOUT_CHROME),
+        Math.max(80, SCREEN_WIDTH - HORIZONTAL_CARD_LAYOUT_CHROME),
       ),
-    [displayTags, windowWidth],
+    [displayTags],
   );
 
   if (variant === "horizontal") {

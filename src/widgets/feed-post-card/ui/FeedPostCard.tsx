@@ -76,7 +76,7 @@ export const FeedPostCard = memo(function FeedPostCard({
   isBoosted = false,
   boostPending = false,
   onBoost,
-  carouselAutoPlay = true,
+  carouselAutoPlay = false,
   onPostDeleted,
   onTitleInputLayout,
   onPressAuthor,
