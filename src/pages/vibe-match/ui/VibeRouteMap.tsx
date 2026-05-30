@@ -1,5 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -38,9 +38,25 @@ const RouteNumberMarker = memo(function RouteNumberMarker({
   labelColor,
 }: NumberedMarkerProps) {
   const coordinate = useMemo(() => ({ latitude, longitude }), [latitude, longitude]);
+  const [tracksViewChanges, setTracksViewChanges] = useState(Platform.OS === "android");
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    setTracksViewChanges(true);
+    const timer = setTimeout(() => setTracksViewChanges(false), 120);
+    return () => clearTimeout(timer);
+  }, [order, accentColor, labelColor]);
+
   return (
-    <Marker coordinate={coordinate} tracksViewChanges={false} anchor={{ x: 0.5, y: 0.5 }}>
-      <View style={[markerStyles.bubble, { backgroundColor: accentColor, borderColor: accentColor }]}>
+    <Marker
+      coordinate={coordinate}
+      tracksViewChanges={Platform.OS === "android" ? tracksViewChanges : false}
+      anchor={{ x: 0.5, y: 0.5 }}
+    >
+      <View
+        collapsable={false}
+        style={[markerStyles.bubble, { backgroundColor: accentColor, borderColor: accentColor }]}
+      >
         <Text style={[markerStyles.label, { color: labelColor }]}>{order}</Text>
       </View>
     </Marker>
