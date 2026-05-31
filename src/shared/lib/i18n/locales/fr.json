@@ -372,6 +372,8 @@
       "appleUnavailableBody": "Apple Sign-In n'est pas disponible sur cet appareil.",
       "signInFailed": "Échec de la connexion",
       "appleNoToken": "Apple n'a pas renvoyé de jeton d'identité.",
+      "googlePlayServicesTitle": "Google Play Services requis",
+      "googlePlayServicesBody": "Installez ou mettez à jour Google Play Services pour continuer.",
       "signInCancelled": "Connexion annulée ou échouée",
       "oauthError": "Erreur OAuth",
       "unknown": "Inconnu",

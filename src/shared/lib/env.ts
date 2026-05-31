@@ -20,6 +20,10 @@ type Extra = {
   pixAiMonthlySubscriptionSku?: string;
   /** Store product id for PixAI annual (Premium Plus) subscription. */
   pixAiAnnualSubscriptionSku?: string;
+  /** Google OAuth Web client ID — native Sign-In idToken + Supabase signInWithIdToken. */
+  googleWebClientId?: string;
+  /** Google OAuth iOS client ID (bundle com.pixap.pixap). */
+  googleIosClientId?: string;
 };
 
 function getExtra(): Extra {
@@ -99,6 +103,16 @@ export const env = {
       process.env.EXPO_PUBLIC_PIXAI_ANNUAL_SUBSCRIPTION_SKU ??
       "pixai_premium_annual"
     ).trim();
+  },
+  /** Web OAuth client ID (*.apps.googleusercontent.com) — required for native Google Sign-In idToken. */
+  get googleWebClientId(): string | undefined {
+    const v = getExtra().googleWebClientId ?? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+    return v?.trim() || undefined;
+  },
+  /** iOS OAuth client ID — optional at runtime if set via Expo plugin / GoogleService-Info. */
+  get googleIosClientId(): string | undefined {
+    const v = getExtra().googleIosClientId ?? process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+    return v?.trim() || undefined;
   },
   /**
    * When `1`, Supabase `/render/image/` is used (counts toward transform quota).

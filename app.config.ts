@@ -4,6 +4,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
   const googleMapsWebApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY?.trim();
   const googleMapsAndroidCertSha1 = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_CERT_SHA1?.replace(/:/g, "").trim();
+  const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
+  const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim();
+  const googleIosUrlScheme = googleIosClientId
+    ? `com.googleusercontent.apps.${googleIosClientId.replace(/\.apps\.googleusercontent\.com$/i, "")}`
+    : undefined;
   const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
   const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.0";
   const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "30";
@@ -136,6 +141,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     "expo-localization",
     "expo-apple-authentication",
     "expo-web-browser",
+    ...(googleIosUrlScheme
+      ? [
+          [
+            "@react-native-google-signin/google-signin",
+            { iosUrlScheme: googleIosUrlScheme },
+          ] as [string, { iosUrlScheme: string }],
+        ]
+      : []),
     [
       "expo-location",
       {
@@ -163,6 +176,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     stripeReturnScheme: (process.env.EXPO_PUBLIC_STRIPE_RETURN_SCHEME ?? "pixap").toLowerCase(),
     googleMapsApiKey,
     googleMapsWebApiKey,
+    googleWebClientId,
+    googleIosClientId,
     googleMapsAndroidCertSha1:
       googleMapsAndroidCertSha1 && /^[0-9a-fA-F]{40}$/.test(googleMapsAndroidCertSha1)
         ? googleMapsAndroidCertSha1.toUpperCase()
