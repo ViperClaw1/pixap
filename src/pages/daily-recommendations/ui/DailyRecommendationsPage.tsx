@@ -19,7 +19,7 @@ import type { HomeStackParamList } from "@/app/navigation/types";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { useFavorites } from "@/entities/favorite";
+import { useBusinessCard } from "@/entities/business-card";
 import {
   useDailyRecommendations,
   useTrackRecommendationEvent,
@@ -31,28 +31,27 @@ import {
   useDailyRecommendationActions,
 } from "@/features/daily-recommendations";
 import { configureDailyRecommendationsCarouselPanGesture } from "@/features/daily-recommendations/lib/configureDailyRecommendationsCarouselPanGesture";
+import { dailyRecommendationsCarouselAnimation } from "@/features/daily-recommendations/lib/dailyRecommendationsCarouselAnimation";
+import { DAILY_RECOMMENDATION_SLIDE_EDGE_INSET } from "@/features/daily-recommendations/lib/dailyRecommendationsLayout";
 import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
-import { usePostShareSheet } from "@/features/post-share";
-import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomSheet";
-import { profileAvatarDisplay } from "@/pages/stories-feed/lib/feedPostHelpers";
+import { DirectionsModal } from "@/shared/ui/directions-modal";
 import { PageI18nProvider } from "@/shared/lib/i18n";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, "DailyRecommendations">;
 type Route = RouteProp<HomeStackParamList, "DailyRecommendations">;
 
-const SLIDE_GAP = 12;
-const CAROUSEL_ANIMATION_MS = 420;
-const ANDROID_BACK_SWIPE_EDGE_WIDTH = 28;
+const PAGE_PADDING = 16;
+const ANDROID_BACK_SWIPE_EDGE_WIDTH = 24;
 
 function DailyRecommendationsPageContent() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
+  const androidEdgeSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const goBack = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
@@ -60,11 +59,11 @@ function DailyRecommendationsPageContent() {
   const [index, setIndex] = useState(0);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [carouselLayout, setCarouselLayout] = useState({ width: 0, height: 0 });
+  const [directionsOpen, setDirectionsOpen] = useState(false);
   const carouselRef = useRef<ICarouselInstance | null>(null);
   const openedOnceRef = useRef(false);
 
   const { openBookingFlow } = useSubscriptionGatedNavigation(navigation);
-  const shareSheet = usePostShareSheet(navigation);
 
   const onCarouselWrapLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -73,39 +72,19 @@ function DailyRecommendationsPageContent() {
 
   const { data: recommendations = [], isLoading } = useDailyRecommendations(targetDate);
   const trackRecommendationEvent = useTrackRecommendationEvent();
-  const { data: favorites = [] } = useFavorites();
-  const favoriteIds = useMemo(() => new Set(favorites.map((f) => f.business_card_id)), [favorites]);
 
   const visibleRecommendations = useMemo(
     () => recommendations.filter((item) => !dismissedIds.includes(item.venue_id)),
     [dismissedIds, recommendations],
   );
 
-  const slideWidth = Math.max(0, carouselLayout.width - SLIDE_GAP);
+  const slideWidth = Math.max(0, carouselLayout.width);
 
-  const openShareForRecommendation = useCallback(
-    (recommendation: DailyRecommendation) => {
-      shareSheet.openShareForPlace({
-        placeId: recommendation.venue_id,
-        placeName: recommendation.name,
-        images: recommendation.images,
-      });
-    },
-    [shareSheet],
-  );
-
-  const {
-    trackOpen,
-    trackImpression,
-    onSave,
-    onBook,
-    onShare,
-    onDismiss,
-  } = useDailyRecommendationActions({
+  const { trackOpen, trackImpression, onBook } = useDailyRecommendationActions({
     isAuthenticated: Boolean(user),
     onOpenBooking: (venueId) => openBookingFlow({ id: venueId }),
     onRequireAuth: () => navigateToProfileAuth(navigation),
-    onSharePlace: openShareForRecommendation,
+    onSharePlace: () => {},
   });
 
   useEffect(() => {
@@ -154,36 +133,48 @@ function DailyRecommendationsPageContent() {
     [trackOpen, visibleRecommendations],
   );
 
-  const handleDismiss = useCallback(
-    (recommendation: DailyRecommendation) => {
-      onDismiss(recommendation);
-      setDismissedIds((prev) => (prev.includes(recommendation.venue_id) ? prev : [...prev, recommendation.venue_id]));
-    },
-    [onDismiss],
-  );
+  const active = visibleRecommendations[index];
+  const { data: activePlace } = useBusinessCard(active?.venue_id ?? "");
+  const activeAddress = activePlace?.address?.trim() ?? "";
 
   const renderCarouselItem = useCallback(
-    ({ item }: { item: DailyRecommendation }) => (
+    ({ item, index: itemIndex }: { item: DailyRecommendation; index: number }) => (
       <DailyRecommendationSlide
         item={item}
         slideWidth={slideWidth}
         slideHeight={carouselLayout.height}
-        slideGap={SLIDE_GAP}
+        slideIndex={itemIndex}
+        slideTotal={visibleRecommendations.length}
+        addressLine={item.venue_id === active?.venue_id ? activeAddress || null : null}
+        accentColor={colors.accent}
         textMutedColor={colors.textMuted}
+        reasonCardIconColor={colors.text}
+        reasonCardBackground={colors.card}
+        reasonCardBorder={colors.border}
         heroLoadingSpinnerColor={colors.primary}
       />
     ),
-    [carouselLayout.height, colors.primary, colors.textMuted, slideWidth],
+    [
+      active?.venue_id,
+      activeAddress,
+      carouselLayout.height,
+      colors.accent,
+      colors.border,
+      colors.card,
+      colors.primary,
+      colors.text,
+      colors.textMuted,
+      slideWidth,
+      visibleRecommendations.length,
+    ],
   );
 
   const pageTitle = t("dailyRecommendations.title", { defaultValue: "Tonight for You" });
   const pageSubtitle = t("dailyRecommendations.subtitle", { defaultValue: "Fresh picks generated for your taste." });
-  const active = visibleRecommendations[index];
-  const isFavorite = active ? favoriteIds.has(active.venue_id) : false;
 
   const header = useMemo(
     () => (
-      <View style={styles.header}>
+      <View style={[styles.header, styles.contentInset]}>
         <View style={styles.headerTopRow}>
           <AppPressable
             onPress={goBack}
@@ -213,13 +204,13 @@ function DailyRecommendationsPageContent() {
           {carouselLayout.width > 0 && carouselLayout.height > 0 && slideWidth > 0 ? (
             <Carousel
               ref={carouselRef}
-              width={slideWidth + SLIDE_GAP}
+              width={slideWidth}
               height={carouselLayout.height}
-              style={{ width: carouselLayout.width }}
+              style={{ width: carouselLayout.width, height: carouselLayout.height }}
               data={visibleRecommendations}
               loop={false}
               windowSize={3}
-              scrollAnimationDuration={CAROUSEL_ANIMATION_MS}
+              withAnimation={dailyRecommendationsCarouselAnimation}
               onConfigurePanGesture={configureDailyRecommendationsCarouselPanGesture}
               onSnapToItem={handleSnapToItem}
               renderItem={renderCarouselItem}
@@ -227,7 +218,7 @@ function DailyRecommendationsPageContent() {
           ) : null}
         </View>
       ) : (
-        <View style={styles.emptyWrap}>
+        <View style={[styles.emptyWrap, styles.contentInset]}>
           <Text style={[styles.emptyText, { color: colors.textMuted }]}>
             {t("dailyRecommendations.empty", { defaultValue: "No picks for today yet. Check back soon." })}
           </Text>
@@ -235,63 +226,35 @@ function DailyRecommendationsPageContent() {
       )}
 
       {active ? (
-        <View style={styles.footer}>
+        <View style={[styles.footer, styles.contentInset]}>
           <DailyRecommendationActionsBar
             colors={colors}
-            isFavorite={isFavorite}
-            saveLabel={
-              isFavorite
-                ? t("dailyRecommendations.unsave", { defaultValue: "Unsave" })
-                : t("dailyRecommendations.save", { defaultValue: "Save" })
-            }
-            shareLabel={t("dailyRecommendations.share", { defaultValue: "Share" })}
-            dislikeLabel={t("dailyRecommendations.dislike", { defaultValue: "Dislike" })}
-            bookLabel={t("dailyRecommendations.book", { defaultValue: "Book now" })}
-            onSave={() => onSave(active, isFavorite)}
-            onShare={() => onShare(active)}
-            onDislike={() => handleDismiss(active)}
+            isDark={isDark}
+            bookTitle={t("dailyRecommendations.book", { defaultValue: "Book" })}
+            howToGetTitle={t("dailyRecommendations.howToGet", { defaultValue: "How to get" })}
             onBook={() => onBook(active)}
+            onHowToGet={() => setDirectionsOpen(true)}
             bottomInset={insets.bottom}
           />
         </View>
       ) : null}
 
-      {shareSheet.shareVisible ? (
-        <ShareBottomSheet
-          visible={shareSheet.shareVisible}
-          onClose={shareSheet.resetShareState}
-          users={shareSheet.shareUsers}
-          loading={shareSheet.shareUsersLoading}
-          searchValue={shareSheet.shareSearch}
-          onChangeSearch={shareSheet.setShareSearch}
-          resolveAvatarUri={profileAvatarDisplay}
-          sharePostId={shareSheet.sharePostId}
-          sharePlaceId={shareSheet.shareOnlyPlaceId}
-          shareStoryId={shareSheet.shareStoryId}
-          sharePostHasMedia={shareSheet.sharePostImages.length > 0}
-          sharePlaceName={shareSheet.sharePlaceName}
-          shareSending={shareSheet.shareSending}
-          sheetAlert={shareSheet.shareAlert}
-          onDismissSheetAlert={shareSheet.dismissShareAlert}
-          onShowSheetAlert={shareSheet.showShareAlertOptions}
-          hideAddToStory
-          onAddToStory={async () => {}}
-          onWhatsAppShare={shareSheet.handleShareToWhatsapp}
-          onSystemShare={shareSheet.handleSystemShare}
-          onCopyLink={shareSheet.handleCopyPostLink}
+      {active ? (
+        <DirectionsModal
+          visible={directionsOpen}
+          onClose={() => setDirectionsOpen(false)}
+          placeName={active.name}
+          address={activeAddress}
         />
       ) : null}
     </>
   );
 
   const screenShell = (body: ReactNode) => (
-    <View
-      style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top + 12 }]}
-      {...androidSwipeBackPanHandlers}
-    >
+    <View style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top + PAGE_PADDING }]}>
       {body}
       {Platform.OS === "android" ? (
-        <View style={styles.androidBackSwipeEdge} {...androidSwipeBackPanHandlers} />
+        <View style={styles.androidBackSwipeEdge} {...androidEdgeSwipeBackPanHandlers} />
       ) : null}
     </View>
   );
@@ -300,7 +263,7 @@ function DailyRecommendationsPageContent() {
     return screenShell(
       <>
         {header}
-        <View style={styles.loadingWrap}>
+        <View style={[styles.loadingWrap, styles.contentInset]}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </>,
@@ -319,8 +282,16 @@ export default function DailyRecommendationsPage() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 16 },
-  header: { marginBottom: 8 },
+  root: {
+    flex: 1,
+    paddingHorizontal: PAGE_PADDING,
+  },
+  contentInset: {
+    paddingHorizontal: DAILY_RECOMMENDATION_SLIDE_EDGE_INSET,
+  },
+  header: {
+    marginBottom: 12,
+  },
   headerTopRow: {
     position: "relative",
     minHeight: 40,
@@ -334,7 +305,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: -8,
     zIndex: 3,
   },
   headerTitle: {
@@ -349,7 +319,7 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: 6, fontSize: 14, lineHeight: 20 },
   loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
   carouselWrap: { flex: 1, minHeight: 0 },
-  footer: { marginTop: 16 },
+  footer: { marginTop: 12 },
   emptyWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyText: { textAlign: "center", fontSize: 15, lineHeight: 22 },
   androidBackSwipeEdge: {

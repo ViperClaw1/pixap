@@ -261,7 +261,7 @@ export default function HomeScreen() {
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
-                {t("home.pixAiBooking", { defaultValue: "Pix AI booking" })}
+                {t("home.pixAiBooking")}
               </Text>
             </AppPressable>
           </View>

@@ -297,6 +297,7 @@ function AIBookingPageContent() {
   const [catalogRevision, setCatalogRevision] = useState(0);
   const [confirmingBooking, setConfirmingBooking] = useState(false);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const [bookingPlaceId, setBookingPlaceId] = useState<string | null>(null);
 
   const goToAssistantStep = useCallback(() => {
     setStepDirection(-1);
@@ -311,6 +312,7 @@ function AIBookingPageContent() {
 
   useLayoutEffect(() => {
     if (currentStep !== "booking") return;
+    setBookingPlaceId(null);
     bookingScrollRef.current?.scrollTo({ y: 0, animated: false });
     bookingScrollYRef.current = 0;
   }, [currentStep]);
@@ -757,13 +759,20 @@ function AIBookingPageContent() {
 
   const searchPlacesBusy = isSearchingPlaces || isLoading;
 
-  const onBookPlace = (place: PixAIPlace) => {
-    setSelectedPlace(place);
-    setBookingDateYmd(null);
-    setSelectedSlot(null);
-    setVisibleCalendarMonth(firstOfMonthContaining(new Date()));
-    goToBookingStep();
-  };
+  const onBookPlace = useCallback(
+    (place: PixAIPlace) => {
+      if (bookingPlaceId) return;
+      setBookingPlaceId(place.id);
+      setSelectedPlace(place);
+      setBookingDateYmd(null);
+      setSelectedSlot(null);
+      setVisibleCalendarMonth(firstOfMonthContaining(new Date()));
+      requestAnimationFrame(() => {
+        goToBookingStep();
+      });
+    },
+    [bookingPlaceId, goToBookingStep],
+  );
 
   const buildScopeSearchSnapshot = useCallback(
     (searchScope: "nearby" | "city", catalogPlaces: PixAIPlace[] = []): BookingSearchSnapshot => ({
@@ -1070,6 +1079,7 @@ function AIBookingPageContent() {
             selectedPlace={selectedPlace}
             personsCount={personsCount}
             bookingTimeLabel={bookingTimeLabel}
+            bookingPlaceId={bookingPlaceId}
             onBook={onBookPlace}
           />
         ) : null}

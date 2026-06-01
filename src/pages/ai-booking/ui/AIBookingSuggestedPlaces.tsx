@@ -11,6 +11,7 @@ type Props = {
   selectedPlace: PixAIPlace | null;
   personsCount: number;
   bookingTimeLabel?: string | null;
+  bookingPlaceId?: string | null;
   onBook: (place: PixAIPlace) => void;
 };
 
@@ -20,11 +21,13 @@ export function AIBookingSuggestedPlaces({
   selectedPlace,
   personsCount,
   bookingTimeLabel,
+  bookingPlaceId = null,
   onBook,
 }: Props) {
   const { t } = useTranslation();
   const onBookPlace = useCallback((place: PixAIPlace) => onBook(place), [onBook]);
   const personsLabel = useMemo(() => t("bookings.persons", { count: personsCount }), [personsCount, t]);
+  const isBookingInFlight = bookingPlaceId !== null;
 
   return (
     <View style={s.semanticSection}>
@@ -37,6 +40,8 @@ export function AIBookingSuggestedPlaces({
           selected={selectedPlace?.id === place.id}
           personsLabel={personsLabel}
           bookingTimeLabel={bookingTimeLabel}
+          bookingLoading={bookingPlaceId === place.id}
+          bookingDisabled={isBookingInFlight}
           onBook={onBookPlace}
         />
       ))}

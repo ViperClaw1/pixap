@@ -18,6 +18,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import OAuthCallbackScreen from "@/pages/oauth-callback";
 import PrivacyPolicyScreen from "@/pages/privacy-policy";
 import NotFoundScreen from "@/pages/not-found";
+import { browseFlowSwipeBackOptions } from "./stackGestureOptions";
 import { renderBrowseFlowScreens, type BrowseFlowStackScreen } from "./BrowseFlowScreens";
 import MessagesScreen from "@/pages/messages";
 import MessageThreadScreen from "@/pages/message-thread";
@@ -60,7 +61,7 @@ function HomeStackNavigator() {
       <HomeStack.Screen
         name="DailyRecommendations"
         getComponent={() => require("@/pages/daily-recommendations").default}
-        options={fullWidthSwipeBackOptions}
+        options={browseFlowSwipeBackOptions}
       />
       {renderBrowseFlowScreens(HomeStack.Screen as BrowseFlowStackScreen)}
       <HomeStack.Screen name="OAuthCallback" component={OAuthCallbackScreen} />
