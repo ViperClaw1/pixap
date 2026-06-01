@@ -19,7 +19,7 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
-import { tintForTagKey } from "@/shared/lib/tagTint";
+import { tagTextColorForTint, tintForTagKey } from "@/shared/lib/tagTint";
 import { businessPlaceCardStaticStyles, businessPlaceCardThemeStyles } from "./businessPlaceCardStyles";
 
 const PLACE_CARD_IMAGE_TRANSITION_MS = 200;
@@ -42,6 +42,8 @@ type Props = {
   heroLoadingSpinnerColor?: string;
   /** Defaults to `PlaceDetail` for `place.id` when omitted (stable props for list memo). */
   onOpen?: () => void;
+  /** Higher-contrast tag labels; pill background tint is unchanged. */
+  enhancedTagContrast?: boolean;
 };
 
 const IMAGE_HORIZONTAL = 96;
@@ -76,11 +78,20 @@ function resolvePlaceRating(rating: number | null | undefined): number | null {
   return rating;
 }
 
-function renderColoredTag(tag: string, pillStyle: object, textStyle: object) {
+function renderColoredTag(
+  tag: string,
+  pillStyle: object,
+  textStyle: object,
+  options?: { enhancedTextContrast?: boolean; isDark?: boolean },
+) {
   const tint = tintForTagKey(tag);
+  const textColor =
+    options?.enhancedTextContrast && options.isDark != null
+      ? tagTextColorForTint(tint, options.isDark)
+      : tint;
   return (
     <View key={tag} style={[pillStyle, { backgroundColor: `${tint}33` }]}>
-      <Text style={[textStyle, { color: tint }]} numberOfLines={1}>
+      <Text style={[textStyle, { color: textColor }]} numberOfLines={1}>
         {tag}
       </Text>
     </View>
@@ -143,6 +154,7 @@ function placeCardPropsEqual(prev: Props, next: Props): boolean {
   if (prev.fillHeight !== next.fillHeight) return false;
   if (prev.showHeroLoadingSpinner !== next.showHeroLoadingSpinner) return false;
   if (prev.heroLoadingSpinnerColor !== next.heroLoadingSpinnerColor) return false;
+  if (prev.enhancedTagContrast !== next.enhancedTagContrast) return false;
   if (prev.place.id !== next.place.id) return false;
   const prevThumb = prev.place.images?.[0] ?? prev.place.image ?? "";
   const nextThumb = next.place.images?.[0] ?? next.place.image ?? "";
@@ -232,6 +244,7 @@ function BusinessPlaceCardInner({
   showHeroLoadingSpinner,
   heroLoadingSpinnerColor,
   onOpen,
+  enhancedTagContrast = false,
 }: Props) {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { i18n } = useTranslation();
@@ -239,7 +252,12 @@ function BusinessPlaceCardInner({
   const navigateOnce = useNavigateOnce();
   const isVerticalFill = variant === "vertical" && verticalLayout === "fill";
   const { user } = useAuth();
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
+
+  const tagRenderOptions = useMemo(
+    () => ({ enhancedTextContrast: enhancedTagContrast, isDark }),
+    [enhancedTagContrast, isDark],
+  );
 
   const handlePressIn = useCallback(() => {
     void prefetchBusinessCard(queryClient, place.id, i18n.language);
@@ -343,7 +361,9 @@ function BusinessPlaceCardInner({
             ) : null}
           </View>
           <View style={styles.hTagsRow}>
-            {horizontalVisibleTags.map((tag) => renderColoredTag(tag, styles.tagPill, styles.tagText))}
+            {horizontalVisibleTags.map((tag) =>
+              renderColoredTag(tag, styles.tagPill, styles.tagText, tagRenderOptions),
+            )}
           </View>
         </View>
       </AppPressable>
@@ -388,7 +408,9 @@ function BusinessPlaceCardInner({
         </Text>
         {featuredVisibleTags.length > 0 ? (
           <View style={styles.vTagsRow}>
-            {featuredVisibleTags.map((tag) => renderColoredTag(tag, styles.vTagPill, styles.vTagText))}
+            {featuredVisibleTags.map((tag) =>
+              renderColoredTag(tag, styles.vTagPill, styles.vTagText, tagRenderOptions),
+            )}
           </View>
         ) : null}
       </View>

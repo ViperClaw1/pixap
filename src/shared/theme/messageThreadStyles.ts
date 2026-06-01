@@ -64,6 +64,14 @@ export const messageThreadStaticStyles = StyleSheet.create({
   },
   list: { flex: 1 },
   listWrap: { flex: 1 },
+  /** Android-only sticky footer dock (MessageThreadPage). */
+  androidFooterDock: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9,
+  },
   scrollToBottomBtn: {
     position: "absolute",
     right: 12,

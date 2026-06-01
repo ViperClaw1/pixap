@@ -212,7 +212,7 @@ export default function HomeScreen() {
   const renderFeaturedRow = useCallback<ListRenderItem<BusinessCard>>(
     ({ item }) => (
       <View style={styles.featuredCardWrap}>
-        <BusinessPlaceCard place={item} variant="vertical" />
+        <BusinessPlaceCard place={item} variant="vertical" enhancedTagContrast />
       </View>
     ),
     [styles.featuredCardWrap],
@@ -221,7 +221,7 @@ export default function HomeScreen() {
   const renderRecommendedRow = useCallback<ListRenderItem<BusinessCard>>(
     ({ item }) => (
       <View style={styles.recommendedItemWrap}>
-        <BusinessPlaceCard place={item} variant="horizontal" />
+        <BusinessPlaceCard place={item} variant="horizontal" enhancedTagContrast />
       </View>
     ),
     [styles.recommendedItemWrap],

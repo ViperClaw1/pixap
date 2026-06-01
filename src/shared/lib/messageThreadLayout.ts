@@ -8,6 +8,11 @@ export const COMPOSER_TRAILING_GAP = 6;
 export const FOOTER_VERTICAL_PADDING = 10;
 /** Android adjustResize: trim footer lift so composer is not over-shifted. */
 export const MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX = 48;
+/**
+ * Android pan undershoot + IME toolbar (MessageThread only).
+ * Drives `translateY` on `androidFooterDock` via useMessageThreadAndroidFooterLift.
+ */
+export const MESSAGE_THREAD_ANDROID_PAN_CLEARANCE_PX = 24;
 /** Extra lift above the keyboard for composer + list scroll room. */
 export const MESSAGE_THREAD_KEYBOARD_GAP = 32;
 

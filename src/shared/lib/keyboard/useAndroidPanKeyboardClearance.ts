@@ -126,5 +126,5 @@ export function useAndroidPanKeyboardClearance(
     [extraLift],
   );
 
-  return { androidLiftStyle, onComposerFocus, onComposerBlur };
+  return { androidLiftStyle, onComposerFocus, onComposerBlur, extraLift };
 }
