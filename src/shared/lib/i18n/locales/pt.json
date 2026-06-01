@@ -395,8 +395,6 @@
       "appleUnavailableBody": "Apple Sign-In não está disponível neste dispositivo.",
       "signInFailed": "Falha no início de sessão",
       "appleNoToken": "A Apple não devolveu um token de identidade.",
-      "googlePlayServicesTitle": "Google Play Services necessários",
-      "googlePlayServicesBody": "Instale ou atualize o Google Play Services para continuar.",
       "signInCancelled": "Início de sessão cancelado ou falhou",
       "oauthError": "Erro OAuth",
       "unknown": "Desconhecido",
@@ -718,7 +716,8 @@
     "following": "A seguir",
     "message": "Mensagem",
     "notFound": "Perfil não encontrado",
-    "retry": "Tentar novamente"
+    "retry": "Tentar novamente",
+    "bioPlaceholder": "Este utilizador ainda não adicionou uma biografia."
   },
   "errorBoundary": {
     "retry": "Tentar novamente",

@@ -23,9 +23,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/shared/api/supabase/client";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession";
-import { isNativeGoogleSignInAvailable, signInWithGoogleNative } from "@/features/google-sign-in";
 import { env } from "@/shared/lib/env";
 import { getOAuthRedirectUri } from "@/shared/lib/oauthRedirect";
+import { isNewAuthRegistration } from "@/shared/lib/auth/isNewAuthRegistration";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 
 type PostAuthRoute = "ProfileMain" | "EditProfile";
@@ -160,6 +160,15 @@ export default function AuthScreen() {
     setAuthTransition(true);
   }, []);
 
+  const resolveSocialPostAuthRoute = useCallback(async (): Promise<PostAuthRoute> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const authUser = session?.user;
+    if (authUser && isNewAuthRegistration(authUser)) {
+      return "EditProfile";
+    }
+    return "ProfileMain";
+  }, []);
+
   useEffect(() => {
     if (authLoading || !user || !authTransition) return;
     setAuthTransition(false);
@@ -188,27 +197,6 @@ export default function AuthScreen() {
     try {
       const isExpoGo = Constants.appOwnership === "expo";
       devInfo("[Auth][social] provider:", provider, "platform:", Platform.OS, "expoGo:", isExpoGo);
-      if (provider === "google" && isNativeGoogleSignInAvailable()) {
-        const result = await signInWithGoogleNative();
-        if (result.ok) {
-          beginAuthTransition("ProfileMain");
-          keepLoading = true;
-          return;
-        }
-        if (result.cancelled) {
-          showUserAlert(t("auth.alerts.signInCancelled"), undefined, "info");
-          return;
-        }
-        if (result.message.includes("Google Play Services")) {
-          showUserAlert(
-            t("auth.alerts.googlePlayServicesTitle"),
-            t("auth.alerts.googlePlayServicesBody"),
-          );
-          return;
-        }
-        showUserAlert(t("auth.alerts.signInFailed"), result.message);
-        return;
-      }
 
       if (provider === "apple" && Platform.OS === "ios" && !isExpoGo) {
         const isAvailable = await AppleAuthentication.isAvailableAsync();
@@ -242,7 +230,7 @@ export default function AuthScreen() {
           return;
         }
         devInfo("[Apple][native] signInWithIdToken success");
-        beginAuthTransition("ProfileMain");
+        beginAuthTransition(await resolveSocialPostAuthRoute());
         keepLoading = true;
         return;
       }
@@ -276,7 +264,7 @@ export default function AuthScreen() {
           showUserAlert(t("auth.alerts.signInFailed"), finished.message);
           return;
         }
-        beginAuthTransition("ProfileMain");
+        beginAuthTransition(await resolveSocialPostAuthRoute());
         keepLoading = true;
         return;
       }
