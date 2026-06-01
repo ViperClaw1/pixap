@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { InteractionManager, Text, View } from "react-native";
+import { InteractionManager, Platform, Text, View } from "react-native";
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -27,12 +27,13 @@ import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessage
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-// Fires SplashScreen.hide() only after React has committed the first frame to the
-// native layer — prevents the blank frame visible on Android when hide() is called
-// synchronously before the JS render cycle has completed.
+// Android: hide splash only after React commits the first frame — avoids a blank white flash.
+// iOS: hide runs synchronously in bootstrap before setReady (see App effect below).
 function HideSplash() {
   useEffect(() => {
-    void SplashScreen.hide();
+    if (Platform.OS === "android") {
+      void SplashScreen.hide();
+    }
   }, []);
   return null;
 }
@@ -119,9 +120,10 @@ export default function App() {
         await bootstrapI18n();
         markStartup("i18n_bootstrap_done");
         if (!cancelled) {
+          if (Platform.OS === "ios") {
+            void SplashScreen.hide();
+          }
           setReady(true);
-          // SplashScreen.hide() is deferred to HideSplash component's useEffect
-          // to guarantee the native layer has a committed frame before the splash hides.
           markStartup("splash_hidden");
         }
         const seen = await permsPromise;
@@ -140,6 +142,9 @@ export default function App() {
         });
       } catch (error) {
         if (!cancelled) {
+          if (Platform.OS === "ios") {
+            void SplashScreen.hide();
+          }
           setBootError(error instanceof Error ? error.message : "Startup failed");
           setReady(true);
         }
@@ -162,7 +167,7 @@ export default function App() {
     <AppProviders>
       {!ready ? null : (
         <>
-          <HideSplash />
+          {Platform.OS === "android" ? <HideSplash /> : null}
           {bootError || supabaseConfigError ? (
             <View style={{ flex: 1, backgroundColor: "#111", alignItems: "center", justifyContent: "center", padding: 20 }}>
               <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>Configuration error</Text>

@@ -13,6 +13,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -28,6 +29,7 @@ import { isAuthRequiredError } from "@/shared/lib/auth/authRequired";
 import { useDeletePost, useUpdatePost } from "@/entities/post";
 import { AppPopupModal, appAlert } from "@/shared/ui/app-popup";
 import { UgcModerationOverflow } from "@/features/ugc-moderation";
+import { prefetchBusinessCard } from "@/shared/lib/navigation/prefetchBusinessCard";
 
 interface FeedPostCardProps {
   vm: FeedPostVm;
@@ -82,7 +84,8 @@ export const FeedPostCard = memo(function FeedPostCard({
   onPressAuthor,
 }: FeedPostCardProps) {
   const { colors } = useAppTheme();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
   const item = vm.post;
   const updatePostMutation = useUpdatePost();
   const deletePostMutation = useDeletePost();
@@ -120,6 +123,11 @@ export const FeedPostCard = memo(function FeedPostCard({
       onTitleInputLayout?.({ y, height: h });
     });
   }, [onTitleInputLayout]);
+
+  const handleBookPressIn = useCallback(() => {
+    if (!item.place_id) return;
+    void prefetchBusinessCard(queryClient, item.place_id, i18n.language);
+  }, [i18n.language, item.place_id, queryClient]);
 
   const startEditTitle = useCallback(() => {
     setTitleDraft(postContent);
@@ -370,7 +378,11 @@ export const FeedPostCard = memo(function FeedPostCard({
               <FontAwesome6 name="share" size={20} color={colors.text} />
             </Pressable>
             {item.place_id ? (
-              <Pressable style={[styles.bookBtn, { backgroundColor: colors.accent }]} onPress={onBookNow}>
+              <Pressable
+                style={[styles.bookBtn, { backgroundColor: colors.accent }]}
+                onPressIn={handleBookPressIn}
+                onPress={onBookNow}
+              >
                 <Ionicons name="calendar-outline" size={14} color={colors.onAccent} />
                 <Text style={[styles.bookBtnText, { color: colors.onAccent }]}>Book</Text>
               </Pressable>

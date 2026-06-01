@@ -1,20 +1,9 @@
-import { useCallback, useRef } from "react";
+import { useNavigationGuard } from "./useNavigationGuard";
 
-const DEFAULT_RESET_MS = 400;
+const DEFAULT_RESET_MS = 500;
 
-/** Prevents double navigation from rapid taps on Android. */
+/** Prevents double navigation from rapid taps. */
 export function useNavigateOnce(resetMs = DEFAULT_RESET_MS) {
-  const navigatingRef = useRef(false);
-
-  return useCallback(
-    (action: () => void) => {
-      if (navigatingRef.current) return;
-      navigatingRef.current = true;
-      action();
-      setTimeout(() => {
-        navigatingRef.current = false;
-      }, resetMs);
-    },
-    [resetMs],
-  );
+  const { guardAction } = useNavigationGuard(resetMs);
+  return guardAction;
 }

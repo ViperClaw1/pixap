@@ -3,6 +3,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { View, Text, TextInput, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -25,6 +26,8 @@ import { useExpandVisibleBatch } from "@/shared/lib/useExpandVisibleBatch";
 import { ShowMoreButton } from "@/shared/ui/show-more-button";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { ShimmerProvider, PlaceRowSkeletonList } from "@/shared/ui/shimmer";
+import { prefetchBusinessCard } from "@/shared/lib/navigation/prefetchBusinessCard";
+import { useNavigationGuard } from "@/shared/lib/navigation/useNavigationGuard";
 import { searchStaticStyles, searchThemeStyles } from "./searchStyles";
 
 type Nav = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
@@ -34,17 +37,22 @@ const PLACE_CARD_MAX_TAGS = 3;
 type SearchPlaceRowProps = {
   item: BusinessCard;
   styles: ReturnType<typeof mergeStaticAndThemed<typeof searchStaticStyles>>;
+  onPressIn: (id: string) => void;
   onPress: (id: string) => void;
 };
 
-function SearchPlaceRow({ item, styles, onPress }: SearchPlaceRowProps) {
+function SearchPlaceRow({ item, styles, onPressIn, onPress }: SearchPlaceRowProps) {
   const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
   const heroRaw = getPrimaryBusinessCardImage(item.images);
   const heroDisplay = getBusinessCardDisplayUrl(heroRaw, { layoutPx: 168, layoutPxHeight: 168 });
   const coverBlurhash = getBusinessCardCoverBlurhash(item.blurhashes);
 
   return (
-    <AppPressable style={styles.row} onPress={() => onPress(item.id)}>
+    <AppPressable
+      style={styles.row}
+      onPressIn={() => onPressIn(item.id)}
+      onPress={() => onPress(item.id)}
+    >
       <SmartImage
         uri={heroDisplay}
         fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
@@ -80,8 +88,10 @@ function SearchPlaceRow({ item, styles, onPress }: SearchPlaceRowProps) {
 }
 
 export default function SearchScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation<Nav>();
+  const queryClient = useQueryClient();
+  const { guardedNavigate } = useNavigationGuard();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const { colors, mode, setMode } = useAppTheme();
   const toggleThemeMode = () => {
@@ -128,11 +138,18 @@ export default function SearchScreen() {
     setVisibleCount(PLACE_LIST_BATCH_SIZE);
   }, []);
 
+  const handleResultPressIn = useCallback(
+    (placeId: string) => {
+      void prefetchBusinessCard(queryClient, placeId, i18n.language);
+    },
+    [i18n.language, queryClient],
+  );
+
   const openPlace = useCallback(
     (id: string) => {
-      navigation.navigate("PlaceDetail", { id });
+      guardedNavigate("PlaceDetail", { id });
     },
-    [navigation],
+    [guardedNavigate],
   );
 
   const handleShowMore = useCallback(() => {
@@ -212,7 +229,13 @@ export default function SearchScreen() {
             </View>
           ) : (
             visibleFiltered.map((item) => (
-              <SearchPlaceRow key={item.id} item={item} styles={styles} onPress={openPlace} />
+              <SearchPlaceRow
+                key={item.id}
+                item={item}
+                styles={styles}
+                onPressIn={handleResultPressIn}
+                onPress={openPlace}
+              />
             ))
           )}
           {!showEmptyState ? listFooter : null}

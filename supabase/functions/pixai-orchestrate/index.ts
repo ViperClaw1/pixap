@@ -187,6 +187,17 @@ function addMinutes(d: Date, m: number): Date {
   return new Date(d.getTime() + m * 60_000);
 }
 
+const VIBE_SLOT_GRID_MS = 30 * 60_000;
+
+function snapIsoToThirtyMinuteGrid(iso: string, nowMs = Date.now()): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return iso;
+  const { startMs, endMs } = getVibeBookingWindow(nowMs);
+  const clamped = Math.min(endMs, Math.max(startMs, t));
+  const ceiled = Math.ceil(clamped / VIBE_SLOT_GRID_MS) * VIBE_SLOT_GRID_MS;
+  return new Date(Math.min(endMs, Math.max(startMs, ceiled))).toISOString();
+}
+
 type VibePlanDraft = {
   venue_id: string;
   name: string;
@@ -204,13 +215,14 @@ function buildVibePlanFromRows(rows: RpcVibeRow[], timeline: VibeTimeline, stopL
 
   for (const r of rows) {
     if (plan.length >= stopLimit) break;
-    const timeSlot = addMinutes(anchor, stopIndex * (VIBE_STOP_SPACING_MS / 60_000));
-    if (!isTimeSlotInVibeBookingWindow(timeSlot.toISOString(), nowMs)) continue;
+    const rawSlot = addMinutes(anchor, stopIndex * (VIBE_STOP_SPACING_MS / 60_000));
+    const timeSlot = snapIsoToThirtyMinuteGrid(rawSlot.toISOString(), nowMs);
+    if (!isTimeSlotInVibeBookingWindow(timeSlot, nowMs)) continue;
 
     plan.push({
       venue_id: String(r.venue_id),
       name: String(r.name ?? ""),
-      time_slot: timeSlot.toISOString(),
+      time_slot: timeSlot,
       vibe_score: Number(r.vibe_score ?? 0),
       description: (r.description ?? "").slice(0, 280),
       booking_price: Number(r.booking_price ?? 0),
