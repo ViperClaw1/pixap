@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
 import { InteractionManager, Platform, Text, View } from "react-native";
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
@@ -28,7 +28,7 @@ import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessage
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 // Android: hide splash only after React commits the first frame — avoids a blank white flash.
-// iOS: hide runs synchronously in bootstrap before setReady (see App effect below).
+// iOS: hide runs in NavigationContainer.onReady (or useLayoutEffect on non-nav boot screens).
 function HideSplash() {
   useEffect(() => {
     if (Platform.OS === "android") {
@@ -38,8 +38,26 @@ function HideSplash() {
   return null;
 }
 
+function BootErrorScreen({ message }: { message: string }) {
+  useLayoutEffect(() => {
+    void SplashScreen.hide();
+  }, []);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#111", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>Configuration error</Text>
+      <Text style={{ color: "#ddd", textAlign: "center" }}>{message}</Text>
+    </View>
+  );
+}
+
 function PermissionsOnboardingLazy({ onComplete }: { onComplete: () => void }) {
   const Screen = useMemo(() => require("@/pages/permissions-onboarding").default, []);
+
+  useLayoutEffect(() => {
+    void SplashScreen.hide();
+  }, []);
+
   return <Screen onComplete={onComplete} />;
 }
 
@@ -47,7 +65,7 @@ if (__DEV__) {
   resetStartupTiming();
 }
 
-function NavigationRoot() {
+function NavigationRoot({ onFirstFrame }: { onFirstFrame?: () => void }) {
   const { colors, isDark } = useAppTheme();
   const toastConfig = useAppToastConfig(colors);
 
@@ -90,6 +108,7 @@ function NavigationRoot() {
         linking={linking}
         theme={navigationTheme}
         onReady={() => {
+          onFirstFrame?.();
           markStartup("navigation_container_ready");
           void consumeInitialPushNotificationResponse();
         }}
@@ -120,11 +139,7 @@ export default function App() {
         await bootstrapI18n();
         markStartup("i18n_bootstrap_done");
         if (!cancelled) {
-          if (Platform.OS === "ios") {
-            void SplashScreen.hide();
-          }
           setReady(true);
-          markStartup("splash_hidden");
         }
         const seen = await permsPromise;
         if (!cancelled) {
@@ -142,9 +157,6 @@ export default function App() {
         });
       } catch (error) {
         if (!cancelled) {
-          if (Platform.OS === "ios") {
-            void SplashScreen.hide();
-          }
           setBootError(error instanceof Error ? error.message : "Startup failed");
           setReady(true);
         }
@@ -163,20 +175,24 @@ export default function App() {
     setShowPerms(false);
   }, []);
 
+  const hideSplashOnFirstFrame = useCallback(() => {
+    void SplashScreen.hide();
+    markStartup("splash_hidden");
+  }, []);
+
   return (
     <AppProviders>
       {!ready ? null : (
         <>
           {Platform.OS === "android" ? <HideSplash /> : null}
           {bootError || supabaseConfigError ? (
-            <View style={{ flex: 1, backgroundColor: "#111", alignItems: "center", justifyContent: "center", padding: 20 }}>
-              <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>Configuration error</Text>
-              <Text style={{ color: "#ddd", textAlign: "center" }}>{bootError ?? supabaseConfigError}</Text>
-            </View>
+            <BootErrorScreen message={bootError ?? supabaseConfigError ?? "Startup failed"} />
           ) : showPerms ? (
             <PermissionsOnboardingLazy onComplete={() => void onPermsDone()} />
           ) : (
-            <NavigationRoot />
+            <NavigationRoot
+              onFirstFrame={Platform.OS === "ios" ? hideSplashOnFirstFrame : undefined}
+            />
           )}
         </>
       )}

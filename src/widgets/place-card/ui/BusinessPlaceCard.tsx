@@ -19,6 +19,7 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
+import { tintForTagKey } from "@/shared/lib/tagTint";
 import { businessPlaceCardStaticStyles, businessPlaceCardThemeStyles } from "./businessPlaceCardStyles";
 
 const PLACE_CARD_IMAGE_TRANSITION_MS = 200;
@@ -70,6 +71,71 @@ function pickTagsThatFitSingleRow(tags: string[], availableWidth: number): strin
   return picked;
 }
 
+function resolvePlaceRating(rating: number | null | undefined): number | null {
+  if (rating == null || !Number.isFinite(rating) || rating <= 0) return null;
+  return rating;
+}
+
+function renderColoredTag(tag: string, pillStyle: object, textStyle: object) {
+  const tint = tintForTagKey(tag);
+  return (
+    <View key={tag} style={[pillStyle, { backgroundColor: `${tint}33` }]}>
+      <Text style={[textStyle, { color: tint }]} numberOfLines={1}>
+        {tag}
+      </Text>
+    </View>
+  );
+}
+
+type PlaceNameWithRatingProps = {
+  name: string;
+  rating: number | null;
+  nameRowStyle: object;
+  nameStyle: object;
+  ratingRowStyle: object;
+  ratingTextStyle: object;
+};
+
+function PlaceNameWithRating({
+  name,
+  rating,
+  nameRowStyle,
+  nameStyle,
+  ratingRowStyle,
+  ratingTextStyle,
+}: PlaceNameWithRatingProps) {
+  return (
+    <View style={nameRowStyle}>
+      <Text style={nameStyle} numberOfLines={1}>
+        {name}
+      </Text>
+      {rating != null ? (
+        <View style={ratingRowStyle}>
+          <Ionicons name="star" size={12} color="#eab308" />
+          <Text style={ratingTextStyle}>{rating.toFixed(1)}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function PlaceImageRatingBadge({
+  rating,
+  style,
+  textStyle,
+}: {
+  rating: number;
+  style: object;
+  textStyle: object;
+}) {
+  return (
+    <View style={style} pointerEvents="none">
+      <Ionicons name="star" size={10} color="#eab308" />
+      <Text style={textStyle}>{rating.toFixed(1)}</Text>
+    </View>
+  );
+}
+
 function placeCardPropsEqual(prev: Props, next: Props): boolean {
   if (prev.variant !== next.variant || prev.onOpen !== next.onOpen) return false;
   if ((prev.verticalLayout ?? "compact") !== (next.verticalLayout ?? "compact")) return false;
@@ -85,7 +151,9 @@ function placeCardPropsEqual(prev: Props, next: Props): boolean {
   return (
     prevThumb === nextThumb &&
     prevBlur === nextBlur &&
-    prev.place.name === next.place.name
+    prev.place.name === next.place.name &&
+    prev.place.rating === next.place.rating &&
+    (prev.place.tags ?? []).join("|") === (next.place.tags ?? []).join("|")
   );
 }
 
@@ -206,6 +274,7 @@ function BusinessPlaceCardInner({
 
   const tags = place.tags ?? [];
   const displayTags = tags.length > 0 ? tags : [];
+  const rating = resolvePlaceRating(place.rating);
   const verticalCardWidth = isVerticalFill ? (fillWidth ?? SCREEN_WIDTH - 32) : IMAGE_VERTICAL_W;
   const verticalImageThumbHeight = useMemo(() => {
     if (!isVerticalFill) return IMAGE_VERTICAL_H;
@@ -259,9 +328,14 @@ function BusinessPlaceCardInner({
         </View>
         <View style={styles.hBody}>
           <View>
-            <Text style={styles.hTitle} numberOfLines={1}>
-              {place.name}
-            </Text>
+            <PlaceNameWithRating
+              name={place.name}
+              rating={rating}
+              nameRowStyle={styles.nameRow}
+              nameStyle={styles.hTitle}
+              ratingRowStyle={styles.ratingRow}
+              ratingTextStyle={styles.ratingText}
+            />
             {place.address?.trim() ? (
               <Text style={styles.hAddress} numberOfLines={2}>
                 {place.address.trim()}
@@ -269,13 +343,7 @@ function BusinessPlaceCardInner({
             ) : null}
           </View>
           <View style={styles.hTagsRow}>
-            {horizontalVisibleTags.map((tag) => (
-              <View key={tag} style={styles.tagPill}>
-                <Text style={styles.tagText} numberOfLines={1}>
-                  {tag}
-                </Text>
-              </View>
-            ))}
+            {horizontalVisibleTags.map((tag) => renderColoredTag(tag, styles.tagPill, styles.tagText))}
           </View>
         </View>
       </AppPressable>
@@ -306,10 +374,13 @@ function BusinessPlaceCardInner({
             likedColor={colors.danger}
           />
         </AppPressable>
-        <View style={styles.vRatingPill}>
-          <Ionicons name="star" size={12} color="#eab308" />
-          <Text style={styles.vRatingText}>{Number(place.rating).toFixed(1)}</Text>
-        </View>
+        {rating != null ? (
+          <PlaceImageRatingBadge
+            rating={rating}
+            style={styles.vRatingBadge}
+            textStyle={styles.vRatingBadgeText}
+          />
+        ) : null}
       </View>
       <View style={styles.vMeta}>
         <Text style={styles.vName} numberOfLines={1}>
@@ -317,13 +388,7 @@ function BusinessPlaceCardInner({
         </Text>
         {featuredVisibleTags.length > 0 ? (
           <View style={styles.vTagsRow}>
-            {featuredVisibleTags.map((tag) => (
-              <View key={`${place.id}-v-tag-${tag}`} style={styles.vTagPill}>
-                <Text style={styles.vTagText} numberOfLines={1}>
-                  {tag}
-                </Text>
-              </View>
-            ))}
+            {featuredVisibleTags.map((tag) => renderColoredTag(tag, styles.vTagPill, styles.vTagText))}
           </View>
         ) : null}
       </View>

@@ -71,7 +71,12 @@ const validateUsername = (value: string): string | null => {
 function EditProfileScreenContent() {
   const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList, "EditProfile">>();
-  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
+  const leaveToProfileMain = useCallback(() => {
+    navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
+  }, [navigation]);
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
+    swipeBackFallback: leaveToProfileMain,
+  });
   const { colors, mode, setMode } = useAppTheme();
   const { user } = useAuth();
   const { data: profile } = useProfile();
@@ -352,7 +357,7 @@ function EditProfileScreenContent() {
         title={t("header.editProfile")}
         compactTitle
         leftIcon="arrow-back"
-        onLeftPress={() => navigation.goBack()}
+        onLeftPress={() => (navigation.canGoBack() ? navigation.goBack() : leaveToProfileMain())}
         rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
         onRightPress={toggleThemeMode}
       />

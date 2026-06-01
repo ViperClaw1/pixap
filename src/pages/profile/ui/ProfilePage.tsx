@@ -141,8 +141,14 @@ function ProfileScreenContent() {
   }, [isScreenFocused]);
 
   const openEditProfile = useCallback(() => {
+    Keyboard.dismiss();
     ensureEditProfileScreenReady();
-    navigation.navigate("EditProfile");
+    if (navigation.getState().routes[navigation.getState().index]?.name === "EditProfile") {
+      return;
+    }
+    // push keeps ProfileMain under EditProfile; navigate() can pop back to an older
+    // EditProfile route and leave nothing to swipe back to (canGoBack() === false).
+    navigation.push("EditProfile");
   }, [navigation]);
 
   useEffect(() => {
@@ -699,6 +705,7 @@ function ProfileScreenContent() {
             <AppPressable
               key={item.key}
               style={[linkRowStyle, isLastInCard ? styles.linkLastInCard : null]}
+              onPressIn={item.key === "settings" ? ensureEditProfileScreenReady : undefined}
               onPress={item.onPress}
             >
               <Ionicons name={item.icon} size={20} color={colors.textMuted} style={styles.linkIcon} />
