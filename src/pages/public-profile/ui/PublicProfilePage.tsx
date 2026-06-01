@@ -209,7 +209,7 @@ export default function PublicProfilePage() {
 
           <View style={[styles.bioCard, { marginTop: 20 }]}>
             <Text style={styles.bioLabel}>{t("profile.bio.label")}</Text>
-            <Text style={styles.bioText}>{profile.bio?.trim() || t("profile.bio.placeholder")}</Text>
+            <Text style={styles.bioText}>{profile.bio?.trim() || t("publicProfile.bioPlaceholder")}</Text>
           </View>
         </ScrollView>
       )}

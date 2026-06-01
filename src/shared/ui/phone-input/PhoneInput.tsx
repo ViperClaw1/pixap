@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Pressable,
@@ -31,6 +31,8 @@ type Props = {
   containerStyle?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   pickerTitle?: string;
+  inputRef?: Ref<TextInput>;
+  onFocus?: () => void;
 };
 
 export function PhoneInput({
@@ -42,6 +44,8 @@ export function PhoneInput({
   containerStyle,
   textStyle,
   pickerTitle = "Select country",
+  inputRef,
+  onFocus,
 }: Props) {
   const { i18n } = useTranslation();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -95,6 +99,7 @@ export function PhoneInput({
         </Pressable>
         <Text style={styles.callingCodeText}>+{value.callingCode}</Text>
         <TextInput
+          ref={inputRef}
           style={[styles.input, textStyle]}
           value={value.nationalDigits}
           onChangeText={handleChangeText}
@@ -103,6 +108,7 @@ export function PhoneInput({
           placeholderTextColor={colors.textMuted}
           maxLength={maxDigits}
           onBlur={onBlur}
+          onFocus={onFocus}
         />
       </View>
 

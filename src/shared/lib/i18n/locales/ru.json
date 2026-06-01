@@ -534,8 +534,6 @@
       "appleUnavailableBody": "Вход через Apple недоступен на этом устройстве.",
       "signInFailed": "Не удалось войти",
       "appleNoToken": "Apple не вернул токен.",
-      "googlePlayServicesTitle": "Нужны Google Play Services",
-      "googlePlayServicesBody": "Установите или обновите Google Play Services, чтобы продолжить.",
       "signInCancelled": "Вход отменён или не удался",
       "oauthError": "Ошибка OAuth",
       "unknown": "Неизвестно",
@@ -967,7 +965,8 @@
     "following": "В подписках",
     "message": "Написать",
     "notFound": "Профиль не найден",
-    "retry": "Повторить"
+    "retry": "Повторить",
+    "bioPlaceholder": "Пользователь пока не добавил описание."
   },
   "aiConsent": {
     "title": "Передача данных в AI",

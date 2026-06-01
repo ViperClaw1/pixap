@@ -395,8 +395,6 @@
       "appleUnavailableBody": "Apple Sign-In ist auf diesem Gerät nicht verfügbar.",
       "signInFailed": "Anmeldung fehlgeschlagen",
       "appleNoToken": "Apple hat kein Identitätstoken zurückgegeben.",
-      "googlePlayServicesTitle": "Google Play-Dienste erforderlich",
-      "googlePlayServicesBody": "Installieren oder aktualisieren Sie Google Play-Dienste, um fortzufahren.",
       "signInCancelled": "Anmeldung abgebrochen oder fehlgeschlagen",
       "oauthError": "OAuth-Fehler",
       "unknown": "Unbekannt",
@@ -718,7 +716,8 @@
     "following": "Folge ich",
     "message": "Nachricht",
     "notFound": "Profil nicht gefunden",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "bioPlaceholder": "Dieser Nutzer hat noch keine Bio hinzugefügt."
   },
   "errorBoundary": {
     "retry": "Erneut versuchen",

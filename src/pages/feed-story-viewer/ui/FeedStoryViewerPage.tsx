@@ -160,6 +160,7 @@ export default function FeedStoryViewerPage() {
   const { extraInset: androidComposerLift, recalculate: recalculateAndroidComposerLift } =
     useFocusedOverlapKeyboardInset({
       gap: COMPOSER_ANDROID_KEYBOARD_GAP,
+      compensateAppliedLift: true,
       getFocusedInput: () => composerInputRef.current,
       enabled: Platform.OS === "android",
       onKeyboardChange: (_keyboardTop, keyboardHeight) => {

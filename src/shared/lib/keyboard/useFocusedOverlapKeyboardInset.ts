@@ -1,6 +1,9 @@
 /**
- * Дополнительный padding снизу только если нижний край сфокусированного
- * TextInput пересекается с клавиатурой (плюс gap). Анимация — Reanimated (`withTiming`).
+ * Дополнительный inset только если нижний край сфокусированного TextInput
+ * пересекается с клавиатурой (плюс gap).
+ *
+ * iOS: синхронно с `keyboardWillChangeFrame`, без `withTiming`.
+ * Android: `keyboardDidShow` / `keyboardDidHide`, анимация через `withTiming`.
  */
 
 import { useCallback, useEffect, useRef } from "react";
@@ -12,6 +15,11 @@ export interface UseFocusedOverlapKeyboardInsetOptions {
   gap: number;
   getFocusedInput: () => ElementRef<typeof TextInput> | null;
   enabled?: boolean;
+  /**
+   * When inset is applied via `translateY`, `measureInWindow` includes the lift —
+   * add the last applied inset back to compute the natural overlap.
+   */
+  compensateAppliedLift?: boolean;
   onKeyboardFrame?: (keyboardTop: number, keyboardHeight: number) => void;
   onKeyboardChange?: (keyboardTop: number, keyboardHeight: number) => void;
 }
@@ -25,6 +33,7 @@ export function useFocusedOverlapKeyboardInset({
   gap,
   getFocusedInput,
   enabled = true,
+  compensateAppliedLift = false,
   onKeyboardFrame,
   onKeyboardChange,
 }: UseFocusedOverlapKeyboardInsetOptions): FocusedOverlapKeyboardInsetResult {
@@ -42,27 +51,63 @@ export function useFocusedOverlapKeyboardInset({
     duration?: number;
   } | null>(null);
   const lastAppliedOverlapRef = useRef(0);
+  const lastFocusedInputRef = useRef<ElementRef<typeof TextInput> | null>(null);
+  const compensateAppliedLiftRef = useRef(compensateAppliedLift);
+  compensateAppliedLiftRef.current = compensateAppliedLift;
 
-  const measureOverlap = useCallback(
+  const resolveOverlap = useCallback((measuredOverlap: number) => {
+    if (!compensateAppliedLiftRef.current) return measuredOverlap;
+    return measuredOverlap + lastAppliedOverlapRef.current;
+  }, []);
+
+  const resetAppliedLift = useCallback(() => {
+    if (!compensateAppliedLiftRef.current) return;
+    lastAppliedOverlapRef.current = 0;
+    extraInset.value = 0;
+  }, [extraInset]);
+
+  const measureCorrectedOverlap = useCallback(
     (keyboardTop: number, onDone: (overlap: number) => void) => {
       const input = getFocusedInputRef.current();
       if (!input || typeof input.measureInWindow !== "function") {
+        lastFocusedInputRef.current = null;
+        if (compensateAppliedLiftRef.current) {
+          resetAppliedLift();
+        }
         onDone(0);
         return;
       }
+
+      if (input !== lastFocusedInputRef.current) {
+        lastFocusedInputRef.current = input;
+        if (compensateAppliedLiftRef.current) {
+          resetAppliedLift();
+          if (Platform.OS === "ios") {
+            requestAnimationFrame(() => {
+              const frameTop = lastFrameRef.current?.keyboardTop ?? keyboardTop;
+              input.measureInWindow((_x, y, _w, h) => {
+                const measuredOverlap = Math.max(0, y + h + gap - frameTop);
+                onDone(resolveOverlap(measuredOverlap));
+              });
+            });
+            return;
+          }
+        }
+      }
+
       input.measureInWindow((_x, y, _w, h) => {
-        const overlap = Math.max(0, y + h + gap - keyboardTop);
-        onDone(overlap);
+        const measuredOverlap = Math.max(0, y + h + gap - keyboardTop);
+        onDone(resolveOverlap(measuredOverlap));
       });
     },
-    [gap],
+    [gap, resetAppliedLift, resolveOverlap],
   );
 
   const animateTo = useCallback(
     (overlap: number, duration?: number, options?: { animate?: boolean }) => {
       if (!enabled) return;
       lastAppliedOverlapRef.current = overlap;
-      if (Platform.OS === "ios" && options?.animate === false) {
+      if (Platform.OS === "ios" || options?.animate === false) {
         extraInset.value = overlap;
         return;
       }
@@ -81,29 +126,37 @@ export function useFocusedOverlapKeyboardInset({
         onKeyboardChangeRef.current?.(keyboardTop, rawOverlap);
       };
 
-      const runMeasure = () => measureOverlap(keyboardTop, finish);
+      const runMeasure = () => measureCorrectedOverlap(keyboardTop, finish);
 
+      // iOS: keyboardWillChangeFrame fires every animation frame — measure synchronously.
       if (Platform.OS === "ios") {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(runMeasure);
-        });
-      } else {
         runMeasure();
+        return;
       }
+
+      runMeasure();
     },
-    [animateTo, measureOverlap],
+    [animateTo, measureCorrectedOverlap],
   );
 
   const recalculate = useCallback(() => {
     const last = lastFrameRef.current;
     if (!last || last.rawOverlap <= 1) return;
-    measureOverlap(last.keyboardTop, (measuredOverlap) => {
-      // measureInWindow includes the current translateY lift, so overlap reads ~0 once lifted.
-      // Reconstruct the natural (un-lifted) overlap before applying a new inset.
-      const correctedOverlap = measuredOverlap + lastAppliedOverlapRef.current;
-      animateTo(correctedOverlap, last.duration ?? 200);
-    });
-  }, [animateTo, measureOverlap]);
+
+    const runMeasure = () => {
+      measureCorrectedOverlap(last.keyboardTop, (overlap) => {
+        animateTo(overlap, last.duration ?? 200, { animate: Platform.OS !== "ios" });
+      });
+    };
+
+    if (Platform.OS === "ios" && compensateAppliedLiftRef.current) {
+      resetAppliedLift();
+      requestAnimationFrame(runMeasure);
+      return;
+    }
+
+    runMeasure();
+  }, [animateTo, measureCorrectedOverlap, resetAppliedLift]);
 
   useEffect(() => {
     const windowHeight = () => Dimensions.get("window").height;
@@ -136,6 +189,7 @@ export function useFocusedOverlapKeyboardInset({
 
     const handleHide = (event?: { duration?: number }) => {
       lastFrameRef.current = null;
+      lastFocusedInputRef.current = null;
       lastAppliedOverlapRef.current = 0;
       const wh = windowHeight();
       onKeyboardFrameRef.current?.(wh, 0);
@@ -152,8 +206,10 @@ export function useFocusedOverlapKeyboardInset({
 
         if (h < 1 || rawOverlap < 1) {
           lastFrameRef.current = null;
+          lastFocusedInputRef.current = null;
           onKeyboardFrameRef.current?.(wh, 0);
           extraInset.value = 0;
+          lastAppliedOverlapRef.current = 0;
           onKeyboardChangeRef.current?.(wh, 0);
           return;
         }

@@ -534,8 +534,6 @@
       "appleUnavailableBody": "Apple Sign-In is not available on this device.",
       "signInFailed": "Sign in failed",
       "appleNoToken": "Apple did not return an identity token.",
-      "googlePlayServicesTitle": "Google Play Services required",
-      "googlePlayServicesBody": "Install or update Google Play Services to continue.",
       "signInCancelled": "Sign in cancelled or failed",
       "oauthError": "OAuth error",
       "unknown": "Unknown",
@@ -978,7 +976,8 @@
     "following": "Following",
     "message": "Message",
     "notFound": "Profile not found",
-    "retry": "Try again"
+    "retry": "Try again",
+    "bioPlaceholder": "This user hasn't added a bio yet."
   },
   "aiConsent": {
     "title": "AI data sharing",
