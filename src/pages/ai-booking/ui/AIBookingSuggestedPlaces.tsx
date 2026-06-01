@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { PixAIPlace } from "@/entities/pixai";
@@ -9,23 +9,35 @@ type Props = {
   styles: AIBookingStyles;
   places: PixAIPlace[];
   selectedPlace: PixAIPlace | null;
-  onSelectPlace: (place: PixAIPlace) => void;
+  personsCount: number;
+  bookingTimeLabel?: string | null;
+  onBook: (place: PixAIPlace) => void;
 };
 
-export function AIBookingSuggestedPlaces({ styles: s, places, selectedPlace, onSelectPlace }: Props) {
+export function AIBookingSuggestedPlaces({
+  styles: s,
+  places,
+  selectedPlace,
+  personsCount,
+  bookingTimeLabel,
+  onBook,
+}: Props) {
   const { t } = useTranslation();
-  const onSelect = useCallback((place: PixAIPlace) => onSelectPlace(place), [onSelectPlace]);
+  const onBookPlace = useCallback((place: PixAIPlace) => onBook(place), [onBook]);
+  const personsLabel = useMemo(() => t("bookings.persons", { count: personsCount }), [personsCount, t]);
 
   return (
     <View style={s.semanticSection}>
-      <Text style={s.label}>{t("aiBooking.step4PlacesTitle")}</Text>
+      <Text style={s.label}>{t("aiBooking.step1PlacesTitle")}</Text>
       {places.map((place) => (
         <AIBookingSuggestedPlaceCard
           key={place.id}
           styles={s}
           place={place}
           selected={selectedPlace?.id === place.id}
-          onSelect={onSelect}
+          personsLabel={personsLabel}
+          bookingTimeLabel={bookingTimeLabel}
+          onBook={onBookPlace}
         />
       ))}
     </View>

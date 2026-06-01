@@ -5,10 +5,11 @@ import {
   syncOpeningTypewriterRegistryFromTabs,
 } from "../lib/bookingOpeningTypewriterRegistry";
 import { buildAssistantReplyText } from "../lib/buildAssistantReplyText";
+import { buildHistoryTitleFromSnapshot } from "@/features/ai-booking-request-history/lib/buildHistoryItem";
 import {
-  createBookingAssistantGreetingMessageId,
-  getBookingAssistantGreetingText,
-} from "@/entities/pixai/lib/bookingAssistantCopy";
+  INITIAL_ONBOARDING_PHASE,
+  type BookingOnboardingPhase,
+} from "@/features/ai-booking-onboarding/model/types";
 import {
   bookingChatPersistStorage,
   BOOKING_CHAT_PERSIST_KEY,
@@ -37,22 +38,32 @@ function newTabId(): string {
   return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function assistantMsg(id: string, content: string, createdAt: number): BookingChatMessage {
-  return { id, role: "assistant", content, createdAt };
-}
-
 function createTab(catalogRevision: number, title?: string): BookingChatTab {
   const id = newTabId();
   const now = Date.now();
-  const greeting = assistantMsg(createBookingAssistantGreetingMessageId(now), getBookingAssistantGreetingText(), now);
   return {
     id,
     title: title ?? "Chat",
     createdAt: now,
     updatedAt: now,
-    messages: [greeting],
+    messages: [],
     recommendationView: emptyView(),
     catalogRevision,
+    onboardingPhase: INITIAL_ONBOARDING_PHASE,
+  };
+}
+
+function normalizeTab(tab: BookingChatTab, fallbackSnapshot: BookingSearchSnapshot | null): BookingChatTab {
+  const committed = tab.searchSnapshot;
+  const phase =
+    tab.onboardingPhase ??
+    (committed ? "gemini" : INITIAL_ONBOARDING_PHASE);
+  return {
+    ...tab,
+    onboardingPhase: phase,
+    searchSnapshot: committed,
+    messages: Array.isArray(tab.messages) ? tab.messages : [],
+    recommendationView: tab.recommendationView ?? emptyView(),
   };
 }
 
@@ -69,25 +80,21 @@ export type BookingChatStore = {
   lastSearchSnapshot: BookingSearchSnapshot | null;
   sendError: string | null;
   isSending: boolean;
-  /** Bottom-sheet assistant (FAB) visibility */
   panelOpen: boolean;
   setPanelOpen: (open: boolean) => void;
 
-  /** After a new place search: bump revision, reset recommendations, seed opening messages on active tab */
-  bumpCatalogRevisionWithOpening: (
-    next: number,
-    resultsScanLine: string,
-    searchSnapshot: BookingSearchSnapshot,
-  ) => void;
+  applySearchResults: (next: number, searchSnapshot: BookingSearchSnapshot) => void;
+  commitSearchSnapshot: (tabId: string, searchSnapshot: BookingSearchSnapshot) => void;
   ensureActiveTab: (catalogRevision: number) => void;
-  addTab: (catalogRevision: number) => void;
+  addTab: (catalogRevision: number) => string;
   closeTab: (tabId: string) => void;
   setActiveTab: (tabId: string) => void;
   renameTab: (tabId: string, title: string) => void;
+  setTabOnboardingPhase: (tabId: string, phase: BookingOnboardingPhase) => void;
+  appendAssistantMessageOnce: (tabId: string, messageId: string, text: string) => void;
   appendUserMessage: (tabId: string, text: string) => void;
   appendAssistantMessage: (tabId: string, text: string) => void;
   applyAiResult: (tabId: string, result: AiBookingChatResult, catalogRevision: number) => void;
-  /** Empty assistant bubble; returns message id for streaming patches. */
   appendAssistantShellForStream: (tabId: string) => string;
   patchAssistantMessageContent: (tabId: string, messageId: string, content: string) => void;
   finalizeAssistantStream: (
@@ -97,10 +104,10 @@ export type BookingChatStore = {
     catalogRevision: number,
   ) => void;
   setSendState: (patch: { isSending?: boolean; sendError?: string | null }) => void;
-  /** Clears chat session (logout / explicit reset). */
   resetBookingSessionForScreenEntry: () => void;
-  /** Drops in-flight send state when returning to the screen after background. */
   resetTransientSendState: () => void;
+  /** Clears messages and onboarding state on the active tab. */
+  resetActiveTabChat: () => void;
 };
 
 export const useBookingChatStore = create<BookingChatStore>()(
@@ -133,62 +140,63 @@ export const useBookingChatStore = create<BookingChatStore>()(
         });
       },
 
-      bumpCatalogRevisionWithOpening: (next, resultsScanLine, searchSnapshot) =>
+      commitSearchSnapshot: (tabId, searchSnapshot) =>
         set((s) => {
-          if (next === s.catalogRevision && s.tabs.length > 0) return s;
-          const now = Date.now();
-          const pair: BookingChatMessage[] = [
-            assistantMsg(createBookingAssistantGreetingMessageId(`${now}-1`), getBookingAssistantGreetingText(), now),
-            assistantMsg(`a-${now}-2`, resultsScanLine, now + 1),
-          ];
+          const title = buildHistoryTitleFromSnapshot(searchSnapshot);
+          return {
+            lastSearchSnapshot: searchSnapshot,
+            tabs: s.tabs.map((t) =>
+              t.id === tabId
+                ? {
+                    ...t,
+                    title,
+                    searchSnapshot,
+                    updatedAt: Date.now(),
+                  }
+                : t,
+            ),
+          };
+        }),
 
-          if (s.tabs.length === 0) {
-            const id = newTabId();
-            const tab: BookingChatTab = {
-              id,
-              title: "Chat",
-              createdAt: now,
-              updatedAt: now,
-              messages: pair,
-              recommendationView: emptyView(),
-              catalogRevision: next,
-            };
+      applySearchResults: (next, searchSnapshot) =>
+        set((s) => {
+          const activeId =
+            s.activeTabId && s.tabs.some((t) => t.id === s.activeTabId) ? s.activeTabId! : s.tabs[0]?.id;
+          const title = buildHistoryTitleFromSnapshot(searchSnapshot);
+          if (!activeId) {
             return {
-              tabs: [tab],
-              activeTabId: id,
               catalogRevision: next,
-              sendError: null,
               lastSearchSnapshot: searchSnapshot,
             };
           }
-
-          const activeId =
-            s.activeTabId && s.tabs.some((t) => t.id === s.activeTabId) ? s.activeTabId! : s.tabs[0]!.id;
-
           return {
             catalogRevision: next,
             lastSearchSnapshot: searchSnapshot,
-            tabs: s.tabs.map((t) => {
-              const isActive = t.id === activeId;
-              return {
-                ...t,
-                catalogRevision: next,
-                recommendationView: emptyView(),
-                messages: isActive
-                  ? pair
-                  : [assistantMsg(createBookingAssistantGreetingMessageId(`g-${t.id}`), getBookingAssistantGreetingText(), now)],
-                updatedAt: now,
-              };
-            }),
+            tabs: s.tabs.map((t) =>
+              t.id === activeId
+                ? {
+                    ...t,
+                    title,
+                    catalogRevision: next,
+                    recommendationView: emptyView(),
+                    searchSnapshot,
+                    onboardingPhase: "search_results" as const,
+                    updatedAt: Date.now(),
+                  }
+                : t,
+            ),
           };
         }),
 
       ensureActiveTab: (catalogRevision) => {
         set((s) => {
           const tabsSynced = s.tabs.map((t) =>
-            t.catalogRevision !== catalogRevision
-              ? { ...t, catalogRevision, recommendationView: emptyView() }
-              : t,
+            normalizeTab(
+              t.catalogRevision !== catalogRevision
+                ? { ...t, catalogRevision, recommendationView: emptyView() }
+                : t,
+              s.lastSearchSnapshot,
+            ),
           );
           if (tabsSynced.length === 0) {
             const tab = createTab(catalogRevision);
@@ -197,19 +205,21 @@ export const useBookingChatStore = create<BookingChatStore>()(
           const activeOk = s.activeTabId && tabsSynced.some((t) => t.id === s.activeTabId);
           return {
             tabs: tabsSynced,
-            activeTabId: activeOk ? s.activeTabId! : tabsSynced[0].id,
+            activeTabId: activeOk ? s.activeTabId! : tabsSynced[0]!.id,
             catalogRevision,
           };
         });
       },
 
       addTab: (catalogRevision) => {
+        clearBookingOpeningTypewriterRegistry();
         const tab = createTab(catalogRevision);
         set((s) => ({
           tabs: [...s.tabs, tab],
           activeTabId: tab.id,
           catalogRevision,
         }));
+        return tab.id;
       },
 
       closeTab: (tabId) =>
@@ -218,11 +228,18 @@ export const useBookingChatStore = create<BookingChatStore>()(
           if (tabs.length === 0) {
             return { tabs: [], activeTabId: null, sendError: null };
           }
-          const nextActive = s.activeTabId === tabId ? tabs[tabs.length - 1].id : s.activeTabId;
+          const nextActive = s.activeTabId === tabId ? tabs[tabs.length - 1]!.id : s.activeTabId;
           return { tabs, activeTabId: nextActive, sendError: null };
         }),
 
       setActiveTab: (tabId) => set({ activeTabId: tabId, sendError: null }),
+
+      setTabOnboardingPhase: (tabId, phase) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) =>
+            t.id === tabId ? { ...t, onboardingPhase: phase, updatedAt: Date.now() } : t,
+          ),
+        })),
 
       renameTab: (tabId, title) =>
         set((s) => ({
@@ -230,6 +247,46 @@ export const useBookingChatStore = create<BookingChatStore>()(
             t.id === tabId ? { ...t, title: title.trim() || t.title, updatedAt: Date.now() } : t,
           ),
         })),
+
+      appendAssistantMessageOnce: (tabId, messageId, text) => {
+        const now = Date.now();
+        set((s) => ({
+          tabs: s.tabs.map((t) => {
+            if (t.id !== tabId) return t;
+            if (t.messages.some((m) => m.id === messageId)) return t;
+            const msg: BookingChatMessage = {
+              id: messageId,
+              role: "assistant",
+              content: text,
+              createdAt: now,
+            };
+            return { ...t, messages: [...t.messages, msg], updatedAt: now };
+          }),
+        }));
+      },
+
+      resetActiveTabChat: () => {
+        clearBookingOpeningTypewriterRegistry();
+        set((s) => {
+          const tabId = s.activeTabId;
+          if (!tabId) return { sendError: null };
+          return {
+            sendError: null,
+            tabs: s.tabs.map((t) =>
+              t.id === tabId
+                ? {
+                    ...t,
+                    messages: [],
+                    onboardingPhase: INITIAL_ONBOARDING_PHASE,
+                    searchSnapshot: undefined,
+                    recommendationView: emptyView(),
+                    updatedAt: Date.now(),
+                  }
+                : t,
+            ),
+          };
+        });
+      },
 
       appendUserMessage: (tabId, text) => {
         const now = Date.now();
@@ -368,7 +425,6 @@ export const useBookingChatStore = create<BookingChatStore>()(
   ),
 );
 
-/** Logout / privacy: wipe persisted assistant tabs and messages. */
 export async function resetBookingChatPersistedSession(): Promise<void> {
   useBookingChatStore.getState().resetBookingSessionForScreenEntry();
   await useBookingChatStore.persist.clearStorage();

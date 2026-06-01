@@ -2,7 +2,6 @@ import { defaultBookingChatProvider } from "../api/geminiBookingChatAdapter";
 import type { BookingChatContext, PlaceLite } from "../model/types";
 import { useBookingChatStore } from "../model/bookingChatStore";
 import { buildAssistantReplyText } from "./buildAssistantReplyText";
-import { buildBookingChatTabTitleFromUserMessage } from "./buildBookingChatTabTitleFromUserMessage";
 import { revealAssistantText } from "./revealAssistantText";
 import { sanitizeAiBookingChatResult } from "./sanitizeAiBookingChatResult";
 import { scheduleBookingChatLayoutAnimation } from "./scheduleBookingChatLayoutAnimation";
@@ -30,17 +29,7 @@ export async function executeBookingAssistantTurn(input: {
     return;
   }
   const store = useBookingChatStore.getState();
-
-  const isFirstUserTurn = !prior.some((m) => m.role === "user");
   store.appendUserMessage(tabId, userText);
-  if (isFirstUserTurn) {
-    const tab = useBookingChatStore.getState().tabs.find((t) => t.id === tabId);
-    const useGeneratedTitle = tab && (tab.title === "Chat" || tab.title.trim().length === 0);
-    if (useGeneratedTitle) {
-      const nextTitle = buildBookingChatTabTitleFromUserMessage(userText, bookingContext.city);
-      useBookingChatStore.getState().renameTab(tabId, nextTitle);
-    }
-  }
 
   store.setSendState({ isSending: true, sendError: null });
 

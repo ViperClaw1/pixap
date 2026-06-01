@@ -74,7 +74,7 @@
       "citySaveBody": "Bitte versuchen Sie es erneut."
     },
     "a11y": {
-      "openPixaiBooking": "PixAI Smart Booking öffnen",
+      "openPixaiBooking": "Pix AI Concierge öffnen",
       "openPixaiVibeMatch": "PixAI Vibe Match öffnen",
       "openNotifications": "Benachrichtigungen öffnen"
     }
@@ -144,14 +144,14 @@
     "goBack": "Zurück"
   },
   "aiBooking": {
-    "title": "PixAI Smart Booking",
+    "title": "Pix AI Concierge",
     "subtitle": "Beschreiben Sie, was Sie brauchen — PixAI schlägt Orte und Slots vor.",
     "step1Title": "Schritt 1. Stadt wählen",
-    "step2Title": "Schritt 2. Service oder Tisch wählen",
+    "step2Title": "Schritt 2. Verfügbare Slots",
     "step3Title": "Schritt 3. Suchbereich wählen",
-    "step4AssistantTitle": "Schritt 4. Pix AI-Assistent",
-    "step4PlacesTitle": "Schritt 4. Empfohlene Orte",
-    "step5Title": "Schritt 5. Verfügbare Slots",
+    "step1AssistantTitle": "Schritt 1. Pix AI-Assistent",
+    "step1PlacesTitle": "Schritt 1. Empfohlene Orte",
+    "step2BookingTitle": "Schritt 2. Buchungsdetails",
     "selectCityHint": "Wählen Sie Ihre Stadt, um fortzufahren.",
     "selectCategoryHint": "Wählen Sie einen Service oder Tisch, um fortzufahren.",
     "commentPlaceholder": "Kommentar (Präferenzen, Budget, Atmosphäre...)",
@@ -191,7 +191,18 @@
     "selectDateForSlots": "Wählen Sie ein Datum, um Zeitslots zu laden.",
     "couldNotLoadSlots": "Slots konnten nicht geladen werden.",
     "noTimeSlotsForDate": "Keine Zeitslots für dieses Datum.",
-    "assistantGreeting": "Hallo, ich bin PixAI. Sagen Sie mir, welchen Service Sie brauchen — ich finde Orte, schlage den besten Slot vor und bereite Ihre Buchung vor.",
+    "assistantGreeting": "Hallo, ich bin Pix AI. Sagen Sie mir, was Sie wollen — den Rest übernehme ich.",
+    "askCity": "In welcher Stadt sind Sie?",
+    "askCategory": "Welche Art von Ort suchen Sie?",
+    "askScope": "Soll ich in Ihrer Nähe oder in der ganzen Stadt suchen?",
+    "bookPlace": "Buchen",
+    "requestHistoryTitle": "Anfrageverlauf",
+    "requestHistoryEmpty": "Noch keine abgeschlossenen Suchen.",
+    "openHistoryA11y": "Anfrageverlauf öffnen",
+    "closeHistoryA11y": "Anfrageverlauf schließen",
+    "newRequestA11y": "Neue Anfrage",
+    "historyTodayAt": "Heute, {{time}}",
+    "historyTomorrowAt": "Morgen, {{time}}",
     "flowFindSummary": "Suchen: {{city}} | {{category}} | {{scope}}",
     "flowFindComment": "Kommentar: {{text}}",
     "chatComposerPlaceholder": "Fragen Sie nach Stimmung, Budget, Musik…",

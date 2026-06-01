@@ -15,7 +15,10 @@ import {
 import { buildFlowUserSummary } from "../lib/buildFlowUserSummary";
 import { buildSearchResultsLineFromFlow } from "../lib/buildSearchResultsAssistantLine";
 
-export type PixAIPlace = Pick<BusinessCard, "id" | "name" | "address" | "city" | "rating" | "booking_price" | "images">;
+export type PixAIPlace = Pick<
+  BusinessCard,
+  "id" | "name" | "address" | "city" | "rating" | "booking_price" | "images" | "tags"
+>;
 
 export type PixAISlot = {
   label: string;
@@ -178,6 +181,7 @@ function mapRowsToPlaces(rows: unknown, language: string): PixAIPlace[] {
       rating: Number(r.rating ?? 0),
       booking_price: Number(r.booking_price ?? 0),
       images: images.length > 0 ? images : normalizeBusinessCardImages(legacyImage),
+      tags: localized.tags,
     };
   });
 }

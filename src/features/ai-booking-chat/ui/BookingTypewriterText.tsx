@@ -11,12 +11,19 @@ type Props = {
   fullText: string;
   textStyle: StyleProp<TextStyle>;
   tickMs?: number;
-  /** When set, typewriter runs once per key (e.g. message id); later mounts show full text immediately. */
+  /** When set, typewriter runs once per key; calls onComplete when reveal finishes. */
   runOnceKey?: string;
+  onComplete?: () => void;
 };
 
 /** Client-only progressive reveal; store may already hold the full string. */
-export function BookingTypewriterText({ fullText, textStyle, tickMs = DEFAULT_ASSISTANT_TYPEWRITER_TICK_MS, runOnceKey }: Props) {
+export function BookingTypewriterText({
+  fullText,
+  textStyle,
+  tickMs = DEFAULT_ASSISTANT_TYPEWRITER_TICK_MS,
+  runOnceKey,
+  onComplete,
+}: Props) {
   const [visible, setVisible] = useState(() =>
     runOnceKey && isBookingOpeningTypewriterComplete(runOnceKey) ? fullText : "",
   );
@@ -61,6 +68,7 @@ export function BookingTypewriterText({ fullText, textStyle, tickMs = DEFAULT_AS
         if (runOnceKey) {
           markBookingOpeningTypewriterComplete(runOnceKey);
         }
+        onComplete?.();
       }
     };
     void run();
@@ -72,7 +80,7 @@ export function BookingTypewriterText({ fullText, textStyle, tickMs = DEFAULT_AS
         fallbackTimerRef.current = null;
       }
     };
-  }, [fullText, tickMs, runOnceKey]);
+  }, [fullText, tickMs, runOnceKey, onComplete]);
 
   return <Text style={textStyle}>{visible}</Text>;
 }
