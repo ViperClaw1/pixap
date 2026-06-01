@@ -120,24 +120,60 @@ function isVibeTimeline(v: string): v is VibeTimeline {
 }
 
 const VIBE_BOOKING_WINDOW_MIN_MS = 30 * 60_000;
-const VIBE_BOOKING_WINDOW_MAX_MS = 8 * 60 * 60_000;
+const VIBE_CLOCK_START_MINUTES = 7 * 60;
+const VIBE_CLOCK_END_MINUTES = 2 * 60;
 const VIBE_STOP_SPACING_MS = 90 * 60_000;
 
+function isWithinVibeClockRange(totalMinutes: number): boolean {
+  return totalMinutes >= VIBE_CLOCK_START_MINUTES || totalMinutes <= VIBE_CLOCK_END_MINUTES;
+}
+
+function localMinutesOfDay(ms: number): number {
+  const d = new Date(ms);
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function nextSevenAmMs(fromMs: number): number {
+  const d = new Date(fromMs);
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const day = d.getDate();
+  const sevenToday = new Date(y, m, day, 7, 0, 0, 0).getTime();
+  if (fromMs <= sevenToday) return sevenToday;
+  return new Date(y, m, day + 1, 7, 0, 0, 0).getTime();
+}
+
+function bookingWindowEndMs(fromMs: number): number {
+  const d = new Date(fromMs);
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const day = d.getDate();
+  const mins = localMinutesOfDay(fromMs);
+  if (mins <= VIBE_CLOCK_END_MINUTES) {
+    return new Date(y, m, day, 2, 0, 0, 0).getTime();
+  }
+  return new Date(y, m, day + 1, 2, 0, 0, 0).getTime();
+}
+
 function getVibeBookingWindow(nowMs = Date.now()) {
-  return {
-    startMs: nowMs + VIBE_BOOKING_WINDOW_MIN_MS,
-    endMs: nowMs + VIBE_BOOKING_WINDOW_MAX_MS,
-  };
+  const minStart = nowMs + VIBE_BOOKING_WINDOW_MIN_MS;
+  let startMs = minStart;
+  if (!isWithinVibeClockRange(localMinutesOfDay(minStart))) {
+    startMs = nextSevenAmMs(minStart);
+  }
+  const endMs = bookingWindowEndMs(startMs);
+  return { startMs, endMs };
 }
 
 function isTimeSlotInVibeBookingWindow(iso: string, nowMs = Date.now()): boolean {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return false;
+  if (!isWithinVibeClockRange(localMinutesOfDay(t))) return false;
   const { startMs, endMs } = getVibeBookingWindow(nowMs);
   return t >= startMs && t <= endMs;
 }
 
-/** First stop anchor inside [now+30m, now+8h]; later stops spaced 90m apart. */
+/** First stop anchor inside 7:00 AM–2:00 AM window; later stops spaced 90m apart. */
 function timelineAnchorInBookingWindow(timeline: VibeTimeline, stopCount: number, nowMs = Date.now()): Date {
   const { startMs, endMs } = getVibeBookingWindow(nowMs);
   const windowSpan = endMs - startMs;

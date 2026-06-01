@@ -67,14 +67,14 @@
     "selected": "Selecionado",
     "noCitiesMatch": "Nenhuma cidade corresponde à pesquisa.",
     "allCities": "Todas as cidades",
-    "pixAiBooking": "Pix AI booking",
+    "pixAiBooking": "Pix AI Concierge",
     "vibeMatching": "Vibe Matching",
     "alerts": {
       "citySaveTitle": "Não foi possível guardar a cidade",
       "citySaveBody": "Tenta novamente."
     },
     "a11y": {
-      "openPixaiBooking": "Abrir reserva inteligente PixAI",
+      "openPixaiBooking": "Abrir Pix AI Concierge",
       "openPixaiVibeMatch": "Abrir PixAI Vibe Match",
       "openNotifications": "Abrir notificações"
     }
@@ -149,7 +149,7 @@
     "step1Title": "Passo 1. Escolher cidade",
     "step2Title": "Passo 2. Horários disponíveis",
     "step3Title": "Passo 3. Escolher área de pesquisa",
-    "step1AssistantTitle": "Passo 1. Assistente Pix AI",
+    "step1AssistantTitle": "Passo 1. Pix AI Concierge",
     "step1PlacesTitle": "Passo 1. Locais sugeridos",
     "step2BookingTitle": "Passo 2. Detalhes da reserva",
     "selectCityHint": "Seleciona a tua cidade para continuar.",
@@ -631,6 +631,7 @@
     "share": "Compartilhar",
     "dislike": "Não gostei",
     "book": "Reservar",
+    "howToGet": "Como chegar",
     "reasons": {
       "matchesNightlifeVibe": "Combina com o seu estilo noturno",
       "trendingTonight": "Em alta hoje à noite",

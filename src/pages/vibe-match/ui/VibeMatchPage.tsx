@@ -47,6 +47,8 @@ import { useProfile } from "@/entities/user";
 import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } from "@/entities/pixai";
 import { buildVibeRouteAssistantMessage } from "@/entities/pixai/lib/buildVibeRouteAssistantMessage";
 import {
+  formatVibeSlotTimeLabel,
+  isTimeSlotInVibeBookingWindow,
   normalizeVibePlanStops,
   snapIsoToThirtyMinuteGrid,
 } from "@/entities/pixai/lib/vibeBookingWindow";
@@ -100,10 +102,6 @@ const VIBE_MATCH_MOOD_OPTIONS: TaxonomyOption[] = VIBE_OPTIONS.map((option) => (
 
 const SLOT_MATCH_MS = 15 * 60 * 1000;
 const PLAN_THUMB_SIZE = 80;
-
-function formatRouteStopTime(iso: string, locale: string): string {
-  return new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
-}
 
 function formatStopAddress(stop: VibePlanStop): string | null {
   const address = stop.address?.trim();
@@ -161,6 +159,7 @@ function resolveBookingDateTime(slots: PixAISlot[], proposedIso: string): string
   let bestDist = Infinity;
   for (const s of slots) {
     if (!s.available) continue;
+    if (!isTimeSlotInVibeBookingWindow(s.dateTimeIso)) continue;
     const d = Math.abs(new Date(s.dateTimeIso).getTime() - t);
     if (d < bestDist) {
       bestDist = d;
@@ -833,7 +832,7 @@ function VibeMatchPageContent() {
                         <View style={styles.routeStopText}>
                           <View style={styles.routeStopTimeRow}>
                             <Text style={styles.routeStopTime}>
-                              {formatRouteStopTime(stop.time_slot, i18n.language)}
+                              {formatVibeSlotTimeLabel(stop.time_slot)}
                             </Text>
                             <Text style={styles.routeStopActivity}>{activityLabel}</Text>
                           </View>

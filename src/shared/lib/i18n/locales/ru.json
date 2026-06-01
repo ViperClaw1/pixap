@@ -182,7 +182,7 @@
     "selected": "Выбрано",
     "noCitiesMatch": "Нет городов по вашему запросу.",
     "allCities": "Все города",
-    "pixAiBooking": "Pix AI booking",
+    "pixAiBooking": "Pix AI Concierge",
     "vibeMatching": "Vibe Matching",
     "alerts": {
       "citySaveTitle": "Не удалось сохранить город",
@@ -264,7 +264,7 @@
     "step1Title": "Шаг 1. Выберите город",
     "step2Title": "Шаг 2. Доступные слоты",
     "step3Title": "Шаг 3. Выберите область поиска",
-    "step1AssistantTitle": "Шаг 1. Ассистент Pix AI",
+    "step1AssistantTitle": "Шаг 1. Pix AI Concierge",
     "step1PlacesTitle": "Шаг 1. Рекомендованные места",
     "step2BookingTitle": "Шаг 2. Детали бронирования",
     "selectCityHint": "Выберите город, чтобы продолжить.",
@@ -782,6 +782,7 @@
     "share": "Поделиться",
     "dislike": "Не нравится",
     "book": "Забронировать",
+    "howToGet": "Как добраться",
     "reasons": {
       "matchesNightlifeVibe": "Подходит под ваш вайб",
       "trendingTonight": "В тренде сегодня",

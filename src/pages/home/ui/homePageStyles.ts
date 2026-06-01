@@ -69,7 +69,7 @@ export const homePageStaticStyles = StyleSheet.create({
     paddingRight: 6,
     paddingVertical: 4,
     minHeight: 30,
-    maxWidth: 128,
+    maxWidth: 148,
     flexShrink: 1,
     minWidth: 0,
     borderRadius: 12,

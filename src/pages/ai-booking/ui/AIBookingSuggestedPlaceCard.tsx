@@ -1,6 +1,6 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { memo, useMemo } from "react";
-import { PixelRatio, Text, View } from "react-native";
+import { ActivityIndicator, PixelRatio, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -59,6 +59,8 @@ type Props = {
   selected: boolean;
   personsLabel: string;
   bookingTimeLabel?: string | null;
+  bookingLoading?: boolean;
+  bookingDisabled?: boolean;
   onBook: (place: PixAIPlace) => void;
 };
 
@@ -68,6 +70,8 @@ function AIBookingSuggestedPlaceCardInner({
   selected,
   personsLabel,
   bookingTimeLabel,
+  bookingLoading = false,
+  bookingDisabled = false,
   onBook,
 }: Props) {
   const { t } = useTranslation();
@@ -154,15 +158,26 @@ function AIBookingSuggestedPlaceCardInner({
                 </Text>
               )}
             </View>
-            <AppPressable style={s.placeBookBtnPressable} onPress={() => onBook(place)}>
+            <AppPressable
+              style={[s.placeBookBtnPressable, bookingDisabled && !bookingLoading && { opacity: 0.55 }]}
+              onPress={() => onBook(place)}
+              disabled={bookingDisabled}
+              accessibilityState={{ disabled: bookingDisabled, busy: bookingLoading }}
+            >
               <LinearGradient
                 colors={isDark ? [...BOOK_GRADIENT_DARK] : [...BOOK_GRADIENT_LIGHT]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={s.placeBookBtnGradient}
+                style={[s.placeBookBtnGradient, bookingLoading && { opacity: 0.9 }]}
               >
-                <Ionicons name="calendar-outline" size={14} color="#ffffff" />
-                <Text style={s.placeBookBtnText}>{t("aiBooking.bookPlace")}</Text>
+                {bookingLoading ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <>
+                    <Ionicons name="calendar-outline" size={14} color="#ffffff" />
+                    <Text style={s.placeBookBtnText}>{t("aiBooking.bookPlace")}</Text>
+                  </>
+                )}
               </LinearGradient>
             </AppPressable>
           </View>
