@@ -3,7 +3,10 @@ import { Platform, StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import {
+  COMPOSER_ICON_HIT_SLOP,
   COMPOSER_HEIGHT,
+  COMPOSER_ROW_GAP,
+  COMPOSER_TRAILING_GAP,
   FOOTER_VERTICAL_PADDING,
   messageThreadHeaderHeight,
 } from "@/shared/lib/messageThreadLayout";
@@ -39,8 +42,8 @@ export const messageThreadStaticStyles = StyleSheet.create({
   peerSeen: { fontSize: 12, marginTop: 2 },
   peerTyping: { fontStyle: "italic" },
   typingRow: {
-    paddingHorizontal: 4,
-    paddingBottom: 6,
+    paddingHorizontal: 2,
+    paddingBottom: 4,
   },
   typingText: {
     fontSize: 12,
@@ -272,10 +275,10 @@ export const messageThreadStaticStyles = StyleSheet.create({
   },
   footer: {
     borderTopWidth: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: FOOTER_VERTICAL_PADDING,
     alignItems: "stretch",
-    gap: 12,
+    gap: 8,
   },
   stickerPanel: {
     borderWidth: 1,
@@ -318,37 +321,17 @@ export const messageThreadStaticStyles = StyleSheet.create({
   composerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: COMPOSER_ROW_GAP,
   },
-  attachBtn: {
-    width: COMPOSER_HEIGHT,
-    height: COMPOSER_HEIGHT,
-    borderRadius: 14,
-    borderWidth: 1,
+  composerIconBtn: {
     alignItems: "center",
     justifyContent: "center",
+    padding: 0,
   },
-  voiceBtn: {
-    width: COMPOSER_HEIGHT,
-    height: COMPOSER_HEIGHT,
-    borderRadius: 14,
-    borderWidth: 1,
+  composerTrailingGroup: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-  },
-  composerIconTouchTarget: {
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stickerBtn: {
-    width: COMPOSER_HEIGHT,
-    height: COMPOSER_HEIGHT,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    gap: COMPOSER_TRAILING_GAP,
   },
   inputWrap: { flex: 1, minWidth: 0 },
   composerInputShell: {
@@ -384,21 +367,20 @@ export const messageThreadStaticStyles = StyleSheet.create({
   input: {
     minHeight: COMPOSER_HEIGHT,
     maxHeight: 120,
-    borderWidth: 1,
-    borderRadius: 14,
-    fontSize: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    fontSize: 14,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
   },
   inputEditing: {
     paddingRight: 44,
   },
   sendBtn: {
-    width: COMPOSER_HEIGHT,
-    height: COMPOSER_HEIGHT,
-    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    padding: 0,
+    marginLeft: 5,
   },
 });
 
@@ -503,26 +485,13 @@ export function messageThreadThemeStyles(
       backgroundColor: colors.card,
       borderColor: colors.border,
     },
-    attachBtn: {
-      borderColor: colors.border,
-      backgroundColor: colors.background,
-    },
-    voiceBtn: {
-      borderColor: colors.border,
-      backgroundColor: colors.background,
-    },
-    stickerBtn: {
-      borderColor: colors.border,
-      backgroundColor: colors.background,
-    },
+    sendBtn: {},
     input: {
-      borderColor: colors.border,
-      backgroundColor: colors.background,
+      backgroundColor: "transparent",
       color: colors.text,
     },
     editingBarText: { color: colors.textMuted },
     composerSaveBtn: { backgroundColor: colors.primary },
-    sendBtn: { backgroundColor: colors.primary },
     scrollToBottomBtn: {
       backgroundColor: colors.card,
       borderColor: colors.border,

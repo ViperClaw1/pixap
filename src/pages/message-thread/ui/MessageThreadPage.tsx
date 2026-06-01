@@ -8,11 +8,11 @@ import {
   Modal,
   Platform,
   Text,
+  TextInput,
   View,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  type TextInput
 } from "react-native";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import Animated, {
@@ -29,7 +29,6 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { RichTextarea } from "@/shared/ui/rich-textarea/RichTextarea";
 import { useAuth } from "@/app/providers/AuthProvider";
 import {
   useDeleteMessage,
@@ -54,6 +53,8 @@ import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { KeyboardStickyView, useKeyboardInset } from "@/shared/lib/keyboard";
 import {
   COMPOSER_HEIGHT,
+  COMPOSER_ICON_HIT_SLOP,
+  COMPOSER_ICON_SIZE,
   FOOTER_VERTICAL_PADDING,
   MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX,
   MESSAGE_THREAD_KEYBOARD_GAP,
@@ -789,20 +790,22 @@ export default function MessageThreadPage() {
               {!editingMessage ? (
                 <AppPressable
                   accessibilityHint="Long press to attach a file"
-                  style={styles.attachBtn}
+                  style={styles.composerIconBtn}
+                  hitSlop={COMPOSER_ICON_HIT_SLOP}
                   onPress={handleAttachPress}
                   onLongPress={handleAttachLongPress}
                 >
-                  <View style={styles.composerIconTouchTarget}>
-                    <Ionicons name="attach-outline" size={18} color={colors.textMuted} />
-                  </View>
+                  <Ionicons name="attach" size={COMPOSER_ICON_SIZE} color={colors.textMuted} />
                 </AppPressable>
               ) : null}
               {!editingMessage ? (
                 <VoiceInputButton
                   disabled={!threadReady || sendMessage.isPending}
                   stopRef={voiceStopRef}
-                  style={styles.voiceBtn}
+                  style={styles.composerIconBtn}
+                  iconSize={COMPOSER_ICON_SIZE}
+                  iconName="mic"
+                  bare
                   onTranscriptChange={handleTranscriptChange}
                   onListeningChange={(listening) => {
                     if (listening) Keyboard.dismiss();
@@ -811,7 +814,7 @@ export default function MessageThreadPage() {
                 />
               ) : null}
               <View style={editingMessage ? styles.composerInputShell : styles.inputWrap}>
-                <RichTextarea
+                <TextInput
                   ref={composerInputRef}
                   value={draft}
                   onChangeText={(value) => {
@@ -822,6 +825,8 @@ export default function MessageThreadPage() {
                   placeholderTextColor={colors.textMuted}
                   style={[styles.input, editingMessage ? styles.inputEditing : null]}
                   editable={!editMessage.isPending}
+                  multiline
+                  textAlignVertical="center"
                   onFocus={() => {
                     bindStopOnManualEdit(() => voiceStopRef.current?.());
                   }}
@@ -846,14 +851,17 @@ export default function MessageThreadPage() {
                 ) : null}
               </View>
               {!editingMessage ? (
-                <>
-                  <AppPressable style={styles.stickerBtn} onPress={handleStickerPress}>
-                    <View style={styles.composerIconTouchTarget}>
-                      <Ionicons name="happy-outline" size={18} color={colors.textMuted} />
-                    </View>
+                <View style={styles.composerTrailingGroup}>
+                  <AppPressable
+                    style={styles.composerIconBtn}
+                    hitSlop={COMPOSER_ICON_HIT_SLOP}
+                    onPress={handleStickerPress}
+                  >
+                    <Ionicons name="happy" size={COMPOSER_ICON_SIZE} color={colors.textMuted} />
                   </AppPressable>
                   <AppPressable
-                    style={[styles.sendBtn, { opacity: draft.trim().length || attachments.length ? 1 : 0.5 }]}
+                    style={styles.sendBtn}
+                    hitSlop={COMPOSER_ICON_HIT_SLOP}
                     disabled={
                       !threadReady || (!draft.trim().length && !attachments.length) || sendMessage.isPending
                     }
@@ -885,12 +893,18 @@ export default function MessageThreadPage() {
                     }}
                   >
                     {sendMessage.isPending ? (
-                      <ActivityIndicator size="small" color={colors.onPrimary} />
+                      <ActivityIndicator size="small" color={colors.primary} />
                     ) : (
-                      <Ionicons name="paper-plane-outline" size={17} color={colors.onPrimary} />
+                      <Ionicons
+                        name="send"
+                        size={COMPOSER_ICON_SIZE}
+                        color={
+                          draft.trim().length || attachments.length ? colors.primary : colors.textMuted
+                        }
+                      />
                     )}
                   </AppPressable>
-                </>
+                </View>
               ) : null}
             </View>
           </View>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, type ComponentProps, type RefObject } from "react";
 import { ActivityIndicator, Alert, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,6 +15,9 @@ type Props = {
   stopRef?: RefObject<(() => void) | null>;
   style?: ViewStyle;
   iconSize?: number;
+  iconName?: ComponentProps<typeof Ionicons>["name"];
+  bordered?: boolean;
+  bare?: boolean;
 };
 
 function shouldAlertForError(code: SpeechRecognitionErrorCode): boolean {
@@ -28,6 +31,9 @@ export function VoiceInputButton({
   stopRef,
   style,
   iconSize = 18,
+  iconName = "mic-outline",
+  bordered = true,
+  bare = false,
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -78,19 +84,24 @@ export function VoiceInputButton({
       accessibilityRole="button"
       accessibilityLabel={isListening ? t("speechInput.stopA11y") : t("speechInput.startA11y")}
       accessibilityState={{ disabled: isDisabled, selected: isListening }}
-      style={[
-        {
-          width: 44,
-          height: 44,
-          borderRadius: 14,
-          borderWidth: 1,
-          borderColor: isListening ? colors.primary : colors.border,
-          backgroundColor: colors.background,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        style,
-      ]}
+      hitSlop={bare ? 6 : undefined}
+      style={
+        bare
+          ? [{ padding: 0, alignItems: "center", justifyContent: "center" }, style]
+          : [
+              {
+                width: 44,
+                height: 44,
+                borderRadius: 8,
+                borderWidth: bordered ? 1 : 0,
+                borderColor: isListening ? colors.primary : colors.border,
+                backgroundColor: colors.background,
+                alignItems: "center",
+                justifyContent: "center",
+              },
+              style,
+            ]
+      }
       disabled={isDisabled}
       onPress={() => {
         void toggle();
@@ -99,7 +110,7 @@ export function VoiceInputButton({
       {isListening ? (
         <ActivityIndicator size="small" color={colors.primary} />
       ) : (
-        <Ionicons name="mic-outline" size={iconSize} color={iconColor} />
+        <Ionicons name={iconName} size={iconSize} color={iconColor} />
       )}
     </AppPressable>
   );
