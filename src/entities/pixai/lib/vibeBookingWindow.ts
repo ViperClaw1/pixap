@@ -63,14 +63,14 @@ export function filterVibePlanToBookingWindow(plan: VibePlanStop[], nowMs = Date
   return plan.filter((stop) => isTimeSlotInVibeBookingWindow(stop.time_slot, nowMs));
 }
 
-/** Round to nearest :00 / :30 and clamp inside the vibe booking window. */
+/** Round up to the next :00 / :30 and clamp inside the vibe booking window. */
 export function snapIsoToThirtyMinuteGrid(iso: string, nowMs = Date.now()): string {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return iso;
-  const snapped = Math.round(t / VIBE_SLOT_GRID_MS) * VIBE_SLOT_GRID_MS;
   const { startMs, endMs } = getVibeBookingWindow(nowMs);
-  const clamped = Math.min(endMs, Math.max(startMs, snapped));
-  return new Date(clamped).toISOString();
+  const clamped = Math.min(endMs, Math.max(startMs, t));
+  const ceiled = Math.ceil(clamped / VIBE_SLOT_GRID_MS) * VIBE_SLOT_GRID_MS;
+  return new Date(Math.min(endMs, Math.max(startMs, ceiled))).toISOString();
 }
 
 export function normalizeVibePlanStops(plan: VibePlanStop[], nowMs = Date.now()): VibePlanStop[] {

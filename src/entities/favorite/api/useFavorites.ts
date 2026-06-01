@@ -31,6 +31,7 @@ export const useFavorites = (options?: { enabled?: boolean }) => {
       }));
     },
     enabled: !!user && (options?.enabled ?? true),
+    staleTime: 5 * 60 * 1000,
   });
 };
 

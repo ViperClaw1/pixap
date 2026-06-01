@@ -1,8 +1,9 @@
 import type { PixAISlot } from "@/entities/pixai";
 
-/** Daily booking grid: 09:00–23:30 local time, 30-minute steps. */
+/** Daily booking grid: 09:00–23:30 and after-midnight 00:00–02:00 local time, 30-minute steps. */
 export const BOOKING_SLOT_START_MINUTES = 9 * 60;
-export const BOOKING_SLOT_END_MINUTES = 23 * 60 + 30;
+export const BOOKING_SLOT_EVENING_END_MINUTES = 23 * 60 + 30;
+export const BOOKING_SLOT_LATE_NIGHT_END_MINUTES = 2 * 60;
 export const BOOKING_SLOT_STEP_MINUTES = 30;
 export const BOOKING_SLOT_GRID_COLUMNS = 4;
 
@@ -15,11 +16,21 @@ function formatSlotLabel(totalMinutes: number): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
+/** @deprecated Use BOOKING_SLOT_EVENING_END_MINUTES — kept for callers expecting the old name. */
+export const BOOKING_SLOT_END_MINUTES = BOOKING_SLOT_EVENING_END_MINUTES;
+
 export function buildBookingSlotTimeLabels(): string[] {
   const labels: string[] = [];
   for (
     let totalMinutes = BOOKING_SLOT_START_MINUTES;
-    totalMinutes <= BOOKING_SLOT_END_MINUTES;
+    totalMinutes <= BOOKING_SLOT_EVENING_END_MINUTES;
+    totalMinutes += BOOKING_SLOT_STEP_MINUTES
+  ) {
+    labels.push(formatSlotLabel(totalMinutes));
+  }
+  for (
+    let totalMinutes = 0;
+    totalMinutes <= BOOKING_SLOT_LATE_NIGHT_END_MINUTES;
     totalMinutes += BOOKING_SLOT_STEP_MINUTES
   ) {
     labels.push(formatSlotLabel(totalMinutes));

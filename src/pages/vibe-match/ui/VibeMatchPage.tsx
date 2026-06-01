@@ -53,6 +53,7 @@ import {
   snapIsoToThirtyMinuteGrid,
 } from "@/entities/pixai/lib/vibeBookingWindow";
 import { fetchAvailableSlotsForDay, useCreateBooking } from "@/entities/booking";
+import { BOOKING_SLOT_STEP_MINUTES } from "@/entities/booking/lib/bookingSlots";
 import { useCreateCartItem } from "@/entities/cart";
 import { normalizeWaInterfaceLocale, startN8nWaBooking } from "@/entities/cart";
 import { i18n, PageI18nProvider } from "@/shared/lib/i18n";
@@ -100,7 +101,7 @@ const VIBE_MATCH_MOOD_OPTIONS: TaxonomyOption[] = VIBE_OPTIONS.map((option) => (
   labelPrefix: "vibeMatch.vibes",
 }));
 
-const SLOT_MATCH_MS = 15 * 60 * 1000;
+const SLOT_MATCH_MS = BOOKING_SLOT_STEP_MINUTES * 60_000;
 const PLAN_THUMB_SIZE = 80;
 
 function formatStopAddress(stop: VibePlanStop): string | null {
@@ -152,7 +153,7 @@ function scheduleN8nWaBookingStart(cartItemId: string, accessToken: string) {
   });
 }
 
-/** Closest available slot to proposed time within SLOT_MATCH_MS; otherwise null. */
+/** Closest available slot to proposed time within one booking grid step; otherwise null. */
 function resolveBookingDateTime(slots: PixAISlot[], proposedIso: string): string | null {
   const t = new Date(snapIsoToThirtyMinuteGrid(proposedIso)).getTime();
   let best: PixAISlot | null = null;

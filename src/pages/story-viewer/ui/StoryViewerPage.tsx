@@ -56,6 +56,8 @@ type StoryViewerNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryViewe
 const AUTO_ADVANCE_MS = 7000;
 /** Matches `igComposerRow` Android paddingBottom — keep in sync. */
 const COMPOSER_FOOTER_PADDING_ANDROID = 10;
+/** iOS: extra black footer height while keyboard is up — masks frame lag during keyboard animation. */
+const IOS_COMPOSER_KEYBOARD_BOTTOM_BUFFER = 200;
 /** Space reserved in bottomArea while Android composer is docked to the screen bottom. */
 const STORY_ANDROID_COMPOSER_RESERVE = 12 + 44 + COMPOSER_FOOTER_PADDING_ANDROID;
 /** Min downward drag (px) before dismiss. */
@@ -139,19 +141,43 @@ export default function StoryViewerScreen() {
     COMPOSER_FOOTER_PADDING_ANDROID,
     Math.max(insets.bottom, 8),
   );
+  const safeBottomInset = useSharedValue(insets.bottom);
+  useEffect(() => {
+    safeBottomInset.value = insets.bottom;
+  }, [insets.bottom, safeBottomInset]);
 
   const bottomAreaLiftStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: -keyboardInsetAnim.value }],
   }));
+
+  /** Black underlay fills the lift zone so story media does not flash through during keyboard animation. */
+  const iosKeyboardBackdropStyle = useAnimatedStyle(() => ({
+    height: Math.max(0, keyboardInsetAnim.value),
+  }));
+
+  /** Extends black composer below the lifted bottomArea to cover keyboard-animation desync. */
+  const composerFooterAnimatedStyle = useAnimatedStyle(() => {
+    const lift = keyboardInsetAnim.value;
+    if (lift <= 0.5) {
+      return {
+        paddingBottom: composerClosedPaddingBottom,
+        marginBottom: 0,
+      };
+    }
+    const buffer = Math.max(IOS_COMPOSER_KEYBOARD_BOTTOM_BUFFER, safeBottomInset.value);
+    return {
+      paddingBottom: buffer,
+      marginBottom: -buffer,
+    };
+  }, [composerClosedPaddingBottom]);
 
   const composerRowAnimatedStyle = useAnimatedStyle(() => {
     const lift = keyboardInsetAnim.value;
     const t = Math.min(1, lift / 48);
     return {
       paddingTop: 10 + (1 - t) * 2,
-      paddingBottom: 10 + (1 - t) * (composerClosedPaddingBottom - 10),
     };
-  }, [composerClosedPaddingBottom]);
+  });
 
   const dismissDragStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: dismissTranslateY.value }],
@@ -442,6 +468,10 @@ export default function StoryViewerScreen() {
           </View>
         </View>
 
+        {Platform.OS === "ios" ? (
+          <Animated.View pointerEvents="none" style={[styles.iosKeyboardBackdrop, iosKeyboardBackdropStyle]} />
+        ) : null}
+
         <Animated.View
           style={[
             styles.bottomArea,
@@ -567,11 +597,11 @@ export default function StoryViewerScreen() {
           {activeStory.content}
         </Text>
         {Platform.OS === "ios" ? (
-          <View style={styles.igComposerFooter}>
+          <Animated.View style={[styles.igComposerFooter, composerFooterAnimatedStyle]}>
             <Animated.View style={[styles.igComposerRow, composerRowAnimatedStyle]}>
               {renderComposerRowContent()}
             </Animated.View>
-          </View>
+          </Animated.View>
         ) : null}
       </>
     );
@@ -637,11 +667,18 @@ const styles = StyleSheet.create({
   bottomArea: {
     paddingHorizontal: 14,
     paddingTop: 44,
-    paddingBottom: 8,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     marginTop: -18,
     zIndex: 3,
+  },
+  iosKeyboardBackdrop: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#000000",
+    zIndex: 2,
   },
   authorAvatarWrap: {
     position: "absolute",
@@ -703,6 +740,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
     paddingTop: 12,
+    paddingBottom: 10,
     backgroundColor: "#000000",
   },
   igInputWrap: {

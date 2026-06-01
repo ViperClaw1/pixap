@@ -4,7 +4,8 @@ import { corsHeaders } from "../_shared/cors.ts";
 type Req = { business_id: string; date?: string };
 
 const BOOKING_SLOT_START_MINUTES = 9 * 60;
-const BOOKING_SLOT_END_MINUTES = 23 * 60 + 30;
+const BOOKING_SLOT_EVENING_END_MINUTES = 23 * 60 + 30;
+const BOOKING_SLOT_LATE_NIGHT_END_MINUTES = 2 * 60;
 const BOOKING_SLOT_STEP_MINUTES = 30;
 const BOOKING_MIN_LEAD_MS = 30 * 60_000;
 
@@ -18,7 +19,14 @@ function buildSlotTimeLabels(): string[] {
   const labels: string[] = [];
   for (
     let totalMinutes = BOOKING_SLOT_START_MINUTES;
-    totalMinutes <= BOOKING_SLOT_END_MINUTES;
+    totalMinutes <= BOOKING_SLOT_EVENING_END_MINUTES;
+    totalMinutes += BOOKING_SLOT_STEP_MINUTES
+  ) {
+    labels.push(formatSlotLabel(totalMinutes));
+  }
+  for (
+    let totalMinutes = 0;
+    totalMinutes <= BOOKING_SLOT_LATE_NIGHT_END_MINUTES;
     totalMinutes += BOOKING_SLOT_STEP_MINUTES
   ) {
     labels.push(formatSlotLabel(totalMinutes));

@@ -51,6 +51,7 @@ import { usePostShareSheet } from "@/features/post-share";
 import { FeedPostCard } from "@/widgets/feed-post-card";
 import { usePostCommentComposer } from "@/pages/stories-feed/model/usePostCommentComposer";
 import { useFollowOverrides } from "@/pages/stories-feed/model/useFollowOverrides";
+import { useNavigateOnce } from "@/shared/lib/navigation/useNavigateOnce";
 import {
   FEED_APP_HEADER_BODY,
   FEED_CAROUSEL_HEIGHT_BOOST,
@@ -67,6 +68,7 @@ export default function StoriesFeedScreen() {
   const { t } = useTranslation();
   const { colors, isDark, mode, setMode } = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<BrowseFlowParamList>>();
+  const navigateOnce = useNavigateOnce();
   const rootNavigation = useNavigation<NavigationProp<RootTabParamList>>();
   const route = useRoute<RouteProp<FeedStackParamList, "FeedMain">>();
   const { user } = useAuth();
@@ -395,8 +397,8 @@ export default function StoriesFeedScreen() {
   }, []);
   const handleFeedBookNow = useCallback((placeId: string) => {
     const h = feedCardHandlersRef.current;
-    h.runAuthedAction(() => h.navigation.navigate("BookingFlow", { id: placeId }));
-  }, []);
+    navigateOnce(() => h.runAuthedAction(() => h.navigation.navigate("BookingFlow", { id: placeId })));
+  }, [navigateOnce]);
   const handleFeedShare = useCallback(
     (postId: string, placeId: string | null, images: string[], placeName: string) => {
       const h = feedCardHandlersRef.current;
@@ -550,9 +552,9 @@ export default function StoriesFeedScreen() {
             uploadingStory={storyUpload.uploadingStory}
             loadingMoreStories={isFetchingMoreFeedStories}
             colors={colors}
-            navigation={navigation}
             onAddStory={() => runAuthedAction(composer.openMenu)}
             onLoadMoreStories={onLoadMoreFeedStories}
+            onOpenStory={(params) => navigateOnce(() => navigation.navigate("FeedStoryViewer", params))}
           />
         }
         ListEmptyComponent={
@@ -618,18 +620,18 @@ function StoriesStripHeader({
   uploadingStory,
   loadingMoreStories,
   colors,
-  navigation,
   onAddStory,
   onLoadMoreStories,
+  onOpenStory,
 }: {
   topStories: ReturnType<typeof useStoriesStrip>["data"];
   storyGroups: StoryGroup[];
   uploadingStory: boolean;
   loadingMoreStories: boolean;
   colors: ReturnType<typeof useAppTheme>["colors"];
-  navigation: NativeStackNavigationProp<BrowseFlowParamList>;
   onAddStory: () => void;
   onLoadMoreStories: () => void;
+  onOpenStory: (params: BrowseFlowParamList["FeedStoryViewer"]) => void;
 }) {
   const { t } = useTranslation();
   const onStoriesStripScroll = useCallback(
@@ -687,12 +689,12 @@ function StoriesStripHeader({
               style={styles.storyBubble}
               onPress={() => {
                 if (targetGroupIndex < 0) {
-                  navigation.navigate("FeedStoryViewer", { storyId: story.id });
+                  onOpenStory({ storyId: story.id });
                   return;
                 }
                 const group = storyGroups[targetGroupIndex];
                 const targetStoryIndex = Math.max(0, group.stories.findIndex((s) => s.id === story.id));
-                navigation.navigate("FeedStoryViewer", {
+                onOpenStory({
                   groups: storyGroups,
                   initialGroupIndex: targetGroupIndex,
                   initialStoryIndex: targetStoryIndex,
