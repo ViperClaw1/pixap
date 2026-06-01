@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -9,6 +9,8 @@ export type StorySourceOption = "camera" | "gallery";
 
 /** iOS cannot present UIImagePicker while our Modal is still on screen. */
 const PICKER_PRESENT_DELAY_MS = Platform.OS === "ios" ? 400 : 250;
+const FADE_IN_MS = 220;
+const FADE_OUT_MS = 200;
 
 type Props = {
   visible: boolean;
@@ -26,16 +28,33 @@ export function StorySourcePickerModal({
   subtitle = "Choose where to pick media from for your story.",
 }: Props) {
   const { colors } = useAppTheme();
+  const [mounted, setMounted] = useState(false);
   const opacity = useSharedValue(0);
   const chooseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!visible) {
-      opacity.value = 0;
+    if (visible) {
+      setMounted(true);
+      opacity.value = withTiming(1, {
+        duration: FADE_IN_MS,
+        easing: Easing.out(Easing.cubic),
+      });
       return;
     }
-    opacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
-  }, [opacity, visible]);
+    if (!mounted) return;
+    opacity.value = withTiming(
+      0,
+      {
+        duration: FADE_OUT_MS,
+        easing: Easing.in(Easing.cubic),
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(setMounted)(false);
+        }
+      },
+    );
+  }, [mounted, opacity, visible]);
 
   useEffect(() => {
     return () => {
@@ -92,9 +111,13 @@ export function StorySourcePickerModal({
     [],
   );
 
+  if (!mounted) {
+    return null;
+  }
+
   return (
     <Modal
-      visible={visible}
+      visible={mounted}
       transparent
       animationType="none"
       statusBarTranslucent

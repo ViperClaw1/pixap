@@ -100,13 +100,11 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   bookTitle: {
-    flex: 1,
-    minWidth: 0,
+    flexShrink: 1,
     color: "#ffffff",
     fontSize: 14,
     fontWeight: "800",
     lineHeight: 18,
-    textAlign: "center",
   },
   howToGetBtn: {
     flex: 1,
@@ -121,11 +119,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   howToGetTitle: {
-    flex: 1,
-    minWidth: 0,
+    flexShrink: 1,
     fontSize: 14,
     fontWeight: "800",
     lineHeight: 18,
-    textAlign: "center",
   },
 });
