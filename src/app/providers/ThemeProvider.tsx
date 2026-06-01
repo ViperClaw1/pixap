@@ -8,11 +8,10 @@ import {
   type ReactNode,
 } from "react";
 import { useColorScheme } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { ThemeColors } from "@/shared/theme/palettes";
 import { darkColors, lightColors } from "@/shared/theme/palettes";
-
-const STORAGE_KEY = "@pixapp/ui_theme_mode";
+import { THEME_MODE_STORAGE_KEY } from "@/app/providers/themeStorage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -26,28 +25,23 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+type ThemeProviderProps = {
+  children: ReactNode;
+  /** Loaded before first UI paint (see App boot). */
+  initialMode?: ThemeMode;
+};
+
+export function ThemeProvider({ children, initialMode = "system" }: ThemeProviderProps) {
   const systemScheme = useColorScheme();
-  // Start with "system" so the very first render already matches the device theme.
-  // AsyncStorage hydration below may refine this to an explicit user preference.
-  const [mode, setModeState] = useState<ThemeMode>("system");
+  const [mode, setModeState] = useState<ThemeMode>(initialMode);
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw === "light" || raw === "dark" || raw === "system") {
-          setModeState(raw);
-        }
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, []);
+    setModeState(initialMode);
+  }, [initialMode]);
 
   const setMode = useCallback((m: ThemeMode) => {
     setModeState(m);
-    void AsyncStorage.setItem(STORAGE_KEY, m);
+    void AsyncStorage.setItem(THEME_MODE_STORAGE_KEY, m);
   }, []);
 
   const isDark = useMemo(() => {

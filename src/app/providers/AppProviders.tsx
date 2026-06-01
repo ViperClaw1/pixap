@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/app/providers/AuthProvider";
 import { RealtimeLifecycleProvider } from "@/app/providers/RealtimeLifecycleProvider";
 import { UserPresenceProvider } from "@/entities/user-presence";
-import { ThemeProvider } from "@/app/providers/ThemeProvider";
+import { ThemeProvider, type ThemeMode } from "@/app/providers/ThemeProvider";
 import { StorageEgressMetricsDev } from "@/app/providers/StorageEgressMetricsDev";
 import { RealtimeMetricsDev } from "@/app/providers/RealtimeMetricsDev";
 import { AppErrorBoundary } from "@/shared/ui/error-boundary";
@@ -28,11 +28,16 @@ const queryClient = new QueryClient({
   },
 });
 
-export function AppProviders({ children }: { children: ReactNode }) {
+type AppProvidersProps = {
+  children: ReactNode;
+  initialThemeMode?: ThemeMode;
+};
+
+export function AppProviders({ children, initialThemeMode = "system" }: AppProvidersProps) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider>
+        <ThemeProvider initialMode={initialThemeMode}>
           <I18nextProvider i18n={i18n}>
             <QueryClientProvider client={queryClient}>
               <AuthProvider>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { ElementRef } from "react";
-import { Dimensions, Keyboard, Platform, TextInput } from "react-native";
+import { Dimensions, Keyboard, Platform, TextInput, type View } from "react-native";
 import { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 /** Extra lift on Android when `softwareKeyboardLayoutMode: pan` leaves input slightly under the keyboard. */
@@ -8,19 +8,29 @@ export const ANDROID_PAN_KEYBOARD_CLEARANCE = 22;
 
 const ANDROID_KEYBOARD_ANIM_MS = 280;
 
+type MeasurableView = Pick<View, "measureInWindow">;
+
 export type AndroidPanKeyboardClearanceOptions = {
   clearance?: number;
   getFocusedInput?: () => ElementRef<typeof TextInput> | null;
-  /** Pixels below the input baseline counted as footer bottom when measuring gap. */
+  /** Footer container to measure (preferred over input + padding). */
+  getMeasureTarget?: () => MeasurableView | null;
+  /** Pixels below the input baseline when measuring via `getFocusedInput` only. */
   footerPaddingBelowInput?: number;
-  /** After system pan, measure remaining gap and add lift on top of the current value. */
+  /** After system pan, measure remaining overlap and set lift. */
   measureAfterPan?: boolean;
+  /**
+   * Set measured lift instantly (no withTiming) — avoids a second footer animation after pan.
+   */
+  snapMeasureAfterPan?: boolean;
   /**
    * Apply clearance instantly on focus (no withTiming) so system pan and offset start together —
    * avoids a visible second scroll stage.
    */
   instantOnFocus?: boolean;
 };
+
+const MAX_MEASURED_LIFT_PX = 120;
 
 function resolveKeyboardAnimationDuration(eventDuration?: number): number {
   if (eventDuration != null && eventDuration > 80) {
@@ -48,6 +58,9 @@ export function useAndroidPanKeyboardClearance(
   const extraLift = useSharedValue(0);
   const getFocusedInputRef = useRef(options.getFocusedInput);
   getFocusedInputRef.current = options.getFocusedInput;
+  const getMeasureTargetRef = useRef(options.getMeasureTarget);
+  getMeasureTargetRef.current = options.getMeasureTarget;
+  const snapMeasureAfterPan = options.snapMeasureAfterPan ?? false;
 
   const animateLift = useCallback(
     (toValue: number, duration?: number) => {
@@ -90,13 +103,24 @@ export function useAndroidPanKeyboardClearance(
 
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              const input = getFocusedInputRef.current?.();
-              if (!input || typeof input.measureInWindow !== "function") return;
+              const measureTarget =
+                getMeasureTargetRef.current?.() ?? getFocusedInputRef.current?.();
+              if (!measureTarget || typeof measureTarget.measureInWindow !== "function") return;
 
-              input.measureInWindow((_x, y, _w, h) => {
-                const gap = keyboardTop - (y + h + footerPad);
-                if (gap <= 0.5) return;
-                animateLift(extraLift.value + gap + 2, duration);
+              measureTarget.measureInWindow((_x, y, _w, h) => {
+                const footerBottom =
+                  getMeasureTargetRef.current?.() != null ? y + h : y + h + footerPad;
+                const overlap = footerBottom - keyboardTop;
+                const targetLift =
+                  overlap > 0.5
+                    ? Math.min(MAX_MEASURED_LIFT_PX, overlap + clearance)
+                    : 0;
+
+                if (snapMeasureAfterPan) {
+                  extraLift.value = targetLift;
+                  return;
+                }
+                animateLift(targetLift, duration);
               });
             });
           });
@@ -109,9 +133,11 @@ export function useAndroidPanKeyboardClearance(
     };
   }, [
     animateLift,
+    clearance,
     extraLift,
     options.footerPaddingBelowInput,
     options.measureAfterPan,
+    snapMeasureAfterPan,
   ]);
 
   useEffect(() => {
