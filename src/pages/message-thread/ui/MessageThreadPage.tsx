@@ -56,7 +56,6 @@ import {
   COMPOSER_ICON_HIT_SLOP,
   COMPOSER_ICON_SIZE,
   FOOTER_VERTICAL_PADDING,
-  MESSAGE_THREAD_ANDROID_PAN_CLEARANCE_PX,
   MESSAGE_THREAD_KEYBOARD_GAP,
 } from "@/shared/lib/messageThreadLayout";
 import { useMessageThreadAndroidFooterLift } from "../model/useMessageThreadAndroidFooterLift";
@@ -105,6 +104,7 @@ export default function MessageThreadPage() {
   const stableBottomInset = stableBottomInsetRef.current;
   const listRef = useRef<FlashListRef<MessageThreadListRow>>(null);
   const composerInputRef = useRef<TextInput>(null);
+  const footerMeasureRef = useRef<View>(null);
   const voiceStopRef = useRef<(() => void) | null>(null);
   const isAtBottomRef = useRef(true);
   const scrollAfterSendRef = useRef(false);
@@ -410,11 +410,8 @@ export default function MessageThreadPage() {
     [stableBottomInset, tabBarHeight],
   );
   const keyboardInset = useKeyboardInset(keyboardInsetOptions);
-  const {
-    footerDockStyle: androidFooterDockStyle,
-    footerLift: androidFooterLift,
-    onComposerFocus: onAndroidComposerFocus,
-  } = useMessageThreadAndroidFooterLift(MESSAGE_THREAD_ANDROID_PAN_CLEARANCE_PX);
+  const { footerDockStyle: androidFooterDockStyle, footerLift: androidFooterLift } =
+    useMessageThreadAndroidFooterLift(footerMeasureRef);
 
   const refocusComposerInput = useCallback(() => {
     composerInputRef.current?.focus();
@@ -654,8 +651,8 @@ export default function MessageThreadPage() {
   );
 
   const composerFooter = (
-    <View onLayout={handleFooterLayout}>
-      <View style={styles.footer}>
+    <View ref={footerMeasureRef} onLayout={handleFooterLayout}>
+      <View style={[styles.footer, Platform.OS === "android" && styles.footerAndroid]}>
         {peerIsTyping ? (
           <View style={styles.typingRow} accessibilityLiveRegion="polite">
             <Text style={styles.typingText}>{t("messages.thread.peerTyping")}</Text>
@@ -761,7 +758,6 @@ export default function MessageThreadPage() {
               textAlignVertical="center"
               onFocus={() => {
                 bindStopOnManualEdit(() => voiceStopRef.current?.());
-                onAndroidComposerFocus();
               }}
             />
             {editingMessage ? (
@@ -917,7 +913,13 @@ export default function MessageThreadPage() {
       {Platform.OS === "ios" ? (
         <KeyboardStickyView {...keyboardInsetOptions}>{composerFooter}</KeyboardStickyView>
       ) : (
-        <Animated.View style={[styles.androidFooterDock, androidFooterDockStyle]}>
+        <Animated.View
+          style={[
+            styles.androidFooterDock,
+            styles.footerDockAndroid,
+            androidFooterDockStyle,
+          ]}
+        >
           {composerFooter}
         </Animated.View>
       )}

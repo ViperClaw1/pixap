@@ -1,42 +1,91 @@
-import { useCallback, useEffect, useRef } from "react";
-import { Keyboard, Platform } from "react-native";
-import { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
-import { MESSAGE_THREAD_ANDROID_PAN_CLEARANCE_PX } from "@/shared/lib/messageThreadLayout";
+import { useEffect, useRef } from "react";
+import type { RefObject } from "react";
+import { Dimensions, Keyboard, Platform, type View } from "react-native";
+import { cancelAnimation, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
+
+const MAX_LIFT_PX = 40;
+
+function resolveKeyboardTop(
+  screenY: number | undefined,
+  windowHeight: number,
+  keyboardHeight: number,
+): number {
+  const fallbackTop = windowHeight - keyboardHeight;
+  let keyboardTop = screenY ?? fallbackTop;
+
+  if (keyboardTop < windowHeight * 0.35 || keyboardTop > windowHeight + 8) {
+    keyboardTop = Dimensions.get("screen").height - keyboardHeight;
+  }
+
+  return keyboardTop;
+}
 
 /**
- * Message thread / Android only.
+ * Message thread / Android only. System pan lifts the window; this adds a small translateY
+ * on the footer dock ONLY when the footer still overlaps the keyboard after pan.
  *
- * What sets footer lift (translateY on `androidFooterDock`):
- * - `MESSAGE_THREAD_ANDROID_PAN_CLEARANCE_PX` in messageThreadLayout.ts — the only tuning knob.
- * - Applied on composer focus and again on `keyboardDidShow` (same value, no second animation).
- * - Reset only on `keyboardDidHide` (not on blur — blur can fire while the keyboard stays open).
- *
- * System `pan` moves the window; this hook adds a fixed extra lift for Gboard chrome / pan undershoot.
+ * No withTiming, no onFocus lift — avoids the second footer animation after pan.
  */
-export function useMessageThreadAndroidFooterLift(
-  clearancePx = MESSAGE_THREAD_ANDROID_PAN_CLEARANCE_PX,
-) {
+export function useMessageThreadAndroidFooterLift(footerRef: RefObject<View | null>) {
   const footerLift = useSharedValue(0);
-  const clearanceRef = useRef(clearancePx);
-  clearanceRef.current = clearancePx;
-
-  const applyClearance = useCallback(() => {
-    if (Platform.OS !== "android") return;
-    footerLift.value = clearanceRef.current;
-  }, [footerLift]);
-
-  const onComposerFocus = useCallback(() => {
-    applyClearance();
-  }, [applyClearance]);
+  const keyboardOpenRef = useRef(false);
+  const syncScheduledRef = useRef(false);
+  const keyboardTopRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== "android") return;
 
-    const showSub = Keyboard.addListener("keyboardDidShow", () => {
-      applyClearance();
+    const applyLiftFromMeasure = () => {
+      syncScheduledRef.current = false;
+      if (!keyboardOpenRef.current) return;
+
+      const keyboardTop = keyboardTopRef.current;
+      if (keyboardTop == null) return;
+
+      const footer = footerRef.current;
+      if (!footer || typeof footer.measureInWindow !== "function") {
+        cancelAnimation(footerLift);
+        footerLift.value = 0;
+        return;
+      }
+
+      footer.measureInWindow((_x, y, _w, h) => {
+        const footerBottom = y + h;
+        // Positive space = footer already above keyboard (pan succeeded) — never lift.
+        const space = keyboardTop - footerBottom;
+        const targetLift = space < -2 ? Math.min(MAX_LIFT_PX, -space + 2) : 0;
+
+        cancelAnimation(footerLift);
+        footerLift.value = targetLift;
+      });
+    };
+
+    const scheduleMeasure = (keyboardTop: number) => {
+      keyboardTopRef.current = keyboardTop;
+      if (syncScheduledRef.current) return;
+      syncScheduledRef.current = true;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(applyLiftFromMeasure);
+      });
+    };
+
+    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
+      keyboardOpenRef.current = true;
+      const windowHeight = Dimensions.get("window").height;
+      scheduleMeasure(
+        resolveKeyboardTop(
+          event.endCoordinates.screenY,
+          windowHeight,
+          event.endCoordinates.height,
+        ),
+      );
     });
 
     const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      keyboardOpenRef.current = false;
+      syncScheduledRef.current = false;
+      keyboardTopRef.current = null;
+      cancelAnimation(footerLift);
       footerLift.value = 0;
     });
 
@@ -44,7 +93,7 @@ export function useMessageThreadAndroidFooterLift(
       showSub.remove();
       hideSub.remove();
     };
-  }, [applyClearance, footerLift]);
+  }, [footerLift, footerRef]);
 
   const footerDockStyle = useAnimatedStyle(
     () => ({
@@ -53,5 +102,5 @@ export function useMessageThreadAndroidFooterLift(
     [footerLift],
   );
 
-  return { footerDockStyle, footerLift, onComposerFocus };
+  return { footerDockStyle, footerLift };
 }

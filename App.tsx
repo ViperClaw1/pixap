@@ -10,6 +10,8 @@ import AppNavigator from "@/app/navigation/AppNavigator";
 import { linking } from "@/app/navigation/linking";
 import { rootNavigationRef } from "@/app/navigation/rootNavigationRef";
 import { bootstrapI18n, hydrateI18nFromStorage } from "@/shared/lib/i18n";
+import { loadPersistedThemeMode } from "@/app/providers/themeStorage";
+import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import { subscribeSupabaseAuthDeepLinks } from "@/app/navigation/subscribeSupabaseAuthDeepLinks";
 import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/shared/lib/permissionsStorage";
 import { supabaseConfigError } from "@/shared/api/supabase/client";
@@ -113,6 +115,7 @@ function NavigationRoot({ onFirstFrame }: { onFirstFrame: () => void }) {
 
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [initialThemeMode, setInitialThemeMode] = useState<ThemeMode>("system");
   const [showPerms, setShowPerms] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
   const deferredRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
@@ -124,12 +127,14 @@ export default function App() {
     void (async () => {
       try {
         markStartup("boot_effect_start");
-        const [, seen] = await Promise.all([
+        const [, seen, themeMode] = await Promise.all([
           bootstrapI18n(),
           hasSeenPermissionsIntro(),
+          loadPersistedThemeMode(),
         ]);
         markStartup("i18n_bootstrap_done");
         if (!cancelled) {
+          setInitialThemeMode(themeMode);
           setReady(true);
           setShowPerms(!seen);
         }
@@ -168,18 +173,16 @@ export default function App() {
     markStartup("splash_hidden");
   }, []);
 
+  if (!ready) return null;
+
   return (
-    <AppProviders>
-      {!ready ? null : (
-        <>
-          {bootError || supabaseConfigError ? (
-            <BootErrorScreen message={bootError ?? supabaseConfigError ?? "Startup failed"} />
-          ) : showPerms ? (
-            <PermissionsOnboardingLazy onComplete={() => void onPermsDone()} />
-          ) : (
-            <NavigationRoot onFirstFrame={hideSplashOnFirstFrame} />
-          )}
-        </>
+    <AppProviders initialThemeMode={initialThemeMode}>
+      {bootError || supabaseConfigError ? (
+        <BootErrorScreen message={bootError ?? supabaseConfigError ?? "Startup failed"} />
+      ) : showPerms ? (
+        <PermissionsOnboardingLazy onComplete={() => void onPermsDone()} />
+      ) : (
+        <NavigationRoot onFirstFrame={hideSplashOnFirstFrame} />
       )}
     </AppProviders>
   );

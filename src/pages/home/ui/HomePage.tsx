@@ -319,8 +319,16 @@ export default function HomeScreen() {
           </AppPressable>
         </View>
 
-        <AppPressable style={styles.searchBtn} onPress={() => navigation.navigate("SearchMain")}>
-          <Text style={styles.searchBtnText}>{t("home.searchPlaceholder")}</Text>
+        <AppPressable
+          style={[
+            homePageStaticStyles.searchBtn,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+          onPress={() => navigation.navigate("SearchMain")}
+        >
+          <Text style={[homePageStaticStyles.searchBtnText, { color: colors.textMuted }]}>
+            {t("home.searchPlaceholder")}
+          </Text>
         </AppPressable>
 
         <DailyPicksHero recommendation={dailyRecommendations[0] ?? null} onOpen={openDailyRecommendations} />
@@ -431,7 +439,7 @@ export default function HomeScreen() {
       <FlashList
         style={styles.root}
         data={lr ? [] : visibleRecommended}
-        extraData={`${i18n.language}|${recommendedListExtraData}`}
+        extraData={`${i18n.language}|${recommendedListExtraData}|${isDark ? "d" : "l"}`}
         keyExtractor={(p) => p.id}
         estimatedItemSize={RECOMMENDED_ITEM_ESTIMATED_SIZE}
         renderItem={renderRecommendedRow}

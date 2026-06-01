@@ -288,6 +288,13 @@ export const messageThreadStaticStyles = StyleSheet.create({
     alignItems: "stretch",
     gap: 8,
   },
+  /** Message thread Android: hide pan gap — footer blends with chat behind the keyboard. */
+  footerAndroid: {
+    backgroundColor: "transparent",
+  },
+  footerDockAndroid: {
+    backgroundColor: "transparent",
+  },
   stickerPanel: {
     borderWidth: 1,
     borderRadius: 14,
