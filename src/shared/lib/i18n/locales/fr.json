@@ -39,6 +39,18 @@
     "delete": "Supprimer",
     "unknownUser": "Utilisateur inconnu"
   },
+  "speechInput": {
+    "startA11y": "Démarrer la saisie vocale",
+    "stopA11y": "Arrêter la saisie vocale",
+    "permissionTitle": "Accès au micro requis",
+    "permissionMessage": "Autorisez le micro et la reconnaissance vocale pour dicter des messages dans le chat.",
+    "unavailableTitle": "Saisie vocale indisponible",
+    "unavailableMessage": "La reconnaissance vocale n'est pas disponible sur cet appareil.",
+    "errorTitle": "Erreur de saisie vocale",
+    "errorGeneric": "Impossible de reconnaître la voix. Réessayez.",
+    "noSpeech": "Aucune voix détectée. Réessayez.",
+    "networkError": "Erreur réseau pendant la reconnaissance vocale."
+  },
   "editProfile": {
     "savedTitle": "Enregistré",
     "savedBody": "Votre profil a été mis à jour.",

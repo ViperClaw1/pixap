@@ -39,6 +39,18 @@
     "delete": "Eliminar",
     "unknownUser": "Utilizador desconhecido"
   },
+  "speechInput": {
+    "startA11y": "Iniciar entrada por voz",
+    "stopA11y": "Parar entrada por voz",
+    "permissionTitle": "Acesso ao microfone necessário",
+    "permissionMessage": "Permita o microfone e o reconhecimento de voz para ditar mensagens no chat.",
+    "unavailableTitle": "Entrada por voz indisponível",
+    "unavailableMessage": "O reconhecimento de voz não está disponível neste dispositivo.",
+    "errorTitle": "Erro de entrada por voz",
+    "errorGeneric": "Não foi possível reconhecer a voz. Tente novamente.",
+    "noSpeech": "Nenhuma voz detetada. Tente novamente.",
+    "networkError": "Erro de rede durante o reconhecimento de voz."
+  },
   "editProfile": {
     "savedTitle": "Salvo",
     "savedBody": "Seu perfil foi atualizado.",

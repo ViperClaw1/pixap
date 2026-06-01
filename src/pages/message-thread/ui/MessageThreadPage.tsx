@@ -75,6 +75,7 @@ import {
   detectAttachmentKind,
   type MessageAttachmentDraft,
 } from "@/features/message-attachments";
+import { useComposerVoiceInput, VoiceInputButton } from "@/features/speech-input";
 import { AppPopupModal } from "@/shared/ui/app-popup";
 import type { AppPopupButton } from "@/shared/ui/app-popup/types";
 
@@ -102,6 +103,7 @@ export default function MessageThreadPage() {
   const stableBottomInset = stableBottomInsetRef.current;
   const listRef = useRef<FlashListRef<MessageThreadListRow>>(null);
   const composerInputRef = useRef<TextInput>(null);
+  const voiceStopRef = useRef<(() => void) | null>(null);
   const isAtBottomRef = useRef(true);
   const scrollAfterSendRef = useRef(false);
   const pendingOpenScrollRef = useRef(true);
@@ -109,6 +111,8 @@ export default function MessageThreadPage() {
   const [showScrollFab, setShowScrollFab] = useState(false);
   const { colors, mode } = useAppTheme();
   const [draft, setDraft] = useState(params.initialDraft ?? "");
+  const { handleListeningChange, handleTranscriptChange, bindStopOnManualEdit } =
+    useComposerVoiceInput(draft, setDraft);
   const [attachments, setAttachments] = useState<MessageAttachmentDraft[]>([]);
   const [attachmentViewer, setAttachmentViewer] = useState<MessageAttachmentDraft | null>(null);
   const [isStickerPanelOpen, setStickerPanelOpen] = useState(false);
@@ -794,15 +798,33 @@ export default function MessageThreadPage() {
                   </View>
                 </AppPressable>
               ) : null}
+              {!editingMessage ? (
+                <VoiceInputButton
+                  disabled={!threadReady || sendMessage.isPending}
+                  stopRef={voiceStopRef}
+                  style={styles.voiceBtn}
+                  onTranscriptChange={handleTranscriptChange}
+                  onListeningChange={(listening) => {
+                    if (listening) Keyboard.dismiss();
+                    handleListeningChange(listening);
+                  }}
+                />
+              ) : null}
               <View style={editingMessage ? styles.composerInputShell : styles.inputWrap}>
                 <RichTextarea
                   ref={composerInputRef}
                   value={draft}
-                  onChangeText={setDraft}
+                  onChangeText={(value) => {
+                    bindStopOnManualEdit(() => voiceStopRef.current?.());
+                    setDraft(value);
+                  }}
                   placeholder={editingMessage ? "Edit message..." : "Write a message..."}
                   placeholderTextColor={colors.textMuted}
                   style={[styles.input, editingMessage ? styles.inputEditing : null]}
                   editable={!editMessage.isPending}
+                  onFocus={() => {
+                    bindStopOnManualEdit(() => voiceStopRef.current?.());
+                  }}
                 />
                 {editingMessage ? (
                   <AppPressable

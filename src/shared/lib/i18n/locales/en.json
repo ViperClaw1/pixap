@@ -39,6 +39,18 @@
     "delete": "Delete",
     "unknownUser": "Unknown user"
   },
+  "speechInput": {
+    "startA11y": "Start voice input",
+    "stopA11y": "Stop voice input",
+    "permissionTitle": "Microphone access needed",
+    "permissionMessage": "Allow microphone and speech recognition to dictate messages in chat.",
+    "unavailableTitle": "Voice input unavailable",
+    "unavailableMessage": "Speech recognition is not available on this device.",
+    "errorTitle": "Voice input error",
+    "errorGeneric": "Could not recognize speech. Please try again.",
+    "noSpeech": "No speech detected. Try again.",
+    "networkError": "Network error during speech recognition."
+  },
   "editProfile": {
     "savedTitle": "Saved",
     "savedBody": "Your profile data was updated.",

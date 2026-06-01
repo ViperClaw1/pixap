@@ -165,6 +165,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     ],
     "expo-video",
+    [
+      "expo-speech-recognition",
+      {
+        microphonePermission:
+          "Pixap uses the microphone so you can dictate messages in chat.",
+        speechRecognitionPermission:
+          "Pixap uses speech recognition to convert your voice into text in chat.",
+      },
+    ],
   ],
   extra: {
     ...config.extra,
