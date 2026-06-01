@@ -39,6 +39,18 @@
     "delete": "Löschen",
     "unknownUser": "Unbekannter Nutzer"
   },
+  "speechInput": {
+    "startA11y": "Spracheingabe starten",
+    "stopA11y": "Spracheingabe stoppen",
+    "permissionTitle": "Mikrofonzugriff erforderlich",
+    "permissionMessage": "Erlauben Sie Mikrofon und Spracherkennung, um Nachrichten im Chat zu diktieren.",
+    "unavailableTitle": "Spracheingabe nicht verfügbar",
+    "unavailableMessage": "Spracherkennung ist auf diesem Gerät nicht verfügbar.",
+    "errorTitle": "Fehler bei der Spracheingabe",
+    "errorGeneric": "Sprache konnte nicht erkannt werden. Bitte erneut versuchen.",
+    "noSpeech": "Keine Sprache erkannt. Bitte erneut versuchen.",
+    "networkError": "Netzwerkfehler bei der Spracherkennung."
+  },
   "editProfile": {
     "savedTitle": "Gespeichert",
     "savedBody": "Dein Profil wurde aktualisiert.",

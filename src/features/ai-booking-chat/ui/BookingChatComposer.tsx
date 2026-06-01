@@ -1,8 +1,9 @@
-import { useCallback, useState, type Ref } from "react";
+import { useCallback, useRef, useState, type Ref } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useComposerVoiceInput, VoiceInputButton } from "@/features/speech-input";
 
 type Props = {
   disabled: boolean;
@@ -25,6 +26,9 @@ export function BookingChatComposer({
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const [text, setText] = useState("");
+  const voiceStopRef = useRef<(() => void) | null>(null);
+  const { handleListeningChange, handleTranscriptChange, bindStopOnManualEdit } =
+    useComposerVoiceInput(text, setText);
   const trimmedText = text.trim();
   const hasText = trimmedText.length > 0;
   const showPrimaryButton = !disabled && (hasText || sending);
@@ -38,6 +42,13 @@ export function BookingChatComposer({
 
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, paddingTop: 6 }}>
+      <VoiceInputButton
+        disabled={disabled || sending}
+        stopRef={voiceStopRef}
+        onTranscriptChange={handleTranscriptChange}
+        onListeningChange={handleListeningChange}
+        style={{ borderRadius: 22 }}
+      />
       <TextInput
         ref={inputRef}
         style={{
@@ -55,10 +66,16 @@ export function BookingChatComposer({
         placeholder={t("aiBooking.chatComposerPlaceholder")}
         placeholderTextColor={colors.textMuted}
         value={text}
-        onChangeText={setText}
+        onChangeText={(value) => {
+          bindStopOnManualEdit(() => voiceStopRef.current?.());
+          setText(value);
+        }}
         multiline
         editable={!disabled && !sending}
-        onFocus={() => onInputFocus?.()}
+        onFocus={() => {
+          bindStopOnManualEdit(() => voiceStopRef.current?.());
+          onInputFocus?.();
+        }}
         onBlur={() => onInputBlur?.()}
       />
       <Pressable

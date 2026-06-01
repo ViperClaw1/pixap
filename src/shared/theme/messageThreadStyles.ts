@@ -328,6 +328,14 @@ export const messageThreadStaticStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  voiceBtn: {
+    width: COMPOSER_HEIGHT,
+    height: COMPOSER_HEIGHT,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   composerIconTouchTarget: {
     width: "100%",
     height: "100%",
@@ -496,6 +504,10 @@ export function messageThreadThemeStyles(
       borderColor: colors.border,
     },
     attachBtn: {
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    voiceBtn: {
       borderColor: colors.border,
       backgroundColor: colors.background,
     },
