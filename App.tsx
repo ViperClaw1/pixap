@@ -27,6 +27,16 @@ import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessage
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
+// Fires SplashScreen.hide() only after React has committed the first frame to the
+// native layer — prevents the blank frame visible on Android when hide() is called
+// synchronously before the JS render cycle has completed.
+function HideSplash() {
+  useEffect(() => {
+    void SplashScreen.hide();
+  }, []);
+  return null;
+}
+
 function PermissionsOnboardingLazy({ onComplete }: { onComplete: () => void }) {
   const Screen = useMemo(() => require("@/pages/permissions-onboarding").default, []);
   return <Screen onComplete={onComplete} />;
@@ -110,7 +120,8 @@ export default function App() {
         markStartup("i18n_bootstrap_done");
         if (!cancelled) {
           setReady(true);
-          SplashScreen.hide();
+          // SplashScreen.hide() is deferred to HideSplash component's useEffect
+          // to guarantee the native layer has a committed frame before the splash hides.
           markStartup("splash_hidden");
         }
         const seen = await permsPromise;
@@ -131,7 +142,6 @@ export default function App() {
         if (!cancelled) {
           setBootError(error instanceof Error ? error.message : "Startup failed");
           setReady(true);
-          SplashScreen.hide();
         }
       }
     })();
@@ -150,15 +160,20 @@ export default function App() {
 
   return (
     <AppProviders>
-      {!ready ? null : bootError || supabaseConfigError ? (
-        <View style={{ flex: 1, backgroundColor: "#111", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>Configuration error</Text>
-          <Text style={{ color: "#ddd", textAlign: "center" }}>{bootError ?? supabaseConfigError}</Text>
-        </View>
-      ) : showPerms ? (
-        <PermissionsOnboardingLazy onComplete={() => void onPermsDone()} />
-      ) : (
-        <NavigationRoot />
+      {!ready ? null : (
+        <>
+          <HideSplash />
+          {bootError || supabaseConfigError ? (
+            <View style={{ flex: 1, backgroundColor: "#111", alignItems: "center", justifyContent: "center", padding: 20 }}>
+              <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>Configuration error</Text>
+              <Text style={{ color: "#ddd", textAlign: "center" }}>{bootError ?? supabaseConfigError}</Text>
+            </View>
+          ) : showPerms ? (
+            <PermissionsOnboardingLazy onComplete={() => void onPermsDone()} />
+          ) : (
+            <NavigationRoot />
+          )}
+        </>
       )}
     </AppProviders>
   );

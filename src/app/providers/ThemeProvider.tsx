@@ -28,7 +28,9 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme();
-  const [mode, setModeState] = useState<ThemeMode>("light");
+  // Start with "system" so the very first render already matches the device theme.
+  // AsyncStorage hydration below may refine this to an explicit user preference.
+  const [mode, setModeState] = useState<ThemeMode>("system");
 
   useEffect(() => {
     void (async () => {

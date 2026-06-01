@@ -61,7 +61,6 @@ import {
   FEED_STORIES_STRIP_HEIGHT,
   FEED_TAB_BAR_BASE,
   FEED_TITLE_INPUT_KEYBOARD_GAP,
-  FEED_TITLE_INPUT_KEYBOARD_GAP_ANDROID,
 } from "../model/constants";
 
 export default function StoriesFeedScreen() {
@@ -111,11 +110,10 @@ export default function StoriesFeedScreen() {
   const titleInputScrollDoneRef = useRef(false);
   const [titleEditKeyboardInset, setTitleEditKeyboardInset] = useState(0);
 
-  const titleInputKeyboardGap =
-    FEED_TITLE_INPUT_KEYBOARD_GAP +
-    (Platform.OS === "android" ? FEED_TITLE_INPUT_KEYBOARD_GAP_ANDROID : 0);
+  const titleInputKeyboardGap = FEED_TITLE_INPUT_KEYBOARD_GAP;
 
   const computeTitleInputOverlap = useCallback(() => {
+    if (Platform.OS !== "ios") return 0;
     const layout = lastTitleInputLayoutRef.current;
     if (!layout) return 0;
 
@@ -136,8 +134,10 @@ export default function StoriesFeedScreen() {
     });
   }, []);
 
-  /** Extends list scroll range, then scrolls once (fixes last post at list bottom). */
+  /** Extends list scroll range, then scrolls once (fixes last post at list bottom). iOS only. */
   const ensureTitleInputAboveKeyboard = useCallback(() => {
+    if (Platform.OS !== "ios") return;
+
     const overlap = computeTitleInputOverlap();
     if (overlap <= 0) return;
 
@@ -154,6 +154,7 @@ export default function StoriesFeedScreen() {
 
   const handleTitleInputLayout = useCallback(
     (layout: { y: number; height: number }) => {
+      if (Platform.OS !== "ios") return;
       lastTitleInputLayoutRef.current = layout;
       ensureTitleInputAboveKeyboard();
     },
@@ -161,18 +162,21 @@ export default function StoriesFeedScreen() {
   );
 
   useEffect(() => {
+    if (Platform.OS !== "ios") return;
     if (titleEditKeyboardInset <= 0 || titleInputScrollDoneRef.current) return;
     scrollTitleInputByOverlap(titleEditKeyboardInset);
   }, [scrollTitleInputByOverlap, titleEditKeyboardInset]);
 
   useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, (event) => {
+    // Android `softwareKeyboardLayoutMode: pan` already lifts the window; manual inset + scroll
+    // on keyboardDidShow causes a second animation stage.
+    if (Platform.OS !== "ios") return;
+
+    const showSub = Keyboard.addListener("keyboardWillShow", (event) => {
       keyboardTopRef.current = event.endCoordinates.screenY;
       ensureTitleInputAboveKeyboard();
     });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
+    const hideSub = Keyboard.addListener("keyboardWillHide", () => {
       keyboardTopRef.current = Dimensions.get("window").height;
       lastTitleInputLayoutRef.current = null;
       titleInputScrollDoneRef.current = false;
@@ -215,7 +219,10 @@ export default function StoriesFeedScreen() {
   }, [feedMainBlockHeight, height]);
 
   const feedContentStyle = useMemo(
-    () => [styles.feedContent, { paddingBottom: 12 + titleEditKeyboardInset }],
+    () => [
+      styles.feedContent,
+      { paddingBottom: 12 + (Platform.OS === "ios" ? titleEditKeyboardInset : 0) },
+    ],
     [titleEditKeyboardInset],
   );
 
