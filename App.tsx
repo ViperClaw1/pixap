@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
-import { InteractionManager, Platform, Text, View } from "react-native";
+import { InteractionManager, Text, View } from "react-native";
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -26,17 +26,6 @@ import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
-
-// Android: hide splash only after React commits the first frame — avoids a blank white flash.
-// iOS: hide runs in NavigationContainer.onReady (or useLayoutEffect on non-nav boot screens).
-function HideSplash() {
-  useEffect(() => {
-    if (Platform.OS === "android") {
-      void SplashScreen.hide();
-    }
-  }, []);
-  return null;
-}
 
 function BootErrorScreen({ message }: { message: string }) {
   useLayoutEffect(() => {
@@ -65,7 +54,7 @@ if (__DEV__) {
   resetStartupTiming();
 }
 
-function NavigationRoot({ onFirstFrame }: { onFirstFrame?: () => void }) {
+function NavigationRoot({ onFirstFrame }: { onFirstFrame: () => void }) {
   const { colors, isDark } = useAppTheme();
   const toastConfig = useAppToastConfig(colors);
 
@@ -108,7 +97,7 @@ function NavigationRoot({ onFirstFrame }: { onFirstFrame?: () => void }) {
         linking={linking}
         theme={navigationTheme}
         onReady={() => {
-          onFirstFrame?.();
+          onFirstFrame();
           markStartup("navigation_container_ready");
           void consumeInitialPushNotificationResponse();
         }}
@@ -135,14 +124,13 @@ export default function App() {
     void (async () => {
       try {
         markStartup("boot_effect_start");
-        const permsPromise = hasSeenPermissionsIntro();
-        await bootstrapI18n();
+        const [, seen] = await Promise.all([
+          bootstrapI18n(),
+          hasSeenPermissionsIntro(),
+        ]);
         markStartup("i18n_bootstrap_done");
         if (!cancelled) {
           setReady(true);
-        }
-        const seen = await permsPromise;
-        if (!cancelled) {
           setShowPerms(!seen);
         }
         if (cancelled) return;
@@ -184,15 +172,12 @@ export default function App() {
     <AppProviders>
       {!ready ? null : (
         <>
-          {Platform.OS === "android" ? <HideSplash /> : null}
           {bootError || supabaseConfigError ? (
             <BootErrorScreen message={bootError ?? supabaseConfigError ?? "Startup failed"} />
           ) : showPerms ? (
             <PermissionsOnboardingLazy onComplete={() => void onPermsDone()} />
           ) : (
-            <NavigationRoot
-              onFirstFrame={Platform.OS === "ios" ? hideSplashOnFirstFrame : undefined}
-            />
+            <NavigationRoot onFirstFrame={hideSplashOnFirstFrame} />
           )}
         </>
       )}
