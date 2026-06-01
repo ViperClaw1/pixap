@@ -27,7 +27,7 @@ export interface Profile {
 }
 
 export const useProfile = (options?: { enabled?: boolean }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   return useQuery({
     queryKey: queryKeys.profile.user(user?.id),
     queryFn: async () => {
@@ -35,7 +35,7 @@ export const useProfile = (options?: { enabled?: boolean }) => {
       if (error) throw error;
       return data as Profile;
     },
-    enabled: !!user && (options?.enabled ?? true),
+    enabled: !!user && !loading && (options?.enabled ?? true),
     staleTime: 5 * 60 * 1000,
   });
 };

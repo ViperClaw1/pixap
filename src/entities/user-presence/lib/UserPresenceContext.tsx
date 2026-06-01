@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { AppState } from "react-native";
+import { AppState, InteractionManager } from "react-native";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
 import { APP_PRESENCE_CHANNEL } from "../model/constants";
@@ -51,44 +51,51 @@ export function UserPresenceProvider({ children }: { children: ReactNode }) {
     }
 
     let subscribed = false;
-    const channel = supabase.channel(APP_PRESENCE_CHANNEL, {
-      config: { presence: { key: user.id } },
-    });
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let appStateSub: ReturnType<typeof AppState.addEventListener> | null = null;
 
-    const syncOnlineUsers = () => {
-      const next = collectPresenceUserIds(channel.presenceState());
-      setOnlineUserIds((prev) => (presenceSetsEqual(prev, next) ? prev : next));
-    };
-
-    const setTracked = async (active: boolean) => {
-      if (!subscribed) return;
-      if (active) {
-        await channel.track({ user_id: user.id, at: new Date().toISOString() });
-      } else {
-        await channel.untrack();
-      }
-      syncOnlineUsers();
-    };
-
-    channel
-      .on("presence", { event: "sync" }, syncOnlineUsers)
-      .on("presence", { event: "join" }, syncOnlineUsers)
-      .on("presence", { event: "leave" }, syncOnlineUsers)
-      .subscribe(async (status) => {
-        subscribed = status === "SUBSCRIBED";
-        if (subscribed) {
-          await setTracked(AppState.currentState === "active");
-        }
+    const task = InteractionManager.runAfterInteractions(() => {
+      const userId = user.id;
+      channel = supabase.channel(APP_PRESENCE_CHANNEL, {
+        config: { presence: { key: userId } },
       });
 
-    const appStateSub = AppState.addEventListener("change", (next) => {
-      void setTracked(next === "active");
+      const syncOnlineUsers = () => {
+        const next = collectPresenceUserIds(channel!.presenceState());
+        setOnlineUserIds((prev) => (presenceSetsEqual(prev, next) ? prev : next));
+      };
+
+      const setTracked = async (active: boolean) => {
+        if (!subscribed) return;
+        if (active) {
+          await channel!.track({ user_id: userId, at: new Date().toISOString() });
+        } else {
+          await channel!.untrack();
+        }
+        syncOnlineUsers();
+      };
+
+      channel
+        .on("presence", { event: "sync" }, syncOnlineUsers)
+        .on("presence", { event: "join" }, syncOnlineUsers)
+        .on("presence", { event: "leave" }, syncOnlineUsers)
+        .subscribe(async (status) => {
+          subscribed = status === "SUBSCRIBED";
+          if (subscribed) {
+            await setTracked(AppState.currentState === "active");
+          }
+        });
+
+      appStateSub = AppState.addEventListener("change", (next) => {
+        void setTracked(next === "active");
+      });
     });
 
     return () => {
-      appStateSub.remove();
+      task.cancel();
+      appStateSub?.remove();
       subscribed = false;
-      void supabase.removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
       setOnlineUserIds(new Set());
     };
   }, [user?.id]);

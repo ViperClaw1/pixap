@@ -56,8 +56,8 @@ type StoryViewerNav = NativeStackNavigationProp<BrowseFlowParamList, "StoryViewe
 const AUTO_ADVANCE_MS = 7000;
 /** Matches `igComposerRow` Android paddingBottom — keep in sync. */
 const COMPOSER_FOOTER_PADDING_ANDROID = 10;
-/** Lifts composer above keyboard on Android (footer padding + buffer). */
-const COMPOSER_ANDROID_KEYBOARD_GAP = COMPOSER_FOOTER_PADDING_ANDROID + 35;
+/** Space reserved in bottomArea while Android composer is docked to the screen bottom. */
+const STORY_ANDROID_COMPOSER_RESERVE = 12 + 44 + COMPOSER_FOOTER_PADDING_ANDROID;
 /** Min downward drag (px) before dismiss. */
 const DISMISS_DRAG_PX = 100;
 
@@ -74,8 +74,10 @@ export default function StoryViewerScreen() {
   const { width, height } = useWindowDimensions(); // orientation-aware by design (fullscreen story media)
   const flatListRef = useRef<FlashListRef<StoryMediaSlideItem>>(null);
   const composerInputRef = useRef<TextInput>(null);
-  const frozenLayoutHeightRef = useRef(height);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [androidContentHeight, setAndroidContentHeight] = useState(() =>
+    Math.max(220, height - insets.top - insets.bottom - 320),
+  );
   const [mediaSlideIndex, setMediaSlideIndex] = useState(0);
   const enteringPreviousStoryRef = useRef(false);
   const [discussionOpen, setDiscussionOpen] = useState(false);
@@ -110,15 +112,16 @@ export default function StoryViewerScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    if (!keyboardOpen) {
-      frozenLayoutHeightRef.current = height;
-    }
-  }, [height, keyboardOpen]);
+  const keyboardInsetAnim = useKeyboardInset({
+    gap: 0,
+    enabled: Platform.OS === "ios",
+    onKeyboardChange: (_keyboardTop, keyboardHeight) => {
+      setKeyboardOpen(keyboardHeight > 0);
+    },
+  });
 
   useEffect(() => {
-    if (Platform.OS !== "ios") return;
+    if (Platform.OS !== "android") return;
     const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardOpen(true));
     const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardOpen(false));
     return () => {
@@ -127,18 +130,28 @@ export default function StoryViewerScreen() {
     };
   }, []);
 
-  const androidKeyboardInset = useKeyboardInset({
-    gap: 0,
-    ignoreWindowResize: true,
-    enabled: Platform.OS === "android",
-    onKeyboardChange: (_keyboardTop, keyboardHeight) => {
-      setKeyboardOpen(keyboardHeight > 0);
-    },
-  });
+  useEffect(() => {
+    if (Platform.OS !== "android" || keyboardOpen) return;
+    setAndroidContentHeight(Math.max(220, height - insets.top - insets.bottom - 320));
+  }, [height, insets.bottom, insets.top, keyboardOpen]);
 
-  const androidBottomLiftStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -androidKeyboardInset.value }],
+  const composerClosedPaddingBottom = Math.max(
+    COMPOSER_FOOTER_PADDING_ANDROID,
+    Math.max(insets.bottom, 8),
+  );
+
+  const bottomAreaLiftStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -keyboardInsetAnim.value }],
   }));
+
+  const composerRowAnimatedStyle = useAnimatedStyle(() => {
+    const lift = keyboardInsetAnim.value;
+    const t = Math.min(1, lift / 48);
+    return {
+      paddingTop: 10 + (1 - t) * 2,
+      paddingBottom: 10 + (1 - t) * (composerClosedPaddingBottom - 10),
+    };
+  }, [composerClosedPaddingBottom]);
 
   const dismissDragStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: dismissTranslateY.value }],
@@ -344,9 +357,10 @@ export default function StoryViewerScreen() {
     [longPressGesture, panGesture, tapGesture],
   );
 
-  const layoutHeight =
-    Platform.OS === "android" && keyboardOpen ? frozenLayoutHeightRef.current : height;
-  const contentHeight = Math.max(220, layoutHeight - insets.top - insets.bottom - 320);
+  const contentHeight =
+    Platform.OS === "android"
+      ? androidContentHeight
+      : Math.max(220, height - insets.top - insets.bottom - 320);
   const rawAuthorAvatar = activeStory?.profile?.avatar_url ?? activeGroup?.profile?.avatar_url ?? null;
   const authorAvatarRaw =
     typeof rawAuthorAvatar === "string" && rawAuthorAvatar.trim().length > 0 ? rawAuthorAvatar.trim() : null;
@@ -428,37 +442,81 @@ export default function StoryViewerScreen() {
           </View>
         </View>
 
+        <Animated.View
+          style={[
+            styles.bottomArea,
+            {
+              backgroundColor: colors.card,
+              paddingBottom: Platform.OS === "android" ? STORY_ANDROID_COMPOSER_RESERVE : 0,
+              paddingTop: Math.max(38, Math.round(authorAvatarSize * 0.55)),
+            },
+            Platform.OS === "ios" ? bottomAreaLiftStyle : null,
+          ]}
+        >
+          {renderBottomAreaContent()}
+        </Animated.View>
+
         {Platform.OS === "android" ? (
-          <Animated.View
-            style={[
-              styles.bottomArea,
-              {
-                backgroundColor: colors.card,
-                paddingBottom: 0,
-                paddingTop: Math.max(38, Math.round(authorAvatarSize * 0.55)),
-              },
-              androidBottomLiftStyle,
-            ]}
-          >
-            {renderBottomAreaContent()}
-          </Animated.View>
-        ) : (
-          <View
-            style={[
-              styles.bottomArea,
-              {
-                backgroundColor: colors.card,
-                paddingBottom: 0,
-                paddingTop: Math.max(38, Math.round(authorAvatarSize * 0.55)),
-              },
-            ]}
-          >
-            {renderBottomAreaContent()}
+          <View style={styles.androidComposerDock}>
+            <View style={[styles.igComposerFooter, styles.androidComposerFooter]}>
+              <View
+                style={[
+                  styles.igComposerRow,
+                  { paddingBottom: COMPOSER_FOOTER_PADDING_ANDROID },
+                ]}
+              >
+                {renderComposerRowContent()}
+              </View>
+            </View>
           </View>
-        )}
+        ) : null}
       </Animated.View>
     </GestureDetector>
   );
+
+  function renderComposerRowContent() {
+    return (
+      <>
+        <View style={styles.igInputWrap}>
+          <RichTextarea
+            ref={composerInputRef}
+            value={quickComment}
+            onChangeText={setQuickComment}
+            placeholder="Send message..."
+            placeholderTextColor="rgba(255,255,255,0.45)"
+            textAlignVertical="center"
+            editable={!replyMutation.isPending}
+            style={styles.igInput}
+          />
+        </View>
+        <View style={styles.igActions}>
+          <AppPressable hitSlop={12} style={styles.igIconHit} onPress={() => void onReact("like")}>
+            <AnimatedLikeHeart
+              liked={localReaction === "like"}
+              size={26}
+              color="#FFFFFF"
+              likedColor="#F4212E"
+            />
+          </AppPressable>
+          <AppPressable hitSlop={12} style={styles.igIconHit} onPress={() => setDiscussionOpen(true)}>
+            <Ionicons name="chatbubble-outline" size={24} color="#FFFFFF" />
+          </AppPressable>
+          <AppPressable
+            hitSlop={12}
+            style={styles.igIconHit}
+            onPress={() => void submitQuickComment()}
+            disabled={!quickComment.trim() || replyMutation.isPending}
+          >
+            <Ionicons
+              name="paper-plane-outline"
+              size={25}
+              color={quickComment.trim() && !replyMutation.isPending ? "#FFFFFF" : "rgba(255,255,255,0.35)"}
+            />
+          </AppPressable>
+        </View>
+      </>
+    );
+  }
 
   function renderBottomAreaContent() {
     return (
@@ -508,62 +566,13 @@ export default function StoryViewerScreen() {
         <Text style={[styles.postText, { color: "#000" }]} numberOfLines={6} ellipsizeMode="tail">
           {activeStory.content}
         </Text>
-        <View style={styles.igComposerFooter}>
-          <View
-            style={[
-              styles.igComposerRow,
-              {
-                paddingBottom: Math.max(
-                  COMPOSER_FOOTER_PADDING_ANDROID,
-                  Math.max(insets.bottom, Platform.OS === "android" ? 8 : 0),
-                ),
-              },
-            ]}
-          >
-            <View style={styles.igInputWrap}>
-              <RichTextarea
-                ref={composerInputRef}
-                value={quickComment}
-                onChangeText={setQuickComment}
-                placeholder="Send message..."
-                placeholderTextColor="rgba(255,255,255,0.45)"
-                textAlignVertical="center"
-                editable={!replyMutation.isPending}
-                onFocus={() => {
-                  if (Platform.OS === "android") {
-                    frozenLayoutHeightRef.current = height;
-                  }
-                }}
-                style={styles.igInput}
-              />
-            </View>
-            <View style={styles.igActions}>
-              <AppPressable hitSlop={12} style={styles.igIconHit} onPress={() => void onReact("like")}>
-                <AnimatedLikeHeart
-                  liked={localReaction === "like"}
-                  size={26}
-                  color="#FFFFFF"
-                  likedColor="#F4212E"
-                />
-              </AppPressable>
-              <AppPressable hitSlop={12} style={styles.igIconHit} onPress={() => setDiscussionOpen(true)}>
-                <Ionicons name="chatbubble-outline" size={24} color="#FFFFFF" />
-              </AppPressable>
-              <AppPressable
-                hitSlop={12}
-                style={styles.igIconHit}
-                onPress={() => void submitQuickComment()}
-                disabled={!quickComment.trim() || replyMutation.isPending}
-              >
-                <Ionicons
-                  name="paper-plane-outline"
-                  size={25}
-                  color={quickComment.trim() && !replyMutation.isPending ? "#FFFFFF" : "rgba(255,255,255,0.35)"}
-                />
-              </AppPressable>
-            </View>
+        {Platform.OS === "ios" ? (
+          <View style={styles.igComposerFooter}>
+            <Animated.View style={[styles.igComposerRow, composerRowAnimatedStyle]}>
+              {renderComposerRowContent()}
+            </Animated.View>
           </View>
-        </View>
+        ) : null}
       </>
     );
   }
@@ -675,6 +684,18 @@ const styles = StyleSheet.create({
     marginHorizontal: -14,
     marginTop: 8,
     backgroundColor: "#000000",
+  },
+  androidComposerDock: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
+    elevation: 10,
+  },
+  androidComposerFooter: {
+    marginTop: 0,
+    marginHorizontal: 0,
   },
   igComposerRow: {
     flexDirection: "row",

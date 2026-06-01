@@ -24,7 +24,6 @@ import {
 import { handlePushNotificationOpen } from "@/shared/lib/push/handlePushNotificationOpen";
 import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
-import { TermsAcceptanceGate } from "@/features/terms-acceptance";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -57,19 +56,21 @@ function NavigationRoot() {
     return () => setPushNotificationOpenHandler(null);
   }, []);
 
-  const base = isDark ? DarkTheme : DefaultTheme;
-  const navigationTheme = {
-    ...base,
-    colors: {
-      ...base.colors,
-      primary: colors.primary,
-      background: colors.background,
-      card: colors.card,
-      text: colors.text,
-      border: colors.border,
-      notification: colors.notification,
-    },
-  };
+  const navigationTheme = useMemo(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: colors.primary,
+        background: colors.background,
+        card: colors.card,
+        text: colors.text,
+        border: colors.border,
+        notification: colors.notification,
+      },
+    };
+  }, [isDark, colors.primary, colors.background, colors.card, colors.text, colors.border, colors.notification]);
 
   return (
     <>
@@ -83,7 +84,6 @@ function NavigationRoot() {
         }}
       >
         <AppNavigator />
-        <TermsAcceptanceGate />
         <StatusBar style={isDark ? "light" : "dark"} />
         <Toast config={toastConfig} />
       </NavigationContainer>

@@ -64,7 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...googleMapsConfig,
     },
     package: "com.pixap.pixap",
-    softwareKeyboardLayoutMode: "resize",
+    softwareKeyboardLayoutMode: "pan",
     adaptiveIcon: {
       backgroundColor: "#ffffff",
       foregroundImage: "./assets/android/adaptive-icon-foreground.png",
@@ -86,6 +86,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     ],
   },
+  newArchEnabled: true,
   plugins: [
     [
       "expo-build-properties",

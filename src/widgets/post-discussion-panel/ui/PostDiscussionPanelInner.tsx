@@ -90,9 +90,10 @@ export function PostDiscussionPanelInner({
   const footerBackgroundColor = footerBackgroundOverride ?? palette.footerBg;
   const footerBorderColor = footerBorderOverride ?? palette.footerBorder;
   const insets = useSafeAreaInsets();
-  const { RootOuter, androidRootLiftStyle } = useDiscussionPanelFooterKeyboard(isActive);
-  const { user } = useAuth();
   const composerInputRef = useRef<TextInput>(null);
+  const { RootOuter, androidRootLiftStyle, onComposerFocus, onComposerBlur } =
+    useDiscussionPanelFooterKeyboard(() => composerInputRef.current, isActive);
+  const { user } = useAuth();
   const composerBlurResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressComposerBlurResetRef = useRef(false);
 
@@ -616,7 +617,11 @@ export function PostDiscussionPanelInner({
               ref={composerInputRef}
               value={mainDraft}
               onChangeText={setMainDraft}
-              onBlur={handleComposerBlur}
+              onBlur={() => {
+                onComposerBlur();
+                handleComposerBlur();
+              }}
+              onFocus={onComposerFocus}
               placeholder={
                 editingComment ? "Edit comment..." : replyTarget ? "Add a reply..." : "Join the conversation..."
               }

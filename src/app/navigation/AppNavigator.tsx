@@ -20,8 +20,6 @@ import PrivacyPolicyScreen from "@/pages/privacy-policy";
 import NotFoundScreen from "@/pages/not-found";
 import { browseFlowSwipeBackOptions } from "./stackGestureOptions";
 import { renderBrowseFlowScreens, type BrowseFlowStackScreen } from "./BrowseFlowScreens";
-import MessagesScreen from "@/pages/messages";
-import MessageThreadScreen from "@/pages/message-thread";
 import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
 import { BOOKINGS_TAB_OPTIONS, CART_TAB_OPTIONS, PROFILE_TAB_OPTIONS } from "./tabBarButtons";
 import { resetCartStackToMain } from "./navigationHelpers";
@@ -81,7 +79,7 @@ function FeedStackNavigator() {
 function CartStackNavigator() {
   return (
     <CartStack.Navigator initialRouteName="CartMain" screenOptions={stackScreenOptions}>
-      <CartStack.Screen name="CartMain" component={MessagesScreen} />
+      <CartStack.Screen name="CartMain" getComponent={() => require("@/pages/messages").default} />
       <CartStack.Screen
         name="PublicProfile"
         getComponent={() => require("@/pages/public-profile").default}
@@ -89,7 +87,7 @@ function CartStackNavigator() {
       />
       <CartStack.Screen
         name="MessageThread"
-        component={MessageThreadScreen}
+        getComponent={() => require("@/pages/message-thread").default}
         options={fullWidthSwipeBackOptions}
       />
       <CartStack.Screen

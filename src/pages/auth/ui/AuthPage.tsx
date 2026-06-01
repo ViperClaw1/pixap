@@ -30,7 +30,6 @@ import type { ProfileStackParamList } from "@/app/navigation/types";
 
 type PostAuthRoute = "ProfileMain" | "EditProfile";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { AUTH_PRIMARY_COLOR } from "@/shared/theme/primaryPressable";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { authStaticStyles, authThemeStyles } from "./authStyles";

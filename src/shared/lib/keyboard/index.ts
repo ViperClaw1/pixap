@@ -12,3 +12,7 @@ export {
   useDiscussionPanelFooterKeyboard,
   DISCUSSION_ANDROID_FOOTER_PADDING,
 } from "./useDiscussionPanelFooterKeyboard";
+export {
+  useAndroidPanKeyboardClearance,
+  ANDROID_PAN_KEYBOARD_CLEARANCE,
+} from "./useAndroidPanKeyboardClearance";

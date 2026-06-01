@@ -25,9 +25,10 @@ export function useDailyRecommendations(targetDate?: string) {
   const language = i18n.language;
   const date = targetDate ?? new Date().toISOString().slice(0, 10);
 
+  const { loading } = useAuth();
   return useQuery({
     queryKey: queryKeys.dailyRecommendations.today(user?.id, date, language),
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id) && !loading,
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<DailyRecommendation[]> => {
