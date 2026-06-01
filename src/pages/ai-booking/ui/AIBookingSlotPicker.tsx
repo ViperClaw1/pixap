@@ -53,7 +53,7 @@ export function AIBookingSlotPicker({
 
   return (
     <View style={s.semanticSection}>
-      <Text style={s.label}>{t("aiBooking.step5Title")}</Text>
+      <Text style={s.label}>{t("aiBooking.step2Title")}</Text>
       <Text style={s.calendarHint} numberOfLines={2}>
         {t("aiBooking.calendarHint", { name: selectedPlace.name })}
       </Text>

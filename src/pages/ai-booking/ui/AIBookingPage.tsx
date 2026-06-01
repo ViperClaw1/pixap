@@ -1,14 +1,16 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   TextInput,
   Alert,
   ActivityIndicator,
+  BackHandler,
   Platform,
   ScrollView,
   Keyboard,
+  Modal,
   type KeyboardEvent
 } from "react-native";
 import { CommonActions, useFocusEffect, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
@@ -21,8 +23,13 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useCartItems, useCreateCartItem, useStartN8nWaBooking } from "@/entities/cart";
 import { useCreateBooking } from "@/entities/booking";
 import { useAvailableSlots } from "@/entities/booking";
-import { usePixAI, type PixAIFlowPayload, type PixAIPlace, type PixAISlot } from "@/entities/pixai";
-import { buildSearchResultsAssistantLine } from "@/entities/pixai/lib/buildSearchResultsAssistantLine";
+import {
+  usePixAI,
+  type PixAIFlowPayload,
+  type PixAIPlace,
+  type PixAISlot,
+} from "@/entities/pixai";
+import { buildSearchResultsLineFromFlow } from "@/entities/pixai/lib/buildSearchResultsAssistantLine";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import {
@@ -60,7 +67,6 @@ import {
   type PhoneValue,
 } from "@/shared/ui/phone-input";
 import { useAIBookingStyles } from "./aiBookingStyles";
-import { AIBookingTranscript } from "./AIBookingTranscript";
 import { AIBookingSuggestedPlaces } from "./AIBookingSuggestedPlaces";
 import { AIBookingSlotPicker } from "./AIBookingSlotPicker";
 import { AIBookingCustomerForm, type AIBookingDraftForm } from "./AIBookingCustomerForm";
@@ -73,20 +79,34 @@ import {
   buildMonthCells,
 } from "@/shared/lib/bookingCalendar";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { OnboardingStepTransition } from "@/pages/preference-onboarding/ui/OnboardingStepTransition";
 import { useShallow } from "zustand/react/shallow";
 import {
   BookingInlineAssistantChat,
   buildBookingContextFromPage,
   buildEffectivePlaces,
+  BookingAssistantChatSkeleton,
   useBookingChatStore,
   type BookingRecommendationView,
+  type BookingSearchSnapshot,
 } from "@/features/ai-booking-chat";
+import {
+  BookingRequestHistoryDrawer,
+  buildHistoryItemFromTab,
+} from "@/features/ai-booking-request-history";
+import type { BookingOnboardingPhase } from "@/features/ai-booking-onboarding";
+import {
+  parseOnboardingAssistantStep,
+  seedOnboardingCategoryQuestion,
+  seedOnboardingGreetingMessage,
+  seedOnboardingScopeQuestion,
+  seedOnboardingSearchResultsMessage,
+} from "@/features/ai-booking-onboarding";
 import { AiBookingAssistantGate, AiBookingStepConsentPrompt, refreshAiDataConsent, useAiDataConsent } from "@/features/ai-data-consent";
 import { devWarn } from "@/shared/lib/devLog";
-import { appAlert } from "@/shared/ui/app-popup";
+import { AppPopupModal, appAlert } from "@/shared/ui/app-popup";
 import {
   AI_BOOKING_COMPOSER_KEYBOARD_MARGIN,
-  AI_BOOKING_DEFAULT_COMMENT_INPUT_HEIGHT,
   AI_BOOKING_DEFAULT_PERSONS,
 } from "../model/constants";
 
@@ -102,7 +122,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESTAURANT_TABLE_KEY = "restaurant-table";
 const DEFAULT_RADIUS_MILES = 5;
 
-type FlowStep = "city" | "category" | "scope" | "places" | "booking";
+type FlowStep = "assistant" | "booking";
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "AIBooking">;
 
 const validationSchema = {
@@ -120,10 +140,14 @@ function AIBookingPageContent() {
   const bookingComposerScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bookingComposerFocusedRef = useRef(false);
   const bookingScrollRef = useRef<ScrollView>(null);
+  const androidScreenSwipeEnabledRef = useRef(true);
   const bookingScrollYRef = useRef(0);
+  /** Scroll offset on step 1 saved when opening booking — restored on return. */
+  const assistantScrollYRef = useRef(0);
   const bookingScrollLayoutRef = useRef({ viewH: 0, contentH: 0 });
   const bookingComposerInputRef = useRef<TextInput>(null);
   const keyboardTopScreenRef = useRef<number | null>(null);
+  const greetingBootstrappedRef = useRef(new Set<string>());
 
   const scrollBookingContentToUncoverComposer = useCallback(() => {
     if (!bookingComposerFocusedRef.current) return;
@@ -221,7 +245,6 @@ function AIBookingPageContent() {
   } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
   const navigation = useNavigation<Nav>();
-  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   useAuthSessionRedirect({
     authLoading: authLoading,
     hasUser: Boolean(user),
@@ -246,11 +269,11 @@ function AIBookingPageContent() {
   const createBooking = useCreateBooking();
   const startN8nWaBooking = useStartN8nWaBooking();
   const { data: cartItems = [] } = useCartItems();
-  const [currentStep, setCurrentStep] = useState<FlowStep>("city");
+  const [currentStep, setCurrentStep] = useState<FlowStep>("assistant");
+  const [stepDirection, setStepDirection] = useState<1 | -1>(1);
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [selectedCategoryName, setSelectedCategoryName] = useState<string>("");
-  const [commentInputHeight, setCommentInputHeight] = useState(AI_BOOKING_DEFAULT_COMMENT_INPUT_HEIGHT);
   const [scope, setScope] = useState<"nearby" | "city">("city");
   const [requestComment, setRequestComment] = useState("");
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -262,6 +285,8 @@ function AIBookingPageContent() {
   const [cityPickerVisible, setCityPickerVisible] = useState(false);
   const [citySearchQuery, setCitySearchQuery] = useState("");
   const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [resetChatConfirmVisible, setResetChatConfirmVisible] = useState(false);
   const [form, setForm] = useState<DraftForm>({
     persons: AI_BOOKING_DEFAULT_PERSONS,
     customer_name: "",
@@ -273,9 +298,88 @@ function AIBookingPageContent() {
   const [confirmingBooking, setConfirmingBooking] = useState(false);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
 
+  const goToAssistantStep = useCallback(() => {
+    setStepDirection(-1);
+    setCurrentStep("assistant");
+  }, []);
+
+  const goToBookingStep = useCallback(() => {
+    assistantScrollYRef.current = bookingScrollYRef.current;
+    setStepDirection(1);
+    setCurrentStep("booking");
+  }, []);
+
+  useLayoutEffect(() => {
+    if (currentStep !== "booking") return;
+    bookingScrollRef.current?.scrollTo({ y: 0, animated: false });
+    bookingScrollYRef.current = 0;
+  }, [currentStep]);
+
+  useLayoutEffect(() => {
+    if (currentStep !== "assistant") return;
+    const targetY = assistantScrollYRef.current;
+    if (targetY <= 0) return;
+
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        bookingScrollRef.current?.scrollTo({ y: targetY, animated: false });
+        bookingScrollYRef.current = targetY;
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [currentStep]);
+
+  useEffect(() => {
+    androidScreenSwipeEnabledRef.current = currentStep === "assistant";
+  }, [currentStep]);
+
+  const onHeaderBackPress = useCallback(() => {
+    if (currentStep === "booking") {
+      goToAssistantStep();
+      return;
+    }
+    navigation.goBack();
+  }, [currentStep, goToAssistantStep, navigation]);
+
+  const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
+    enabledRef: androidScreenSwipeEnabledRef,
+  });
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    navigation.setOptions({
+      gestureEnabled: currentStep === "assistant",
+      fullScreenGestureEnabled: currentStep === "assistant",
+    });
+  }, [currentStep, navigation]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (currentStep === "booking") {
+        goToAssistantStep();
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [currentStep, goToAssistantStep]);
+
   const persistedCatalogRevision = useBookingChatStore((s) => s.catalogRevision);
   const persistedTabsCount = useBookingChatStore((s) => s.tabs.length);
   const lastSearchSnapshot = useBookingChatStore((s) => s.lastSearchSnapshot);
+  const chatTabs = useBookingChatStore(useShallow((s) => s.tabs));
+  const activeTabId = useBookingChatStore((s) => s.activeTabId);
+  const activeTab = useMemo(
+    () => chatTabs.find((tab) => tab.id === activeTabId) ?? null,
+    [chatTabs, activeTabId],
+  );
+  const onboardingPhase: BookingOnboardingPhase = activeTab?.onboardingPhase ?? "greeting";
+  const activeTabSnapshot = activeTab?.searchSnapshot ?? null;
 
   useEffect(() => {
     if (persistedCatalogRevision <= 0) return;
@@ -286,9 +390,7 @@ function AIBookingPageContent() {
     if (persistedTabsCount === 0 && !lastSearchSnapshot) return;
     if (aiConsentStatus === "loading" || needsAiConsentPrompt) return;
     setHasSearched(true);
-    setCurrentStep((prev) =>
-      prev === "city" || prev === "category" || prev === "scope" ? "places" : prev,
-    );
+    setCurrentStep("assistant");
   }, [aiConsentStatus, needsAiConsentPrompt, persistedTabsCount, lastSearchSnapshot]);
 
   useEffect(() => {
@@ -338,8 +440,7 @@ function AIBookingPageContent() {
     const city = profile?.city?.trim();
     if (!city) return;
     if (aiConsentStatus === "loading" || needsAiConsentPrompt) return;
-    setSelectedCity(city);
-    setCurrentStep((prev) => (prev === "city" ? "category" : prev));
+    setSelectedCity((prev) => (prev.trim() ? prev : city));
   }, [profile?.city, aiConsentStatus, needsAiConsentPrompt]);
 
   useEffect(() => {
@@ -361,7 +462,11 @@ function AIBookingPageContent() {
     .reverse()
     .find((m) => m.role === "assistant" && m.toolResult)?.toolResult;
 
-  const placeOptions = latestToolResult?.places ?? lastSearchSnapshot?.catalogPlaces ?? [];
+  const placeOptions =
+    latestToolResult?.places ??
+    activeTabSnapshot?.catalogPlaces ??
+    lastSearchSnapshot?.catalogPlaces ??
+    [];
 
   const recommendationView = useBookingChatStore(
     useShallow((s) => {
@@ -383,8 +488,8 @@ function AIBookingPageContent() {
     setSelectedPlace(null);
     setBookingDateYmd(null);
     setSelectedSlot(null);
-    setCurrentStep("places");
-  }, [effectivePlaces, placeOptions.length, selectedPlace, t]);
+    goToAssistantStep();
+  }, [effectivePlaces, goToAssistantStep, placeOptions.length, selectedPlace, t]);
 
   const {
     data: slotsForDate = [],
@@ -451,20 +556,6 @@ function AIBookingPageContent() {
     t,
   ]);
 
-  const selectedCategoryRow = categories.find((c) => c.id === selectedCategoryId);
-  const categoryDropdownLabel = isRestaurantTable
-    ? restaurantTableLabel
-    : selectedCategoryRow
-      ? localizeCategoryName(selectedCategoryRow.name, t)
-      : selectedCategoryName
-        ? localizeCategoryName(selectedCategoryName, t)
-        : t("bookingCommon.selectServiceOrTable");
-  const selectedCategoryIconSpec = isRestaurantTable
-    ? ({ family: "ionicons", name: "restaurant-outline" } as const)
-    : selectedCategoryRow
-      ? resolveCategoryIconSpec(selectedCategoryRow.name)
-      : null;
-
   const summaryMessage = [
     t("aiBooking.summaryCity", { value: selectedCity || notSelectedLabel }),
     t("aiBooking.summaryRequest", {
@@ -480,13 +571,88 @@ function AIBookingPageContent() {
   ]
     .filter(Boolean)
     .join("\n");
-  const canContinueFromCategory = selectedCity !== "" && selectedCity !== ALL_CITIES_OPTION && selectedCategoryId.trim().length > 0;
-  const continueValidationHint =
-    selectedCity === "" || selectedCity === ALL_CITIES_OPTION
-      ? t("aiBooking.selectCityHint")
-      : selectedCategoryId.trim().length === 0
-        ? t("aiBooking.selectCategoryHint")
-        : null;
+  const applySearchSnapshot = useCallback(
+    (snap: BookingSearchSnapshot) => {
+      setSelectedCity(snap.city);
+      if (snap.isRestaurantTable) {
+        setSelectedCategoryId(RESTAURANT_TABLE_KEY);
+        setSelectedCategoryName(restaurantTableLabel);
+      } else {
+        setSelectedCategoryId(snap.categoryId);
+        setSelectedCategoryName(snap.categoryName);
+      }
+      setScope(snap.scope);
+      setRequestComment(snap.requestComment);
+      setHasSearched(true);
+    },
+    [restaurantTableLabel],
+  );
+
+  const historyItems = useMemo(
+    () =>
+      chatTabs
+        .map((tab) =>
+          buildHistoryItemFromTab({
+            tabId: tab.id,
+            title: tab.title,
+            createdAt: tab.createdAt,
+            searchSnapshot: tab.searchSnapshot,
+          }),
+        )
+        .filter((item): item is NonNullable<typeof item> => item != null)
+        .reverse(),
+    [chatTabs],
+  );
+
+  useEffect(() => {
+    useBookingChatStore.getState().ensureActiveTab(catalogRevision);
+  }, [catalogRevision]);
+
+  useEffect(() => {
+    if (!activeTabId || !activeTab) return;
+    if (activeTab.onboardingPhase !== "greeting") return;
+    if (greetingBootstrappedRef.current.has(activeTabId)) return;
+    if (activeTab.messages.length > 0) return;
+
+    const tabId = activeTabId;
+    const city = selectedCity.trim();
+    const hasPrefilledCity = Boolean(city && city !== ALL_CITIES_OPTION);
+    greetingBootstrappedRef.current.add(tabId);
+    seedOnboardingGreetingMessage(tabId, hasPrefilledCity);
+  }, [activeTab, activeTabId, selectedCity]);
+
+  const handleOnboardingTypewriterComplete = useCallback(
+    (messageId: string) => {
+      const tabId = useBookingChatStore.getState().activeTabId;
+      if (!tabId) return;
+      const step = parseOnboardingAssistantStep(messageId);
+      if (!step) return;
+
+      const store = useBookingChatStore.getState();
+      const hasPrefilledCity = Boolean(
+        selectedCity.trim() && selectedCity !== ALL_CITIES_OPTION,
+      );
+
+      switch (step) {
+        case "greeting":
+          store.setTabOnboardingPhase(
+            tabId,
+            hasPrefilledCity ? "await_category" : "await_city",
+          );
+          break;
+        case "category":
+          store.setTabOnboardingPhase(tabId, "await_category");
+          break;
+        case "scope":
+          store.setTabOnboardingPhase(tabId, "await_scope");
+          break;
+        case "results":
+          store.setTabOnboardingPhase(tabId, "gemini");
+          break;
+      }
+    },
+    [selectedCity],
+  );
 
   const onRequestNearbyPermission = async () => {
     const existing = await Location.getForegroundPermissionsAsync();
@@ -504,9 +670,10 @@ function AIBookingPageContent() {
     return coords;
   };
 
-  const onSearchPlaces = async () => {
+  const onSearchPlaces = async (scopeOverride?: "nearby" | "city") => {
     if (isSearchingPlaces || isLoading) return;
     if (!ensureProfileComplete()) return;
+    const searchScope = scopeOverride ?? scope;
     if (!selectedCity || selectedCity === ALL_CITIES_OPTION) {
       Alert.alert(t("bookingCommon.chooseCity"), t("bookingCommon.chooseCityMessage"));
       return;
@@ -523,10 +690,12 @@ function AIBookingPageContent() {
     setBookingDateYmd(null);
 
     let coords = locationCoords;
-    if (scope === "nearby" && !coords) {
+    if (searchScope === "nearby" && !coords) {
       coords = await onRequestNearbyPermission();
       if (!coords) {
         setIsSearchingPlaces(false);
+        const tabId = useBookingChatStore.getState().activeTabId;
+        if (tabId) useBookingChatStore.getState().setTabOnboardingPhase(tabId, "await_scope");
         return;
       }
     }
@@ -537,41 +706,41 @@ function AIBookingPageContent() {
       categoryName: isRestaurantTable ? restaurantTableLabel : selectedCategoryName,
       isRestaurantTable,
       comment: requestComment.trim() || undefined,
-      mode: scope,
+      mode: searchScope,
       radiusMiles: DEFAULT_RADIUS_MILES,
-      location: scope === "nearby" ? coords ?? undefined : undefined,
+      location: searchScope === "nearby" ? coords ?? undefined : undefined,
       limit: 8,
     };
 
     try {
       const result = await runFlow(payload);
-      const placeCount = result.places?.length ?? 0;
-      const scopeText = scope === "nearby" ? nearMeLabel : allPlacesInMyCityLabel;
-      const requestType = isRestaurantTable
-        ? restaurantTableLabel
-        : selectedCategoryName
-          ? localizeCategoryName(selectedCategoryName, t)
-          : t("aiBooking.placesFallback");
-      const resultsLine = buildSearchResultsAssistantLine({ count: placeCount, requestType, scopeText });
+      const catalogPlaces = result.places ?? [];
 
       setHasSearched(true);
-      setCurrentStep("places");
+      setCurrentStep("assistant");
       let nextRev = 0;
       setCatalogRevision((prev) => {
         nextRev = prev + 1;
         return nextRev;
       });
-      const catalogPlaces = result.places ?? [];
+      const snapshot: BookingSearchSnapshot = {
+        city: selectedCity.trim(),
+        categoryId: isRestaurantTable ? RESTAURANT_TABLE_KEY : selectedCategoryId.trim(),
+        categoryName: isRestaurantTable ? restaurantTableLabel : selectedCategoryName || "",
+        isRestaurantTable,
+        scope: searchScope,
+        requestComment: requestComment.trim(),
+        catalogPlaces,
+        persons: Number(form.persons) || Number(AI_BOOKING_DEFAULT_PERSONS),
+        searchedAt: Date.now(),
+      };
+      const resultsLine = buildSearchResultsLineFromFlow(payload, catalogPlaces.length);
+      const tabId = useBookingChatStore.getState().activeTabId;
+      if (tabId) {
+        seedOnboardingSearchResultsMessage(tabId, resultsLine);
+      }
       setTimeout(() => {
-        useBookingChatStore.getState().bumpCatalogRevisionWithOpening(nextRev, resultsLine, {
-          city: selectedCity.trim(),
-          categoryId: isRestaurantTable ? RESTAURANT_TABLE_KEY : selectedCategoryId.trim(),
-          categoryName: isRestaurantTable ? restaurantTableLabel : selectedCategoryName || "",
-          isRestaurantTable,
-          scope,
-          requestComment: requestComment.trim(),
-          catalogPlaces,
-        });
+        useBookingChatStore.getState().applySearchResults(nextRev, snapshot);
       }, 0);
     } catch (error) {
       if (isAuthRequiredError(error)) {
@@ -579,6 +748,8 @@ function AIBookingPageContent() {
         return;
       }
       Alert.alert(t("bookingCommon.failed"), error instanceof Error ? error.message : t("aiBooking.searchFailed"));
+      const tabId = useBookingChatStore.getState().activeTabId;
+      if (tabId) useBookingChatStore.getState().setTabOnboardingPhase(tabId, "await_scope");
     } finally {
       setIsSearchingPlaces(false);
     }
@@ -586,13 +757,101 @@ function AIBookingPageContent() {
 
   const searchPlacesBusy = isSearchingPlaces || isLoading;
 
-  const onSelectPlace = (place: PixAIPlace) => {
+  const onBookPlace = (place: PixAIPlace) => {
     setSelectedPlace(place);
     setBookingDateYmd(null);
     setSelectedSlot(null);
     setVisibleCalendarMonth(firstOfMonthContaining(new Date()));
-    setCurrentStep("booking");
+    goToBookingStep();
   };
+
+  const buildScopeSearchSnapshot = useCallback(
+    (searchScope: "nearby" | "city", catalogPlaces: PixAIPlace[] = []): BookingSearchSnapshot => ({
+      city: selectedCity.trim(),
+      categoryId: isRestaurantTable ? RESTAURANT_TABLE_KEY : selectedCategoryId.trim(),
+      categoryName: isRestaurantTable ? restaurantTableLabel : selectedCategoryName || "",
+      isRestaurantTable,
+      scope: searchScope,
+      requestComment: requestComment.trim(),
+      catalogPlaces,
+      persons: Number(form.persons) || Number(AI_BOOKING_DEFAULT_PERSONS),
+      searchedAt: Date.now(),
+    }),
+    [
+      form.persons,
+      isRestaurantTable,
+      requestComment,
+      restaurantTableLabel,
+      selectedCategoryId,
+      selectedCategoryName,
+      selectedCity,
+    ],
+  );
+
+  const onScopeSelected = useCallback(
+    (selectedScope: "nearby" | "city") => {
+      setScope(selectedScope);
+      const label = selectedScope === "nearby" ? nearMeLabel : allPlacesInMyCityLabel;
+      const tabId = useBookingChatStore.getState().activeTabId;
+      if (tabId) {
+        const store = useBookingChatStore.getState();
+        store.appendUserMessage(tabId, label);
+        store.commitSearchSnapshot(tabId, buildScopeSearchSnapshot(selectedScope));
+        store.setTabOnboardingPhase(tabId, "searching");
+      }
+      void onSearchPlaces(selectedScope);
+    },
+    [allPlacesInMyCityLabel, buildScopeSearchSnapshot, nearMeLabel, onSearchPlaces],
+  );
+
+  const onSelectHistoryTab = useCallback(
+    (tabId: string) => {
+      useBookingChatStore.getState().setActiveTab(tabId);
+      const tab = useBookingChatStore.getState().tabs.find((t) => t.id === tabId);
+      if (tab?.searchSnapshot) applySearchSnapshot(tab.searchSnapshot);
+      setSelectedPlace(null);
+      setSelectedSlot(null);
+      setBookingDateYmd(null);
+      goToAssistantStep();
+    },
+    [applySearchSnapshot, goToAssistantStep],
+  );
+
+  const resetAssistantSessionState = useCallback(() => {
+    setSelectedCity(profile?.city?.trim() ?? "");
+    setSelectedCategoryId("");
+    setSelectedCategoryName("");
+    setScope("city");
+    setRequestComment("");
+    setHasSearched(false);
+    setSelectedPlace(null);
+    setSelectedSlot(null);
+    setBookingDateYmd(null);
+    setLocationCoords(null);
+    resetFlowSearchTranscript();
+  }, [profile?.city, resetFlowSearchTranscript]);
+
+  const onNewRequest = useCallback(() => {
+    resetAssistantSessionState();
+    const tabId = useBookingChatStore.getState().addTab(catalogRevision);
+    greetingBootstrappedRef.current.delete(tabId);
+    setCurrentStep("assistant");
+  }, [catalogRevision, resetAssistantSessionState]);
+
+  const confirmResetChat = useCallback(() => {
+    const tabId = useBookingChatStore.getState().activeTabId;
+    if (tabId) greetingBootstrappedRef.current.delete(tabId);
+    useBookingChatStore.getState().resetActiveTabChat();
+    resetAssistantSessionState();
+    resetFlowSearchTranscript();
+  }, [resetAssistantSessionState, resetFlowSearchTranscript]);
+
+  const onResetChat = useCallback(() => {
+    setResetChatConfirmVisible(true);
+  }, []);
+
+  const personsCount = Number(form.persons) || Number(AI_BOOKING_DEFAULT_PERSONS);
+  const bookingTimeLabel = selectedSlot?.label ?? null;
 
   const onCreateDraft = async () => {
     if (confirmingBooking) return;
@@ -712,33 +971,42 @@ function AIBookingPageContent() {
   return (
     <View style={styles.root} {...androidSwipeBackPanHandlers}>
       <AiBookingStepConsentPrompt />
-      <ScrollView
-        ref={bookingScrollRef}
-        style={styles.root}
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="always"
-        nestedScrollEnabled
-        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-        scrollEventThrottle={16}
-        onScroll={(e) => {
-          bookingScrollYRef.current = e.nativeEvent.contentOffset.y;
-        }}
-        onLayout={(e) => {
-          bookingScrollLayoutRef.current = {
-            ...bookingScrollLayoutRef.current,
-            viewH: e.nativeEvent.layout.height,
-          };
-        }}
-        onContentSizeChange={(_w, h) => {
-          bookingScrollLayoutRef.current = {
-            ...bookingScrollLayoutRef.current,
-            contentH: h,
-          };
-        }}
+      <OnboardingStepTransition
+        stepKey={currentStep}
+        direction={stepDirection}
+        canSwipeForward={false}
+        canSwipeBack={currentStep === "booking"}
+        instantBackOnSwipe
+        onSwipeForward={() => {}}
+        onSwipeBack={goToAssistantStep}
       >
+        <ScrollView
+          ref={bookingScrollRef}
+          style={styles.root}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="always"
+          nestedScrollEnabled
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            bookingScrollYRef.current = e.nativeEvent.contentOffset.y;
+          }}
+          onLayout={(e) => {
+            bookingScrollLayoutRef.current = {
+              ...bookingScrollLayoutRef.current,
+              viewH: e.nativeEvent.layout.height,
+            };
+          }}
+          onContentSizeChange={(_w, h) => {
+            bookingScrollLayoutRef.current = {
+              ...bookingScrollLayoutRef.current,
+              contentH: h,
+            };
+          }}
+        >
         <View style={styles.semanticSection}>
           <View style={styles.topRow}>
-            <AppPressable style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <AppPressable style={styles.backBtn} onPress={onHeaderBackPress}>
               <Ionicons name="arrow-back" size={18} color={colors.text} />
             </AppPressable>
             <Text style={styles.title}>{t("aiBooking.title")}</Text>
@@ -746,140 +1014,63 @@ function AIBookingPageContent() {
           <Text style={styles.subtitle}>{t("aiBooking.subtitle")}</Text>
         </View>
 
-        {currentStep === "city" ? (
+        {currentStep === "assistant" ? (
           <View style={styles.semanticSection}>
-            <Text style={styles.stepTitle}>{t("aiBooking.step1Title")}</Text>
-            <AppPressable
-              accessibilityRole="button"
-              accessibilityLabel={t("bookingCommon.chooseCity")}
-              style={styles.dropdownTrigger}
-              onPress={() => {
-                setCitySearchQuery("");
-                setCityPickerVisible(true);
-              }}
-            >
-              <Text
-                style={[styles.dropdownTriggerText, !selectedCity && styles.dropdownPlaceholder]}
-                numberOfLines={1}
+            <View style={styles.stepTitleRow}>
+              <AppPressable
+                style={styles.menuBtn}
+                accessibilityRole="button"
+                accessibilityLabel={t("aiBooking.openHistoryA11y")}
+                onPress={() => setHistoryOpen(true)}
               >
-                {selectedCity || t("bookingCommon.selectCity")}
-              </Text>
-              <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
-            </AppPressable>
-          </View>
-        ) : null}
-
-        {currentStep === "category" ? (
-          <View style={styles.semanticSection}>
-            <Text style={styles.stepTitle}>{t("aiBooking.step2Title")}</Text>
-            <AppPressable
-              accessibilityRole="button"
-              accessibilityLabel={t("bookingCommon.chooseServiceOrTable")}
-              style={styles.dropdownTrigger}
-              onPress={() => setCategoryPickerVisible(true)}
-            >
-              <View style={styles.dropdownTriggerLeft}>
-                {selectedCategoryIconSpec ? (
-                  <View style={styles.pickerRowIconWrap}>
-                    <CategoryIcon spec={selectedCategoryIconSpec} size={14} color={colors.primary} />
-                  </View>
-                ) : null}
-                <Text
-                  style={[
-                    styles.dropdownTriggerText,
-                    !selectedCategoryId && styles.dropdownPlaceholder,
-                  ]}
-                  numberOfLines={2}
-                >
-                  {categoryDropdownLabel}
-                </Text>
-              </View>
-              <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
-            </AppPressable>
-            <TextInput
-              style={[styles.field, styles.fieldOnCard, styles.commentField, { height: commentInputHeight }]}
-              multiline
-              value={requestComment}
-              onContentSizeChange={(event) => setCommentInputHeight(Math.min(180, Math.max(88, event.nativeEvent.contentSize.height + 10)))}
-              onChangeText={setRequestComment}
-              placeholder={t("aiBooking.commentPlaceholder")}
-              placeholderTextColor={colors.textMuted}
-            />
-            <AppPressable
-              disabled={!canContinueFromCategory}
-              style={[styles.primaryBtn, !canContinueFromCategory && styles.primaryBtnDisabled]}
-              onPress={() => setCurrentStep("scope")}
-            >
-              <Text style={styles.primaryBtnText}>{t("bookingCommon.continue")}</Text>
-            </AppPressable>
-            {!canContinueFromCategory && continueValidationHint ? (
-              <Text style={styles.inlineValidationText}>{continueValidationHint}</Text>
-            ) : null}
-          </View>
-        ) : null}
-
-        {currentStep === "scope" ? (
-          <View style={styles.semanticSection}>
-            <Text style={styles.stepTitle}>{t("aiBooking.step3Title")}</Text>
-            <AppPressable
-              style={[styles.optionChip, scope === "nearby" && styles.optionChipSelected]}
-              onPress={() => setScope("nearby")}
-            >
-              <Text style={styles.optionChipText}>{nearMeLabel}</Text>
-            </AppPressable>
-            <AppPressable
-              style={[styles.optionChip, scope === "city" && styles.optionChipSelected]}
-              onPress={() => setScope("city")}
-            >
-              <Text style={styles.optionChipText}>{allPlacesInMyCityLabel}</Text>
-            </AppPressable>
-            <Text style={styles.helperText}>{t("aiBooking.nearbyHelper")}</Text>
-            <AppPressable
-              disabled={searchPlacesBusy}
-              style={[styles.primaryBtn, searchPlacesBusy && styles.primaryBtnDisabled]}
-              onPress={() => void onSearchPlaces()}
-            >
-              {searchPlacesBusy ? (
-                <View style={styles.primaryBtnBusyRow}>
-                  <ActivityIndicator color={colors.onPrimary} size="small" />
-                  <Text style={styles.primaryBtnText}>{t("aiBooking.searching")}</Text>
-                </View>
-              ) : (
-                <Text style={styles.primaryBtnText}>{t("aiBooking.searchPlaces")}</Text>
-              )}
-            </AppPressable>
-          </View>
-        ) : null}
-
-        <AIBookingTranscript messages={messages} styles={styles} />
-
-        {(currentStep === "places" || currentStep === "booking") &&
-        (hasSearched || persistedTabsCount > 0) &&
-        (placeOptions.length > 0 || persistedTabsCount > 0) &&
-        bookingChatContext ? (
-          <View style={styles.semanticSection}>
-            <Text style={styles.stepTitle}>{t("aiBooking.step4AssistantTitle")}</Text>
-            <AiBookingAssistantGate>
-              <BookingInlineAssistantChat
+                <Ionicons name="menu" size={20} color={colors.text} />
+              </AppPressable>
+              <Text style={[styles.stepTitle, { flex: 1 }]}>{t("aiBooking.step1AssistantTitle")}</Text>
+              <AppPressable
+                style={styles.menuBtn}
+                accessibilityRole="button"
+                accessibilityLabel={t("aiBooking.resetChatA11y")}
+                onPress={onResetChat}
+              >
+                <Ionicons name="refresh" size={18} color={colors.textMuted} />
+              </AppPressable>
+            </View>
+            {aiConsentStatus === "loading" || aiConsentStatus === "pending" ? (
+              <BookingAssistantChatSkeleton />
+            ) : (
+              <AiBookingAssistantGate>
+                <BookingInlineAssistantChat
                 catalogRevision={catalogRevision}
                 bookingContext={bookingChatContext}
                 places={placeOptions}
                 composerInputRef={bookingComposerInputRef}
                 onComposerInputFocus={onBookingComposerInputFocus}
                 onComposerInputBlur={onBookingComposerInputBlur}
+                onboardingPhase={onboardingPhase}
+                searchPlacesBusy={searchPlacesBusy}
+                onOnboardingTypewriterComplete={handleOnboardingTypewriterComplete}
+                nearMeLabel={nearMeLabel}
+                allPlacesInMyCityLabel={allPlacesInMyCityLabel}
+                onOpenCityPicker={() => {
+                  setCitySearchQuery("");
+                  setCityPickerVisible(true);
+                }}
+                onOpenCategoryPicker={() => setCategoryPickerVisible(true)}
+                onScopeSelected={onScopeSelected}
               />
-            </AiBookingAssistantGate>
+              </AiBookingAssistantGate>
+            )}
           </View>
         ) : null}
 
-        {(currentStep === "places" || currentStep === "booking") &&
-        (hasSearched || persistedTabsCount > 0) &&
-        placeOptions.length > 0 ? (
+        {currentStep === "assistant" && hasSearched && placeOptions.length > 0 ? (
           <AIBookingSuggestedPlaces
             styles={styles}
             places={effectivePlaces}
             selectedPlace={selectedPlace}
-            onSelectPlace={onSelectPlace}
+            personsCount={personsCount}
+            bookingTimeLabel={bookingTimeLabel}
+            onBook={onBookPlace}
           />
         ) : null}
 
@@ -916,43 +1107,37 @@ function AIBookingPageContent() {
             submitting={confirmingBooking}
           />
         ) : null}
-      </ScrollView>
+        </ScrollView>
 
-      <View style={styles.footer}>
-        <View style={styles.row}>
-          {currentStep !== "city" ? (
-            <AppPressable
-              style={[styles.footerBtn, { flex: 1 }]}
-              onPress={() =>
-                setCurrentStep((step) =>
-                  step === "booking" ? "places" : step === "places" ? "scope" : step === "scope" ? "category" : "city",
-                )
-              }
-            >
-              <Text
-                style={styles.footerBtnText}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
+        {currentStep === "booking" ? (
+          <View style={styles.footer}>
+            <View style={styles.row}>
+              <AppPressable
+                style={[styles.footerBtn, { flex: 1 }]}
+                onPress={goToAssistantStep}
               >
-                {t("bookingCommon.backStep")}
-              </Text>
-            </AppPressable>
-          ) : null}
-          {currentStep === "places" ? (
-            <AppPressable style={[styles.footerBtn, styles.footerPrimaryBtn, { flex: 1 }]} onPress={() => setCurrentStep("scope")}>
-              <Text
-                style={styles.footerPrimaryBtnText}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-              >
-                {t("aiBooking.refineSearch")}
-              </Text>
-            </AppPressable>
-          ) : null}
-        </View>
-      </View>
+                <Text
+                  style={styles.footerBtnText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
+                >
+                  {t("bookingCommon.backStep")}
+                </Text>
+              </AppPressable>
+            </View>
+          </View>
+        ) : null}
+      </OnboardingStepTransition>
+
+      <BookingRequestHistoryDrawer
+        visible={historyOpen}
+        items={historyItems}
+        activeTabId={activeTabId}
+        onClose={() => setHistoryOpen(false)}
+        onSelectTab={onSelectHistoryTab}
+        onNewRequest={onNewRequest}
+      />
 
       <BottomSheetPickerModal
         visible={cityPickerVisible}
@@ -990,7 +1175,12 @@ function AIBookingPageContent() {
                   setSelectedCity(city);
                   setCitySearchQuery("");
                   setCityPickerVisible(false);
-                  setCurrentStep("category");
+                  const tabId = useBookingChatStore.getState().activeTabId;
+                  if (tabId) {
+                    useBookingChatStore.getState().appendUserMessage(tabId, city);
+                    seedOnboardingCategoryQuestion(tabId);
+                    useBookingChatStore.getState().setTabOnboardingPhase(tabId, "assistant_typing");
+                  }
                 }}
               >
                 <Text style={styles.pickerRowText}>{city}</Text>
@@ -1032,14 +1222,23 @@ function AIBookingPageContent() {
               }
               onPress={() => {
                 if (!isSelectable) return;
+                let categoryLabel = "";
                 if (isRestaurantCategoryName(category.name)) {
                   setSelectedCategoryId(RESTAURANT_TABLE_KEY);
                   setSelectedCategoryName(restaurantTableLabel);
+                  categoryLabel = restaurantTableLabel;
                 } else {
                   setSelectedCategoryId(category.id);
                   setSelectedCategoryName(category.name);
+                  categoryLabel = localizeCategoryName(category.name, t);
                 }
                 setCategoryPickerVisible(false);
+                const tabId = useBookingChatStore.getState().activeTabId;
+                if (tabId) {
+                  useBookingChatStore.getState().appendUserMessage(tabId, categoryLabel);
+                  seedOnboardingScopeQuestion(tabId);
+                  useBookingChatStore.getState().setTabOnboardingPhase(tabId, "assistant_typing");
+                }
               }}
             >
               <View style={styles.pickerRowLeft}>
@@ -1062,6 +1261,30 @@ function AIBookingPageContent() {
           );
         })}
       </BottomSheetPickerModal>
+
+      <Modal
+        visible={resetChatConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setResetChatConfirmVisible(false)}
+      >
+        <AppPopupModal
+          embedded
+          visible={resetChatConfirmVisible}
+          variant="alert"
+          title={t("aiBooking.resetChatTitle")}
+          message={t("aiBooking.resetChatMessage")}
+          onClose={() => setResetChatConfirmVisible(false)}
+          buttons={[
+            { text: t("common.cancel"), style: "cancel" },
+            {
+              text: t("aiBooking.resetChatConfirm"),
+              style: "destructive",
+              onPress: confirmResetChat,
+            },
+          ]}
+        />
+      </Modal>
     </View>
   );
 }

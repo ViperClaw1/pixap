@@ -1,4 +1,5 @@
 import type { PixAIPlace } from "@/entities/pixai";
+import type { BookingOnboardingPhase } from "@/features/ai-booking-onboarding/model/types";
 
 export type BookingChatMessageRole = "user" | "assistant" | "system";
 
@@ -38,6 +39,8 @@ export type BookingChatTab = {
   recommendationView: BookingRecommendationView;
   /** Matches page `catalogRevision` when this tab last applied AI view */
   catalogRevision: number;
+  onboardingPhase: BookingOnboardingPhase;
+  searchSnapshot?: BookingSearchSnapshot;
 };
 
 export type PlaceLite = Pick<PixAIPlace, "id" | "name" | "city" | "rating" | "booking_price">;
@@ -51,4 +54,6 @@ export type BookingSearchSnapshot = {
   scope: "nearby" | "city";
   requestComment: string;
   catalogPlaces: PixAIPlace[];
+  persons: number;
+  searchedAt: number;
 };

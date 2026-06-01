@@ -2,7 +2,11 @@ import { flattenChainedOpeningMessages } from "./flattenChainedOpeningMessages";
 import { isPixBookingAssistantGreeting } from "../model/constants";
 import type { BookingChatMessage, BookingChatTab } from "../model/types";
 
-/** Keys used by greeting / chained-opening typewriter (`messageId` or `firstId:secondId`). */
+function isOnboardingAssistantMessageId(messageId: string): boolean {
+  return messageId.startsWith("onb-");
+}
+
+/** Keys used by greeting / chained-opening / onboarding typewriter (`messageId` or `firstId:secondId`). */
 export function collectOpeningTypewriterKeysFromMessages(messages: BookingChatMessage[]): string[] {
   const keys: string[] = [];
   for (const row of flattenChainedOpeningMessages(messages)) {
@@ -10,7 +14,8 @@ export function collectOpeningTypewriterKeysFromMessages(messages: BookingChatMe
       keys.push(`${row.first.id}:${row.second.id}`);
       continue;
     }
-    if (row.item.role === "assistant" && isPixBookingAssistantGreeting(row.item)) {
+    if (row.item.role !== "assistant") continue;
+    if (isPixBookingAssistantGreeting(row.item) || isOnboardingAssistantMessageId(row.item.id)) {
       keys.push(row.item.id);
     }
   }

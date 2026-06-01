@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, type MutableRefObject } from "react";
 import { PanResponder, Platform } from "react-native";
 /**
  * На Android у Native Stack (`react-native-screens`) жест «назад» из настроек
@@ -46,18 +46,25 @@ const SWIPE_BACK_PRESETS: Record<AndroidSwipeBackSensitivity, SwipeBackPreset> =
 export function useAndroidFullSwipeBackPanHandlers(
   navigation: NavBack,
   options?: {
+    /** When returns true, default stack pop is skipped (e.g. inner wizard step). */
+    onSwipeBack?: () => boolean;
     swipeBackFallback?: () => void;
     sensitivity?: AndroidSwipeBackSensitivity;
+    /** When false, pan capture is disabled (e.g. inner step handles its own swipe). */
+    enabledRef?: MutableRefObject<boolean>;
   },
 ) {
   const navRef = useRef(navigation);
+  const interceptRef = useRef(options?.onSwipeBack);
   const fallbackRef = useRef<(() => void) | null>(null);
+  const enabledRef = options?.enabledRef;
   const sensitivity = options?.sensitivity ?? "default";
 
   useEffect(() => {
     navRef.current = navigation;
+    interceptRef.current = options?.onSwipeBack;
     fallbackRef.current = options?.swipeBackFallback ?? null;
-  }, [navigation, options?.swipeBackFallback]);
+  }, [navigation, options?.onSwipeBack, options?.swipeBackFallback]);
 
   return useMemo(() => {
     if (Platform.OS !== "android") {
@@ -67,9 +74,13 @@ export function useAndroidFullSwipeBackPanHandlers(
     const preset = SWIPE_BACK_PRESETS[sensitivity];
 
     const panResponder = PanResponder.create({
-      onMoveShouldSetPanResponderCapture: (_e, g) =>
-        g.dx > preset.captureDistancePx &&
-        Math.abs(g.dx) > Math.abs(g.dy) * preset.captureHorizontalBias,
+      onMoveShouldSetPanResponderCapture: (_e, g) => {
+        if (enabledRef?.current === false) return false;
+        return (
+          g.dx > preset.captureDistancePx &&
+          Math.abs(g.dx) > Math.abs(g.dy) * preset.captureHorizontalBias
+        );
+      },
       onPanResponderRelease: (_e, g) => {
         const horizontalEnough =
           Math.abs(g.dx) > Math.abs(g.dy) * preset.releaseHorizontalBias;
@@ -80,6 +91,8 @@ export function useAndroidFullSwipeBackPanHandlers(
           g.dx > preset.minVelocityDistancePx &&
           horizontalEnough;
         if (!distanceSwipe && !velocitySwipe) return;
+
+        if (interceptRef.current?.()) return;
 
         const nav = navRef.current;
         if (nav.canGoBack()) {

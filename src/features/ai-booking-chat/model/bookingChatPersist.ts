@@ -1,9 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createJSONStorage } from "zustand/middleware";
 import { syncOpeningTypewriterRegistryFromTabs } from "../lib/bookingOpeningTypewriterRegistry";
+import { INITIAL_ONBOARDING_PHASE } from "@/features/ai-booking-onboarding/model/types";
 import type { BookingChatTab, BookingSearchSnapshot } from "./types";
 
-export const BOOKING_CHAT_PERSIST_KEY = "pixap-ai-booking-chat-v1";
+export const BOOKING_CHAT_PERSIST_KEY = "pixap-ai-booking-chat-v2";
 
 export type PersistedBookingChatState = {
   catalogRevision: number;
@@ -28,6 +29,29 @@ function isBookingSearchSnapshot(value: unknown): value is BookingSearchSnapshot
   );
 }
 
+function normalizeSearchSnapshot(value: BookingSearchSnapshot): BookingSearchSnapshot {
+  return {
+    ...value,
+    persons: typeof value.persons === "number" ? value.persons : 2,
+    searchedAt: typeof value.searchedAt === "number" ? value.searchedAt : Date.now(),
+  };
+}
+
+function normalizePersistedTab(tab: BookingChatTab, _fallbackSnapshot: BookingSearchSnapshot | null): BookingChatTab {
+  const committed = tab.searchSnapshot
+    ? normalizeSearchSnapshot(tab.searchSnapshot)
+    : undefined;
+  const phase =
+    tab.onboardingPhase ??
+    (committed ? "gemini" : INITIAL_ONBOARDING_PHASE);
+  return {
+    ...tab,
+    onboardingPhase: phase,
+    searchSnapshot: committed,
+    messages: Array.isArray(tab.messages) ? tab.messages : [],
+  };
+}
+
 export function partializeBookingChatPersist(state: PersistedBookingChatState): PersistedBookingChatState {
   return {
     catalogRevision: state.catalogRevision,
@@ -48,15 +72,18 @@ export function mergePersistedBookingChat(
   const p = persisted as Partial<PersistedBookingChatState> | undefined;
   if (!p || typeof p !== "object") return current;
 
-  const tabs = Array.isArray(p.tabs) ? p.tabs : [];
+  const rawTabs = Array.isArray(p.tabs) ? p.tabs : [];
+  const lastSearchSnapshot = isBookingSearchSnapshot(p.lastSearchSnapshot)
+    ? normalizeSearchSnapshot(p.lastSearchSnapshot)
+    : null;
+  const tabs = rawTabs.map((t) => normalizePersistedTab(t as BookingChatTab, lastSearchSnapshot));
+
   const activeTabId =
     typeof p.activeTabId === "string" && tabs.some((t) => t.id === p.activeTabId)
       ? p.activeTabId
       : tabs.length > 0
         ? tabs[tabs.length - 1]!.id
         : null;
-
-  const lastSearchSnapshot = isBookingSearchSnapshot(p.lastSearchSnapshot) ? p.lastSearchSnapshot : null;
 
   if (tabs.length > 0) {
     syncOpeningTypewriterRegistryFromTabs(tabs);
