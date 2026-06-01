@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { APP_LANGUAGES, type AppLanguage, i18n } from "@/shared/lib/i18n";
+import { APP_LANGUAGES, type AppLanguage, i18n, switchLanguage } from "@/shared/lib/i18n";
 
 type LanguagePickerModalProps = {
   visible: boolean;
@@ -15,7 +15,7 @@ export function LanguagePickerModal({ visible, onClose }: LanguagePickerModalPro
   const current = i18n.resolvedLanguage ?? i18n.language;
 
   const pick = (lng: AppLanguage) => {
-    void i18n.changeLanguage(lng);
+    void switchLanguage(lng);
     onClose();
   };
 

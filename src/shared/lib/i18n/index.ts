@@ -4,6 +4,7 @@ export {
   bootstrapI18n,
   hydrateI18nFromStorage,
   initI18n,
+  switchLanguage,
   i18n,
   type AppLanguage,
 } from "./init";

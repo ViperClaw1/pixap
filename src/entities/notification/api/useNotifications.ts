@@ -15,7 +15,7 @@ export interface Notification {
 }
 
 export const useNotifications = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const realtimeConnected = useNotificationsRealtime(user?.id);
   return useQuery({
     queryKey: queryKeys.notifications.list(user?.id),
@@ -30,12 +30,12 @@ export const useNotifications = () => {
       if (error) throw error;
       return data as Notification[];
     },
-    enabled: !!user,
+    enabled: !!user && !loading,
   });
 };
 
 export const useUnreadCount = (options?: { enabled?: boolean }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const realtimeConnected = useNotificationsRealtime(user?.id);
   const unreadCountQuery = useQuery({
     queryKey: queryKeys.notifications.unread(user?.id),
@@ -49,7 +49,7 @@ export const useUnreadCount = (options?: { enabled?: boolean }) => {
       if (error) throw error;
       return count ?? 0;
     },
-    enabled: !!user && (options?.enabled ?? true),
+    enabled: !!user && !loading && (options?.enabled ?? true),
     staleTime: 15 * 1000,
   });
   return unreadCountQuery.data ?? 0;

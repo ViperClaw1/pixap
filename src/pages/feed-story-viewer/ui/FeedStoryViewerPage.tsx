@@ -17,7 +17,7 @@ import { BlurView } from "expo-blur";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { animateStoryViewerDismissWorklet } from "@/shared/lib/storyViewerDismissAnimation";
-import { useFocusedOverlapKeyboardInset, useKeyboardInset } from "@/shared/lib/keyboard";
+import { useAndroidPanKeyboardClearance, useKeyboardInset } from "@/shared/lib/keyboard";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -54,8 +54,8 @@ const COMPOSER_GAP_REF_WIDTH_PX = 390;
 const COMPOSER_FOOTER_PADDING_ANDROID = 12;
 /** iOS: `keyboardWillChangeFrame` already tracks overlap tightly; small negative gap fine-tunes position. */
 const COMPOSER_KEYBOARD_GAP_AT_REF_IOS = 0;
-/** Clears input bottom + footer `paddingBottom` above the keyboard (matches top padding). */
-const COMPOSER_ANDROID_KEYBOARD_GAP = COMPOSER_FOOTER_PADDING_ANDROID + 35;
+/** Small clearance when system pan leaves the feed composer slightly under the keyboard. */
+const FEED_ANDROID_KEYBOARD_CLEARANCE = 12;
 const DOUBLE_TAP_MS = 260;
 /** Min downward drag (px) before dismiss; matches StoryViewerPage threshold. */
 const DISMISS_DRAG_PX = 100;
@@ -116,10 +116,6 @@ export default function FeedStoryViewerPage() {
     () => (COMPOSER_KEYBOARD_GAP_AT_REF_IOS / COMPOSER_GAP_REF_WIDTH_PX) * width,
     [width],
   );
-  const composerFooterPaddingBottom = useMemo(
-    () => (Platform.OS === "android" ? COMPOSER_FOOTER_PADDING_ANDROID : 10 + Math.max(insets.bottom, 8)),
-    [insets.bottom],
-  );
   const { isDark } = useAppTheme();
   const composerTheme = useMemo(
     () =>
@@ -147,6 +143,14 @@ export default function FeedStoryViewerPage() {
   const [inputValue, setInputValue] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [androidStageHeight, setAndroidStageHeight] = useState(height);
+
+  const composerClosedPaddingBottom = 10 + Math.max(insets.bottom, 8);
+  const { androidLiftStyle: androidComposerLiftStyle, onComposerFocus, onComposerBlur } =
+    useAndroidPanKeyboardClearance(true, {
+      clearance: FEED_ANDROID_KEYBOARD_CLEARANCE,
+      instantOnFocus: true,
+    });
 
   const keyboardInsetAnim = useKeyboardInset({
     gap: composerKeyboardGap,
@@ -157,29 +161,31 @@ export default function FeedStoryViewerPage() {
     },
   });
 
-  const { extraInset: androidComposerLift, recalculate: recalculateAndroidComposerLift } =
-    useFocusedOverlapKeyboardInset({
-      gap: COMPOSER_ANDROID_KEYBOARD_GAP,
-      compensateAppliedLift: true,
-      getFocusedInput: () => composerInputRef.current,
-      enabled: Platform.OS === "android",
-      onKeyboardChange: (_keyboardTop, keyboardHeight) => {
-        setKeyboardOpen(keyboardHeight > 0);
-      },
-    });
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardOpen(true));
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardOpen(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "android" || keyboardOpen) return;
+    setAndroidStageHeight(height);
+  }, [height, keyboardOpen]);
+
+  const stageHeight = Platform.OS === "android" ? androidStageHeight : height;
 
   const composerBarAnimatedStyle = useAnimatedStyle(() => {
-    const lift = Platform.OS === "android" ? androidComposerLift.value : keyboardInsetAnim.value;
-    if (Platform.OS === "android") {
-      return {
-        transform: [{ translateY: -lift }],
-        paddingBottom: COMPOSER_FOOTER_PADDING_ANDROID,
-      };
-    }
+    const lift = keyboardInsetAnim.value;
+    const t = Math.min(1, lift / 48);
     return {
       transform: [{ translateY: -lift }],
+      paddingBottom: 10 + (1 - t) * (composerClosedPaddingBottom - 10),
     };
-  });
+  }, [composerClosedPaddingBottom]);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -208,12 +214,12 @@ export default function FeedStoryViewerPage() {
             fallbackUri={rawUri}
             recyclingKey={`feed-story-viewer-${item.key}`}
             width={width}
-            height={height}
+            height={stageHeight}
           />
         </View>
       );
     },
-    [height, width],
+    [stageHeight, width],
   );
 
   const defaultCarouselIndex = useMemo(() => {
@@ -556,7 +562,7 @@ export default function FeedStoryViewerPage() {
         <Carousel
           ref={carouselRef}
           width={width}
-          height={height}
+          height={stageHeight}
           data={flatMediaSlides}
           defaultIndex={defaultCarouselIndex}
           loop={flatMediaSlides.length > 1}
@@ -623,72 +629,132 @@ export default function FeedStoryViewerPage() {
           />
         </View>
 
-        <Animated.View
-          style={[
-            styles.bottomComposer,
-            {
-              bottom: 0,
-              backgroundColor: composerTheme.barBg,
-              ...(Platform.OS !== "android"
-                ? { paddingBottom: composerFooterPaddingBottom }
-                : { paddingBottom: COMPOSER_FOOTER_PADDING_ANDROID }),
-            },
-            composerBarAnimatedStyle,
-          ]}
-        >
-          <View style={styles.composerRow}>
-            <View style={styles.inputWrap}>
-              <RichTextarea
-                ref={composerInputRef}
-                value={inputValue}
-                onChangeText={setInputValue}
-                placeholder="Send message…"
-                placeholderTextColor={composerTheme.placeholder}
-                onFocus={() => {
-                  setInputFocused(true);
-                  if (Platform.OS === "android") {
-                    requestAnimationFrame(() => recalculateAndroidComposerLift());
-                  }
-                }}
-                onBlur={() => setInputFocused(false)}
-                onContentSizeChange={() => {
-                  if (Platform.OS === "android" && inputFocused) {
-                    recalculateAndroidComposerLift();
-                  }
-                }}
-                textAlignVertical="center"
-                style={[
-                  styles.input,
-                  { color: composerTheme.text, borderColor: composerTheme.border },
-                ]}
-              />
-            </View>
-            <View style={styles.actionsRight}>
-              <AppPressable style={styles.actionIcon} hitSlop={12} onPress={() => void onToggleLike()}>
-                <AnimatedLikeHeart
-                  liked={likeActive}
-                  size={26}
-                  color={composerTheme.icon}
-                  likedColor="#F4212E"
+        {Platform.OS === "android" ? (
+          <Animated.View
+            style={[
+              styles.bottomComposer,
+              {
+                bottom: 0,
+                backgroundColor: composerTheme.barBg,
+                paddingBottom: COMPOSER_FOOTER_PADDING_ANDROID,
+              },
+              androidComposerLiftStyle,
+            ]}
+          >
+            <View style={styles.composerRow}>
+              <View style={styles.inputWrap}>
+                <RichTextarea
+                  ref={composerInputRef}
+                  value={inputValue}
+                  onChangeText={setInputValue}
+                  placeholder="Send message…"
+                  placeholderTextColor={composerTheme.placeholder}
+                  onFocus={() => {
+                    setInputFocused(true);
+                    onComposerFocus();
+                  }}
+                  onBlur={() => {
+                    setInputFocused(false);
+                    onComposerBlur();
+                  }}
+                  textAlignVertical="center"
+                  style={[
+                    styles.input,
+                    { color: composerTheme.text, borderColor: composerTheme.border },
+                  ]}
                 />
-              </AppPressable>
-              <AppPressable
-                style={styles.actionIcon}
-                hitSlop={12}
-                onPress={() => navigation.navigate("StoryDiscussion", { storyId: activeStory.id, placeId: activeStory.place_id })}
-              >
-                <Ionicons name="chatbubble-outline" size={24} color={composerTheme.icon} />
-              </AppPressable>
-              <AppPressable style={styles.actionIcon} hitSlop={12} onPress={() => void onSubmitReply()}>
-                <Ionicons
-                  name="paper-plane-outline"
-                  size={25}
-                  color={inputValue.trim() ? composerTheme.icon : composerTheme.iconMuted}
-                />
-              </AppPressable>
+              </View>
+              <View style={styles.actionsRight}>
+                <AppPressable style={styles.actionIcon} hitSlop={12} onPress={() => void onToggleLike()}>
+                  <AnimatedLikeHeart
+                    liked={likeActive}
+                    size={26}
+                    color={composerTheme.icon}
+                    likedColor="#F4212E"
+                  />
+                </AppPressable>
+                <AppPressable
+                  style={styles.actionIcon}
+                  hitSlop={12}
+                  onPress={() =>
+                    navigation.navigate("StoryDiscussion", {
+                      storyId: activeStory.id,
+                      placeId: activeStory.place_id,
+                    })
+                  }
+                >
+                  <Ionicons name="chatbubble-outline" size={24} color={composerTheme.icon} />
+                </AppPressable>
+                <AppPressable style={styles.actionIcon} hitSlop={12} onPress={() => void onSubmitReply()}>
+                  <Ionicons
+                    name="paper-plane-outline"
+                    size={25}
+                    color={inputValue.trim() ? composerTheme.icon : composerTheme.iconMuted}
+                  />
+                </AppPressable>
+              </View>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        ) : (
+          <Animated.View
+            style={[
+              styles.bottomComposer,
+              {
+                bottom: 0,
+                backgroundColor: composerTheme.barBg,
+              },
+              composerBarAnimatedStyle,
+            ]}
+          >
+            <View style={styles.composerRow}>
+              <View style={styles.inputWrap}>
+                <RichTextarea
+                  ref={composerInputRef}
+                  value={inputValue}
+                  onChangeText={setInputValue}
+                  placeholder="Send message…"
+                  placeholderTextColor={composerTheme.placeholder}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  textAlignVertical="center"
+                  style={[
+                    styles.input,
+                    { color: composerTheme.text, borderColor: composerTheme.border },
+                  ]}
+                />
+              </View>
+              <View style={styles.actionsRight}>
+                <AppPressable style={styles.actionIcon} hitSlop={12} onPress={() => void onToggleLike()}>
+                  <AnimatedLikeHeart
+                    liked={likeActive}
+                    size={26}
+                    color={composerTheme.icon}
+                    likedColor="#F4212E"
+                  />
+                </AppPressable>
+                <AppPressable
+                  style={styles.actionIcon}
+                  hitSlop={12}
+                  onPress={() =>
+                    navigation.navigate("StoryDiscussion", {
+                      storyId: activeStory.id,
+                      placeId: activeStory.place_id,
+                    })
+                  }
+                >
+                  <Ionicons name="chatbubble-outline" size={24} color={composerTheme.icon} />
+                </AppPressable>
+                <AppPressable style={styles.actionIcon} hitSlop={12} onPress={() => void onSubmitReply()}>
+                  <Ionicons
+                    name="paper-plane-outline"
+                    size={25}
+                    color={inputValue.trim() ? composerTheme.icon : composerTheme.iconMuted}
+                  />
+                </AppPressable>
+              </View>
+            </View>
+          </Animated.View>
+        )}
       </Animated.View>
 
       {previewOpen ? (

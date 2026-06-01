@@ -40,8 +40,15 @@ function DailyRecommendationActionsBarInner({
           end={{ x: 1, y: 1 }}
           style={styles.bookGradient}
         >
-          <Ionicons name="calendar-outline" size={20} color="#ffffff" />
-          <Text style={styles.bookTitle}>{bookTitle}</Text>
+          <Ionicons name="calendar-outline" size={18} color="#ffffff" style={styles.ctaIcon} />
+          <Text
+            style={styles.bookTitle}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.65}
+          >
+            {bookTitle}
+          </Text>
         </LinearGradient>
       </Pressable>
 
@@ -51,8 +58,13 @@ function DailyRecommendationActionsBarInner({
         accessibilityRole="button"
         accessibilityLabel={howToGetTitle}
       >
-        <Ionicons name="navigate-outline" size={20} color={colors.text} />
-        <Text style={[styles.howToGetTitle, { color: colors.text }]} numberOfLines={1}>
+        <Ionicons name="navigate-outline" size={18} color={colors.text} style={styles.ctaIcon} />
+        <Text
+          style={[styles.howToGetTitle, { color: colors.text }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.65}
+        >
           {howToGetTitle}
         </Text>
       </Pressable>
@@ -65,42 +77,55 @@ export const DailyRecommendationActionsBar = memo(DailyRecommendationActionsBarI
 const styles = StyleSheet.create({
   root: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
   },
   ctaPressable: {
     flex: 1,
+    minWidth: 0,
     minHeight: 48,
     borderRadius: 14,
     overflow: "hidden",
   },
   bookGradient: {
     flex: 1,
+    minWidth: 0,
     minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingHorizontal: 12,
+    gap: 5,
+    paddingHorizontal: 8,
+  },
+  ctaIcon: {
+    flexShrink: 0,
   },
   bookTitle: {
+    flex: 1,
+    minWidth: 0,
     color: "#ffffff",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
+    lineHeight: 18,
+    textAlign: "center",
   },
   howToGetBtn: {
     flex: 1,
+    minWidth: 0,
     minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingHorizontal: 12,
+    gap: 5,
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderRadius: 14,
   },
   howToGetTitle: {
-    fontSize: 15,
+    flex: 1,
+    minWidth: 0,
+    fontSize: 14,
     fontWeight: "800",
-    flexShrink: 1,
+    lineHeight: 18,
+    textAlign: "center",
   },
 });

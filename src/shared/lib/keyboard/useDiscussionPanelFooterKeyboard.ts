@@ -1,29 +1,29 @@
-import { Platform, View } from "react-native";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
-import { useKeyboardInset } from "./useKeyboardInset";
+import type { ElementRef } from "react";
+import { Platform, TextInput, View } from "react-native";
+import Animated from "react-native-reanimated";
+import {
+  useAndroidPanKeyboardClearance,
+} from "./useAndroidPanKeyboardClearance";
+
+export { ANDROID_PAN_KEYBOARD_CLEARANCE } from "./useAndroidPanKeyboardClearance";
 
 export const DISCUSSION_ANDROID_FOOTER_PADDING = 8;
-const ANDROID_KEYBOARD_GAP = 8;
 
-/** Android: lift list + footer above keyboard (navigation modal + RN Modal). iOS: no-op. */
-export function useDiscussionPanelFooterKeyboard(isActive = true) {
+/**
+ * Android: animated clearance lift in sync with system pan (see useAndroidPanKeyboardClearance).
+ * iOS: KeyboardAvoidingView in DiscussionGlassSheet handles the sheet.
+ */
+export function useDiscussionPanelFooterKeyboard(
+  _getFocusedInput?: () => ElementRef<typeof TextInput> | null,
+  isActive = true,
+) {
   const useAndroidLift = Platform.OS === "android";
-
-  const keyboardInset = useKeyboardInset({
-    enabled: useAndroidLift && isActive,
-    gap: ANDROID_KEYBOARD_GAP,
-    ignoreWindowResize: true,
-  });
-
-  const androidRootLiftStyle = useAnimatedStyle(
-    () => ({
-      paddingBottom: keyboardInset.value,
-    }),
-    [keyboardInset],
-  );
+  const { androidLiftStyle, onComposerFocus, onComposerBlur } = useAndroidPanKeyboardClearance(isActive);
 
   return {
     RootOuter: useAndroidLift ? Animated.View : View,
-    androidRootLiftStyle: useAndroidLift ? androidRootLiftStyle : undefined,
+    androidRootLiftStyle: useAndroidLift ? androidLiftStyle : undefined,
+    onComposerFocus,
+    onComposerBlur,
   };
 }

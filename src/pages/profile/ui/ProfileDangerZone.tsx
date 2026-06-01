@@ -17,9 +17,11 @@ import { useProfileDangerZoneStyles } from "./profileDangerZoneStyles";
 
 type Props = {
   username: string;
+  onConfirmInputFocus?: () => void;
+  onConfirmInputBlur?: () => void;
 };
 
-export function ProfileDangerZone({ username }: Props) {
+export function ProfileDangerZone({ username, onConfirmInputFocus, onConfirmInputBlur }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">>();
@@ -78,6 +80,8 @@ export function ProfileDangerZone({ username }: Props) {
             autoCapitalize="none"
             autoCorrect={false}
             spellCheck={false}
+            onFocus={onConfirmInputFocus}
+            onBlur={onConfirmInputBlur}
           />
           <AppPressable
             style={[styles.deleteBtn, !canDelete || deleteAccount.isPending ? styles.deleteBtnDisabled : null]}

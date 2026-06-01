@@ -2,26 +2,22 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Localization from "expo-localization";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import de from "./locales/de.json";
-import en from "./locales/en.json";
-import es from "./locales/es.json";
-import fr from "./locales/fr.json";
-import pt from "./locales/pt.json";
-import ru from "./locales/ru.json";
 
 export const APP_LANGUAGE_STORAGE_KEY = "@pixap_app_language";
 
 export const APP_LANGUAGES = ["en", "ru", "es", "pt", "fr", "de"] as const;
 export type AppLanguage = (typeof APP_LANGUAGES)[number];
 
-const bundledResources = {
-  en: { translation: en },
-  ru: { translation: ru },
-  es: { translation: es },
-  pt: { translation: pt },
-  fr: { translation: fr },
-  de: { translation: de },
-} as const;
+function loadLocale(lng: AppLanguage): Record<string, unknown> {
+  switch (lng) {
+    case "ru": return require("./locales/ru.json");
+    case "es": return require("./locales/es.json");
+    case "fr": return require("./locales/fr.json");
+    case "pt": return require("./locales/pt.json");
+    case "de": return require("./locales/de.json");
+    default:   return require("./locales/en.json");
+  }
+}
 
 function normalizeLanguage(tag: string | null | undefined): AppLanguage {
   if (!tag) return "en";
@@ -50,7 +46,7 @@ export function bootstrapI18n(): Promise<void> {
     const lng = deviceLanguage();
 
     await i18n.use(initReactI18next).init({
-      resources: { ...bundledResources },
+      resources: { [lng]: { translation: loadLocale(lng) } },
       lng,
       fallbackLng: "en",
       supportedLngs: [...APP_LANGUAGES],
@@ -83,8 +79,19 @@ export async function hydrateI18nFromStorage(): Promise<void> {
     return;
   }
   if (stored != null && APP_LANGUAGES.includes(stored as AppLanguage) && stored !== i18n.language) {
-    await i18n.changeLanguage(stored as AppLanguage);
+    const lang = stored as AppLanguage;
+    if (!i18n.hasResourceBundle(lang, "translation")) {
+      i18n.addResourceBundle(lang, "translation", loadLocale(lang));
+    }
+    await i18n.changeLanguage(lang);
   }
+}
+
+export async function switchLanguage(lang: AppLanguage): Promise<void> {
+  if (!i18n.hasResourceBundle(lang, "translation")) {
+    i18n.addResourceBundle(lang, "translation", loadLocale(lang));
+  }
+  await i18n.changeLanguage(lang);
 }
 
 /** Full init (bootstrap + storage) — for tests or callers that need storage before UI. */

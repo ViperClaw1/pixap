@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
@@ -10,7 +10,9 @@ import {
   Linking,
   Platform,
   Alert,
-  useWindowDimensions
+  Keyboard,
+  type KeyboardEvent,
+  useWindowDimensions,
 } from "react-native";
 import { useNavigation, useRoute, useIsFocused, type RouteProp } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
@@ -68,6 +70,8 @@ type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<ProfileStackParamList, "ProfileMain">,
   BottomTabNavigationProp<RootTabParamList>
 >;
+const SCROLL_BOTTOM_PADDING = 32;
+const DANGER_ZONE_KEYBOARD_MARGIN = 12;
 type ActionItem = {
   key: string;
   label: string;
@@ -101,6 +105,7 @@ function ProfileScreenContent() {
   const [storiesArchiveVisible, setStoriesArchiveVisible] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [iosKeyboardInset, setIosKeyboardInset] = useState(0);
   const [createStep, setCreateStep] = useState<"menu" | "post" | "story">("menu");
   const [postInput, setPostInput] = useState("");
   const [postInputError, setPostInputError] = useState(false);
@@ -149,11 +154,80 @@ function ProfileScreenContent() {
     navigation.setParams({ openCreateStep: undefined, openCreateModal: undefined });
   }, [navigation, route.params?.openCreateModal, route.params?.openCreateStep]);
 
-  const { width: windowWidth } = useWindowDimensions(); // orientation-aware by design (compact layout)
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions(); // orientation-aware by design (compact layout)
   const isCompact = windowWidth < PROFILE_COMPACT_WIDTH;
   const styles = useProfileStyles();
   const linkRowStyle = isCompact ? [styles.link, styles.linkCompact] : styles.link;
-  const scrollBottomPadding = 32;
+  const profileScrollRef = useRef<ScrollView>(null);
+  const profileScrollYRef = useRef(0);
+  const dangerZoneAnchorRef = useRef<View>(null);
+  const dangerInputFocusedRef = useRef(false);
+  const keyboardHeightRef = useRef(0);
+
+  const scrollDangerZoneAboveKeyboard = useCallback(
+    (animated: boolean) => {
+      if (!dangerInputFocusedRef.current || keyboardHeightRef.current <= 0) return;
+
+      dangerZoneAnchorRef.current?.measureInWindow((_x, y, _w, blockHeight) => {
+        const blockBottom = y + blockHeight;
+        const keyboardTop = windowHeight - keyboardHeightRef.current;
+        const overlap = blockBottom + DANGER_ZONE_KEYBOARD_MARGIN - keyboardTop;
+        if (overlap <= 0) return;
+
+        const nextY = profileScrollYRef.current + overlap;
+        profileScrollRef.current?.scrollTo({ y: nextY, animated });
+        if (!animated) {
+          profileScrollYRef.current = nextY;
+        }
+      });
+    },
+    [windowHeight],
+  );
+
+  useLayoutEffect(() => {
+    if (Platform.OS !== "ios") return;
+    if (iosKeyboardInset <= 0 || !dangerInputFocusedRef.current) return;
+    scrollDangerZoneAboveKeyboard(true);
+  }, [iosKeyboardInset, scrollDangerZoneAboveKeyboard]);
+
+  useEffect(() => {
+    if (Platform.OS === "ios") {
+      const willShowSub = Keyboard.addListener("keyboardWillShow", (event: KeyboardEvent) => {
+        keyboardHeightRef.current = event.endCoordinates.height;
+        setIosKeyboardInset(event.endCoordinates.height);
+      });
+      const hideSub = Keyboard.addListener("keyboardWillHide", () => {
+        keyboardHeightRef.current = 0;
+        setIosKeyboardInset(0);
+      });
+      return () => {
+        willShowSub.remove();
+        hideSub.remove();
+      };
+    }
+
+    const showSub = Keyboard.addListener("keyboardDidShow", (event: KeyboardEvent) => {
+      keyboardHeightRef.current = event.endCoordinates.height;
+      requestAnimationFrame(() => {
+        scrollDangerZoneAboveKeyboard(false);
+      });
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      keyboardHeightRef.current = 0;
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollDangerZoneAboveKeyboard]);
+
+  const onDangerConfirmInputFocus = useCallback(() => {
+    dangerInputFocusedRef.current = true;
+  }, []);
+
+  const onDangerConfirmInputBlur = useCallback(() => {
+    dangerInputFocusedRef.current = false;
+  }, []);
 
   const userName = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || t("profile.defaultUserName");
   const isEmailVerified = Boolean(profile?.is_verified);
@@ -400,26 +474,32 @@ function ProfileScreenContent() {
 
   return (
     <View style={{ flex: 1 }}>
-      <AppHeader
-        title={t("header.profile")}
-        leftIcon="add"
-        onLeftPress={() => {
-          setCreateStep("menu");
-          setCreateModalOpen(true);
-        }}
-        rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
-        onRightPress={toggleThemeMode}
-        onNotificationsPress={() => setNotificationsOpen(true)}
-      />
-      <ScrollView
-        style={styles.root}
-        contentContainerStyle={{
-          paddingTop: 12,
-          paddingBottom: scrollBottomPadding,
-          paddingHorizontal: isCompact ? 12 : 16,
-        }}
-        keyboardShouldPersistTaps="handled"
-      >
+        <AppHeader
+          title={t("header.profile")}
+          leftIcon="add"
+          onLeftPress={() => {
+            setCreateStep("menu");
+            setCreateModalOpen(true);
+          }}
+          rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+          onRightPress={toggleThemeMode}
+          onNotificationsPress={() => setNotificationsOpen(true)}
+        />
+        <ScrollView
+          ref={profileScrollRef}
+          style={styles.root}
+          contentContainerStyle={{
+            paddingTop: 12,
+            paddingBottom: SCROLL_BOTTOM_PADDING + (Platform.OS === "ios" ? iosKeyboardInset : 0),
+            paddingHorizontal: isCompact ? 12 : 16,
+          }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          scrollEventThrottle={16}
+          onScroll={(event) => {
+            profileScrollYRef.current = event.nativeEvent.contentOffset.y;
+          }}
+        >
       {showProfileSkeleton ? (
         <ProfilePageSkeleton isCompact={isCompact} />
       ) : (
@@ -679,7 +759,13 @@ function ProfileScreenContent() {
           <Text style={styles.signOutText}>{t("profile.logOut")}</Text>
         )}
       </AppPressable>
-      <ProfileDangerZone username={profile?.username?.trim() ?? ""} />
+      <View ref={dangerZoneAnchorRef} collapsable={false}>
+        <ProfileDangerZone
+          username={profile?.username?.trim() ?? ""}
+          onConfirmInputFocus={onDangerConfirmInputFocus}
+          onConfirmInputBlur={onDangerConfirmInputBlur}
+        />
+      </View>
         </>
       )}
     </ScrollView>
