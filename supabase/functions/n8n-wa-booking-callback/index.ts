@@ -10,6 +10,21 @@ type Body = {
   payment_link?: string | null;
 };
 
+type CartItemRow = {
+  id: string;
+  status: string;
+  user_id: string;
+  business_card_id: string;
+  date_time: string;
+  created_at: string;
+  wa_n8n_callback_token: string | null;
+};
+
+type BookingCandidate = {
+  id: string;
+  created_at: string;
+};
+
 function jsonHeaders() {
   return { ...corsHeaders, "Content-Type": "application/json" };
 }
@@ -22,6 +37,27 @@ function normalizeStatusLines(raw: unknown): string[] | null {
     out.push(x);
   }
   return out;
+}
+
+function statusLinesIndicateRejection(lines: string[]): boolean {
+  return /(not available|unavailable|slot is not available|недоступен|отклон|reject)/i.test(lines.join(" "));
+}
+
+function findClosestBookingCandidate(
+  candidates: BookingCandidate[],
+  cartCreatedAt: string,
+): BookingCandidate | null {
+  if (candidates.length === 0) return null;
+  const cartMs = new Date(cartCreatedAt).getTime();
+  if (Number.isNaN(cartMs)) return candidates[0];
+
+  return candidates.reduce((best, current) => {
+    const bestMs = new Date(best.created_at).getTime();
+    const currentMs = new Date(current.created_at).getTime();
+    const bestDistance = Number.isNaN(bestMs) ? Number.POSITIVE_INFINITY : Math.abs(bestMs - cartMs);
+    const currentDistance = Number.isNaN(currentMs) ? Number.POSITIVE_INFINITY : Math.abs(currentMs - cartMs);
+    return currentDistance < bestDistance ? current : best;
+  });
 }
 
 function bearerToken(req: Request): string | null {
@@ -120,10 +156,10 @@ Deno.serve(async (req) => {
 
   const { data: row, error: selErr } = await db
     .from("cart_items")
-    .select("id, status, wa_n8n_callback_token")
+    .select("id, status, user_id, business_card_id, date_time, created_at, wa_n8n_callback_token")
     .eq("wa_n8n_callback_token", callbackToken)
     .eq("status", "created")
-    .maybeSingle();
+    .maybeSingle<CartItemRow>();
 
   if (selErr) {
     console.error("[n8n-wa-booking-callback] select", selErr);
@@ -172,7 +208,57 @@ Deno.serve(async (req) => {
     );
   }
 
-  return new Response(JSON.stringify({ ok: true }), {
+  let cancelledBookingId: string | null = null;
+  if (statusLinesIndicateRejection(lines)) {
+    const { data: bookingCandidates, error: bookingSelectErr } = await db
+      .from("bookings")
+      .select("id, created_at")
+      .eq("user_id", row.user_id)
+      .eq("business_card_id", row.business_card_id)
+      .eq("date_time", row.date_time)
+      .eq("status", "upcoming")
+      .eq("payment_status", "pending")
+      .order("created_at", { ascending: false });
+
+    if (bookingSelectErr) {
+      console.error("[n8n-wa-booking-callback] select linked booking", bookingSelectErr);
+      return new Response(JSON.stringify({ error: bookingSelectErr.message }), {
+        status: 500,
+        headers: jsonHeaders(),
+      });
+    }
+
+    const linkedBooking = findClosestBookingCandidate(
+      (bookingCandidates ?? []) as BookingCandidate[],
+      row.created_at,
+    );
+    if (linkedBooking) {
+      const { error: bookingUpdateErr } = await db
+        .from("bookings")
+        .update({ status: "expired" })
+        .eq("id", linkedBooking.id)
+        .eq("status", "upcoming")
+        .eq("payment_status", "pending");
+
+      if (bookingUpdateErr) {
+        console.error("[n8n-wa-booking-callback] cancel linked booking", bookingUpdateErr);
+        return new Response(JSON.stringify({ error: bookingUpdateErr.message }), {
+          status: 500,
+          headers: jsonHeaders(),
+        });
+      }
+      cancelledBookingId = linkedBooking.id;
+    } else {
+      console.warn("[n8n-wa-booking-callback] no linked pending booking to cancel", {
+        cart_item_id: row.id,
+        user_id: row.user_id,
+        business_card_id: row.business_card_id,
+        date_time: row.date_time,
+      });
+    }
+  }
+
+  return new Response(JSON.stringify({ ok: true, cancelled_booking_id: cancelledBookingId }), {
     status: 200,
     headers: jsonHeaders(),
   });
