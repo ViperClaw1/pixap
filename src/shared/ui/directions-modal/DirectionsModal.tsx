@@ -462,8 +462,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
   );
 
   const polylineCoords = useMemo(() => (routeCoords.length >= 2 ? routeCoords : []), [routeCoords]);
-  // iOS + Google provider can be unstable in Expo Go during frequent route updates.
-  const mapProvider = isAndroid ? PROVIDER_GOOGLE : undefined;
+  const mapProvider = PROVIDER_GOOGLE;
 
   const mapChildren = (
     <>
