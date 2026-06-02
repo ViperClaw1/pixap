@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
-import { InteractionManager, Text, View } from "react-native";
+import { ActivityIndicator, InteractionManager, Text, View } from "react-native";
 import { NavigationContainer, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import Toast from "react-native-toast-message";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { AppProviders } from "@/app";
 import AppNavigator from "@/app/navigation/AppNavigator";
 import { linking } from "@/app/navigation/linking";
@@ -58,6 +59,7 @@ if (__DEV__) {
 
 function NavigationRoot({ onFirstFrame }: { onFirstFrame: () => void }) {
   const { colors, isDark } = useAppTheme();
+  const { loading: authLoading } = useAuth();
   const toastConfig = useAppToastConfig(colors);
 
   useEffect(() => {
@@ -91,6 +93,14 @@ function NavigationRoot({ onFirstFrame }: { onFirstFrame: () => void }) {
       },
     };
   }, [isDark, colors.primary, colors.background, colors.card, colors.text, colors.border, colors.notification]);
+
+  if (authLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <>

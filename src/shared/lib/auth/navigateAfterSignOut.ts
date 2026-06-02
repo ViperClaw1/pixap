@@ -11,6 +11,7 @@ export function navigateAfterSignOut(): void {
   const resetProfileToAuth = () => {
     if (!rootNavigationRef.isReady()) return false;
     const state = rootNavigationRef.getState();
+    if (!state?.routes?.length) return false;
     const profileTabIndex = state.routes.findIndex((route) => route.name === "Profile");
     const nextIndex = profileTabIndex >= 0 ? profileTabIndex : state.index;
 
