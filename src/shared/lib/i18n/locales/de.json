@@ -49,7 +49,8 @@
     "errorTitle": "Fehler bei der Spracheingabe",
     "errorGeneric": "Sprache konnte nicht erkannt werden. Bitte erneut versuchen.",
     "noSpeech": "Keine Sprache erkannt. Bitte erneut versuchen.",
-    "networkError": "Netzwerkfehler bei der Spracherkennung."
+    "networkError": "Netzwerkfehler bei der Spracherkennung.",
+    "serviceNotAllowed": "Spracherkennung ist nicht verfügbar. Prüfen Sie die Internetverbindung und ob Siri und Diktierfunktion in den Einstellungen aktiviert sind."
   },
   "editProfile": {
     "savedTitle": "Gespeichert",
@@ -242,6 +243,7 @@
     "moodAlertTitle": "Stimmung",
     "timelineLabel": "Zeitplan",
     "timeline": {
+      "day": "Tag",
       "evening": "Abend",
       "night": "Nacht",
       "lateNight": "Späte Nacht"
@@ -257,6 +259,7 @@
     "checkingSlots": "Slots werden geprüft…",
     "slotCheckFailed": "Slot-Prüfung fehlgeschlagen",
     "slotAvailable": "Slot verfügbar",
+    "slotSuggested": "Vorgeschlagene Zeit",
     "noNearbyFreeSlot": "Kein freier Slot in der Nähe",
     "book": "Buchen",
     "bookAll": "Alle buchen",
@@ -280,7 +283,12 @@
     "bookSelectedStopsA11y": "Ausgewählte Stopps mit freiem Slot buchen",
     "chooseAtLeastOnePlace": "Bitte wählen Sie mindestens einen Ort aus",
     "moodNotesPlaceholder": "Details hinzufügen (optional)",
-    "moodRequired": "Wähle mindestens einen Vibe oder eine kurze Beschreibung."
+    "moodRequired": "Wähle mindestens einen Vibe oder eine kurze Beschreibung.",
+    "noCreditsCta": "Buchungsguthaben holen",
+    "noCreditsCtaA11y": "Abo-Seite öffnen, um Buchungsguthaben zu erhalten",
+    "creditsLimitMessage": "Sie haben alle {{count}} verbleibenden Buchungsguthaben ausgewählt. Abonnieren Sie für mehr, um weitere Orte hinzuzufügen.",
+    "creditsLimitCta": "Mehr Guthaben erhalten",
+    "creditsLimitCtaA11y": "Abo-Seite öffnen, um mehr Buchungsguthaben zu erhalten"
   },
   "messages": {
     "searchPlaceholder": "Chats und Nutzer suchen",

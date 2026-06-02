@@ -12,7 +12,6 @@ import {
   Linking,
   Alert
 } from "react-native";
-import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { useRoute, useNavigation, useIsFocused, type RouteProp } from "@react-navigation/native";
@@ -341,12 +340,11 @@ export default function PlaceDetailScreen() {
         <SmartImage
           uri={item}
           fallbackUri={imageVm.heroImagesRaw[index] ?? null}
-          bundledFallback={PLACE_IMAGE_FALLBACK}
           recyclingKey={`${place?.id ?? "place"}-hero-${index}`}
           style={styles.hero}
           contentFit="cover"
-          transition={200}
           showLoadingSpinner
+          skipBundledPlaceholder
           loadingSpinnerColor={colors.primary}
         />
       </AppPressable>
@@ -368,7 +366,7 @@ export default function PlaceDetailScreen() {
       style={styles.root}
       contentContainerStyle={{ paddingBottom: bottomScrollPadding }}
     >
-      <View>
+      <View style={[styles.heroWrap, { backgroundColor: colors.card }]}>
         {imageVm.heroImages.length > 1 ? (
           <>
             <Carousel
@@ -402,11 +400,11 @@ export default function PlaceDetailScreen() {
             <SmartImage
               uri={imageVm.heroImages[0] ?? imageVm.heroFallback}
               fallbackUri={imageVm.heroImagesRaw[0] ?? null}
-              bundledFallback={PLACE_IMAGE_FALLBACK}
               recyclingKey={place.id}
               style={styles.hero}
               contentFit="cover"
               showLoadingSpinner
+              skipBundledPlaceholder
               loadingSpinnerColor={colors.primary}
             />
           </AppPressable>

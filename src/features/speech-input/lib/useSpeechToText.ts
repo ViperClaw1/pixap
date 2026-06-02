@@ -98,6 +98,7 @@ export function useSpeechToText(options: Options = {}) {
       lang,
       interimResults: true,
       continuous: false,
+      requiresOnDeviceRecognition: false,
     });
     return true;
   }, [lang, t]);

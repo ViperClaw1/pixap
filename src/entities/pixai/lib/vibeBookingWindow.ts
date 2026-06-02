@@ -1,82 +1,168 @@
-import type { VibePlanStop } from "../api/usePixAI";
+import type { PixAIVibeTimeline, VibePlanStop } from "../api/usePixAI";
 
-/** Earliest suggested booking time from now. */
+/** Earliest instant a booking can be created (not used for suggested route display). */
 export const VIBE_BOOKING_WINDOW_MIN_MS = 30 * 60_000;
-/** Local clock window: 7:00 AM through 2:00 AM (next calendar segment). */
-export const VIBE_CLOCK_START_MINUTES = 7 * 60;
-export const VIBE_CLOCK_END_MINUTES = 2 * 60;
 export const VIBE_STOP_SPACING_MS = 90 * 60_000;
 export const VIBE_SLOT_GRID_MS = 30 * 60_000;
 
+type TimelineWindowDef = {
+  startMinutes: number;
+  endMinutes: number;
+};
+
+/** Local clock ranges per vibe timeline chip. */
+export const VIBE_TIMELINE_WINDOWS: Record<PixAIVibeTimeline, TimelineWindowDef> = {
+  day: { startMinutes: 8 * 60, endMinutes: 18 * 60 },
+  evening: { startMinutes: 18 * 60, endMinutes: 21 * 60 },
+  night: { startMinutes: 21 * 60, endMinutes: 24 * 60 },
+  late_night: { startMinutes: 0, endMinutes: 3 * 60 },
+};
+
 export type VibeBookingWindow = { startMs: number; endMs: number };
 
-export function isWithinVibeClockRange(totalMinutes: number): boolean {
-  return totalMinutes >= VIBE_CLOCK_START_MINUTES || totalMinutes <= VIBE_CLOCK_END_MINUTES;
-}
-
-function localMinutesOfDay(ms: number): number {
-  const d = new Date(ms);
-  return d.getHours() * 60 + d.getMinutes();
-}
-
-function nextSevenAmMs(fromMs: number): number {
-  const d = new Date(fromMs);
-  const y = d.getFullYear();
-  const m = d.getMonth();
-  const day = d.getDate();
-  const sevenToday = new Date(y, m, day, 7, 0, 0, 0).getTime();
-  if (fromMs <= sevenToday) return sevenToday;
-  return new Date(y, m, day + 1, 7, 0, 0, 0).getTime();
-}
-
-function bookingWindowEndMs(fromMs: number): number {
-  const d = new Date(fromMs);
-  const y = d.getFullYear();
-  const m = d.getMonth();
-  const day = d.getDate();
-  const mins = localMinutesOfDay(fromMs);
-  if (mins <= VIBE_CLOCK_END_MINUTES) {
-    return new Date(y, m, day, 2, 0, 0, 0).getTime();
-  }
-  return new Date(y, m, day + 1, 2, 0, 0, 0).getTime();
-}
-
-export function getVibeBookingWindow(nowMs = Date.now()): VibeBookingWindow {
-  const minStart = nowMs + VIBE_BOOKING_WINDOW_MIN_MS;
-  let startMs = minStart;
-  if (!isWithinVibeClockRange(localMinutesOfDay(minStart))) {
-    startMs = nextSevenAmMs(minStart);
-  }
-  const endMs = bookingWindowEndMs(startMs);
+function localDayBounds(
+  year: number,
+  month: number,
+  day: number,
+  def: TimelineWindowDef,
+): { startMs: number; endMs: number } {
+  const dayStart = new Date(year, month, day, 0, 0, 0, 0);
+  const startMs = dayStart.getTime() + def.startMinutes * 60_000;
+  const endMs =
+    def.endMinutes >= 24 * 60
+      ? new Date(year, month, day + 1, 0, 0, 0, 0).getTime()
+      : dayStart.getTime() + def.endMinutes * 60_000;
   return { startMs, endMs };
 }
 
-export function isTimeSlotInVibeBookingWindow(iso: string, nowMs = Date.now()): boolean {
+function isLocalClockInTimelineRange(minutesOfDay: number, timeline: PixAIVibeTimeline): boolean {
+  const def = VIBE_TIMELINE_WINDOWS[timeline];
+  if (timeline === "late_night") {
+    return minutesOfDay >= def.startMinutes && minutesOfDay < def.endMinutes;
+  }
+  if (def.endMinutes >= 24 * 60) {
+    return minutesOfDay >= def.startMinutes;
+  }
+  return minutesOfDay >= def.startMinutes && minutesOfDay < def.endMinutes;
+}
+
+function nextTimelineWindows(
+  timeline: PixAIVibeTimeline,
+  nowMs: number,
+  maxDays = 4,
+): VibeBookingWindow[] {
+  const def = VIBE_TIMELINE_WINDOWS[timeline];
+  const anchor = new Date(nowMs);
+  const y = anchor.getFullYear();
+  const m = anchor.getMonth();
+  const d = anchor.getDate();
+  const windows: VibeBookingWindow[] = [];
+
+  for (let dayOffset = 0; dayOffset < maxDays; dayOffset += 1) {
+    const { startMs, endMs } = localDayBounds(y, m, d + dayOffset, def);
+    if (endMs > nowMs) {
+      windows.push({ startMs, endMs });
+    }
+  }
+
+  if (windows.length === 0) {
+    windows.push(localDayBounds(y, m, d + 1, def));
+  }
+
+  return windows;
+}
+
+/** Next calendar occurrence of the timeline window (clock range only). */
+export function getVibeTimelineWindow(timeline: PixAIVibeTimeline, nowMs = Date.now()): VibeBookingWindow {
+  return nextTimelineWindows(timeline, nowMs)[0];
+}
+
+/** Earliest bookable instant inside the selected timeline window: max(window start, now + 30 min). */
+export function getEffectiveVibeSlotBounds(
+  timeline: PixAIVibeTimeline,
+  nowMs = Date.now(),
+): VibeBookingWindow {
+  const minStartMs = nowMs + VIBE_BOOKING_WINDOW_MIN_MS;
+
+  for (const { startMs, endMs } of nextTimelineWindows(timeline, nowMs)) {
+    const effectiveStartMs = Math.max(startMs, minStartMs);
+    if (effectiveStartMs <= endMs) {
+      return { startMs: effectiveStartMs, endMs };
+    }
+  }
+
+  const fallback = getVibeTimelineWindow(timeline, nowMs);
+  return {
+    startMs: Math.min(fallback.endMs, Math.max(fallback.startMs, minStartMs)),
+    endMs: fallback.endMs,
+  };
+}
+
+/** @deprecated alias */
+export const getVibeBookingWindow = getVibeTimelineWindow;
+
+export function isTimeSlotInTimelineWindow(
+  iso: string,
+  timeline: PixAIVibeTimeline,
+  nowMs = Date.now(),
+): boolean {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return false;
-  if (!isWithinVibeClockRange(localMinutesOfDay(t))) return false;
-  const { startMs, endMs } = getVibeBookingWindow(nowMs);
+  const mins = new Date(t).getHours() * 60 + new Date(t).getMinutes();
+  if (!isLocalClockInTimelineRange(mins, timeline)) return false;
+  const { startMs, endMs } = getEffectiveVibeSlotBounds(timeline, nowMs);
   return t >= startMs && t <= endMs;
 }
 
-export function filterVibePlanToBookingWindow(plan: VibePlanStop[], nowMs = Date.now()): VibePlanStop[] {
-  return plan.filter((stop) => isTimeSlotInVibeBookingWindow(stop.time_slot, nowMs));
+/** Whether a slot is far enough in the future to book right now. */
+export function isTimeSlotBookableNow(iso: string, nowMs = Date.now()): boolean {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return false;
+  return t >= nowMs + VIBE_BOOKING_WINDOW_MIN_MS;
 }
 
-/** Round up to the next :00 / :30 and clamp inside the vibe booking window. */
-export function snapIsoToThirtyMinuteGrid(iso: string, nowMs = Date.now()): string {
+/** Full booking validation at checkout time. */
+export function isTimeSlotInVibeBookingWindow(
+  iso: string,
+  timeline: PixAIVibeTimeline,
+  nowMs = Date.now(),
+): boolean {
+  return isTimeSlotInTimelineWindow(iso, timeline) && isTimeSlotBookableNow(iso, nowMs);
+}
+
+function snapMsToThirtyMinuteGrid(ms: number, startMs: number, endMs: number): number {
+  const clamped = Math.min(endMs, Math.max(startMs, ms));
+  const ceiled = Math.ceil(clamped / VIBE_SLOT_GRID_MS) * VIBE_SLOT_GRID_MS;
+  return Math.min(endMs, Math.max(startMs, ceiled));
+}
+
+/** Round up to :00 / :30 inside the selected timeline window. */
+export function snapIsoToThirtyMinuteGrid(
+  iso: string,
+  timeline: PixAIVibeTimeline,
+  nowMs = Date.now(),
+): string {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return iso;
-  const { startMs, endMs } = getVibeBookingWindow(nowMs);
-  const clamped = Math.min(endMs, Math.max(startMs, t));
-  const ceiled = Math.ceil(clamped / VIBE_SLOT_GRID_MS) * VIBE_SLOT_GRID_MS;
-  return new Date(Math.min(endMs, Math.max(startMs, ceiled))).toISOString();
+  const { startMs, endMs } = getEffectiveVibeSlotBounds(timeline, nowMs);
+  return new Date(snapMsToThirtyMinuteGrid(t, startMs, endMs)).toISOString();
 }
 
-export function normalizeVibePlanStops(plan: VibePlanStop[], nowMs = Date.now()): VibePlanStop[] {
-  return filterVibePlanToBookingWindow(plan, nowMs).map((stop) => ({
+/** Assign local timeline slots; first stop starts at now + 30 min within the selected window. */
+export function normalizeVibePlanStops(
+  plan: VibePlanStop[],
+  timeline: PixAIVibeTimeline,
+  nowMs = Date.now(),
+): VibePlanStop[] {
+  if (!plan.length) return [];
+
+  const { startMs, endMs } = getEffectiveVibeSlotBounds(timeline, nowMs);
+
+  return plan.map((stop, index) => ({
     ...stop,
-    time_slot: snapIsoToThirtyMinuteGrid(stop.time_slot, nowMs),
+    time_slot: new Date(
+      snapMsToThirtyMinuteGrid(startMs + index * VIBE_STOP_SPACING_MS, startMs, endMs),
+    ).toISOString(),
   }));
 }
 

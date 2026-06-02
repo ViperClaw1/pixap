@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, type Ref } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Text, TextInput, View } from "react-native";
+import { Keyboard, Pressable, Text, TextInput, View } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BookingChatContext, BookingChatMessage } from "../model/types";
 import type { PixAIPlace } from "@/entities/pixai";
@@ -119,7 +119,7 @@ export function BookingInlineAssistantChat({
       {sendError ? (
         <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>{sendError}</Text>
       ) : null}
-      <View style={{ paddingVertical: 8, gap: 6 }}>
+      <Pressable onPress={Keyboard.dismiss} style={{ paddingVertical: 8, gap: 6 }}>
         <BookingChatMessageList
           messages={activeMessages}
           onOnboardingTypewriterComplete={onOnboardingTypewriterComplete}
@@ -133,7 +133,7 @@ export function BookingInlineAssistantChat({
           onOpenCategoryPicker={onOpenCategoryPicker}
           onScopeSelected={onScopeSelected}
         />
-      </View>
+      </Pressable>
       {geminiPhase ? (
         <BookingChatComposer
           disabled={places.length === 0 || !bookingContext}

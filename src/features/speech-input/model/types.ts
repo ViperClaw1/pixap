@@ -37,6 +37,11 @@ export type SpeechRecognitionStartOptions = {
   lang: string;
   interimResults?: boolean;
   continuous?: boolean;
+  /**
+   * iOS only. `false` allows server-side recognition on iOS 17+ devices with on-device support.
+   * Without an explicit `false`, recognition may require a downloaded on-device language model.
+   */
+  requiresOnDeviceRecognition?: boolean;
 };
 
 export type SpeechRecognitionModule = {

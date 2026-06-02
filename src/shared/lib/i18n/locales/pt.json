@@ -49,7 +49,8 @@
     "errorTitle": "Erro de entrada por voz",
     "errorGeneric": "Não foi possível reconhecer a voz. Tente novamente.",
     "noSpeech": "Nenhuma voz detetada. Tente novamente.",
-    "networkError": "Erro de rede durante o reconhecimento de voz."
+    "networkError": "Erro de rede durante o reconhecimento de voz.",
+    "serviceNotAllowed": "O reconhecimento de voz não está disponível. Verifique a ligação à internet e se a Siri e a ditagem estão ativadas nas Definições."
   },
   "editProfile": {
     "savedTitle": "Salvo",
@@ -242,6 +243,7 @@
     "moodAlertTitle": "Humor",
     "timelineLabel": "Horário",
     "timeline": {
+      "day": "Dia",
       "evening": "Noite",
       "night": "Madrugada",
       "lateNight": "Fim da noite"
@@ -257,6 +259,7 @@
     "checkingSlots": "A verificar horários…",
     "slotCheckFailed": "Falha ao verificar horários",
     "slotAvailable": "Horário disponível",
+    "slotSuggested": "Horário sugerido",
     "noNearbyFreeSlot": "Sem horário livre por perto",
     "book": "Reservar",
     "bookAll": "Reservar tudo",
@@ -280,7 +283,12 @@
     "bookSelectedStopsA11y": "Reservar paragens selecionadas com horário livre",
     "chooseAtLeastOnePlace": "Por favor, escolha pelo menos um local",
     "moodNotesPlaceholder": "Adicione detalhes (opcional)",
-    "moodRequired": "Escolha pelo menos um vibe ou uma breve descrição."
+    "moodRequired": "Escolha pelo menos um vibe ou uma breve descrição.",
+    "noCreditsCta": "Obter créditos de reserva",
+    "noCreditsCtaA11y": "Abrir paywall de assinatura para obter créditos de reserva",
+    "creditsLimitMessage": "Você selecionou todos os {{count}} créditos restantes. Assine para adicionar mais lugares à sua rota.",
+    "creditsLimitCta": "Obter mais créditos",
+    "creditsLimitCtaA11y": "Abrir paywall de assinatura para obter mais créditos"
   },
   "messages": {
     "searchPlaceholder": "Pesquisar conversas e utilizadores",

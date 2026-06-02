@@ -1,9 +1,11 @@
 import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Keyboard, Platform, StyleSheet, Text, TextInput, View } from "react-native";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { Keyboard, Platform, StyleSheet, Text, TextInput, View, ActivityIndicator } from "react-native";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
+import { animateStoryViewerDismissWorklet } from "@/shared/lib/storyViewerDismissAnimation";
 import { Ionicons } from "@expo/vector-icons";
 import Carousel, { type ICarouselInstance } from "react-native-reanimated-carousel";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +23,8 @@ import { useAddStoryFromPost } from "../model/useAddStoryFromPost";
 const AUTO_ADVANCE_MS = 5000;
 const KEYBOARD_GAP = 16;
 const ANDROID_KEYBOARD_GAP = -70;
+/** Min downward drag (px) before dismiss — matches story viewer. */
+const DISMISS_DRAG_PX = 100;
 
 type AddStoryRoute = RouteProp<BrowseFlowParamList, "AddStoryFromPost">;
 type AddStoryNav = NativeStackNavigationProp<BrowseFlowParamList, "AddStoryFromPost">;
@@ -46,6 +50,8 @@ export default function AddStoryFromPostPage() {
     transform: [{ translateY: -keyboardInsetAnim.value }],
   }));
   const [captionFocused, setCaptionFocused] = useState(false);
+  const [dismissDragging, setDismissDragging] = useState(false);
+  const dismissTranslateY = useSharedValue(0);
   const [index, setIndex] = useState(0);
   const safeImages = useMemo(() => params.postImages.filter((item) => item.trim().length > 0), [params.postImages]);
   const {
@@ -77,11 +83,77 @@ export default function AddStoryFromPostPage() {
 
   const { progress } = useStoryProgress({
     durationMs: AUTO_ADVANCE_MS,
-    paused: isSubmitting || friendsModalVisible || safeImages.length <= 1 || keyboardOpen || captionFocused,
+    paused:
+      isSubmitting ||
+      friendsModalVisible ||
+      safeImages.length <= 1 ||
+      keyboardOpen ||
+      captionFocused ||
+      dismissDragging,
     itemKey: `${params.postId}-${index}`,
     onComplete: onAdvance,
   });
 
+  const closeScreen = useCallback(() => {
+    Keyboard.dismiss();
+    navigation.goBack();
+  }, [navigation]);
+
+  const dismissDragStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: dismissTranslateY.value }],
+  }));
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(!friendsModalVisible && !keyboardOpen && !captionFocused && !isSubmitting)
+        .activeOffsetY(6)
+        .failOffsetX([-48, 48])
+        .onBegin(() => {
+          runOnJS(setDismissDragging)(true);
+        })
+        .onUpdate((e) => {
+          if (e.translationY > 0 && Math.abs(e.translationY) > Math.abs(e.translationX)) {
+            dismissTranslateY.value = e.translationY;
+          }
+        })
+        .onEnd((e) => {
+          const isVertical = Math.abs(e.translationY) > Math.abs(e.translationX);
+          if (isVertical && e.translationY > 0) {
+            const shouldClose =
+              e.translationY > DISMISS_DRAG_PX || (e.translationY > 48 && e.velocityY > 700);
+            if (shouldClose) {
+              animateStoryViewerDismissWorklet(
+                dismissTranslateY,
+                height,
+                e.translationY,
+                e.velocityY,
+                closeScreen,
+              );
+              return;
+            }
+            dismissTranslateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+            runOnJS(setDismissDragging)(false);
+            return;
+          }
+          dismissTranslateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+          runOnJS(setDismissDragging)(false);
+        }),
+    [
+      captionFocused,
+      closeScreen,
+      dismissTranslateY,
+      friendsModalVisible,
+      height,
+      isSubmitting,
+      keyboardOpen,
+    ],
+  );
+
+  const dismissCaptureGesture = useMemo(
+    () => Gesture.Simultaneous(panGesture, Gesture.Native()),
+    [panGesture],
+  );
 
   const onSubmitYourStory = async () => {
     const ok = await shareToYourStory();
@@ -96,78 +168,95 @@ export default function AddStoryFromPostPage() {
   const renderStoryImage = useCallback(
     ({ item }: { item: string }) => (
       <AppPressable style={styles.absoluteFill} onPress={() => Keyboard.dismiss()}>
-        <SmartImage uri={item} recyclingKey={`add-story-${item}`} style={styles.absoluteFill} contentFit="cover" />
+        <SmartImage
+          uri={item}
+          recyclingKey={`add-story-${item}`}
+          style={styles.absoluteFill}
+          contentFit="cover"
+          showLoadingSpinner
+          loadingSpinnerColor="#ffffff"
+        />
       </AppPressable>
     ),
-    [styles.absoluteFill],
+    [],
   );
 
   return (
-    <SafeAreaView style={styles.root} edges={[]}>
-      <View style={styles.absoluteFill}>
-        {safeImages.length ? (
-          <Carousel
-            ref={carouselRef}
-            data={safeImages}
-            width={width}
-            height={height}
-            loop={safeImages.length > 1}
-            autoPlay={isScreenFocused && safeImages.length > 1}
-            autoPlayInterval={AUTO_ADVANCE_MS}
-            scrollAnimationDuration={550}
-            onSnapToItem={setIndex}
-            renderItem={renderStoryImage}
-          />
-        ) : (
-          <View style={[styles.absoluteFill, styles.emptyImage, { backgroundColor: colors.card }]}>
-            <Ionicons name="image-outline" size={40} color={colors.textMuted} />
-          </View>
-        )}
-      </View>
-      <View style={[styles.overlay, { paddingTop: insets.top + 8 }]}>
-        <StoryProgressBar count={Math.max(1, safeImages.length)} currentIndex={index} progress={progress} />
-        <View style={styles.topRow}>
-          <AppPressable style={styles.closeBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="close" size={22} color="#ffffff" />
-          </AppPressable>
-        </View>
-      </View>
+    <Animated.View style={[styles.root, dismissDragStyle]}>
+      <SafeAreaView style={styles.flex} edges={[]}>
+        <GestureDetector gesture={dismissCaptureGesture}>
+          <View style={styles.dismissSurface}>
+            <View style={styles.absoluteFill}>
+              {safeImages.length ? (
+                <Carousel
+                  ref={carouselRef}
+                  data={safeImages}
+                  width={width}
+                  height={height}
+                  loop={safeImages.length > 1}
+                  autoPlay={isScreenFocused && safeImages.length > 1}
+                  autoPlayInterval={AUTO_ADVANCE_MS}
+                  scrollAnimationDuration={550}
+                  onSnapToItem={setIndex}
+                  renderItem={renderStoryImage}
+                />
+              ) : (
+                <View style={[styles.absoluteFill, styles.mediaLoading, { backgroundColor: colors.card }]}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+              )}
+            </View>
+            <View pointerEvents="box-none" style={[styles.overlay, { paddingTop: insets.top + 8 }]}>
+              <StoryProgressBar count={Math.max(1, safeImages.length)} currentIndex={index} progress={progress} />
+              <View style={styles.topRow}>
+                <AppPressable style={styles.closeBtn} onPress={closeScreen}>
+                  <Ionicons name="close" size={22} color="#ffffff" />
+                </AppPressable>
+              </View>
+            </View>
 
-      <Animated.View
-        style={[
-          styles.bottomArea,
-          {
-            paddingBottom: Math.max(insets.bottom, 12),
-            backgroundColor: colors.background,
-            borderTopColor: colors.border,
-          },
-          bottomAreaKeyboardStyle,
-        ]}
-      >
-        <View style={[styles.captionWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
-          <TextInput
-            value={caption}
-            onChangeText={setCaption}
-            placeholder="Add a caption..."
-            placeholderTextColor={colors.textMuted}
-            style={[styles.captionInput, { color: colors.text }]}
-            onFocus={() => setCaptionFocused(true)}
-            onBlur={() => setCaptionFocused(false)}
-          />
-        </View>
-        <View style={styles.actionsRow}>
-          <AppPressable
-            style={[styles.storyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            disabled={isSubmitting}
-            onPress={() => void onSubmitYourStory()}
-          >
-            <Text style={[styles.storyBtnText, { color: colors.text }]}>Your story</Text>
-          </AppPressable>
-          <AppPressable style={[styles.friendsBtn, { backgroundColor: colors.primary }]} disabled={isSubmitting} onPress={openFriendsModal}>
-            <Text style={[styles.friendsBtnText, { color: colors.onPrimary }]}>Share with friends</Text>
-          </AppPressable>
-        </View>
-      </Animated.View>
+            <Animated.View
+              pointerEvents="box-none"
+              style={[
+                styles.bottomArea,
+                {
+                  paddingBottom: Math.max(insets.bottom, 12),
+                  backgroundColor: colors.background,
+                  borderTopColor: colors.border,
+                },
+                bottomAreaKeyboardStyle,
+              ]}
+            >
+              <View style={[styles.captionWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                <TextInput
+                  value={caption}
+                  onChangeText={setCaption}
+                  placeholder="Add a caption..."
+                  placeholderTextColor={colors.textMuted}
+                  style={[styles.captionInput, { color: colors.text }]}
+                  onFocus={() => setCaptionFocused(true)}
+                  onBlur={() => setCaptionFocused(false)}
+                />
+              </View>
+              <View style={styles.actionsRow}>
+                <AppPressable
+                  style={[styles.storyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  disabled={isSubmitting}
+                  onPress={() => void onSubmitYourStory()}
+                >
+                  <Text style={[styles.storyBtnText, { color: colors.text }]}>Your story</Text>
+                </AppPressable>
+                <AppPressable
+                  style={[styles.friendsBtn, { backgroundColor: colors.primary }]}
+                  disabled={isSubmitting}
+                  onPress={openFriendsModal}
+                >
+                  <Text style={[styles.friendsBtnText, { color: colors.onPrimary }]}>Share with friends</Text>
+                </AppPressable>
+              </View>
+            </Animated.View>
+          </View>
+        </GestureDetector>
 
       <BottomSheetPickerModal visible={friendsModalVisible} onClose={closeFriendsModal} title="Share with friends" maxHeightFraction={0.78}>
         <View style={styles.modalRoot}>
@@ -218,7 +307,8 @@ export default function AddStoryFromPostPage() {
           </AppPressable>
         </View>
       </BottomSheetPickerModal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </Animated.View>
   );
 }
 
@@ -227,10 +317,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000000",
   },
+  flex: {
+    flex: 1,
+  },
+  dismissSurface: {
+    flex: 1,
+  },
   absoluteFill: {
     ...StyleSheet.absoluteFillObject,
   },
-  emptyImage: {
+  mediaLoading: {
     alignItems: "center",
     justifyContent: "center",
   },

@@ -3,7 +3,6 @@ import { ActivityIndicator, Alert, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
-import type { SpeechRecognitionErrorCode } from "../model/types";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useSpeechToText } from "../lib/useSpeechToText";
@@ -19,10 +18,6 @@ type Props = {
   bordered?: boolean;
   bare?: boolean;
 };
-
-function shouldAlertForError(code: SpeechRecognitionErrorCode): boolean {
-  return code === "not-allowed" || code === "service-not-allowed" || code === "language-not-supported";
-}
 
 export function VoiceInputButton({
   disabled = false,
@@ -44,8 +39,12 @@ export function VoiceInputButton({
     onTranscript: (text, meta) => callbacksRef.current.onTranscriptChange(text, meta),
     onListeningChange: (listening) => callbacksRef.current.onListeningChange?.(listening),
     onError: (code, message) => {
-      if (shouldAlertForError(code)) {
-        Alert.alert(t("speechInput.errorTitle"), message || t("speechInput.errorGeneric"));
+      if (code === "service-not-allowed" || code === "language-not-supported") {
+        Alert.alert(t("speechInput.errorTitle"), message || t("speechInput.serviceNotAllowed"));
+        return;
+      }
+      if (code === "not-allowed") {
+        Alert.alert(t("speechInput.permissionTitle"), t("speechInput.permissionMessage"));
         return;
       }
       if (code === "no-speech" || code === "speech-timeout") {
