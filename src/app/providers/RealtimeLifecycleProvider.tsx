@@ -5,11 +5,11 @@ import { useRealtimeNetworkPause } from "@/shared/realtime/useRealtimeNetworkPau
 
 /** Global realtime auth, reconnect, and offline pause. */
 export function RealtimeLifecycleProvider({ children }: { children: ReactNode }) {
-  const { loading: authLoading } = useAuth();
+  const { authHydrated } = useAuth();
   useEffect(() => {
-    if (authLoading) return;
+    if (!authHydrated) return;
     return subscribeRealtimeAuthLifecycle();
-  }, [authLoading]);
+  }, [authHydrated]);
   useRealtimeNetworkPause();
   return children;
 }

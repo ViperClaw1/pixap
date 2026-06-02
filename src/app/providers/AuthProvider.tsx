@@ -25,6 +25,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  authHydrated: boolean;
   signUp: (
     email: string,
     password: string,
@@ -62,6 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authHydrated, setAuthHydrated] = useState(false);
   const initializedRef = useRef(false);
 
   const getEmailCallbackRedirectUrl = useCallback(
@@ -86,6 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const finishInit = () => {
       if (!active || initializedRef.current) return;
       initializedRef.current = true;
+      setAuthHydrated(true);
       setLoading(false);
     };
 
@@ -278,6 +281,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user,
       session,
       loading,
+      authHydrated,
       signUp,
       signIn,
       signOut,
@@ -293,6 +297,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user,
       session,
       loading,
+      authHydrated,
       signUp,
       signIn,
       signOut,
