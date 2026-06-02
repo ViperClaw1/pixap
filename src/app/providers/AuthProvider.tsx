@@ -15,6 +15,7 @@ import {
 import { consumePendingPushOutbox, registerNativePushToken } from "@/shared/lib/push/pushNotifications";
 import { devError, devInfo, devWarn } from "@/shared/lib/devLog";
 import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
+import { clearOnboardingDraft } from "@/features/preference-onboarding";
 
 interface SignInResult {
   error: string | null;
@@ -75,7 +76,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let active = true;
-    const sessionAppliedRef = { current: false };
 
     const applySession = (next: Session | null) => {
       if (!active) return;
@@ -92,8 +92,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, next) => {
-      applySession(next);
-      sessionAppliedRef.current = true;
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "SIGNED_OUT") {
+        applySession(next);
+      }
       if (event === "SIGNED_IN") {
         resetSignOutNavigationGuard();
       }
@@ -102,37 +103,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       if (event === "INITIAL_SESSION") finishInit();
     });
-
-    void supabase.auth
-      .getSession()
-      .then(async ({ data: { session: s }, error }) => {
-        if (error) {
-          if (isInvalidRefreshTokenError(error)) {
-            // Recover from stale local token without hitting network sign-out endpoint.
-            await supabase.auth.signOut({ scope: "local" });
-            applySession(null);
-            finishInit();
-            return;
-          }
-          throw error;
-        }
-        if (!sessionAppliedRef.current) {
-          applySession(s);
-        }
-        finishInit();
-      })
-      .catch(async (error: unknown) => {
-        if (isInvalidRefreshTokenError(error)) {
-          await supabase.auth.signOut({ scope: "local" });
-          applySession(null);
-          finishInit();
-          return;
-        }
-        const message = error instanceof Error ? error.message : "Unknown auth initialization error";
-        devWarn("[auth] getSession failed:", message);
-        applySession(null);
-        finishInit();
-      });
 
     return () => {
       active = false;
@@ -166,6 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const task = InteractionManager.runAfterInteractions(() => {
         void clearSessionCaches(queryClient);
         void resetBookingChatPersistedSession();
+        void clearOnboardingDraft();
       });
       return () => task.cancel();
     }
@@ -197,12 +168,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const signIn = useCallback(async (email: string, password: string): Promise<SignInResult> => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message ?? "Sign in failed" };
-    if (data.session) {
-      setSession(data.session);
-      setUser(data.session.user);
-    }
     return { error: null };
   }, []);
 

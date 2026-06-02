@@ -2,13 +2,31 @@ import * as Linking from "expo-linking";
 import { supabase } from "@/shared/api/supabase/client";
 import { devError, devInfo } from "@/shared/lib/devLog";
 
+type OAuthCompleteResult = { ok: true } | { ok: false; message: string };
+
+let oauthExchangePromise: Promise<OAuthCompleteResult> | null = null;
+
 /**
  * Finishes Supabase OAuth from the callback URL returned by the auth session
  * (PKCE `code` in query) or implicit-style tokens in the URL hash.
  */
 export async function completeOAuthFromCallbackUrl(
   href: string | null,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<OAuthCompleteResult> {
+  if (!href) return { ok: false, message: "Missing callback URL" };
+
+  if (oauthExchangePromise) {
+    devInfo("[OAuth][complete] exchange already in progress, joining existing request");
+    return oauthExchangePromise;
+  }
+
+  oauthExchangePromise = completeOAuthFromCallbackUrlUnsafe(href).finally(() => {
+    oauthExchangePromise = null;
+  });
+  return oauthExchangePromise;
+}
+
+async function completeOAuthFromCallbackUrlUnsafe(href: string | null): Promise<OAuthCompleteResult> {
   devInfo("[OAuth][complete] incoming href:", href ?? "null");
   if (!href) return { ok: false, message: "Missing callback URL" };
 

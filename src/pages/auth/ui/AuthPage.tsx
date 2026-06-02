@@ -71,6 +71,7 @@ export default function AuthScreen() {
   const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
   const [authTransition, setAuthTransition] = useState(false);
+  const authRequestInFlightRef = useRef(false);
   const postAuthRouteRef = useRef<PostAuthRoute>("ProfileMain");
   const hadUserWhenAuthReadyRef = useRef<boolean | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -173,6 +174,7 @@ export default function AuthScreen() {
     if (authLoading || !user || !authTransition) return;
     setAuthTransition(false);
     setLoading(false);
+    authRequestInFlightRef.current = false;
     navigation.reset({ index: 0, routes: [{ name: postAuthRouteRef.current }] });
   }, [authLoading, authTransition, navigation, user]);
 
@@ -188,10 +190,14 @@ export default function AuthScreen() {
   }, [authLoading, authTransition, navigation, user]);
 
   const finishAuthAttempt = useCallback((keepLoading: boolean) => {
-    if (!keepLoading) setLoading(false);
+    if (keepLoading) return;
+    authRequestInFlightRef.current = false;
+    setLoading(false);
   }, []);
 
   const social = async (provider: "google" | "apple") => {
+    if (authRequestInFlightRef.current) return;
+    authRequestInFlightRef.current = true;
     setLoading(true);
     let keepLoading = false;
     try {
@@ -280,6 +286,8 @@ export default function AuthScreen() {
   };
 
   const submit = async () => {
+    if (authRequestInFlightRef.current) return;
+    authRequestInFlightRef.current = true;
     setLoading(true);
     let keepLoading = false;
     try {
