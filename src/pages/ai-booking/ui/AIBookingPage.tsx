@@ -993,7 +993,7 @@ function AIBookingPageContent() {
           ref={bookingScrollRef}
           style={styles.root}
           contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="always"
+          keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           scrollEventThrottle={16}

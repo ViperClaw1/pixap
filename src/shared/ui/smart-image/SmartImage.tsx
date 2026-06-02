@@ -125,12 +125,13 @@ export function SmartImage({
   const hasBlurhashPlaceholder = Boolean(trimmedBlurhash);
   const placeholderLayout = useMemo(() => placeholderLayoutFromStyle(style), [style]);
   const transition =
-    transitionProp ?? (skipBundledPlaceholder || hasBlurhashPlaceholder ? 0 : 150);
+    transitionProp ??
+    (skipBundledPlaceholder || showLoadingSpinner || hasBlurhashPlaceholder ? 0 : 150);
   const chain = useMemo(() => buildUriChain(uri, fallbackUri), [uri, fallbackUri]);
   const chainKey = chain.join("|");
   const retryCount = Math.max(0, retryCountProp ?? 1);
   const [attempt, setAttempt] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => showLoadingSpinner && chain.length > 0);
 
   const setLoadingState = useCallback(
     (next: boolean) => {

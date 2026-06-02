@@ -142,6 +142,7 @@ export const vibeMatchStaticStyles = StyleSheet.create({
   planCheckboxDisabled: { opacity: 0.45 },
   statusPill: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   statusOk: {},
+  statusPending: {},
   statusBad: {},
   statusText: { fontSize: 11, fontWeight: "700" },
   errorBox: { padding: 12, borderRadius: 10, borderWidth: 1 },
@@ -153,6 +154,15 @@ export const vibeMatchStaticStyles = StyleSheet.create({
     marginBottom: 2,
   },
   selectionWarningText: { fontSize: 13, fontWeight: "600", lineHeight: 18 },
+  creditsLimitInfo: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  creditsLimitInfoText: { flex: 1, fontSize: 13, fontWeight: "600", lineHeight: 18 },
   emptyText: { textAlign: "center", padding: 16 },
   pickerRow: {
     paddingHorizontal: 16,
@@ -247,6 +257,11 @@ export function vibeMatchThemeStyles(colors: ThemeColors, topInset: number, bott
       backgroundColor: colors.accent,
     },
     statusOk: { backgroundColor: colors.successSurface },
+    statusPending: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
     statusBad: { backgroundColor: colors.dangerSurface },
     errorBox: {
       borderColor: colors.border,
@@ -258,6 +273,11 @@ export function vibeMatchThemeStyles(colors: ThemeColors, topInset: number, bott
       backgroundColor: colors.dangerSurface,
     },
     selectionWarningText: { color: colors.text },
+    creditsLimitInfo: {
+      borderColor: colors.primary,
+      backgroundColor: colors.card,
+    },
+    creditsLimitInfoText: { color: colors.text },
     emptyText: { color: colors.textMuted },
     pickerRow: { borderBottomColor: colors.border },
     pickerRowText: { color: colors.text },

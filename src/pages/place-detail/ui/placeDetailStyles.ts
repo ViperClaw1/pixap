@@ -10,6 +10,7 @@ import {
 export const placeDetailStaticStyles = StyleSheet.create({
   root: { flex: 1 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  heroWrap: { width: "100%", height: 280, overflow: "hidden" },
   hero: { width: "100%", height: 280 },
   heroBar: {
     position: "absolute",

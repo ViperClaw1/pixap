@@ -48,7 +48,8 @@ import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } f
 import { buildVibeRouteAssistantMessage } from "@/entities/pixai/lib/buildVibeRouteAssistantMessage";
 import {
   formatVibeSlotTimeLabel,
-  isTimeSlotInVibeBookingWindow,
+  isTimeSlotBookableNow,
+  isTimeSlotInTimelineWindow,
   normalizeVibePlanStops,
   snapIsoToThirtyMinuteGrid,
 } from "@/entities/pixai/lib/vibeBookingWindow";
@@ -103,6 +104,8 @@ const VIBE_MATCH_MOOD_OPTIONS: TaxonomyOption[] = VIBE_OPTIONS.map((option) => (
 
 const SLOT_MATCH_MS = BOOKING_SLOT_STEP_MINUTES * 60_000;
 const PLAN_THUMB_SIZE = 80;
+const MAX_SUGGESTED_VENUES = 4;
+const VIBE_TIMELINE_OPTIONS: PixAIVibeTimeline[] = ["day", "evening", "night", "late_night"];
 
 function formatStopAddress(stop: VibePlanStop): string | null {
   const address = stop.address?.trim();
@@ -154,13 +157,17 @@ function scheduleN8nWaBookingStart(cartItemId: string, accessToken: string) {
 }
 
 /** Closest available slot to proposed time within one booking grid step; otherwise null. */
-function resolveBookingDateTime(slots: PixAISlot[], proposedIso: string): string | null {
-  const t = new Date(snapIsoToThirtyMinuteGrid(proposedIso)).getTime();
+function resolveBookingDateTime(
+  slots: PixAISlot[],
+  proposedIso: string,
+  timeline: PixAIVibeTimeline,
+): string | null {
+  const t = new Date(snapIsoToThirtyMinuteGrid(proposedIso, timeline)).getTime();
   let best: PixAISlot | null = null;
   let bestDist = Infinity;
   for (const s of slots) {
     if (!s.available) continue;
-    if (!isTimeSlotInVibeBookingWindow(s.dateTimeIso)) continue;
+    if (!isTimeSlotInTimelineWindow(s.dateTimeIso, timeline)) continue;
     const d = Math.abs(new Date(s.dateTimeIso).getTime() - t);
     if (d < bestDist) {
       bestDist = d;
@@ -206,19 +213,19 @@ function VibeMatchPageContent() {
     hasUser: Boolean(user),
     navigation,
   });
+
+  const { data: profile } = useProfile();
+  const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
+  const { runVibePlan, isVibeLoading, vibeResult, vibeError, resetVibePlan } = usePixAI();
   useSubscriptionPaywallRedirect({
     accessLoading,
     shouldEnforcePaywall,
-    hasAccess: canAccessVibeMatch,
+    hasAccess: canAccessVibeMatch || Boolean(vibeResult),
     paywallReason: !canUseBookingCredits ? "no_credits" : "upgrade",
     navigation: navigation as {
       replace: (name: "SubscriptionPaywall", params?: { reason?: "no_credits" | "upgrade" }) => void;
     },
   });
-
-  const { data: profile } = useProfile();
-  const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
-  const { runVibePlan, isVibeLoading, vibeResult, vibeError, resetVibePlan } = usePixAI();
   const createBooking = useCreateBooking();
   const createCartItem = useCreateCartItem();
 
@@ -245,8 +252,8 @@ function VibeMatchPageContent() {
   const bookingBusy = bookingAction !== null;
 
   const plan = useMemo(
-    () => normalizeVibePlanStops(vibeResult?.plan ?? []),
-    [vibeResult?.plan],
+    () => normalizeVibePlanStops(vibeResult?.plan ?? [], timeline),
+    [timeline, vibeResult?.plan],
   );
   const [routeTravelMode, setRouteTravelMode] = useState<TravelMode>("driving");
   const planSelectionKey = useMemo(
@@ -294,24 +301,24 @@ function VibeMatchPageContent() {
     return plan.map((stop, i) => {
       const q = slotQueries[i];
       const slots = q?.data ?? [];
-      const dateTime = resolveBookingDateTime(slots, stop.time_slot);
+      const dateTime = resolveBookingDateTime(slots, stop.time_slot, timeline);
       return {
         loading: Boolean(q?.isPending),
         error: Boolean(q?.isError),
-        bookable: dateTime != null,
+        bookable: dateTime != null && isTimeSlotBookableNow(dateTime),
         dateTime,
         slots,
       };
     });
-  }, [plan, slotQueries]);
+  }, [plan, slotQueries, timeline]);
 
   const slotsAvailabilityReady =
-    plan.length > 0 && !stopAvailability.some((x) => x.loading || x.error);
+    plan.length > 0 && !stopAvailability.some((x) => x.loading);
 
   const bookableRouteStops = useMemo(
     () =>
-      slotsAvailabilityReady ? filterBookableVibePlanStops(plan, stopAvailability) : [],
-    [plan, stopAvailability, slotsAvailabilityReady],
+      slotsAvailabilityReady ? filterBookableVibePlanStops(plan, stopAvailability, timeline) : [],
+    [plan, stopAvailability, slotsAvailabilityReady, timeline],
   );
 
   const bookablePlan = useMemo(
@@ -319,23 +326,28 @@ function VibeMatchPageContent() {
     [bookableRouteStops],
   );
 
-  const bookablePlanKey = useMemo(
-    () => bookablePlan.map((s) => `${s.venue_id}:${s.time_slot}`).join("|"),
+  const suggestedPlan = useMemo(
+    () => bookablePlan.slice(0, MAX_SUGGESTED_VENUES),
     [bookablePlan],
   );
 
-  const isSingleStopRoute = bookablePlan.length === 1;
+  const suggestedPlanKey = useMemo(
+    () => suggestedPlan.map((s) => `${s.venue_id}:${s.time_slot}`).join("|"),
+    [suggestedPlan],
+  );
+
+  const isSingleStopRoute = suggestedPlan.length === 1;
 
   const {
     routePlanStops,
     isRebuildPending,
     syncRouteSelectionNow,
     resetRouteSelection,
-  } = useDebouncedVibeRouteSelection(bookablePlan, selectedVenueIds);
+  } = useDebouncedVibeRouteSelection(suggestedPlan, selectedVenueIds);
 
   const conciergeMessage = useMemo(() => {
     if (!lastVibeContext || !vibeResult) return "";
-    const stopCount = slotsAvailabilityReady ? bookablePlan.length : plan.length;
+    const stopCount = slotsAvailabilityReady ? suggestedPlan.length : plan.length;
     return buildVibeRouteAssistantMessage(
       {
         ...lastVibeContext,
@@ -343,11 +355,11 @@ function VibeMatchPageContent() {
       },
       t,
     );
-  }, [lastVibeContext, vibeResult, bookablePlan.length, plan.length, slotsAvailabilityReady, t, i18n.language]);
+  }, [lastVibeContext, vibeResult, suggestedPlan.length, plan.length, slotsAvailabilityReady, t, i18n.language]);
 
-  const bookableVenueIds = useMemo(
-    () => bookablePlan.map((s) => s.venue_id),
-    [bookablePlan],
+  const suggestedVenueIds = useMemo(
+    () => suggestedPlan.map((s) => s.venue_id),
+    [suggestedPlan],
   );
 
   useEffect(() => {
@@ -366,15 +378,15 @@ function VibeMatchPageContent() {
   }, [bookingSelectionLimit, exemptFromBookingCredits]);
 
   useEffect(() => {
-    if (!slotsAvailabilityReady || bookableVenueIds.length === 0) return;
-    if (selectionSeededForPlanRef.current === bookablePlanKey) return;
-    selectionSeededForPlanRef.current = bookablePlanKey;
-    const initial = bookableVenueIds.slice(0, Math.max(0, bookingSelectionLimit));
+    if (!slotsAvailabilityReady || suggestedVenueIds.length === 0) return;
+    if (selectionSeededForPlanRef.current === suggestedPlanKey) return;
+    selectionSeededForPlanRef.current = suggestedPlanKey;
+    const initial = suggestedVenueIds.slice(0, Math.max(0, bookingSelectionLimit));
     setSelectedVenueIds(initial);
     syncRouteSelectionNow(initial);
   }, [
-    bookablePlanKey,
-    bookableVenueIds,
+    suggestedPlanKey,
+    suggestedVenueIds,
     bookingSelectionLimit,
     slotsAvailabilityReady,
     syncRouteSelectionNow,
@@ -393,7 +405,7 @@ function VibeMatchPageContent() {
   } = useVibePlanRoute(routeMapPoints, routeTravelMode);
 
   const initialRouteMapReady = useInitialVibeRouteMapReady({
-    planSelectionKey: bookablePlanKey,
+    planSelectionKey: suggestedPlanKey,
     routePlanStopsCount: routePlanStops.length,
     routeMapLoading,
     routeMapPointsCount: routeMapPoints.length,
@@ -409,16 +421,41 @@ function VibeMatchPageContent() {
     !isSingleStopRoute &&
     (isRebuildPending || (routeDirectionsLoading && routePlanStops.length >= 2));
 
+  const bookableRouteStopByVenueId = useMemo(
+    () => new Map(bookableRouteStops.map((item) => [item.stop.venue_id, item])),
+    [bookableRouteStops],
+  );
+
   const selectedBookableStops = useMemo(
-    () => bookablePlan.filter((stop) => selectedVenueIdSet.has(stop.venue_id)),
-    [bookablePlan, selectedVenueIdSet],
+    () =>
+      suggestedPlan.filter((stop) => {
+        if (!selectedVenueIdSet.has(stop.venue_id)) return false;
+        return bookableRouteStopByVenueId.get(stop.venue_id)?.meta.bookable === true;
+      }),
+    [bookableRouteStopByVenueId, selectedVenueIdSet, suggestedPlan],
   );
 
   const bookAllEnabled = selectedBookableStops.length > 0;
+  const showPaywallCta = !exemptFromBookingCredits && !canUseBookingCredits;
+  const showCreditsLimitInfo =
+    !exemptFromBookingCredits &&
+    !showPaywallCta &&
+    balance > 0 &&
+    selectedVenueIds.length === balance &&
+    suggestedPlan.length > 0 &&
+    slotsAvailabilityReady;
+
+  const openSubscriptionPaywall = useCallback(
+    (reason: "no_credits" | "upgrade" = "no_credits") => {
+      navigation.navigate("SubscriptionPaywall", { reason });
+    },
+    [navigation],
+  );
+
   const showSelectionWarning =
     !isSingleStopRoute &&
     slotsAvailabilityReady &&
-    bookableVenueIds.length > 1 &&
+    suggestedVenueIds.length > 1 &&
     selectedBookableStops.length === 0;
 
   const showInsufficientCreditsToast = useCallback(
@@ -487,7 +524,7 @@ function VibeMatchPageContent() {
     setSelectedVenueIds([]);
     setLastVibeContext({ mood: resolveMoodDisplay(), timeline, city: cityTrim });
     try {
-      await runVibePlan({ mood: moodSlugs, timeline, city: cityTrim, limit: 5 });
+      await runVibePlan({ mood: moodSlugs, timeline, city: cityTrim, limit: MAX_SUGGESTED_VENUES });
     } catch {
       /* surfaced via vibeError */
     }
@@ -668,7 +705,7 @@ function VibeMatchPageContent() {
       </View>
     );
   }
-  if (shouldEnforcePaywall && !canAccessVibeMatch) {
+  if (shouldEnforcePaywall && !canAccessVibeMatch && !vibeResult) {
     return null;
   }
 
@@ -712,7 +749,7 @@ function VibeMatchPageContent() {
           />
           <Text style={styles.label}>{t("vibeMatch.timelineLabel")}</Text>
           <View style={styles.timelineRow}>
-            {(["evening", "night", "late_night"] as const).map((timelineKey) => (
+            {VIBE_TIMELINE_OPTIONS.map((timelineKey) => (
               <AppPressable
                 key={timelineKey}
                 onPress={() => setTimeline(timelineKey)}
@@ -763,11 +800,7 @@ function VibeMatchPageContent() {
           </View>
         ) : null}
 
-        {vibeResult && slotsAvailabilityReady && plan.length > 0 && bookablePlan.length === 0 && !isVibeLoading ? (
-          <Text style={styles.emptyText}>{t("vibeMatch.noBookableVenuesInWindow")}</Text>
-        ) : null}
-
-        {bookablePlan.length > 0 ? (
+        {suggestedPlan.length > 0 ? (
           <View style={styles.section}>
             {showSelectionWarning ? (
               <View style={styles.selectionWarning}>
@@ -792,13 +825,15 @@ function VibeMatchPageContent() {
             )}
             <Text style={styles.label}>{t("vibeMatch.yourRoute")}</Text>
             <View style={styles.routeTimeline}>
-              {bookablePlan.map((stop, i) => {
+              {suggestedPlan.map((stop, i) => {
                 const checked = selectedVenueIdSet.has(stop.venue_id);
-                const isLast = i === bookablePlan.length - 1;
+                const routeStopMeta = bookableRouteStopByVenueId.get(stop.venue_id);
+                const slotBookable = routeStopMeta?.meta.bookable === true;
+                const isLast = i === suggestedPlan.length - 1;
                 const { uri: thumbUri, fallbackUri: thumbFallback } = vibeStopThumbUris(stop.images);
                 const addressLine = formatStopAddress(stop);
-                const activityLabel = resolveStopActivityLabel(stop, i, bookablePlan.length, t);
-                const categoryLabel = resolveStopCategoryLabel(stop, i, bookablePlan.length, t);
+                const activityLabel = resolveStopActivityLabel(stop, i, suggestedPlan.length, t);
+                const categoryLabel = resolveStopCategoryLabel(stop, i, suggestedPlan.length, t);
                 const rating = stop.rating != null && stop.rating > 0 ? stop.rating : null;
                 return (
                   <View key={`${stop.venue_id}-${i}`} style={styles.routeStop}>
@@ -849,9 +884,11 @@ function VibeMatchPageContent() {
                             <View style={styles.routeCategoryPill}>
                               <Text style={styles.routeCategoryText}>{categoryLabel}</Text>
                             </View>
-                            <View style={[styles.statusPill, styles.statusOk]}>
+                            <View style={[styles.statusPill, slotBookable ? styles.statusOk : styles.statusPending]}>
                               <Text style={[styles.statusText, { color: colors.text }]}>
-                                {t("vibeMatch.slotAvailable")}
+                                {slotBookable
+                                  ? t("vibeMatch.slotAvailable")
+                                  : t("vibeMatch.slotSuggested")}
                               </Text>
                             </View>
                           </View>
@@ -878,10 +915,55 @@ function VibeMatchPageContent() {
                 );
               })}
             </View>
+            {showCreditsLimitInfo ? (
+              <>
+                <View style={[styles.creditsLimitInfo, { marginTop: 12 }]}>
+                  <Ionicons name="information-circle-outline" size={22} color={colors.primary} />
+                  <Text style={styles.creditsLimitInfoText}>
+                    {t("vibeMatch.creditsLimitMessage", { count: balance })}
+                  </Text>
+                </View>
+                <AppPressable
+                  style={[
+                    primaryPressableStyle,
+                    {
+                      height: SHARED_PRESSABLE_HEIGHT,
+                      borderRadius: SHARED_PRESSABLE_RADIUS,
+                      marginTop: 12,
+                    },
+                  ]}
+                  onPress={() => openSubscriptionPaywall("upgrade")}
+                  accessibilityLabel={t("vibeMatch.creditsLimitCtaA11y")}
+                >
+                  <Text style={primaryPressableTextStyle}>{t("vibeMatch.creditsLimitCta")}</Text>
+                </AppPressable>
+              </>
+            ) : null}
+            {showPaywallCta ? (
+              <>
+                <Text style={[styles.emptyText, { marginTop: 12, marginBottom: 0 }]}>
+                  {t("bookingCredits.noCreditsMessage")}
+                </Text>
+                <AppPressable
+                  style={[
+                    primaryPressableStyle,
+                    {
+                      height: SHARED_PRESSABLE_HEIGHT,
+                      borderRadius: SHARED_PRESSABLE_RADIUS,
+                      marginTop: 12,
+                    },
+                  ]}
+                  onPress={() => openSubscriptionPaywall("no_credits")}
+                  accessibilityLabel={t("vibeMatch.noCreditsCtaA11y")}
+                >
+                  <Text style={primaryPressableTextStyle}>{t("vibeMatch.noCreditsCta")}</Text>
+                </AppPressable>
+              </>
+            ) : null}
           </View>
         ) : null}
 
-        {bookablePlan.length > 0 ? (
+        {suggestedPlan.length > 0 && !showPaywallCta ? (
           <View style={styles.section}>
             <Text style={styles.label}>{t("vibeMatch.guestDetails")}</Text>
             <TextInput

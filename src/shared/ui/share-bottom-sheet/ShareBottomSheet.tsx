@@ -42,6 +42,19 @@ function fullName(user: PublicProfileItem) {
   return `${user.first_name?.trim() ?? ""} ${user.last_name?.trim() ?? ""}`.trim() || "Unknown user";
 }
 
+function chunkUsers<T>(items: T[], columns: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += columns) {
+    rows.push(items.slice(i, i + columns));
+  }
+  return rows;
+}
+
+const USER_GRID_COLUMNS = 4;
+const USER_GRID_GAP = 20;
+const USER_AVATAR_INNER_RATIO = 0.92;
+const USER_AVATAR_BORDER = 1.5;
+
 const CHOOSE_USER_ALERT: AppPopupOptions = {
   title: "Choose a user",
   message: "Please choose a user to share with.",
@@ -52,7 +65,7 @@ const CHOOSE_USER_ALERT: AppPopupOptions = {
 /** Matches default react-native-toast-message visibility (4s). */
 const COPY_LINK_FEEDBACK_MS = 4000;
 const COPIED_COLOR = "#22c55e";
-const SHARE_SHEET_HEIGHT_FRACTION = 0.6;
+const SHARE_SHEET_HEIGHT_FRACTION = 0.72;
 
 export function ShareBottomSheet({
   visible,
@@ -82,6 +95,7 @@ export function ShareBottomSheet({
   const [linkCopied, setLinkCopied] = useState(false);
   const copyFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedUser = useMemo(() => users.find((user) => user.id === selectedUserId) ?? null, [selectedUserId, users]);
+  const userRows = useMemo(() => chunkUsers(users, USER_GRID_COLUMNS), [users]);
 
   useEffect(() => {
     if (!visible) {
@@ -150,6 +164,98 @@ export function ShareBottomSheet({
       />
     ) : null;
 
+  const shareFooter =
+    shareTargetActive ? (
+      <View style={[styles.footer, { borderTopColor: colors.border }]}>
+        {sharePlaceName ? (
+          <Text style={[styles.shareContext, { color: colors.textMuted }]}>Sharing: {sharePlaceName}</Text>
+        ) : null}
+        <View style={styles.actionsRow}>
+          {!hideAddToStory ? (
+            <View style={styles.actionItem}>
+              <Pressable
+                style={[
+                  styles.actionCard,
+                  { backgroundColor: colors.card, borderColor: colors.border, opacity: canRunAddStoryAction ? 1 : 0.5 },
+                ]}
+                onPress={() => void onAddToStory()}
+                disabled={!canRunAddStoryAction}
+              >
+                <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
+                  <Ionicons name="add-circle-outline" size={32} color={colors.text} />
+                </View>
+              </Pressable>
+              <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
+                Add to story
+              </Text>
+            </View>
+          ) : null}
+          <View style={styles.actionItem}>
+            <Pressable
+              style={[
+                styles.actionCard,
+                { backgroundColor: colors.card, borderColor: colors.border, opacity: actionsEnabled ? 1 : 0.5 },
+              ]}
+              onPress={handleWhatsAppPress}
+              disabled={!actionsEnabled}
+            >
+              <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
+                <Ionicons name="logo-whatsapp" size={32} color={colors.text} />
+              </View>
+            </Pressable>
+            <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
+              Whatsapp
+            </Text>
+          </View>
+          <View style={styles.actionItem}>
+            <Pressable
+              style={[
+                styles.actionCard,
+                { backgroundColor: colors.card, borderColor: colors.border, opacity: actionsEnabled ? 1 : 0.5 },
+              ]}
+              onPress={handleShareToPress}
+              disabled={!actionsEnabled}
+            >
+              <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
+                <Ionicons name="share-social-outline" size={32} color={colors.text} />
+              </View>
+            </Pressable>
+            <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
+              Share to
+            </Text>
+          </View>
+          <View style={styles.actionItem}>
+            <Pressable
+              style={[
+                styles.actionCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: linkCopied ? COPIED_COLOR : colors.border,
+                  opacity: actionsEnabled ? 1 : 0.5,
+                },
+              ]}
+              onPress={() => void handleCopyLinkPress()}
+              disabled={!actionsEnabled || linkCopied}
+            >
+              <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
+                <Ionicons
+                  name={linkCopied ? "checkmark-circle" : "link-outline"}
+                  size={32}
+                  color={linkCopied ? COPIED_COLOR : colors.text}
+                />
+              </View>
+            </Pressable>
+            <Text
+              style={[styles.actionLabel, { color: linkCopied ? COPIED_COLOR : colors.text }]}
+              numberOfLines={1}
+            >
+              {linkCopied ? "Copied" : "Copy link"}
+            </Text>
+          </View>
+        </View>
+      </View>
+    ) : null;
+
   return (
     <BottomSheetPickerModal
       visible={visible}
@@ -159,8 +265,10 @@ export function ShareBottomSheet({
       maxHeightFraction={SHARE_SHEET_HEIGHT_FRACTION}
       minHeightFraction={SHARE_SHEET_HEIGHT_FRACTION}
       fitContent
+      bodyScrollEnabled={false}
+      footer={shareFooter}
     >
-      <View style={styles.root}>
+      <View style={styles.body}>
         <View style={[styles.searchWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
           <Ionicons name="search-outline" size={18} color={colors.textMuted} />
           <TextInput
@@ -178,127 +286,104 @@ export function ShareBottomSheet({
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
         ) : (
-          <View style={styles.grid}>
-            {users.map((user) => {
-              const avatar = resolveAvatarUri(user.avatar_url);
-              const isSelected = user.id === selectedUserId;
-              return (
-                <Pressable key={user.id} style={styles.userCard} onPress={() => setSelectedUserId(user.id)}>
-                  <View style={[styles.userAvatarWrap, { borderColor: isSelected ? colors.primary : colors.border }]}>
-                    {avatar ? (
-                      <SmartImage uri={avatar} style={styles.userAvatar} contentFit="cover" />
-                    ) : (
-                      <View style={[styles.userAvatar, styles.userAvatarPlaceholder, { backgroundColor: colors.card }]}>
-                        <Ionicons name="person-outline" size={28} color={colors.text} />
-                      </View>
-                    )}
-                    {isSelected ? (
-                      <View style={[styles.userSelectedBadge, { backgroundColor: colors.primary }]}>
-                        <Ionicons name="checkmark" size={12} color={colors.onPrimary} />
-                      </View>
-                    ) : null}
-                  </View>
-                  <Text style={[styles.userName, { color: colors.text }]} numberOfLines={2}>
-                    {fullName(user)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
+          <ScrollView
+            style={styles.usersScroll}
+            contentContainerStyle={styles.gridContent}
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator
+          >
+            <View style={styles.grid}>
+              {userRows.map((row, rowIndex) => (
+                <View key={`share-user-row-${rowIndex}`} style={styles.gridRow}>
+                  {Array.from({ length: USER_GRID_COLUMNS }).map((_, columnIndex) => {
+                    const user = row[columnIndex];
+                    if (!user) {
+                      return <View key={`share-user-empty-${rowIndex}-${columnIndex}`} style={styles.gridCell} />;
+                    }
 
-        {shareTargetActive ? (
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
-            {sharePlaceName ? <Text style={[styles.shareContext, { color: colors.textMuted }]}>Sharing: {sharePlaceName}</Text> : null}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsRow}>
-              {!hideAddToStory ? (
-                <View style={styles.actionItem}>
-                  <Pressable
-                    style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: canRunAddStoryAction ? 1 : 0.5 }]}
-                    onPress={() => void onAddToStory()}
-                    disabled={!canRunAddStoryAction}
-                  >
-                    <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
-                      <Ionicons name="add-circle-outline" size={32} color={colors.text} />
-                    </View>
-                  </Pressable>
-                  <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
-                    Add to story
-                  </Text>
+                    const avatar = resolveAvatarUri(user.avatar_url);
+                    const isSelected = user.id === selectedUserId;
+
+                    return (
+                      <View key={user.id} style={styles.gridCell}>
+                        <Pressable
+                          style={[
+                            styles.userCard,
+                            isSelected && {
+                              backgroundColor: colors.accentSurface,
+                              borderColor: colors.accent,
+                            },
+                          ]}
+                          onPress={() =>
+                            setSelectedUserId((prev) => (prev === user.id ? null : user.id))
+                          }
+                        >
+                          <View style={styles.userAvatarShell}>
+                            <View
+                              style={[
+                                styles.userAvatarWrap,
+                                {
+                                  borderColor: isSelected ? colors.accent : colors.border,
+                                  borderWidth: isSelected ? 3 : USER_AVATAR_BORDER,
+                                },
+                              ]}
+                            >
+                              {avatar ? (
+                                <SmartImage uri={avatar} style={styles.userAvatarImage} contentFit="cover" />
+                              ) : (
+                                <View style={[styles.userAvatarPlaceholder, { backgroundColor: colors.card }]}>
+                                  <Ionicons name="person-outline" size={22} color={colors.text} />
+                                </View>
+                              )}
+                            </View>
+                            {isSelected ? (
+                              <View
+                                style={[
+                                  styles.userSelectedBadge,
+                                  {
+                                    backgroundColor: colors.accent,
+                                    borderColor: colors.card,
+                                  },
+                                ]}
+                              >
+                                <Ionicons name="checkmark" size={12} color={colors.onAccent} />
+                              </View>
+                            ) : null}
+                          </View>
+                          <Text
+                            style={[
+                              styles.userName,
+                              { color: isSelected ? colors.accent : colors.text },
+                              isSelected && styles.userNameSelected,
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {fullName(user)}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
                 </View>
-              ) : null}
-              <View style={styles.actionItem}>
-                <Pressable
-                  style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: actionsEnabled ? 1 : 0.5 }]}
-                  onPress={handleWhatsAppPress}
-                  disabled={!actionsEnabled}
-                >
-                  <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
-                    <Ionicons name="logo-whatsapp" size={32} color={colors.text} />
-                  </View>
-                </Pressable>
-                <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
-                  Whatsapp
-                </Text>
-              </View>
-              <View style={styles.actionItem}>
-                <Pressable
-                  style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: actionsEnabled ? 1 : 0.5 }]}
-                  onPress={handleShareToPress}
-                  disabled={!actionsEnabled}
-                >
-                  <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
-                    <Ionicons name="share-social-outline" size={32} color={colors.text} />
-                  </View>
-                </Pressable>
-                <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
-                  Share to
-                </Text>
-              </View>
-              <View style={styles.actionItem}>
-                <Pressable
-                  style={[
-                    styles.actionCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: linkCopied ? COPIED_COLOR : colors.border,
-                      opacity: actionsEnabled ? 1 : 0.5,
-                    },
-                  ]}
-                  onPress={() => void handleCopyLinkPress()}
-                  disabled={!actionsEnabled || linkCopied}
-                >
-                  <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
-                    <Ionicons
-                      name={linkCopied ? "checkmark-circle" : "link-outline"}
-                      size={32}
-                      color={linkCopied ? COPIED_COLOR : colors.text}
-                    />
-                  </View>
-                </Pressable>
-                <Text
-                  style={[styles.actionLabel, { color: linkCopied ? COPIED_COLOR : colors.text }]}
-                  numberOfLines={1}
-                >
-                  {linkCopied ? "Copied" : "Copy link"}
-                </Text>
-              </View>
-            </ScrollView>
-          </View>
-        ) : null}
+              ))}
+            </View>
+          </ScrollView>
+        )}
       </View>
     </BottomSheetPickerModal>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
+  body: {
+    flex: 1,
     width: "100%",
     minWidth: 360,
     alignSelf: "center",
     paddingHorizontal: 14,
     paddingTop: 8,
-    paddingBottom: 10,
+    paddingBottom: 4,
   },
   searchWrap: {
     minHeight: 44,
@@ -321,67 +406,108 @@ const styles = StyleSheet.create({
     textAlignVertical: "center",
   },
   centered: {
+    flex: 1,
     paddingVertical: 18,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  usersScroll: {
+    flex: 1,
+    marginTop: 12,
+  },
+  gridContent: {
+    paddingBottom: 8,
   },
   grid: {
-    marginTop: 12,
+    width: "100%",
+    gap: USER_GRID_GAP,
+  },
+  gridRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    rowGap: 14,
+    gap: USER_GRID_GAP,
+    width: "100%",
+  },
+  gridCell: {
+    flex: 1,
+    minWidth: 0,
   },
   userCard: {
-    width: "33.33%",
-    alignItems: "center",
-    paddingHorizontal: 4,
+    width: "100%",
+    alignItems: "stretch",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "transparent",
+    padding: 4,
+  },
+  userAvatarShell: {
+    width: "100%",
+    aspectRatio: 1,
+    marginBottom: 6,
+    position: "relative",
   },
   userAvatarWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 1.5,
+    width: "100%",
+    height: "100%",
+    borderRadius: 9999,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 6,
+    overflow: "hidden",
   },
-  userAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  userAvatarImage: {
+    width: `${USER_AVATAR_INNER_RATIO * 100}%`,
+    height: `${USER_AVATAR_INNER_RATIO * 100}%`,
+    borderRadius: 9999,
   },
   userAvatarPlaceholder: {
+    width: `${USER_AVATAR_INNER_RATIO * 100}%`,
+    height: `${USER_AVATAR_INNER_RATIO * 100}%`,
+    borderRadius: 9999,
     alignItems: "center",
     justifyContent: "center",
   },
   userSelectedBadge: {
     position: "absolute",
-    right: 2,
-    bottom: 2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    right: -2,
+    bottom: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 2,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.22,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
   },
   userName: {
-    fontSize: 13,
+    fontSize: 12,
     textAlign: "center",
-    lineHeight: 17,
+    lineHeight: 16,
+    width: "100%",
+  },
+  userNameSelected: {
+    fontWeight: "800",
   },
   footer: {
-    marginTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: 10,
-    paddingBottom: 4,
+    paddingBottom: 6,
+    paddingHorizontal: 14,
   },
   shareContext: {
     fontSize: 13,
     marginBottom: 12,
     lineHeight: 18,
+    textAlign: "left",
   },
   actionsRow: {
-    gap: 16,
-    paddingHorizontal: 2,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    width: "100%",
     paddingVertical: 2,
   },
   actionItem: {

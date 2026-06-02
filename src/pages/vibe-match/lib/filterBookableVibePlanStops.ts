@@ -1,5 +1,8 @@
-import type { VibePlanStop } from "@/entities/pixai";
-import { isTimeSlotInVibeBookingWindow } from "@/entities/pixai/lib/vibeBookingWindow";
+import type { PixAIVibeTimeline, VibePlanStop } from "@/entities/pixai";
+import {
+  isTimeSlotBookableNow,
+  isTimeSlotInTimelineWindow,
+} from "@/entities/pixai/lib/vibeBookingWindow";
 
 export type VibeStopSlotMeta = {
   loading: boolean;
@@ -10,20 +13,35 @@ export type VibeStopSlotMeta = {
 
 export type BookableVibeRouteStop = {
   stop: VibePlanStop;
-  meta: VibeStopSlotMeta & { bookable: true; dateTime: string };
+  meta: VibeStopSlotMeta & { dateTime: string };
 };
 
-/** Keeps stops with a free slot whose time falls inside the vibe booking window. */
+/** Route stops for display — timeline-based, not filtered by “current time of day”. */
 export function filterBookableVibePlanStops(
   plan: VibePlanStop[],
   stopAvailability: VibeStopSlotMeta[],
+  timeline: PixAIVibeTimeline,
   nowMs = Date.now(),
 ): BookableVibeRouteStop[] {
   return plan.flatMap((stop, i) => {
     const meta = stopAvailability[i];
-    if (!meta || meta.loading || meta.error || !meta.bookable || !meta.dateTime) return [];
-    if (!isTimeSlotInVibeBookingWindow(stop.time_slot, nowMs)) return [];
-    if (!isTimeSlotInVibeBookingWindow(meta.dateTime, nowMs)) return [];
-    return [{ stop, meta: { ...meta, bookable: true, dateTime: meta.dateTime } }];
+    if (!meta || meta.loading) return [];
+    if (!isTimeSlotInTimelineWindow(stop.time_slot, timeline)) return [];
+
+    const resolvedSlot =
+      meta.dateTime && isTimeSlotInTimelineWindow(meta.dateTime, timeline) ? meta.dateTime : null;
+    const displayTime = resolvedSlot ?? stop.time_slot;
+    const hasLiveSlot = resolvedSlot != null && isTimeSlotBookableNow(resolvedSlot, nowMs);
+
+    return [
+      {
+        stop,
+        meta: {
+          ...meta,
+          bookable: hasLiveSlot,
+          dateTime: displayTime,
+        },
+      },
+    ];
   });
 }

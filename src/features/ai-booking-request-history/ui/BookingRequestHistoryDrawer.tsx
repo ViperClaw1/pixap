@@ -1,24 +1,29 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CategoryIcon } from "@/entities/category";
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Gesture, GestureDetector, ScrollView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import Animated, {
+  cancelAnimation,
   Easing,
   Extrapolation,
   interpolate,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BookingRequestHistoryItem } from "../lib/buildHistoryItem";
 
 const OPEN_MS = 280;
-const CLOSE_MS = 220;
+const CLOSE_MS = 340;
+const CLOSE_MIN_MS = 120;
+const CLOSE_EASING = Easing.bezier(0.32, 0.72, 0, 1);
 
 type Props = {
   visible: boolean;
@@ -43,37 +48,90 @@ export function BookingRequestHistoryDrawer({
   const { width } = useWindowDimensions();
   const panelWidth = Math.min(width * 0.82, 340);
   const [mounted, setMounted] = useState(visible);
-  const progress = useSharedValue(visible ? 1 : 0);
+  const isClosingRef = useRef(false);
+  const translateX = useSharedValue(-panelWidth);
+  const panStartX = useSharedValue(0);
+
+  const finishClose = useCallback(() => {
+    isClosingRef.current = false;
+    setMounted(false);
+    onClose();
+  }, [onClose]);
+
+  const animateClose = useCallback(
+    (fromX?: number) => {
+      if (isClosingRef.current) return;
+      isClosingRef.current = true;
+
+      const startX = fromX ?? translateX.value;
+      const remaining = Math.max(0, -panelWidth - startX);
+      if (remaining <= 0.5) {
+        translateX.value = -panelWidth;
+        finishClose();
+        return;
+      }
+
+      cancelAnimation(translateX);
+      const duration = Math.max(CLOSE_MIN_MS, Math.round((remaining / panelWidth) * CLOSE_MS));
+      translateX.value = withTiming(
+        -panelWidth,
+        { duration, easing: CLOSE_EASING },
+        (finished) => {
+          if (finished) runOnJS(finishClose)();
+        },
+      );
+    },
+    [finishClose, panelWidth, translateX],
+  );
 
   useEffect(() => {
-    if (visible) {
-      setMounted(true);
-      progress.value = withTiming(1, {
-        duration: OPEN_MS,
-        easing: Easing.out(Easing.cubic),
-      });
-      return;
-    }
-    if (!mounted) return;
-    progress.value = withTiming(
-      0,
-      { duration: CLOSE_MS, easing: Easing.in(Easing.cubic) },
-      (finished) => {
-        if (finished) runOnJS(setMounted)(false);
-      },
-    );
-  }, [visible, mounted, progress]);
+    if (!visible) return;
+    isClosingRef.current = false;
+    setMounted(true);
+    cancelAnimation(translateX);
+    translateX.value = withTiming(0, {
+      duration: OPEN_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [panelWidth, translateX, visible]);
+
+  const handlePanEnd = useCallback(
+    (offsetX: number, velocityX: number) => {
+      const threshold = panelWidth * 0.28;
+      if (offsetX < -threshold || velocityX < -500) {
+        animateClose(offsetX);
+        return;
+      }
+      translateX.value = withSpring(0, { damping: 26, stiffness: 240, mass: 0.9 });
+    },
+    [animateClose, panelWidth, translateX],
+  );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(visible)
+        .activeOffsetX([-12, 12])
+        .failOffsetY([-14, 14])
+        .onStart(() => {
+          panStartX.value = translateX.value;
+        })
+        .onUpdate((event) => {
+          const next = panStartX.value + event.translationX;
+          translateX.value = Math.min(0, Math.max(-panelWidth, next));
+        })
+        .onEnd((event) => {
+          runOnJS(handlePanEnd)(translateX.value, event.velocityX);
+        }),
+    [handlePanEnd, panelWidth, panStartX, translateX, visible],
+  );
 
   const backdropStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 1], [0, 0.45], Extrapolation.CLAMP),
+    opacity: interpolate(translateX.value, [-panelWidth, 0], [0, 0.45], Extrapolation.CLAMP),
   }));
 
   const panelStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX: interpolate(progress.value, [0, 1], [-panelWidth, 0], Extrapolation.CLAMP),
-      },
-    ],
+    transform: [{ translateX: translateX.value }],
   }));
 
   if (!mounted) return null;
@@ -87,88 +145,90 @@ export function BookingRequestHistoryDrawer({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("aiBooking.closeHistoryA11y")}
-          onPress={onClose}
+          onPress={() => animateClose()}
           style={StyleSheet.absoluteFillObject}
         />
       </Animated.View>
 
-      <Animated.View
-        pointerEvents={visible ? "auto" : "none"}
-        style={[
-          styles.panel,
-          {
-            width: panelWidth,
-            paddingTop: insets.top + 12,
-            paddingBottom: insets.bottom + 12,
-            backgroundColor: colors.card,
-            borderRightColor: colors.border,
-          },
-          panelStyle,
-        ]}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            {t("aiBooking.requestHistoryTitle")}
-          </Text>
-          <AppPressable
-            accessibilityRole="button"
-            accessibilityLabel={t("aiBooking.newRequestA11y")}
-            onPress={() => {
-              onNewRequest();
-              onClose();
-            }}
-            style={[styles.newRequestBtn, { borderColor: colors.border }]}
-          >
-            <Ionicons name="add" size={22} color={colors.primary} />
-          </AppPressable>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.listContent}>
-          {items.length === 0 ? (
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-              {t("aiBooking.requestHistoryEmpty")}
+      <GestureDetector gesture={panGesture}>
+        <Animated.View
+          pointerEvents={visible ? "auto" : "none"}
+          style={[
+            styles.panel,
+            {
+              width: panelWidth,
+              paddingTop: insets.top + 12,
+              paddingBottom: insets.bottom + 12,
+              backgroundColor: colors.card,
+              borderRightColor: colors.border,
+            },
+            panelStyle,
+          ]}
+        >
+          <View style={styles.header}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              {t("aiBooking.requestHistoryTitle")}
             </Text>
-          ) : (
-            items.map((item) => {
-              const active = item.tabId === activeTabId;
-              return (
-                <AppPressable
-                  key={item.tabId}
-                  onPress={() => {
-                    onSelectTab(item.tabId);
-                    onClose();
-                  }}
-                  style={[
-                    styles.historyRow,
-                    {
-                      borderBottomColor: colors.border,
-                      backgroundColor: active ? colors.background : "transparent",
-                    },
-                  ]}
-                >
-                  <View
+            <AppPressable
+              accessibilityRole="button"
+              accessibilityLabel={t("aiBooking.newRequestA11y")}
+              onPress={() => {
+                onNewRequest();
+                animateClose();
+              }}
+              style={[styles.newRequestBtn, { borderColor: colors.border }]}
+            >
+              <Ionicons name="add" size={22} color={colors.primary} />
+            </AppPressable>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.listContent}>
+            {items.length === 0 ? (
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                {t("aiBooking.requestHistoryEmpty")}
+              </Text>
+            ) : (
+              items.map((item) => {
+                const active = item.tabId === activeTabId;
+                return (
+                  <AppPressable
+                    key={item.tabId}
+                    onPress={() => {
+                      onSelectTab(item.tabId);
+                      animateClose();
+                    }}
                     style={[
-                      styles.historyIconWrap,
-                      { backgroundColor: `${item.iconTint}33` },
+                      styles.historyRow,
+                      {
+                        borderBottomColor: colors.border,
+                        backgroundColor: active ? colors.background : "transparent",
+                      },
                     ]}
                   >
-                    <CategoryIcon spec={item.iconSpec} size={18} color={item.iconTint} />
-                  </View>
-                  <View style={styles.historyTextCol}>
-                    <Text style={[styles.historyTitle, { color: colors.text }]} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text style={[styles.historySubtitle, { color: colors.textMuted }]} numberOfLines={2}>
-                      {item.subtitle}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-                </AppPressable>
-              );
-            })
-          )}
-        </ScrollView>
-      </Animated.View>
+                    <View
+                      style={[
+                        styles.historyIconWrap,
+                        { backgroundColor: `${item.iconTint}33` },
+                      ]}
+                    >
+                      <CategoryIcon spec={item.iconSpec} size={18} color={item.iconTint} />
+                    </View>
+                    <View style={styles.historyTextCol}>
+                      <Text style={[styles.historyTitle, { color: colors.text }]} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <Text style={[styles.historySubtitle, { color: colors.textMuted }]} numberOfLines={2}>
+                        {item.subtitle}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                  </AppPressable>
+                );
+              })
+            )}
+          </ScrollView>
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 }

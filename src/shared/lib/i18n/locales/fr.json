@@ -49,7 +49,8 @@
     "errorTitle": "Erreur de saisie vocale",
     "errorGeneric": "Impossible de reconnaître la voix. Réessayez.",
     "noSpeech": "Aucune voix détectée. Réessayez.",
-    "networkError": "Erreur réseau pendant la reconnaissance vocale."
+    "networkError": "Erreur réseau pendant la reconnaissance vocale.",
+    "serviceNotAllowed": "La reconnaissance vocale n'est pas disponible. Vérifiez votre connexion internet et que Siri et la dictée sont activés dans Réglages."
   },
   "editProfile": {
     "savedTitle": "Enregistré",
@@ -242,6 +243,7 @@
     "moodAlertTitle": "Humeur",
     "timelineLabel": "Horaire",
     "timeline": {
+      "day": "Journée",
       "evening": "Soirée",
       "night": "Nuit",
       "lateNight": "Fin de nuit"
@@ -257,6 +259,7 @@
     "checkingSlots": "Vérification des créneaux…",
     "slotCheckFailed": "Échec de la vérification des créneaux",
     "slotAvailable": "Créneau disponible",
+    "slotSuggested": "Heure suggérée",
     "noNearbyFreeSlot": "Aucun créneau libre à proximité",
     "book": "Réserver",
     "bookAll": "Tout réserver",
@@ -280,7 +283,12 @@
     "bookSelectedStopsA11y": "Réserver les étapes sélectionnées avec un créneau libre",
     "chooseAtLeastOnePlace": "Veuillez choisir au moins un lieu",
     "moodNotesPlaceholder": "Ajoutez des détails (facultatif)",
-    "moodRequired": "Choisissez au moins un vibe ou une courte description."
+    "moodRequired": "Choisissez au moins un vibe ou une courte description.",
+    "noCreditsCta": "Obtenir des crédits de réservation",
+    "noCreditsCtaA11y": "Ouvrir le paywall d'abonnement pour obtenir des crédits de réservation",
+    "creditsLimitMessage": "Vous avez sélectionné vos {{count}} crédits restants. Abonnez-vous pour ajouter plus de lieux à votre itinéraire.",
+    "creditsLimitCta": "Obtenir plus de crédits",
+    "creditsLimitCtaA11y": "Ouvrir le paywall d'abonnement pour obtenir plus de crédits"
   },
   "messages": {
     "searchPlaceholder": "Rechercher des discussions et des utilisateurs",
