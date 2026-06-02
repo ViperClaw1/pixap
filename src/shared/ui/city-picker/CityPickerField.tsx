@@ -16,6 +16,7 @@ type CityPickerFieldProps = {
   triggerStyle?: StyleProp<ViewStyle>;
   variant?: "compact" | "dropdown";
   placeholder?: string;
+  onOpen?: () => boolean | void;
 };
 
 export function CityPickerField({
@@ -25,6 +26,7 @@ export function CityPickerField({
   triggerStyle,
   variant = "compact",
   placeholder,
+  onOpen,
 }: CityPickerFieldProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -50,6 +52,11 @@ export function CityPickerField({
     void onChange(city);
   };
 
+  const handleOpen = () => {
+    if (onOpen?.() === false) return;
+    picker.open();
+  };
+
   const isDropdown = variant === "dropdown";
 
   return (
@@ -61,7 +68,7 @@ export function CityPickerField({
           isDropdown ? styles.dropdownTrigger : styles.compactTrigger,
           triggerStyle,
         ]}
-        onPress={picker.open}
+        onPress={handleOpen}
       >
         {isDropdown ? (
           <>

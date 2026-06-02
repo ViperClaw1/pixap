@@ -28,6 +28,8 @@ import {
   useTrackRecommendationInteraction,
 } from "@/entities/daily-recommendation";
 import type { HomeStackParamList, RootTabParamList } from "@/app/navigation/types";
+import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import ThemeToggle from "@/shared/ui/theme-toggle/ThemeToggle";
 import BusinessPlaceCard from "@/widgets/place-card";
@@ -85,6 +87,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useStaticWindowSize();
   const { colors, isDark } = useAppTheme();
+  const { user } = useAuth();
   const { selectedCity, selectCity } = useProfileCityPicker();
   const [languageOpen, setLanguageOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -171,6 +174,12 @@ export default function HomeScreen() {
     [visibleRecommended],
   );
   const canShowMoreRecommended = visibleRecommendedCount < recommended.length;
+
+  const handleCityPickerOpen = useCallback(() => {
+    if (user) return true;
+    navigateToProfileAuth(navigation);
+    return false;
+  }, [navigation, user]);
 
   const renderCategoryRow = useCallback<ListRenderItem<HomeCategoryListItem>>(
     ({ item }) => {
@@ -297,6 +306,7 @@ export default function HomeScreen() {
           <CityPickerField
             value={selectedCity}
             onChange={selectCity}
+            onOpen={handleCityPickerOpen}
             triggerStyle={styles.citySelector}
           />
           <AppPressable
@@ -379,6 +389,7 @@ export default function HomeScreen() {
       colors,
       dailyRecommendations,
       featured,
+      handleCityPickerOpen,
       isDark,
       i18n.language,
       languageOpen,
