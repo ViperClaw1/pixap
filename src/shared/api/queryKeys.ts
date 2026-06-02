@@ -159,8 +159,6 @@ export const queryKeys = {
   vibeMatch: {
     planCoordinates: (venueIdsKey: string) => ["vibe_match", "plan_coordinates", venueIdsKey] as const,
     route: (mode: string, coordsKey: string) => ["vibe_match", "route", mode, coordsKey] as const,
-    staticMap: (cacheKey: string, mapWidth: number) =>
-      ["vibe_match", "static_map", cacheKey, mapWidth] as const,
   },
   adminAnalytics: {
     byPeriod: (period: number, userId: string | null) =>
