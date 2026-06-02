@@ -83,6 +83,9 @@ export const vibeMatchStaticStyles = StyleSheet.create({
     minWidth: 0,
     gap: 4,
   },
+  routeStopTitleBlock: {
+    gap: 2,
+  },
   routeStopTimeRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -92,20 +95,20 @@ export const vibeMatchStaticStyles = StyleSheet.create({
   routeStopTime: { fontWeight: "800", fontSize: 14 },
   routeStopActivity: { fontSize: 14, fontWeight: "600" },
   routeStopName: { fontWeight: "800", fontSize: 17, lineHeight: 22 },
-  routeStopAddress: { fontSize: 12, lineHeight: 17 },
+  routeStopAddress: { fontSize: 11, lineHeight: 15 },
   routeStopBadges: {
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
     gap: 6,
-    marginTop: 4,
+    marginTop: 2,
   },
   routeCategoryPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
   },
-  routeCategoryText: { fontSize: 11, fontWeight: "700" },
+  routeCategoryText: { fontSize: 10, fontWeight: "700" },
   routeThumbWrap: {
     width: 80,
     height: 80,
@@ -130,9 +133,9 @@ export const vibeMatchStaticStyles = StyleSheet.create({
   },
   routeRatingText: { fontSize: 11, fontWeight: "800", color: "#fff" },
   planCheckbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 5,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
@@ -144,7 +147,7 @@ export const vibeMatchStaticStyles = StyleSheet.create({
   statusOk: {},
   statusPending: {},
   statusBad: {},
-  statusText: { fontSize: 11, fontWeight: "700" },
+  statusText: { fontSize: 10, fontWeight: "700" },
   errorBox: { padding: 12, borderRadius: 10, borderWidth: 1 },
   errorText: { fontSize: 13 },
   selectionWarning: {

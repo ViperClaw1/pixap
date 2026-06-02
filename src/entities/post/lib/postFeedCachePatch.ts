@@ -255,15 +255,29 @@ export function patchAuthorFollowInAllFeedCaches(
   return touched;
 }
 
+function togglePostLikeFields(post: FeedPostItem): FeedPostItem {
+  const wasLiked = post.my_reaction === "like";
+  return {
+    ...post,
+    my_reaction: wasLiked ? null : "like",
+    reaction_count: Math.max(0, post.reaction_count + (wasLiked ? -1 : 1)),
+  };
+}
+
 export function togglePostLikeInFeedCaches(queryClient: QueryClient, postId: string): boolean {
-  return patchPostInAllFeedCaches(queryClient, postId, (post) => {
-    const wasLiked = post.my_reaction === "like";
-    return {
-      ...post,
-      my_reaction: wasLiked ? null : "like",
-      reaction_count: Math.max(0, post.reaction_count + (wasLiked ? -1 : 1)),
-    };
+  return patchPostInAllFeedCaches(queryClient, postId, togglePostLikeFields);
+}
+
+/** Optimistic like toggle for `usePostById` caches (post detail, deep links). */
+export function togglePostLikeInPostByIdCaches(queryClient: QueryClient, postId: string): void {
+  const queries = queryClient.getQueriesData<FeedPostItem | null>({
+    queryKey: ["posts", "byId", postId],
   });
+
+  for (const [key, post] of queries) {
+    if (!post) continue;
+    queryClient.setQueryData<FeedPostItem | null>(key, togglePostLikeFields(post));
+  }
 }
 
 export function removePostFromAllFeedCaches(queryClient: QueryClient, postId: string): boolean {

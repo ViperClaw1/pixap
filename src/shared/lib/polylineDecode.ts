@@ -35,3 +35,34 @@ export function decodeGooglePolyline(encoded: string): LatLng[] {
 
   return points;
 }
+
+function encodeSignedNumber(num: number): string {
+  let sgnNum = num << 1;
+  if (num < 0) {
+    sgnNum = ~sgnNum;
+  }
+  let encoded = "";
+  while (sgnNum >= 0x20) {
+    encoded += String.fromCharCode((0x20 | (sgnNum & 0x1f)) + 63);
+    sgnNum >>= 5;
+  }
+  encoded += String.fromCharCode(sgnNum + 63);
+  return encoded;
+}
+
+/** Encode coordinates for Google Static Maps `path=enc:…` and Directions polylines. */
+export function encodeGooglePolyline(coords: LatLng[]): string {
+  if (coords.length === 0) return "";
+  let lastLat = 0;
+  let lastLng = 0;
+  let result = "";
+  for (const coord of coords) {
+    const lat = Math.round(coord.latitude * 1e5);
+    const lng = Math.round(coord.longitude * 1e5);
+    result += encodeSignedNumber(lat - lastLat);
+    result += encodeSignedNumber(lng - lastLng);
+    lastLat = lat;
+    lastLng = lng;
+  }
+  return result;
+}

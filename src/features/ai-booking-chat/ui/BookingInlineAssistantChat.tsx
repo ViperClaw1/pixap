@@ -26,6 +26,7 @@ type Props = {
   onOpenCategoryPicker: () => void;
   onScopeSelected: (scope: "nearby" | "city") => void;
   onOnboardingTypewriterComplete: (messageId: string) => void;
+  openingTypewriterEpoch?: number;
 };
 
 export function BookingInlineAssistantChat({
@@ -43,6 +44,7 @@ export function BookingInlineAssistantChat({
   onOpenCategoryPicker,
   onScopeSelected,
   onOnboardingTypewriterComplete,
+  openingTypewriterEpoch = 0,
 }: Props) {
   const { colors } = useAppTheme();
   const isSending = useBookingChatStore((s) => s.isSending);
@@ -122,6 +124,7 @@ export function BookingInlineAssistantChat({
       <Pressable onPress={Keyboard.dismiss} style={{ paddingVertical: 8, gap: 6 }}>
         <BookingChatMessageList
           messages={activeMessages}
+          openingTypewriterEpoch={openingTypewriterEpoch}
           onOnboardingTypewriterComplete={onOnboardingTypewriterComplete}
         />
         <BookingOnboardingControls

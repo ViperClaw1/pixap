@@ -16,9 +16,18 @@ export function clearBookingOpeningTypewriterRegistry(): void {
   completedOpeningTypewriterKeys.clear();
 }
 
-/** Restored / existing tabs: skip opening typewriter (only new tabs or fresh search openings animate). */
+export function clearBookingOpeningTypewriterKeys(keys: Iterable<string>): void {
+  for (const key of keys) {
+    completedOpeningTypewriterKeys.delete(key);
+  }
+}
+
+/** Restored tabs with committed search: skip opening typewriter on rehydrate. */
 export function syncOpeningTypewriterRegistryFromTabs(tabs: BookingChatTab[]): void {
-  for (const key of collectOpeningTypewriterKeysFromTabs(tabs)) {
-    markBookingOpeningTypewriterComplete(key);
+  for (const tab of tabs) {
+    if (!tab.searchSnapshot) continue;
+    for (const key of collectOpeningTypewriterKeysFromTabs([tab])) {
+      markBookingOpeningTypewriterComplete(key);
+    }
   }
 }

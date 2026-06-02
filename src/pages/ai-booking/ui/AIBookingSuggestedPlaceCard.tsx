@@ -1,6 +1,6 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { memo, useMemo } from "react";
-import { ActivityIndicator, PixelRatio, Text, View } from "react-native";
+import { ActivityIndicator, PixelRatio, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,15 +22,20 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { tintForTagKey } from "@/shared/lib/tagTint";
 import type { AIBookingStyles } from "./aiBookingStyles";
 
-const THUMB_SIZE = 112;
+const THUMB_SIZE_DEFAULT = 112;
+const THUMB_SIZE_COMPACT = 88;
+const COMPACT_CARD_WIDTH = 360;
 const MAX_TAGS = 3;
 const BOOK_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
 const BOOK_GRADIENT_DARK = ["#6d28d9", "#be185d", "#ea580c"] as const;
 
-function placeThumbUris(images: unknown): { uri: string | null; fallbackUri: string | null } {
+function placeThumbUris(
+  images: unknown,
+  thumbSize: number,
+): { uri: string | null; fallbackUri: string | null } {
   const raw = getPrimaryBusinessCardImage(images);
   if (!raw) return { uri: null, fallbackUri: null };
-  const edge = Math.round(THUMB_SIZE * Math.min(2, PixelRatio.get()));
+  const edge = Math.round(thumbSize * Math.min(2, PixelRatio.get()));
   const uri = getBusinessCardDisplayUrl(raw, { layoutPx: edge, layoutPxHeight: edge });
   return { uri, fallbackUri: businessCardDisplayFallback(uri, raw) ?? null };
 }
@@ -76,9 +81,11 @@ function AIBookingSuggestedPlaceCardInner({
 }: Props) {
   const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
+  const { width: windowWidth } = useWindowDimensions();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { user } = useAuth();
-  const { uri, fallbackUri } = placeThumbUris(place.images);
+  const thumbSize = windowWidth <= COMPACT_CARD_WIDTH ? THUMB_SIZE_COMPACT : THUMB_SIZE_DEFAULT;
+  const { uri, fallbackUri } = placeThumbUris(place.images, thumbSize);
   const isFavorite = useIsFavorite(place.id);
   const toggleFavorite = useToggleFavorite();
 
@@ -101,7 +108,7 @@ function AIBookingSuggestedPlaceCardInner({
           fallbackUri={fallbackUri}
           bundledFallback={PLACE_IMAGE_FALLBACK}
           recyclingKey={`${place.id}-thumb`}
-          style={s.placeThumb}
+          style={[s.placeThumb, { width: thumbSize, height: thumbSize }]}
           contentFit="cover"
         />
         <View style={s.placeTextCol}>
@@ -170,14 +177,22 @@ function AIBookingSuggestedPlaceCardInner({
                 end={{ x: 1, y: 1 }}
                 style={[s.placeBookBtnGradient, bookingLoading && { opacity: 0.9 }]}
               >
+                <View
+                  style={[s.placeBookBtnContent, bookingLoading && s.placeBookBtnContentHidden]}
+                  pointerEvents="none"
+                  importantForAccessibility="no-hide-descendants"
+                  accessibilityElementsHidden={bookingLoading}
+                >
+                  <Ionicons name="calendar-outline" size={14} color="#ffffff" />
+                  <Text style={s.placeBookBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                    {t("aiBooking.bookPlace")}
+                  </Text>
+                </View>
                 {bookingLoading ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <>
-                    <Ionicons name="calendar-outline" size={14} color="#ffffff" />
-                    <Text style={s.placeBookBtnText}>{t("aiBooking.bookPlace")}</Text>
-                  </>
-                )}
+                  <View style={s.placeBookBtnSpinnerOverlay} pointerEvents="none">
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  </View>
+                ) : null}
               </LinearGradient>
             </AppPressable>
           </View>

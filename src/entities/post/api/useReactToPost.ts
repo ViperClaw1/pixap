@@ -2,7 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { togglePostLikeInFeedCaches } from "@/entities/post/lib/postFeedCachePatch";
+import {
+  togglePostLikeInFeedCaches,
+  togglePostLikeInPostByIdCaches,
+} from "@/entities/post/lib/postFeedCachePatch";
 interface ReactToPostInput {
   postId: string;
   type: "like";
@@ -63,11 +66,13 @@ export const useReactToPost = () => {
     onMutate: async (variables) => {
       if (variables.type !== "like") return;
       togglePostLikeInFeedCaches(queryClient, variables.postId);
+      togglePostLikeInPostByIdCaches(queryClient, variables.postId);
       return { postLikeToggled: true as const, postId: variables.postId };
     },
     onError: (_error, variables, context) => {
       if (context?.postLikeToggled && variables.type === "like") {
         togglePostLikeInFeedCaches(queryClient, variables.postId);
+        togglePostLikeInPostByIdCaches(queryClient, variables.postId);
       }
     },
     onSettled: (_result, _error, variables) => {

@@ -815,6 +815,7 @@ function VibeMatchPageContent() {
                 onTravelModeChange={setRouteTravelMode}
                 isLoading={isRouteUpdating}
                 loadingLabel={showRouteRebuildLabel ? t("vibeMatch.routeMapRebuilding") : undefined}
+                loadingOverlayLight={showRouteRebuildLabel}
                 missingCount={routeMapMissingCount}
                 durationText={showRouteRebuildLabel ? null : routeDurationText}
                 distanceText={showRouteRebuildLabel ? null : routeDistanceText}
@@ -855,7 +856,7 @@ function VibeMatchPageContent() {
                             isRouteUpdating && styles.planCheckboxDisabled,
                           ]}
                         >
-                          {checked ? <Ionicons name="checkmark" size={16} color={colors.onAccent} /> : null}
+                          {checked ? <Ionicons name="checkmark" size={13} color={colors.onAccent} /> : null}
                         </AppPressable>
                       ) : null}
                       <View style={styles.routeRailCol}>
@@ -872,14 +873,16 @@ function VibeMatchPageContent() {
                             </Text>
                             <Text style={styles.routeStopActivity}>{activityLabel}</Text>
                           </View>
-                          <Text style={styles.routeStopName} numberOfLines={2}>
-                            {stop.name}
-                          </Text>
-                          {addressLine ? (
-                            <Text style={styles.routeStopAddress} numberOfLines={2}>
-                              {addressLine}
+                          <View style={styles.routeStopTitleBlock}>
+                            <Text style={styles.routeStopName} numberOfLines={2}>
+                              {stop.name}
                             </Text>
-                          ) : null}
+                            {addressLine ? (
+                              <Text style={styles.routeStopAddress} numberOfLines={2}>
+                                {addressLine}
+                              </Text>
+                            ) : null}
+                          </View>
                           <View style={styles.routeStopBadges}>
                             <View style={styles.routeCategoryPill}>
                               <Text style={styles.routeCategoryText}>{categoryLabel}</Text>
@@ -904,7 +907,7 @@ function VibeMatchPageContent() {
                           />
                           {rating != null ? (
                             <View style={styles.routeRatingBadge}>
-                              <Ionicons name="star" size={10} color="#eab308" />
+                              <Ionicons name="star" size={9} color="#eab308" />
                               <Text style={styles.routeRatingText}>{rating.toFixed(1)}</Text>
                             </View>
                           ) : null}
