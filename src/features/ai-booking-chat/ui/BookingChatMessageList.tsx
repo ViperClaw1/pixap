@@ -9,6 +9,7 @@ import { AssistantMessageMeta } from "@/features/ai-data-consent";
 
 type Props = {
   messages: BookingChatMessage[];
+  openingTypewriterEpoch?: number;
   onOnboardingTypewriterComplete?: (messageId: string) => void;
 };
 
@@ -16,7 +17,15 @@ function isOnboardingAssistantMessage(messageId: string): boolean {
   return messageId.startsWith("onb-");
 }
 
-export function BookingChatMessageList({ messages, onOnboardingTypewriterComplete }: Props) {
+function typewriterRunKey(messageId: string, epoch: number): string {
+  return epoch > 0 ? `${messageId}@${epoch}` : messageId;
+}
+
+export function BookingChatMessageList({
+  messages,
+  openingTypewriterEpoch = 0,
+  onOnboardingTypewriterComplete,
+}: Props) {
   const ts = useBookingInlineThreadStyles();
 
   return (
@@ -32,12 +41,12 @@ export function BookingChatMessageList({ messages, onOnboardingTypewriterComplet
               <View style={[ts.bubble, isUser ? ts.bubbleMine : ts.bubblePeer]}>
                 {greetingTw ? (
                   <BookingGreetingTypewriterText
-                    runOnceKey={item.id}
+                    runOnceKey={typewriterRunKey(item.id, openingTypewriterEpoch)}
                     textStyle={isUser ? ts.bubbleTextMine : ts.bubbleTextPeer}
                   />
                 ) : onboardingTw ? (
                   <BookingTypewriterText
-                    runOnceKey={item.id}
+                    runOnceKey={typewriterRunKey(item.id, openingTypewriterEpoch)}
                     fullText={item.content}
                     textStyle={isUser ? ts.bubbleTextMine : ts.bubbleTextPeer}
                     onComplete={() => onOnboardingTypewriterComplete?.(item.id)}

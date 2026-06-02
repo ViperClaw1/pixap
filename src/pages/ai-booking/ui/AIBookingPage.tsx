@@ -90,6 +90,8 @@ import {
   type BookingRecommendationView,
   type BookingSearchSnapshot,
 } from "@/features/ai-booking-chat";
+import { collectOpeningTypewriterKeysFromMessages } from "@/features/ai-booking-chat/lib/collectOpeningTypewriterKeys";
+import { clearBookingOpeningTypewriterKeys } from "@/features/ai-booking-chat/lib/bookingOpeningTypewriterRegistry";
 import {
   BookingRequestHistoryDrawer,
   buildHistoryItemFromTab,
@@ -97,10 +99,13 @@ import {
 import type { BookingOnboardingPhase } from "@/features/ai-booking-onboarding";
 import {
   parseOnboardingAssistantStep,
+  hasOnboardingPrefilledCity,
+  onboardingAssistantMessageId,
   seedOnboardingCategoryQuestion,
   seedOnboardingGreetingMessage,
   seedOnboardingScopeQuestion,
   seedOnboardingSearchResultsMessage,
+  syncOnboardingGreetingMessage,
 } from "@/features/ai-booking-onboarding";
 import { AiBookingAssistantGate, AiBookingStepConsentPrompt, refreshAiDataConsent, useAiDataConsent } from "@/features/ai-data-consent";
 import { devWarn } from "@/shared/lib/devLog";
@@ -148,6 +153,8 @@ function AIBookingPageContent() {
   const bookingComposerInputRef = useRef<TextInput>(null);
   const keyboardTopScreenRef = useRef<number | null>(null);
   const greetingBootstrappedRef = useRef(new Set<string>());
+  const openingReplayGuardRef = useRef<string | null>(null);
+  const [openingTypewriterEpoch, setOpeningTypewriterEpoch] = useState(0);
 
   const scrollBookingContentToUncoverComposer = useCallback(() => {
     if (!bookingComposerFocusedRef.current) return;
@@ -260,8 +267,45 @@ function AIBookingPageContent() {
     },
   });
   const { messages, runFlow, isLoading, resetFlowSearchTranscript } = usePixAI();
-  const { data: profile } = useProfile();
+  const { data: profile, isPending: profilePending } = useProfile();
   const { needsPrompt: needsAiConsentPrompt, status: aiConsentStatus } = useAiDataConsent();
+
+  const replayOnboardingOpeningTypewriter = useCallback(() => {
+    const store = useBookingChatStore.getState();
+    const tabId = store.activeTabId;
+    if (!tabId) return;
+    const tab = store.tabs.find((t) => t.id === tabId);
+    if (!tab || tab.searchSnapshot) return;
+    if (tab.onboardingPhase === "gemini" || tab.onboardingPhase === "search_results") return;
+
+    const keys = collectOpeningTypewriterKeysFromMessages(tab.messages);
+    if (keys.length === 0) return;
+
+    const replayGuardKey = `${tabId}:${keys.join("|")}`;
+    if (openingReplayGuardRef.current === replayGuardKey) return;
+    openingReplayGuardRef.current = replayGuardKey;
+
+    clearBookingOpeningTypewriterKeys(keys);
+    if (
+      tab.onboardingPhase === "greeting" ||
+      tab.onboardingPhase === "await_city" ||
+      tab.onboardingPhase === "await_category" ||
+      tab.onboardingPhase === "await_scope"
+    ) {
+      store.setTabOnboardingPhase(tabId, "assistant_typing");
+    }
+    setOpeningTypewriterEpoch((epoch) => epoch + 1);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      openingReplayGuardRef.current = null;
+      if (aiConsentStatus === "loading" || needsAiConsentPrompt) return;
+      replayOnboardingOpeningTypewriter();
+      return undefined;
+    }, [aiConsentStatus, needsAiConsentPrompt, replayOnboardingOpeningTypewriter]),
+  );
+
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
   const { data: categories = [] } = useCategories();
   const bookingCategoryOptions = useMemo(() => buildHomeCategoryList(categories), [categories]);
@@ -611,17 +655,64 @@ function AIBookingPageContent() {
   }, [catalogRevision]);
 
   useEffect(() => {
+    if (profilePending) return;
     if (!activeTabId || !activeTab) return;
     if (activeTab.onboardingPhase !== "greeting") return;
     if (greetingBootstrappedRef.current.has(activeTabId)) return;
     if (activeTab.messages.length > 0) return;
+    if (aiConsentStatus === "loading" || needsAiConsentPrompt) return;
 
     const tabId = activeTabId;
-    const city = selectedCity.trim();
-    const hasPrefilledCity = Boolean(city && city !== ALL_CITIES_OPTION);
+    const hasPrefilledCity = hasOnboardingPrefilledCity(selectedCity, profile?.city);
     greetingBootstrappedRef.current.add(tabId);
     seedOnboardingGreetingMessage(tabId, hasPrefilledCity);
-  }, [activeTab, activeTabId, selectedCity]);
+  }, [
+    activeTab,
+    activeTabId,
+    aiConsentStatus,
+    needsAiConsentPrompt,
+    profile?.city,
+    profilePending,
+    selectedCity,
+  ]);
+
+  useEffect(() => {
+    if (profilePending) return;
+    if (!activeTabId || !activeTab) return;
+    if (activeTab.searchSnapshot) return;
+    if (activeTab.onboardingPhase === "gemini" || activeTab.onboardingPhase === "search_results") return;
+
+    const hasPrefilledCity = hasOnboardingPrefilledCity(selectedCity, profile?.city);
+    if (!hasPrefilledCity) return;
+
+    const patched = syncOnboardingGreetingMessage(activeTabId, true);
+    const store = useBookingChatStore.getState();
+    const tab = store.tabs.find((t) => t.id === activeTabId);
+    const phase = tab?.onboardingPhase;
+
+    if (!patched) {
+      if (phase === "greeting" || phase === "await_city") {
+        store.setTabOnboardingPhase(activeTabId, "await_category");
+      }
+      return;
+    }
+
+    const greetingId = onboardingAssistantMessageId(activeTabId, "greeting");
+    clearBookingOpeningTypewriterKeys([greetingId]);
+    openingReplayGuardRef.current = null;
+    if (phase !== "assistant_typing") {
+      store.setTabOnboardingPhase(activeTabId, "assistant_typing");
+    }
+    setOpeningTypewriterEpoch((epoch) => epoch + 1);
+  }, [
+    activeTab,
+    activeTabId,
+    aiConsentStatus,
+    needsAiConsentPrompt,
+    profile?.city,
+    profilePending,
+    selectedCity,
+  ]);
 
   const handleOnboardingTypewriterComplete = useCallback(
     (messageId: string) => {
@@ -631,29 +722,37 @@ function AIBookingPageContent() {
       if (!step) return;
 
       const store = useBookingChatStore.getState();
-      const hasPrefilledCity = Boolean(
-        selectedCity.trim() && selectedCity !== ALL_CITIES_OPTION,
-      );
+      const hasPrefilledCity = hasOnboardingPrefilledCity(selectedCity, profile?.city);
+
+      const tab = store.tabs.find((t) => t.id === tabId);
+      const currentPhase = tab?.onboardingPhase;
 
       switch (step) {
-        case "greeting":
-          store.setTabOnboardingPhase(
-            tabId,
-            hasPrefilledCity ? "await_category" : "await_city",
-          );
+        case "greeting": {
+          const nextPhase = hasPrefilledCity ? "await_category" : "await_city";
+          if (currentPhase !== nextPhase) {
+            store.setTabOnboardingPhase(tabId, nextPhase);
+          }
           break;
+        }
         case "category":
-          store.setTabOnboardingPhase(tabId, "await_category");
+          if (currentPhase !== "await_category") {
+            store.setTabOnboardingPhase(tabId, "await_category");
+          }
           break;
         case "scope":
-          store.setTabOnboardingPhase(tabId, "await_scope");
+          if (currentPhase !== "await_scope") {
+            store.setTabOnboardingPhase(tabId, "await_scope");
+          }
           break;
         case "results":
-          store.setTabOnboardingPhase(tabId, "gemini");
+          if (currentPhase !== "gemini") {
+            store.setTabOnboardingPhase(tabId, "gemini");
+          }
           break;
       }
     },
-    [selectedCity],
+    [profile?.city, selectedCity],
   );
 
   const onRequestNearbyPermission = async () => {
@@ -850,9 +949,11 @@ function AIBookingPageContent() {
   const confirmResetChat = useCallback(() => {
     const tabId = useBookingChatStore.getState().activeTabId;
     if (tabId) greetingBootstrappedRef.current.delete(tabId);
+    openingReplayGuardRef.current = null;
     useBookingChatStore.getState().resetActiveTabChat();
     resetAssistantSessionState();
     resetFlowSearchTranscript();
+    setOpeningTypewriterEpoch((epoch) => epoch + 1);
   }, [resetAssistantSessionState, resetFlowSearchTranscript]);
 
   const onResetChat = useCallback(() => {
@@ -1056,6 +1157,7 @@ function AIBookingPageContent() {
                 onComposerInputFocus={onBookingComposerInputFocus}
                 onComposerInputBlur={onBookingComposerInputBlur}
                 onboardingPhase={onboardingPhase}
+                openingTypewriterEpoch={openingTypewriterEpoch}
                 searchPlacesBusy={searchPlacesBusy}
                 onOnboardingTypewriterComplete={handleOnboardingTypewriterComplete}
                 nearMeLabel={nearMeLabel}

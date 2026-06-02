@@ -1,5 +1,5 @@
 /** Same cadence as `executeBookingAssistantTurn` streaming (default `revealAssistantText` tick). */
-export const DEFAULT_ASSISTANT_TYPEWRITER_TICK_MS = 18;
+export const DEFAULT_ASSISTANT_TYPEWRITER_TICK_MS = 9;
 
 export type RevealAssistantTextResult = {
   promise: Promise<void>;

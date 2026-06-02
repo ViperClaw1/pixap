@@ -26,6 +26,10 @@
   "favorites": {
     "empty": "No favorites yet"
   },
+  "placeDetail": {
+    "seeAllPhotos": "See all {{count}} photos",
+    "seeAllPhotosA11y": "See all {{count}} photos"
+  },
   "feed": {
     "addStory": "Add story",
     "follow": "Follow",
@@ -376,6 +380,7 @@
     "routeAssistantEmpty": "No venues matched that vibe in {{city}} yet. Try a different mood or broaden your search.",
     "yourRoute": "Your route",
     "routeMapUnavailable": "Map preview is unavailable — venue locations are missing.",
+    "routeMapPreviewFailed": "Could not load map preview. Enable Maps Static API in Google Cloud.",
     "routeMapPartial": "{{count}} stop(s) hidden on map",
     "routeMapRebuilding": "Rebuilding your route…",
     "routeMapDrive": "Drive",

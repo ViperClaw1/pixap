@@ -50,6 +50,11 @@ export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
         options={fullWidthSwipeBackOptions}
       />
       <Screen
+        name="PlacePhotoGrid"
+        getComponent={() => require("@/pages/place-photo-grid").default}
+        options={fullWidthSwipeBackOptions}
+      />
+      <Screen
         name="PlaceGallery"
         getComponent={() => require("@/pages/place-gallery").default}
         options={galleryModalOptions}

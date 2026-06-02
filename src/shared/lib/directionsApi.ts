@@ -41,7 +41,7 @@ const BASE = "https://maps.googleapis.com/maps/api";
  * requests must include platform headers (see Maps API security best practices).
  * Expo Go (`appOwnership === "expo"`) skips them so dev matches unrestricted / Expo keys.
  */
-function googleMapsWebServiceFetch(url: string, signal?: AbortSignal): Promise<Response> {
+export function buildGoogleMapsPlatformRequestHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   if (Constants.appOwnership !== "expo") {
     if (Platform.OS === "ios") {
@@ -54,6 +54,11 @@ function googleMapsWebServiceFetch(url: string, signal?: AbortSignal): Promise<R
       if (cert) headers["X-Android-Cert"] = cert;
     }
   }
+  return headers;
+}
+
+export function googleMapsWebServiceFetch(url: string, signal?: AbortSignal): Promise<Response> {
+  const headers = buildGoogleMapsPlatformRequestHeaders();
   const init: RequestInit = { signal };
   if (Object.keys(headers).length > 0) init.headers = headers;
   return fetch(url, init);

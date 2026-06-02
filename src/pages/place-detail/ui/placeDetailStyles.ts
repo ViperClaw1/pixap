@@ -55,6 +55,25 @@ export const placeDetailStaticStyles = StyleSheet.create({
     borderRadius: 3.5,
   },
   heroDotActive: {},
+  heroSeeAllRow: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 28,
+    alignItems: "center",
+    zIndex: 7,
+  },
+  heroSeeAllBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  heroSeeAllBadgeText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
   card: {
     marginTop: -24,
     borderTopLeftRadius: 20,

@@ -29,12 +29,29 @@ export function BookingTypewriterText({
   );
   const lastLayoutAt = useRef(0);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onCompleteRef = useRef(onComplete);
+  const completionNotifiedForKeyRef = useRef<string | null>(null);
+
+  onCompleteRef.current = onComplete;
+
+  const notifyCompleteOnce = () => {
+    if (!runOnceKey) {
+      onCompleteRef.current?.();
+      return;
+    }
+    if (completionNotifiedForKeyRef.current === runOnceKey) return;
+    completionNotifiedForKeyRef.current = runOnceKey;
+    onCompleteRef.current?.();
+  };
 
   useEffect(() => {
     if (runOnceKey && isBookingOpeningTypewriterComplete(runOnceKey)) {
-      setVisible(fullText);
+      setVisible((current) => (current === fullText ? current : fullText));
+      notifyCompleteOnce();
       return;
     }
+
+    completionNotifiedForKeyRef.current = null;
 
     let cancelled = false;
     let cancelReveal: (() => void) | null = null;
@@ -68,7 +85,7 @@ export function BookingTypewriterText({
         if (runOnceKey) {
           markBookingOpeningTypewriterComplete(runOnceKey);
         }
-        onComplete?.();
+        notifyCompleteOnce();
       }
     };
     void run();
@@ -80,7 +97,7 @@ export function BookingTypewriterText({
         fallbackTimerRef.current = null;
       }
     };
-  }, [fullText, tickMs, runOnceKey, onComplete]);
+  }, [fullText, tickMs, runOnceKey]);
 
   return <Text style={textStyle}>{visible}</Text>;
 }

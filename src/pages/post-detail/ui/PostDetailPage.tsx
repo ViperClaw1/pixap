@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -28,12 +28,10 @@ import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomShee
 import { FeedPostCard } from "@/widgets/feed-post-card";
 import { usePostShareSheet } from "@/features/post-share";
 import { usePostCommentComposer } from "@/pages/stories-feed/model/usePostCommentComposer";
-import { usePostLikes } from "@/pages/stories-feed/model/usePostLikes";
 import { useFollowOverrides } from "@/pages/stories-feed/model/useFollowOverrides";
 import {
   FEED_CAROUSEL_MIN_HEIGHT,
   FEED_CAROUSEL_VIEWPORT_RATIO,
-  DOUBLE_TAP_DELAY_MS,
 } from "@/pages/stories-feed/model/constants";
 import {
   getPostImages,
@@ -65,7 +63,7 @@ export default function PostDetailPage() {
   const { data: myProfile } = useProfile();
 
   const shareSheet = usePostShareSheet(rootNavigation);
-  const { likes, likeCount, togglePostLike } = usePostLikes(useReactToPost());
+  const reactToPost = useReactToPost();
   const { followOverrides, onToggleFollowAuthor } = useFollowOverrides(followingSet, toggleFollow);
   const comments = usePostCommentComposer();
   const createPostComment = useCreatePostComment();
@@ -127,17 +125,17 @@ export default function PostDetailPage() {
     rootNavigation.navigate("Feed", { screen: "FeedMain" });
   }, [navigation, rootNavigation]);
 
-  const lastPostTapRef = useRef(0);
-  const onPostCardPress = useCallback(() => {
-    if (!post) return;
-    const now = Date.now();
-    if (now - lastPostTapRef.current <= DOUBLE_TAP_DELAY_MS) {
-      lastPostTapRef.current = 0;
-      togglePostLike(post.id, post.reaction_count, runAuthedAction);
-      return;
-    }
-    lastPostTapRef.current = now;
-  }, [post, runAuthedAction, togglePostLike]);
+  const handleToggleLike = useCallback(() => {
+    if (!post) return Promise.resolve();
+    return new Promise<void>((resolve, reject) => {
+      runAuthedAction(() => {
+        void reactToPost
+          .mutateAsync({ postId: post.id, type: "like" })
+          .then(() => resolve())
+          .catch(reject);
+      });
+    });
+  }, [post, reactToPost, runAuthedAction]);
 
   if (isLoading) {
     return (
@@ -182,13 +180,10 @@ export default function PostDetailPage() {
           width={width}
           sliderHeight={sliderHeight}
           isContentExpanded={!!comments.expandedPostContentIds[post.id]}
-          isLiked={!!likes[post.id]}
-          likeCount={likeCount[post.id] ?? post.reaction_count}
           currentUserId={user?.id}
           isFollowing={followOverrides[post.user_id] ?? followingSet.has(post.user_id)}
           followPending={toggleFollow.isPending}
-          onPress={onPostCardPress}
-          onLike={() => togglePostLike(post.id, post.reaction_count, runAuthedAction)}
+          onToggleLike={handleToggleLike}
           onOpenComments={() => runAuthedAction(() => comments.openComments(post.id))}
           onBookNow={() => runAuthedAction(() => navigation.navigate("BookingFlow", { id: post.place_id! }))}
           onShare={() =>

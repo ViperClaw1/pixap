@@ -228,6 +228,7 @@ export default function PlaceDetailScreen() {
       heroFallback: heroFallback ? getBusinessCardDisplayUrl(heroFallback, { size: "hero" }) : null,
       galleryImages: galleryRaw,
       galleryFallbacks: galleryRaw,
+      gridThumbImages: getBusinessCardDisplayUrls(galleryRaw, { size: "list" }),
     };
   }, [place]);
 
@@ -315,6 +316,15 @@ export default function PlaceDetailScreen() {
     [imageVm.galleryFallbacks, imageVm.galleryImages, navigation],
   );
 
+  const openPhotoGrid = useCallback(() => {
+    if (!place) return;
+    navigation.navigate("PlacePhotoGrid", {
+      title: place.name,
+      images: imageVm.gridThumbImages,
+      rawImages: imageVm.galleryFallbacks,
+    });
+  }, [imageVm.galleryFallbacks, imageVm.gridThumbImages, navigation, place]);
+
   const handleHeroTap = useCallback(
     (index: number) => {
       const now = Date.now();
@@ -389,6 +399,22 @@ export default function PlaceDetailScreen() {
                 <View key={`${place.id}-hero-dot-${idx}`} style={[styles.heroDot, heroSlide === idx && styles.heroDotActive]} />
               ))}
             </View>
+            {imageVm.heroImages.length >= 2 ? (
+              <View style={styles.heroSeeAllRow} pointerEvents="box-none">
+                <AppPressable
+                  style={styles.heroSeeAllBadge}
+                  onPress={openPhotoGrid}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("placeDetail.seeAllPhotosA11y", {
+                    count: imageVm.heroImages.length,
+                  })}
+                >
+                  <Text style={styles.heroSeeAllBadgeText}>
+                    {t("placeDetail.seeAllPhotos", { count: imageVm.heroImages.length })}
+                  </Text>
+                </AppPressable>
+              </View>
+            ) : null}
           </>
         ) : (
           <AppPressable

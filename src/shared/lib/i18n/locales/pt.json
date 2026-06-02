@@ -26,6 +26,10 @@
   "favorites": {
     "empty": "Ainda não há favoritos"
   },
+  "placeDetail": {
+    "seeAllPhotos": "Ver todas as {{count}} fotos",
+    "seeAllPhotosA11y": "Ver todas as {{count}} fotos"
+  },
   "feed": {
     "addStory": "Adicionar story",
     "follow": "Seguir",

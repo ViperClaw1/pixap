@@ -59,8 +59,11 @@ export default function PlaceGalleryPage() {
   }, [images.length, params.initialIndex]);
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
-  const [paused, setPaused] = useState(false);
+  const [holdPaused, setHoldPaused] = useState(false);
+  const [carouselDragging, setCarouselDragging] = useState(false);
   const progress = useSharedValue(0);
+
+  const progressPaused = holdPaused || carouselDragging;
 
   const galleryUri = useCallback((rawOrDisplay: string) => {
     if (isBusinessCardsStorageUrl(rawOrDisplay)) {
@@ -72,19 +75,19 @@ export default function PlaceGalleryPage() {
   const restartProgress = useCallback(() => {
     cancelAnimation(progress);
     progress.value = 0;
-    if (paused || images.length <= 1) {
+    if (progressPaused || images.length <= 1) {
       progress.value = images.length <= 1 ? 1 : 0;
       return;
     }
     progress.value = withTiming(1, { duration: AUTO_SLIDE_MS, easing: Easing.linear });
-  }, [images.length, paused, progress]);
+  }, [images.length, progress, progressPaused]);
 
   useEffect(() => {
     restartProgress();
     return () => {
       cancelAnimation(progress);
     };
-  }, [activeIndex, paused, progress, restartProgress]);
+  }, [activeIndex, progressPaused, restartProgress]);
 
   useEffect(() => {
     if (images.length === 0) navigation.goBack();
@@ -100,12 +103,16 @@ export default function PlaceGalleryPage() {
     return () => task.cancel();
   }, [activeIndex, galleryUri, images, rawImages]);
 
+  const handleSnapToItem = useCallback((index: number) => {
+    setActiveIndex(index);
+  }, []);
+
   const renderGalleryItem = useCallback(
     ({ item, index }: { item: string; index: number }) => (
       <AppPressable
         style={styles.absoluteFill}
-        onLongPress={() => setPaused(true)}
-        onPressOut={() => setPaused(false)}
+        onLongPress={() => setHoldPaused(true)}
+        onPressOut={() => setHoldPaused(false)}
         delayLongPress={220}
       >
         <SmartImage
@@ -115,11 +122,16 @@ export default function PlaceGalleryPage() {
           style={styles.absoluteFill}
           contentFit="contain"
           transition={100}
+          skipBundledPlaceholder
+          showLoadingSpinner
+          loadingSpinnerColor="#ffffff"
         />
       </AppPressable>
     ),
-    [galleryUri, rawImages, styles.absoluteFill],
+    [galleryUri, rawImages],
   );
+
+  const canLoop = images.length > 1;
 
   return (
     <View style={styles.root}>
@@ -128,18 +140,20 @@ export default function PlaceGalleryPage() {
           width={width}
           height={height}
           data={images}
-          loop
-          autoPlay={isScreenFocused && images.length > 1}
+          loop={canLoop}
+          autoPlay={isScreenFocused && canLoop && !progressPaused}
           autoPlayInterval={AUTO_SLIDE_MS}
-          enabled={!paused}
+          enabled
           defaultIndex={initialIndex}
           scrollAnimationDuration={500}
-          onSnapToItem={setActiveIndex}
+          onScrollStart={() => setCarouselDragging(true)}
+          onScrollEnd={() => setCarouselDragging(false)}
+          onSnapToItem={handleSnapToItem}
           renderItem={renderGalleryItem}
         />
       </View>
 
-      <View style={[styles.topRow, { top: Math.max(8, insets.top + 8) }]}>
+      <View style={[styles.topRow, { top: Math.max(8, insets.top + 8) }]} pointerEvents="box-none">
         <AppPressable
           accessibilityRole="button"
           accessibilityLabel="Go back"
@@ -191,4 +205,3 @@ const styles = StyleSheet.create({
     height: 42,
   },
 });
-

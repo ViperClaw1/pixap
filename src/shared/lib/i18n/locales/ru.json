@@ -26,6 +26,10 @@
   "favorites": {
     "empty": "Пока нет избранного"
   },
+  "placeDetail": {
+    "seeAllPhotos": "Смотреть все {{count}} фото",
+    "seeAllPhotosA11y": "Смотреть все {{count}} фото"
+  },
   "feed": {
     "addStory": "Добавить сторис",
     "follow": "Подписаться",
@@ -376,6 +380,7 @@
     "routeAssistantEmpty": "Пока нет мест под это настроение в {{city}}. Попробуйте другое настроение или расширьте поиск.",
     "yourRoute": "Ваш маршрут",
     "routeMapUnavailable": "Карта недоступна — у заведений нет координат.",
+    "routeMapPreviewFailed": "Не удалось загрузить превью карты. Проверьте Maps Static API в Google Cloud.",
     "routeMapPartial": "{{count}} точек не показано на карте",
     "routeMapRebuilding": "Перестраиваю ваш маршрут…",
     "routeMapDrive": "На машине",

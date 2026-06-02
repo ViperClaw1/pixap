@@ -89,9 +89,8 @@ export const FeedPostCard = memo(function FeedPostCard({
   const item = vm.post;
   const updatePostMutation = useUpdatePost();
   const deletePostMutation = useDeletePost();
-  const [localLiked, setLocalLiked] = useState(item.my_reaction === "like");
-  const [localLikeCount, setLocalLikeCount] = useState(item.reaction_count);
   const lastTapAtRef = useRef(0);
+  const isLiked = item.my_reaction === "like";
   const [showMoreLink, setShowMoreLink] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
@@ -99,10 +98,6 @@ export const FeedPostCard = memo(function FeedPostCard({
   const titleInputRef = useRef<TextInput | null>(null);
   const isOwner = Boolean(currentUserId && item.user_id === currentUserId);
 
-  useEffect(() => {
-    setLocalLiked(item.my_reaction === "like");
-    setLocalLikeCount(item.reaction_count);
-  }, [item.id, item.my_reaction, item.reaction_count]);
   const postContent = item.content?.trim() ?? "";
   const geoFormattedAddress = item.geo_formatted_address?.trim() ?? "";
 
@@ -186,19 +181,14 @@ export const FeedPostCard = memo(function FeedPostCard({
   );
 
   const runToggleLike = useCallback(async () => {
-    const wasLiked = localLiked;
-    setLocalLiked(!wasLiked);
-    setLocalLikeCount((prev) => (wasLiked ? Math.max(0, prev - 1) : prev + 1));
     try {
       await onToggleLike();
     } catch (error) {
-      setLocalLiked(wasLiked);
-      setLocalLikeCount(item.reaction_count);
       if (!isAuthRequiredError(error)) {
         throw error;
       }
     }
-  }, [item.reaction_count, localLiked, onToggleLike]);
+  }, [onToggleLike]);
 
   const onMediaPress = useCallback(() => {
     const now = Date.now();
@@ -367,8 +357,8 @@ export const FeedPostCard = memo(function FeedPostCard({
         <View style={styles.actionsRow}>
           <View style={styles.leftActions}>
             <Pressable style={styles.actionBtn} onPress={() => void runToggleLike()}>
-              <AnimatedLikeHeart liked={localLiked} size={24} color={colors.text} likedColor={colors.text} />
-              <Text style={[styles.actionCount, { color: colors.text }]}>{localLikeCount}</Text>
+              <AnimatedLikeHeart liked={isLiked} size={24} color={colors.text} likedColor={colors.text} />
+              <Text style={[styles.actionCount, { color: colors.text }]}>{item.reaction_count}</Text>
             </Pressable>
             <Pressable style={styles.actionBtn} onPress={onOpenComments}>
               <Ionicons name="chatbubble-outline" size={23} color={colors.text} />

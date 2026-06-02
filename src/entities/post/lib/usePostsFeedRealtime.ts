@@ -46,6 +46,8 @@ function handlePostReactionChange(
 ) {
   const row = parsePostReactionRow(payload as Parameters<typeof parsePostReactionRow>[0]);
   if (!row?.post_id || row.type !== "like") return;
+  // Own likes are optimistically patched in useReactToPost; applying realtime again doubles the count.
+  if (row.user_id === viewerUserId) return;
   if (!feedCachesContainPost(queryClient, row.post_id)) return;
 
   if (eventType === "INSERT") {

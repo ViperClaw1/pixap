@@ -1,18 +1,20 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from "react-native-maps";
+import { useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import Constants from "expo-constants";
+import { Image } from "expo-image";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { env } from "@/shared/lib/env";
 import type { TravelMode } from "@/shared/lib/directionsApi";
-import { regionAroundPoint, regionFromCoordinates } from "@/shared/lib/mapRegion";
 import type { LatLng } from "@/shared/lib/polylineDecode";
+import { useVibeRouteStaticMap } from "../lib/useVibeRouteStaticMap";
 import type { VibeRouteMapPoint } from "../lib/useVibePlanMapPoints";
+import { VibeRouteMapNative } from "./VibeRouteMapNative";
 
 const MAP_HEIGHT = 200;
-const MAP_EDGE_PADDING = { top: 48, right: 36, bottom: 52, left: 36 };
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -22,47 +24,6 @@ const ROUTE_MODES: Array<{ key: TravelMode; labelKey: string; icon: IoniconName 
   { key: "transit", labelKey: "vibeMatch.routeMapTransit", icon: "bus-outline" },
 ];
 
-type NumberedMarkerProps = {
-  order: number;
-  latitude: number;
-  longitude: number;
-  accentColor: string;
-  labelColor: string;
-};
-
-const RouteNumberMarker = memo(function RouteNumberMarker({
-  order,
-  latitude,
-  longitude,
-  accentColor,
-  labelColor,
-}: NumberedMarkerProps) {
-  const coordinate = useMemo(() => ({ latitude, longitude }), [latitude, longitude]);
-  const [tracksViewChanges, setTracksViewChanges] = useState(Platform.OS === "android");
-
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    setTracksViewChanges(true);
-    const timer = setTimeout(() => setTracksViewChanges(false), 120);
-    return () => clearTimeout(timer);
-  }, [order, accentColor, labelColor]);
-
-  return (
-    <Marker
-      coordinate={coordinate}
-      tracksViewChanges={Platform.OS === "android" ? tracksViewChanges : false}
-      anchor={{ x: 0.5, y: 0.5 }}
-    >
-      <View
-        collapsable={false}
-        style={[markerStyles.bubble, { backgroundColor: accentColor, borderColor: accentColor }]}
-      >
-        <Text style={[markerStyles.label, { color: labelColor }]}>{order}</Text>
-      </View>
-    </Marker>
-  );
-});
-
 type Props = {
   points: VibeRouteMapPoint[];
   polylineCoords: LatLng[];
@@ -70,6 +31,8 @@ type Props = {
   onTravelModeChange: (mode: TravelMode) => void;
   isLoading?: boolean;
   loadingLabel?: string;
+  /** White spinner + label on dark map overlay (route rebuild). */
+  loadingOverlayLight?: boolean;
   missingCount?: number;
   durationText?: string | null;
   distanceText?: string | null;
@@ -83,6 +46,7 @@ export function VibeRouteMap({
   onTravelModeChange,
   isLoading = false,
   loadingLabel,
+  loadingOverlayLight = false,
   missingCount = 0,
   durationText = null,
   distanceText = null,
@@ -90,55 +54,14 @@ export function VibeRouteMap({
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
-  const mapRef = useRef<MapView | null>(null);
-  const userAdjustedMapRef = useRef(false);
+  const apiKey = env.googleMapsWebApiKey;
+  const useNativeMapFallback = Constants.appOwnership === "expo";
 
-  const mapProvider = PROVIDER_GOOGLE;
+  const mapImageKey = `${travelMode}|${points.map((point) => `${point.order}:${point.latitude},${point.longitude}`).join("|")}|${polylineCoords
+    .map((coord) => `${coord.latitude},${coord.longitude}`)
+    .join("|")}|${colors.accent}`;
+
   const activeMode = ROUTE_MODES.find((mode) => mode.key === travelMode) ?? ROUTE_MODES[0];
-
-  const fitCoords = useMemo(() => {
-    if (polylineCoords.length >= 2) return polylineCoords;
-    return points.map((point) => ({ latitude: point.latitude, longitude: point.longitude }));
-  }, [points, polylineCoords]);
-
-  const fitRouteKey = useMemo(
-    () => `${travelMode}|${fitCoords.map((coord) => `${coord.latitude},${coord.longitude}`).join("|")}`,
-    [fitCoords, travelMode],
-  );
-
-  const initialRegion = useMemo((): Region => {
-    if (fitCoords.length >= 2) {
-      return regionFromCoordinates(fitCoords) ?? regionAroundPoint(fitCoords[0]);
-    }
-    if (fitCoords.length === 1) {
-      return regionAroundPoint(fitCoords[0], 0.035);
-    }
-    return { latitude: 43.238949, longitude: 76.945465, latitudeDelta: 0.12, longitudeDelta: 0.12 };
-  }, [fitCoords]);
-
-  const fitMapToRoute = useCallback(() => {
-    if (fitCoords.length === 0) return;
-    requestAnimationFrame(() => {
-      if (fitCoords.length === 1) {
-        mapRef.current?.animateToRegion(regionAroundPoint(fitCoords[0], 0.035), 320);
-        return;
-      }
-      mapRef.current?.fitToCoordinates(fitCoords, {
-        edgePadding: MAP_EDGE_PADDING,
-        animated: true,
-      });
-    });
-  }, [fitCoords]);
-
-  useEffect(() => {
-    userAdjustedMapRef.current = false;
-  }, [fitRouteKey]);
-
-  useEffect(() => {
-    if (userAdjustedMapRef.current) return;
-    fitMapToRoute();
-  }, [fitMapToRoute, fitRouteKey]);
-
   const showRouteMeta = Boolean(durationText || distanceText) && !usesStraightFallback;
 
   if (!isLoading && points.length === 0) {
@@ -151,43 +74,138 @@ export function VibeRouteMap({
     );
   }
 
+  if (!apiKey) {
+    return (
+      <View style={[styles.placeholder, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        <Text style={[styles.placeholderText, { color: colors.textMuted }]}>
+          {t("vibeMatch.routeMapPreviewFailed")}
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.wrap, { borderColor: colors.border }]}>
-      <MapView
-        ref={mapRef}
-        provider={mapProvider}
-        style={styles.map}
-        initialRegion={initialRegion}
-        scrollEnabled
-        zoomEnabled
-        zoomTapEnabled
-        rotateEnabled={false}
-        pitchEnabled={false}
-        toolbarEnabled={false}
-        moveOnMarkerPress={false}
-        onRegionChange={() => {
-          userAdjustedMapRef.current = true;
-        }}
-      >
-        {polylineCoords.length >= 2 ? (
-          <Polyline coordinates={polylineCoords} strokeColor={colors.accent} strokeWidth={4} />
-        ) : null}
-        {points.map((point) => (
-          <RouteNumberMarker
-            key={`${point.venueId}-${point.order}`}
-            order={point.order}
-            latitude={point.latitude}
-            longitude={point.longitude}
-            accentColor={colors.accent}
-            labelColor={colors.onAccent}
-          />
-        ))}
-      </MapView>
+    <VibeRouteMapFrame
+      points={points}
+      polylineCoords={polylineCoords}
+      travelMode={travelMode}
+      onTravelModeChange={onTravelModeChange}
+      isLoading={isLoading}
+      loadingLabel={loadingLabel}
+      loadingOverlayLight={loadingOverlayLight}
+      missingCount={missingCount}
+      durationText={durationText}
+      distanceText={distanceText}
+      showRouteMeta={showRouteMeta}
+      activeMode={activeMode}
+      apiKey={apiKey}
+      mapImageKey={mapImageKey}
+      useNativeMapFallback={useNativeMapFallback}
+      colors={colors}
+      t={t}
+    />
+  );
+}
+
+type FrameProps = Props & {
+  showRouteMeta: boolean;
+  activeMode: (typeof ROUTE_MODES)[number];
+  apiKey: string;
+  mapImageKey: string;
+  useNativeMapFallback: boolean;
+  colors: ReturnType<typeof useAppTheme>["colors"];
+  t: ReturnType<typeof useTranslation>["t"];
+};
+
+function VibeRouteMapFrame({
+  points,
+  polylineCoords,
+  travelMode,
+  onTravelModeChange,
+  isLoading = false,
+  loadingLabel,
+  loadingOverlayLight = false,
+  missingCount = 0,
+  durationText,
+  distanceText,
+  showRouteMeta,
+  activeMode,
+  apiKey,
+  mapImageKey,
+  useNativeMapFallback,
+  colors,
+  t,
+}: FrameProps) {
+  const [mapWidth, setMapWidth] = useState(0);
+
+  const staticMapQuery = useVibeRouteStaticMap({
+    apiKey,
+    mapWidth,
+    cacheKey: mapImageKey,
+    polylineCoords,
+    points,
+    pathColor: colors.accent,
+  });
+
+  const showNativeMap = useNativeMapFallback && points.length > 0 && staticMapQuery.isError;
+  const showStaticImage = Boolean(staticMapQuery.data);
+  const showMapLoading =
+    !showNativeMap && !showStaticImage && (mapWidth <= 0 || staticMapQuery.isPending);
+  const showPreviewFailed =
+    !useNativeMapFallback &&
+    !showStaticImage &&
+    !showMapLoading &&
+    staticMapQuery.isError &&
+    points.length > 0;
+
+  const loadingSpinnerColor = loadingOverlayLight ? "#ffffff" : colors.primary;
+  const loadingTextColor = loadingOverlayLight ? "#ffffff" : colors.text;
+
+  return (
+    <View
+      style={[styles.wrap, { borderColor: colors.border, backgroundColor: colors.card }]}
+      onLayout={(event) => {
+        const nextWidth = Math.round(event.nativeEvent.layout.width);
+        if (nextWidth > 0 && nextWidth !== mapWidth) {
+          setMapWidth(nextWidth);
+        }
+      }}
+    >
+      {showStaticImage ? (
+        <Image
+          source={{ uri: staticMapQuery.data! }}
+          style={styles.map}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          recyclingKey={mapImageKey}
+        />
+      ) : null}
+      {showNativeMap ? (
+        <VibeRouteMapNative
+          points={points}
+          polylineCoords={polylineCoords}
+          travelMode={travelMode}
+          accentColor={colors.accent}
+          labelColor={colors.onAccent}
+        />
+      ) : null}
+      {showMapLoading ? (
+        <View style={[styles.mapFallback, { backgroundColor: colors.background }]}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : null}
+      {showPreviewFailed ? (
+        <View style={[styles.mapFallback, { backgroundColor: colors.background }]}>
+          <Text style={[styles.placeholderText, { color: colors.textMuted }]}>
+            {t("vibeMatch.routeMapPreviewFailed")}
+          </Text>
+        </View>
+      ) : null}
       {isLoading ? (
         <View style={styles.loadingOverlay} pointerEvents="auto">
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={loadingSpinnerColor} />
           {loadingLabel ? (
-            <Text style={[styles.loadingLabel, { color: colors.text }]}>{loadingLabel}</Text>
+            <Text style={[styles.loadingLabel, { color: loadingTextColor }]}>{loadingLabel}</Text>
           ) : null}
         </View>
       ) : null}
@@ -250,26 +268,6 @@ export function VibeRouteMap({
   );
 }
 
-const markerStyles = StyleSheet.create({
-  bubble: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.28,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "800",
-  },
-});
-
 const styles = StyleSheet.create({
   wrap: {
     height: MAP_HEIGHT,
@@ -279,6 +277,12 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+  mapFallback: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
