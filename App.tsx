@@ -59,10 +59,11 @@ if (__DEV__) {
 
 function NavigationRoot({ onFirstFrame }: { onFirstFrame: () => void }) {
   const { colors, isDark } = useAppTheme();
-  const { loading: authLoading } = useAuth();
+  const { authHydrated } = useAuth();
   const toastConfig = useAppToastConfig(colors);
 
   useEffect(() => {
+    if (!authHydrated) return;
     let unsubscribe: (() => void) | undefined;
     const task = InteractionManager.runAfterInteractions(() => {
       unsubscribe = subscribeSupabaseAuthDeepLinks(rootNavigationRef);
@@ -71,12 +72,13 @@ function NavigationRoot({ onFirstFrame }: { onFirstFrame: () => void }) {
       task.cancel();
       unsubscribe?.();
     };
-  }, []);
+  }, [authHydrated]);
 
   useEffect(() => {
+    if (!authHydrated) return;
     setPushNotificationOpenHandler(handlePushNotificationOpen);
     return () => setPushNotificationOpenHandler(null);
-  }, []);
+  }, [authHydrated]);
 
   const navigationTheme = useMemo(() => {
     const base = isDark ? DarkTheme : DefaultTheme;
@@ -94,7 +96,7 @@ function NavigationRoot({ onFirstFrame }: { onFirstFrame: () => void }) {
     };
   }, [isDark, colors.primary, colors.background, colors.card, colors.text, colors.border, colors.notification]);
 
-  if (authLoading) {
+  if (!authHydrated) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
