@@ -8,6 +8,10 @@ import { supabase } from "@/shared/api/supabase/client";
 import { env } from "@/shared/lib/env";
 import { isInvalidRefreshTokenError } from "@/shared/lib/supabaseAuth";
 import { clearSessionCaches } from "@/shared/lib/clearSessionCaches";
+import {
+  navigateAfterSignOut,
+  resetSignOutNavigationGuard,
+} from "@/shared/lib/auth/navigateAfterSignOut";
 import { consumePendingPushOutbox, registerNativePushToken } from "@/shared/lib/push/pushNotifications";
 import { devError, devInfo, devWarn } from "@/shared/lib/devLog";
 import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
@@ -71,6 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let active = true;
+    const sessionAppliedRef = { current: false };
 
     const applySession = (next: Session | null) => {
       if (!active) return;
@@ -88,6 +93,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, next) => {
       applySession(next);
+      sessionAppliedRef.current = true;
+      if (event === "SIGNED_IN") {
+        resetSignOutNavigationGuard();
+      }
+      if (event === "SIGNED_OUT") {
+        navigateAfterSignOut();
+      }
       if (event === "INITIAL_SESSION") finishInit();
     });
 
@@ -104,7 +116,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
           throw error;
         }
-        applySession(s);
+        if (!sessionAppliedRef.current) {
+          applySession(s);
+        }
         finishInit();
       })
       .catch(async (error: unknown) => {
@@ -149,8 +163,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     if (!loading && hadAuthenticatedUserRef.current) {
       hadAuthenticatedUserRef.current = false;
-      void clearSessionCaches(queryClient);
-      void resetBookingChatPersistedSession();
+      const task = InteractionManager.runAfterInteractions(() => {
+        void clearSessionCaches(queryClient);
+        void resetBookingChatPersistedSession();
+      });
+      return () => task.cancel();
     }
   }, [loading, queryClient, user?.id]);
 
@@ -191,11 +208,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
-    if (error && isInvalidRefreshTokenError(error)) {
+    if (!error) return;
+    if (isInvalidRefreshTokenError(error)) {
       await supabase.auth.signOut({ scope: "local" });
       return;
     }
-    if (error) throw error;
+    devWarn("[auth] signOut network error, falling back to local scope:", error.message);
+    await supabase.auth.signOut({ scope: "local" });
   }, []);
 
   const resetPassword = useCallback(

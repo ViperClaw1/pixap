@@ -28,7 +28,11 @@
   },
   "placeDetail": {
     "seeAllPhotos": "Ver todas as {{count}} fotos",
-    "seeAllPhotosA11y": "Ver todas as {{count}} fotos"
+    "seeAllPhotosA11y": "Ver todas as {{count}} fotos",
+    "call": "Ligar",
+    "directions": "Como chegar",
+    "bookNow": "Reservar agora",
+    "bookWithPixAI": "Reservar com PixAI"
   },
   "feed": {
     "addStory": "Adicionar story",

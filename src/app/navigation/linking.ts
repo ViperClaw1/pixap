@@ -2,6 +2,7 @@ import type { LinkingOptions } from "@react-navigation/native";
 import { getStateFromPath as getStateFromPathInternal } from "@react-navigation/native";
 import * as Linking from "expo-linking";
 import { linkingConfig, linkingPrefixes } from "@/shared/lib/linking";
+import { isOAuthCallbackHandled } from "@/shared/lib/oauthCallbackHandled";
 import type { RootTabParamList } from "./types";
 
 const prefixes = [...linkingPrefixes, Linking.createURL("/")];
@@ -29,6 +30,7 @@ function queryParamsFromPath(fullPath: string): URLSearchParams {
 /** Map legacy root paths (custom scheme) into nested tab state. */
 /** Supabase native redirect from `getOAuthRedirectUri()` / email verify when URL uses `~oauth/callback`. */
 function stateForSupabaseAuthCallback(fullPath: string) {
+  if (isOAuthCallbackHandled(fullPath)) return null;
   const withoutQuery = fullPath.split("?")[0] ?? "";
   const normalized = normalizePath(withoutQuery);
   if (!normalized) return null;

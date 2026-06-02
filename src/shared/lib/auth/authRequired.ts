@@ -1,6 +1,6 @@
-import { CommonActions, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import type { AppNavigation } from "@/app/navigation/appNavigation";
 import { asParamListNavigation } from "@/app/navigation/appNavigation";
+import { resetProfileTabToAuth } from "@/app/navigation/navigationHelpers";
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message.toLowerCase();
@@ -38,21 +38,5 @@ export function isAuthRequiredError(error: unknown): boolean {
 }
 
 export function navigateToAuthScreen(navigation: AppNavigation): void {
-  const nav = asParamListNavigation(navigation);
-  const parent = nav.getParent();
-  if (parent) {
-    parent.dispatch(
-      CommonActions.navigate({
-        name: "Profile",
-        params: { screen: "Auth" },
-      }),
-    );
-    return;
-  }
-  nav.dispatch(
-    CommonActions.navigate({
-      name: "Profile",
-      params: { screen: "Auth" },
-    }),
-  );
+  resetProfileTabToAuth(asParamListNavigation(navigation));
 }

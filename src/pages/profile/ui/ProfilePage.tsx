@@ -127,13 +127,14 @@ function ProfileScreenContent() {
     setMode(nextMode);
   };
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigation.navigate("Auth");
-    }
-  }, [loading, user, navigation]);
-
   usePreferenceOnboardingGate(navigation);
+
+  useLayoutEffect(() => {
+    if (loading || user) return;
+    const currentRoute = navigation.getState().routes[navigation.getState().index]?.name;
+    if (currentRoute !== "ProfileMain") return;
+    navigation.reset({ index: 0, routes: [{ name: "Auth" }] });
+  }, [loading, navigation, user]);
 
   useEffect(() => {
     if (!isScreenFocused) return;

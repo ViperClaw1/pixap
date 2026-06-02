@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { HomeStackParamList, RootTabParamList } from "@/app/navigation/types";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { devInfo } from "@/shared/lib/devLog";
+import { isOAuthCallbackHandled } from "@/shared/lib/oauthCallbackHandled";
 
 type Nav = NativeStackNavigationProp<HomeStackParamList>;
 type RootNav = NativeStackNavigationProp<RootTabParamList>;
@@ -20,6 +21,10 @@ export default function OAuthCallbackScreen() {
 
   useEffect(() => {
     const forward = (href: string | null) => {
+      if (href && isOAuthCallbackHandled(href)) {
+        devInfo("[OAuthCallback] skipping forward — callback already handled in-app");
+        return;
+      }
       const rootNav = navigation.getParent<RootNav>();
       if (!rootNav) return;
       devInfo("[OAuthCallback] forwarding to Profile/AuthEmailCallback", href ?? "<fetch getInitialURL>");

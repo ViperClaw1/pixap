@@ -28,6 +28,31 @@ function findTabNavigator(nav: NavigationProp<ParamListBase>): NavigationProp<Pa
   return null;
 }
 
+/** Switch to Profile tab with stack reset to Auth (avoids blank ProfileMain under Auth). */
+export function resetProfileTabToAuth(nav: NavigationProp<ParamListBase>): void {
+  const tabNav = findTabNavigator(nav);
+  if (!tabNav) return;
+  const state = tabNav.getState();
+  const profileTabIndex = state.routes.findIndex((route) => route.name === "Profile");
+  const nextIndex = profileTabIndex >= 0 ? profileTabIndex : state.index;
+  tabNav.dispatch(
+    CommonActions.reset({
+      index: nextIndex,
+      routes: state.routes.map((route) =>
+        route.name === "Profile"
+          ? {
+              ...route,
+              state: {
+                index: 0,
+                routes: [{ name: "Auth" }],
+              },
+            }
+          : route,
+      ),
+    }),
+  );
+}
+
 function findCartStackNavigator(nav: NavigationProp<ParamListBase>): NavigationProp<ParamListBase> | null {
   let node: NavigationProp<ParamListBase> | undefined = nav;
   while (node) {
@@ -134,14 +159,7 @@ function navigateToOwnProfileTab(nav: NavigationProp<ParamListBase>) {
 
 /** Open Profile tab → Auth (tabs stay visible). */
 export function navigateToProfileAuth(nav: NavigationProp<ParamListBase>) {
-  const parent = nav.getParent();
-  if (!parent) return;
-  parent.dispatch(
-    CommonActions.navigate({
-      name: "Profile",
-      params: { screen: "Auth" },
-    }),
-  );
+  resetProfileTabToAuth(nav);
 }
 
 /** Switch to Home tab root (e.g. after login). */

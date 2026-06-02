@@ -23,6 +23,8 @@ export const directionsModalStaticStyles = StyleSheet.create({
     borderTopRightRadius: 18,
   },
 
+  sheetExpandedAndroid: {},
+
   curtainWrap: {
     alignItems: "center",
     paddingTop: 8,
@@ -63,6 +65,29 @@ export const directionsModalStaticStyles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 13,
     marginBottom: 8,
+  },
+
+  mapHost: {
+    width: "100%",
+    minHeight: 220,
+    flex: 1,
+  },
+
+  androidSheetBody: {
+    flex: 1,
+  },
+
+  mapHostAndroid: {
+    flex: 1,
+    width: "100%",
+    minHeight: 220,
+    overflow: "visible",
+  },
+
+  mapLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   map: {
@@ -244,6 +269,10 @@ export function directionsModalThemeStyles(
     sheetExpanded: {
       marginTop: topInset,
       maxHeight: screenH,
+    },
+    sheetExpandedAndroid: {
+      marginTop: 0,
+      overflow: "visible",
     },
     footer: {
       paddingBottom: bottomInset,

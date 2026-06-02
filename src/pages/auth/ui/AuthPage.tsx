@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/shared/api/supabase/client";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession";
+import { markOAuthCallbackHandled } from "@/shared/lib/oauthCallbackHandled";
 import { env } from "@/shared/lib/env";
 import { getOAuthRedirectUri } from "@/shared/lib/oauthRedirect";
 import { isNewAuthRegistration } from "@/shared/lib/auth/isNewAuthRegistration";
@@ -263,6 +264,7 @@ export default function AuthScreen() {
           showUserAlert(t("auth.alerts.signInFailed"), finished.message);
           return;
         }
+        markOAuthCallbackHandled(result.url);
         beginAuthTransition(await resolveSocialPostAuthRoute());
         keepLoading = true;
         return;

@@ -9,8 +9,7 @@ import {
   Text,
   ScrollView,
   ActivityIndicator,
-  Linking,
-  Alert
+  Alert,
 } from "react-native";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
@@ -24,6 +23,7 @@ import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { DirectionsModal } from "@/shared/ui/directions-modal";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
+import { openPhoneDialer } from "@/shared/lib/openPhoneDialer";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { resolveBusinessCardHeroImagesRaw } from "@/shared/lib/business-card/businessCardImages";
 import {
@@ -49,7 +49,7 @@ import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySou
 import { useBatchStoryUpload } from "@/features/create-story";
 import { StoryUploadProgressOverlay } from "@/shared/ui/story-upload-progress/StoryUploadProgressOverlay";
 import { usePostShareSheet } from "@/features/post-share";
-import { LiveCrowdCard, usePlaceCrowdCheckin } from "@/features/live-crowd-meter";
+import { LiveCrowdCard, usePlaceCrowdCheckin, type CrowdCheckinOutcome } from "@/features/live-crowd-meter";
 import { logCrowdCheckin } from "@/entities/venue-crowd";
 import { appAlert } from "@/shared/ui/app-popup";
 import { useTranslation } from "react-i18next";
@@ -117,31 +117,46 @@ export default function PlaceDetailScreen() {
     });
   }, [place]);
 
+  const presentCrowdCheckInOutcome = useCallback(
+    (outcome: CrowdCheckinOutcome) => {
+      if (outcome === "recorded") {
+        appAlert(t("crowd.checkInSuccess"), t("crowd.checkInSuccessMessage"), undefined, "success");
+        return;
+      }
+      if (outcome === "location_denied") {
+        appAlert(t("crowd.checkInFailed"), t("crowd.locationDenied"), undefined, "alert");
+        return;
+      }
+      if (outcome === "too_far") {
+        const devHint = __DEV__
+          ? "\n\n[DEV] См. логи [CrowdCheckin] в Metro: venue coords, GPS, client/server distance_m."
+          : "";
+        appAlert(t("crowd.checkInFailed"), `${t("crowd.tooFar")}${devHint}`, undefined, "alert");
+        return;
+      }
+      if (outcome === "rate_limited") {
+        appAlert(t("crowd.alreadyCheckedIn"), t("crowd.alreadyCheckedInMessage"), undefined, "info");
+        return;
+      }
+      if (outcome === "error") {
+        appAlert(t("crowd.checkInFailed"), t("crowd.checkInError"), undefined, "alert");
+      }
+    },
+    [t],
+  );
+
   const onCrowdCheckIn = useCallback(async () => {
+    if (crowdCheckin.isCheckingIn) return;
+
     const outcome = await crowdCheckin.checkInManual();
-    if (outcome === "recorded") {
-      appAlert(t("crowd.checkInSuccess"), t("crowd.checkInSuccessMessage"), undefined, "success");
+    if (outcome === "skipped") return;
+
+    if (Platform.OS === "android") {
+      InteractionManager.runAfterInteractions(() => presentCrowdCheckInOutcome(outcome));
       return;
     }
-    if (outcome === "location_denied") {
-      appAlert(t("crowd.checkInFailed"), t("crowd.locationDenied"), undefined, "alert");
-      return;
-    }
-    if (outcome === "too_far") {
-      const devHint = __DEV__
-        ? "\n\n[DEV] См. логи [CrowdCheckin] в Metro: venue coords, GPS, client/server distance_m."
-        : "";
-      appAlert(t("crowd.checkInFailed"), `${t("crowd.tooFar")}${devHint}`, undefined, "alert");
-      return;
-    }
-    if (outcome === "rate_limited") {
-      appAlert(t("crowd.alreadyCheckedIn"), t("crowd.alreadyCheckedInMessage"), undefined, "info");
-      return;
-    }
-    if (outcome === "error") {
-      appAlert(t("crowd.checkInFailed"), t("crowd.checkInError"), undefined, "alert");
-    }
-  }, [crowdCheckin, t]);
+    presentCrowdCheckInOutcome(outcome);
+  }, [crowdCheckin, presentCrowdCheckInOutcome]);
 
   const themed = useThemeStyles(({ colors: c }) => placeDetailThemeStyles(c));
   const styles = useMemo(
@@ -201,13 +216,12 @@ export default function PlaceDetailScreen() {
     }
     setIsCalling(true);
     try {
-      const url = `tel:${place.phone}`;
-      const canOpen = await Linking.canOpenURL(url);
-      if (!canOpen) {
+      const result = await openPhoneDialer(place.phone);
+      if (result === "invalid") {
+        Alert.alert("Unavailable", "Phone number not available");
+      } else if (result === "unavailable") {
         Alert.alert("Unavailable", "Could not open phone dialer");
-        return;
       }
-      await Linking.openURL(url);
     } catch {
       Alert.alert("Unavailable", "Could not start call");
     } finally {
@@ -502,19 +516,19 @@ export default function PlaceDetailScreen() {
             {isCalling ? (
               <ActivityIndicator size="small" color={colors.text} />
             ) : (
-              <Text style={styles.secondaryBtnText}>Call</Text>
+              <Text style={styles.secondaryBtnText}>{t("placeDetail.call")}</Text>
             )}
           </AppPressable>
           <AppPressable style={styles.secondaryBtn} onPress={() => setDirectionsOpen(true)}>
-            <Text style={styles.secondaryBtnText}>Directions</Text>
+            <Text style={styles.secondaryBtnText}>{t("placeDetail.directions")}</Text>
           </AppPressable>
         </View>
 
         <AppPressable style={styles.primaryBtn} onPress={() => openBookingFlow({ id: place.id })}>
-          <Text style={styles.primaryBtnText}>Book now</Text>
+          <Text style={styles.primaryBtnText}>{t("placeDetail.bookNow")}</Text>
         </AppPressable>
         <AppPressable style={styles.outlineBtn} onPress={() => openAIBooking({ id: place.id })}>
-          <Text style={styles.outlineBtnText}>Book with PixAI</Text>
+          <Text style={styles.outlineBtnText}>{t("placeDetail.bookWithPixAI")}</Text>
         </AppPressable>
         {/* <AppPressable style={styles.outlineBtn} onPress={() => navigation.navigate("ShoppingItems", { id: place.id })}>
           <Text style={styles.outlineBtnText}>Order items</Text>
