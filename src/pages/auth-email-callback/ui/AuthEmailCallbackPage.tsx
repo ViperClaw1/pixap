@@ -4,18 +4,17 @@ import * as Linking from "expo-linking";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQueryClient } from "@tanstack/react-query";
-import { markProfileVerifiedAndInvalidate } from "@/entities/user";
+import { markProfileVerifiedAndInvalidate, waitForAuthUserIdFromAuthState } from "@/entities/user";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession";
-import { waitForAuthUserId } from "@/entities/user";
-import type { ProfileStackParamList, RootTabParamList } from "@/app/navigation/types";
+import { isOAuthCallbackHandled } from "@/shared/lib/oauthCallbackHandled";
+import type { ProfileStackParamList } from "@/app/navigation/types";
 import Toast from "react-native-toast-message";
 import { devInfo } from "@/shared/lib/devLog";
 
 const CALLBACK_TIMEOUT_MS = 20000;
 
 type ProfileNav = NativeStackNavigationProp<ProfileStackParamList, "AuthEmailCallback">;
-type RootNav = NativeStackNavigationProp<RootTabParamList>;
 
 function pickFlowFromUrl(href: string | null): "verify" | "recovery" {
   if (!href) return "verify";
@@ -37,6 +36,13 @@ function pickFlowFromUrl(href: string | null): "verify" | "recovery" {
 
   const raw = `${flowValue}`.toLowerCase() || typeFromQuery;
   return raw === "recovery" ? "recovery" : "verify";
+}
+
+function isNativeOAuthCallback(href: string | null): boolean {
+  if (!href) return false;
+  const lower = href.toLowerCase();
+  if (lower.includes("auth-email-callback")) return false;
+  return lower.includes("oauth/callback");
 }
 
 export default function AuthEmailCallbackPage() {
@@ -67,9 +73,7 @@ export default function AuthEmailCallbackPage() {
       if (done.current) return;
       done.current = true;
       clearCallbackTimeout();
-      const root = navigation.getParent<RootNav>();
       debugLog("Navigating to ProfileMain (valid session).");
-      root?.navigate("Profile", { screen: "ProfileMain" });
       navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
     };
 
@@ -77,15 +81,13 @@ export default function AuthEmailCallbackPage() {
       if (done.current) return;
       done.current = true;
       clearCallbackTimeout();
-      const root = navigation.getParent<RootNav>();
       debugLog("Navigating to ResetPassword (recovery).");
-      root?.navigate("Profile", { screen: "ResetPassword" });
       navigation.reset({ index: 0, routes: [{ name: "ResetPassword" }] });
     };
 
     const openInvalidSessionFallback = async () => {
       if (done.current) return;
-      const recoveredUserId = await waitForAuthUserId(5, 80);
+      const recoveredUserId = await waitForAuthUserIdFromAuthState(3000);
       if (recoveredUserId) {
         debugLog("Invalid callback ignored — authenticated session already present:", recoveredUserId);
         openProfileMain();
@@ -117,6 +119,11 @@ export default function AuthEmailCallbackPage() {
       if (done.current) return;
 
       const normalizedHref = href?.trim() ?? "";
+      if (normalizedHref && isOAuthCallbackHandled(normalizedHref)) {
+        debugLog("Skipping callback — already handled in AuthPage.");
+        openProfileMain();
+        return;
+      }
       if (normalizedHref && normalizedHref === lastProcessedHrefRef.current) {
         debugLog("Skipping duplicate callback URL.");
         return;
@@ -139,9 +146,14 @@ export default function AuthEmailCallbackPage() {
           await openInvalidSessionFallback();
           return;
         }
+        if (isNativeOAuthCallback(href)) {
+          debugLog("Native OAuth callback — opening ProfileMain.");
+          openProfileMain();
+          return;
+        }
         if (flow === "recovery") {
           debugLog("Recovery flow: waiting for authenticated user after callback.");
-          const recoveryUserId = await waitForAuthUserId();
+          const recoveryUserId = await waitForAuthUserIdFromAuthState();
           if (!recoveryUserId) {
             debugLog("Recovery flow: no authenticated user, fallback to Auth.");
             await openInvalidSessionFallback();
@@ -151,7 +163,7 @@ export default function AuthEmailCallbackPage() {
           openResetPassword();
           return;
         }
-        const verifiedUserId = await waitForAuthUserId();
+        const verifiedUserId = await waitForAuthUserIdFromAuthState();
         if (!verifiedUserId) {
           debugLog("No user id after session exchange.");
           await openInvalidSessionFallback();

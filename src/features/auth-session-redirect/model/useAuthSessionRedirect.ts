@@ -1,4 +1,5 @@
 import { useLayoutEffect } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import type { AppNavigation } from "@/app/navigation/appNavigation";
 import { navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 
@@ -9,8 +10,9 @@ export function useAuthSessionRedirect(params: {
   navigation: AppNavigation;
 }): void {
   const { authLoading, hasUser, navigation } = params;
+  const isFocused = useIsFocused();
   useLayoutEffect(() => {
-    if (authLoading || hasUser) return;
+    if (!isFocused || authLoading || hasUser) return;
     navigateToAuthScreen(navigation);
-  }, [authLoading, hasUser, navigation]);
+  }, [authLoading, hasUser, isFocused, navigation]);
 }

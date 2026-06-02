@@ -28,7 +28,11 @@
   },
   "placeDetail": {
     "seeAllPhotos": "Смотреть все {{count}} фото",
-    "seeAllPhotosA11y": "Смотреть все {{count}} фото"
+    "seeAllPhotosA11y": "Смотреть все {{count}} фото",
+    "call": "Позвонить",
+    "directions": "Маршрут",
+    "bookNow": "Забронировать",
+    "bookWithPixAI": "Забронировать с PixAI"
   },
   "feed": {
     "addStory": "Добавить сторис",

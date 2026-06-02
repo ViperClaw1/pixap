@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRecordVenueCheckin } from "@/entities/venue-crowd/api/useRecordVenueCheckin";
 import {
   buildCrowdDistanceDebug,
@@ -37,6 +37,8 @@ export function usePlaceCrowdCheckin({
   const recordMutation = useRecordVenueCheckin(venueId);
   const lastAutoAttemptRef = useRef<number>(0);
   const autoAttemptedRef = useRef(false);
+  const manualCheckInBusyRef = useRef(false);
+  const [manualCheckInBusy, setManualCheckInBusy] = useState(false);
 
   useEffect(() => {
     autoAttemptedRef.current = false;
@@ -69,7 +71,9 @@ export function usePlaceCrowdCheckin({
         venueLongitude: venueLongitude ?? null,
       });
 
-      const location = await requestForegroundLocation();
+      const location = await requestForegroundLocation({
+        preferCachedOnAndroid: options?.manual === true,
+      });
       if (!location.ok) {
         logCrowdCheckin(`checkin:${mode}:location_failed`, { reason: location.reason });
         return location.reason === "denied" ? "location_denied" : "error";
@@ -149,8 +153,18 @@ export function usePlaceCrowdCheckin({
   );
 
   const checkInManual = useCallback(async () => {
-    return tryCheckin({ manual: true });
-  }, [tryCheckin]);
+    if (manualCheckInBusyRef.current || recordMutation.isPending) {
+      return "skipped" as const;
+    }
+    manualCheckInBusyRef.current = true;
+    setManualCheckInBusy(true);
+    try {
+      return await tryCheckin({ manual: true });
+    } finally {
+      manualCheckInBusyRef.current = false;
+      setManualCheckInBusy(false);
+    }
+  }, [recordMutation.isPending, tryCheckin]);
 
   useEffect(() => {
     if (!autoOnMount || !isAuthenticated || !venueId || autoAttemptedRef.current) return;
@@ -166,6 +180,6 @@ export function usePlaceCrowdCheckin({
 
   return {
     checkInManual,
-    isCheckingIn: recordMutation.isPending,
+    isCheckingIn: manualCheckInBusy || recordMutation.isPending,
   };
 }

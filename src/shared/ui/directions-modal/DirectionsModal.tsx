@@ -89,6 +89,50 @@ function isFiniteCoordinate(value: LatLng | null | undefined): value is LatLng {
   );
 }
 
+const ANDROID_LOCATION_TIMEOUT_MS = 12_000;
+
+async function resolveUserOrigin(signal: AbortSignal): Promise<LatLng> {
+  const lastKnown = await Location.getLastKnownPositionAsync();
+  if (lastKnown?.coords) {
+    return {
+      latitude: lastKnown.coords.latitude,
+      longitude: lastKnown.coords.longitude,
+    };
+  }
+
+  if (Platform.OS !== "android") {
+    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+  }
+
+  return new Promise<LatLng>((resolve, reject) => {
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      fn();
+    };
+    const onAbort = () => finish(() => reject(new DOMException("Aborted", "AbortError")));
+    const timer = setTimeout(
+      () => finish(() => reject(new Error("Location request timed out. Try again or enable GPS."))),
+      ANDROID_LOCATION_TIMEOUT_MS,
+    );
+    signal.addEventListener("abort", onAbort, { once: true });
+    void Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      .then((pos) =>
+        finish(() =>
+          resolve({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          }),
+        ),
+      )
+      .catch((error: unknown) => finish(() => reject(error instanceof Error ? error : new Error(String(error)))));
+  });
+}
+
 function buildRenderableRoute(coords: LatLng[]): LatLng[] {
   if (coords.length < 2) return [];
   const safe = coords.filter(isFiniteCoordinate);
@@ -118,7 +162,7 @@ function buildRenderableRoute(coords: LatLng[]): LatLng[] {
 export function DirectionsModal({ visible, onClose, placeName, address }: Props) {
   const { height: screenH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const fetchGeneration = useRef(0);
   const requestControllerRef = useRef<AbortController | null>(null);
   const closingViaSwipeRef = useRef(false);
@@ -148,19 +192,39 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
   destCoordRef.current = destCoord;
   const routeCoordsRef = useRef(routeCoords);
   routeCoordsRef.current = routeCoords;
+  const userLocRef = useRef(userLoc);
+  userLocRef.current = userLoc;
 
   const styles = useDirectionsModalStyles(insets.top, insets.bottom, screenH);
+  const topInset = insets.top;
+  const isAndroid = Platform.OS === "android";
+
+  const [mapSurfaceReady, setMapSurfaceReady] = useState(!isAndroid);
 
   useEffect(() => {
     sheetScreenH.value = screenH;
   }, [screenH, sheetScreenH]);
 
-  const sheetSwipeStyle = useAnimatedStyle(
-    () => ({
-      transform: [{ translateY: swipeY.value }],
-    }),
-    [swipeY],
-  );
+  useEffect(() => {
+    if (!visible) {
+      setMapSurfaceReady(!isAndroid);
+      return;
+    }
+    if (!isAndroid) {
+      setMapSurfaceReady(true);
+      return;
+    }
+    setMapSurfaceReady(false);
+    const frame = requestAnimationFrame(() => setMapSurfaceReady(true));
+    return () => cancelAnimationFrame(frame);
+  }, [isAndroid, visible]);
+
+  const sheetSwipeStyle = useAnimatedStyle(() => {
+    if (isAndroid) {
+      return { marginTop: topInset + swipeY.value };
+    }
+    return { transform: [{ translateY: swipeY.value }] };
+  }, [isAndroid, swipeY, topInset]);
 
   const onCloseAfterSwipe = useCallback(() => {
     closingViaSwipeRef.current = true;
@@ -253,7 +317,6 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
           setError("Could not find this address on the map.");
         }
         setDestCoord(null);
-        setLoading(false);
         return;
       }
       setDestCoord(dest);
@@ -270,7 +333,6 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
       if (perm.status !== Location.PermissionStatus.GRANTED) {
         setPermissionDenied(true);
         setUserLoc(null);
-        setLoading(false);
         if (routeCoordsRef.current.length < 2) {
           fitMapRegion(regionAroundPoint(dest, 0.032));
         }
@@ -278,16 +340,10 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
       }
 
       setPermissionDenied(false);
-      let origin = userLoc;
+      let origin = userLocRef.current;
       if (!origin) {
-        const pos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
+        origin = await resolveUserOrigin(controller.signal);
         if (stale()) return;
-        origin = {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        };
         setUserLoc(origin);
       }
       if (routeCoordsRef.current.length < 2 && isFiniteCoordinate(origin) && isFiniteCoordinate(dest)) {
@@ -311,7 +367,6 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
               ? "Directions request denied. Check API key, billing, and enabled APIs (Directions, Geocoding)."
               : result.message ?? result.status;
         setError(hint);
-        setLoading(false);
         return;
       }
 
@@ -335,15 +390,16 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
       if (routeRegion) fitMapRegion(routeRegion);
       setDurationText(result.data.durationText);
       setDistanceText(result.data.distanceText);
-      setLoading(false);
-
     } catch (e) {
-      if (controller.signal.aborted) return;
-      if (stale()) return;
+      if (controller.signal.aborted || stale()) return;
       setError(e instanceof Error ? e.message : "Could not load directions.");
-      setLoading(false);
+    } finally {
+      if (!stale()) setLoading(false);
     }
   }, [address, apiKey, fitMapRegion, placeName, travelMode]);
+
+  const loadRouteRef = useRef(loadRoute);
+  loadRouteRef.current = loadRoute;
 
   const retryLocationPermission = useCallback(async () => {
     const current = await Location.getForegroundPermissionsAsync();
@@ -397,8 +453,8 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
     }
     closingViaSwipeRef.current = false;
     swipeY.value = 0;
-    void loadRoute();
-  }, [visible, loadRoute, swipeY]);
+    void loadRouteRef.current();
+  }, [visible, address, placeName, travelMode, swipeY]);
 
   const initialRegion = useMemo(
     () => regionAroundPoint(destCoord ?? { latitude: 40.1792, longitude: 44.4991 }, 0.04),
@@ -407,7 +463,100 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
 
   const polylineCoords = useMemo(() => (routeCoords.length >= 2 ? routeCoords : []), [routeCoords]);
   // iOS + Google provider can be unstable in Expo Go during frequent route updates.
-  const mapProvider = Platform.OS === "android" ? PROVIDER_GOOGLE : undefined;
+  const mapProvider = isAndroid ? PROVIDER_GOOGLE : undefined;
+
+  const mapChildren = (
+    <>
+      {polylineCoords.length >= 2 ? (
+        <Polyline coordinates={polylineCoords} strokeColor="#00C2FF" strokeWidth={6} />
+      ) : null}
+      {userLoc ? <DirectionsUserMarker coordinate={userLoc} /> : null}
+      {destCoord ? <DirectionsDestMarker coordinate={destCoord} title={placeName} /> : null}
+    </>
+  );
+
+  const headerChrome = (
+    <>
+      <GestureDetector gesture={panGesture}>
+        <View>
+          <View style={styles.curtainWrap}>
+            <View style={styles.curtain} />
+          </View>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {placeName}
+            </Text>
+            <Pressable style={styles.iconBtn} onPress={handleClose} accessibilityLabel="Close">
+              <Ionicons name="close" size={22} color={colors.text} />
+            </Pressable>
+          </View>
+        </View>
+      </GestureDetector>
+
+      <Text style={styles.address} numberOfLines={2}>
+        {address}
+      </Text>
+
+      {permissionDenied ? (
+        <View style={styles.banner}>
+          <View style={styles.bannerRow}>
+            <Pressable
+              style={styles.bannerIconBtn}
+              onPress={() => void retryLocationPermission()}
+              accessibilityRole="button"
+              accessibilityLabel="Request location permission again"
+            >
+              <Ionicons name="locate-outline" size={16} color={colors.text} />
+            </Pressable>
+            <Text style={styles.bannerText}>
+              Location permission denied — showing destination only. Enable location in settings to see routes from
+              your position.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      {error ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+    </>
+  );
+
+  const footerChrome = (
+    <View style={styles.footer}>
+      {(durationText || distanceText) && !loading ? (
+        <View style={styles.metaRow}>
+          {durationText ? <Text style={styles.metaText}>{durationText}</Text> : null}
+          {distanceText ? <Text style={styles.metaText}>{distanceText}</Text> : null}
+        </View>
+      ) : null}
+
+      <View style={styles.modeRow}>
+        {MODES.map(({ key, label }) => {
+          const active = travelMode === key;
+          return (
+            <Pressable
+              key={key}
+              style={[styles.modeChip, active && styles.modeChipActive]}
+              onPress={() => {
+                if (key === travelMode || loading) return;
+                setTravelMode(key);
+              }}
+              disabled={loading}
+            >
+              <Text style={[styles.modeLabel, active && styles.modeLabelActive]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Pressable style={styles.closeBtn} onPress={handleClose}>
+        <Text style={styles.closeText}>Close</Text>
+      </Pressable>
+    </View>
+  );
 
   if (!apiKey) {
     return (
@@ -432,108 +581,57 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
   return (
     <Modal visible={visible} animationType={modalAnimationType} transparent onRequestClose={handleClose}>
       <View style={styles.backdrop}>
-        <Animated.View style={[styles.sheet, styles.sheetExpanded, sheetSwipeStyle]}>
-          <GestureDetector gesture={panGesture}>
-            <View>
-              <View style={styles.curtainWrap}>
-                <View style={styles.curtain} />
-              </View>
-              <View style={styles.header}>
-                <Text style={styles.headerTitle} numberOfLines={1}>
-                  {placeName}
-                </Text>
-                <Pressable style={styles.iconBtn} onPress={handleClose} accessibilityLabel="Close">
-                  <Ionicons name="close" size={22} color={colors.text} />
-                </Pressable>
-              </View>
-            </View>
-          </GestureDetector>
-
-          <Text style={styles.address} numberOfLines={2}>
-            {address}
-          </Text>
-
-          {permissionDenied ? (
-            <View style={styles.banner}>
-              <View style={styles.bannerRow}>
-                <Pressable
-                  style={styles.bannerIconBtn}
-                  onPress={() => void retryLocationPermission()}
-                  accessibilityRole="button"
-                  accessibilityLabel="Request location permission again"
-                >
-                  <Ionicons name="locate-outline" size={16} color={colors.text} />
-                </Pressable>
-                <Text style={styles.bannerText}>
-                  Location permission denied — showing destination only. Enable location in settings to see routes
-                  from your position.
-                </Text>
-              </View>
-            </View>
-          ) : null}
-
-          {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
-
-          <View style={{ flex: 1 }}>
-            <MapView
-              ref={mapRef}
-              provider={mapProvider}
-              style={styles.map}
-              initialRegion={initialRegion}
-              showsUserLocation={!permissionDenied && !!userLoc}
-              showsMyLocationButton={false}
-            >
-              {polylineCoords.length >= 2 ? (
-                <Polyline
-                  coordinates={polylineCoords}
-                  strokeColor="#00C2FF"
-                  strokeWidth={6}
-                />
-              ) : null}
-              {userLoc ? <DirectionsUserMarker coordinate={userLoc} /> : null}
-              {destCoord ? <DirectionsDestMarker coordinate={destCoord} title={placeName} /> : null}
-            </MapView>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator style={{ marginVertical: 8 }} color={colors.primary} />
-          ) : null}
-
-          <View style={styles.footer}>
-            {(durationText || distanceText) && !loading ? (
-              <View style={styles.metaRow}>
-                {durationText ? <Text style={styles.metaText}>{durationText}</Text> : null}
-                {distanceText ? <Text style={styles.metaText}>{distanceText}</Text> : null}
-              </View>
-            ) : null}
-
-            <View style={styles.modeRow}>
-              {MODES.map(({ key, label }) => {
-                const active = travelMode === key;
-                return (
-                  <Pressable
-                    key={key}
-                    style={[styles.modeChip, active && styles.modeChipActive]}
-                    onPress={() => {
-                      if (key === travelMode || loading) return;
-                      setTravelMode(key);
-                    }}
-                    disabled={loading}
+        <Animated.View
+          style={[
+            styles.sheet,
+            styles.sheetExpanded,
+            isAndroid && styles.sheetExpandedAndroid,
+            sheetSwipeStyle,
+          ]}
+        >
+          {isAndroid ? (
+            <View style={styles.androidSheetBody}>
+              {headerChrome}
+              <View collapsable={false} style={styles.mapHostAndroid}>
+                {mapSurfaceReady ? (
+                  <MapView
+                    ref={mapRef}
+                    provider={mapProvider}
+                    style={StyleSheet.absoluteFillObject}
+                    initialRegion={initialRegion}
+                    showsUserLocation={!permissionDenied && !!userLoc}
+                    showsMyLocationButton={false}
                   >
-                    <Text style={[styles.modeLabel, active && styles.modeLabelActive]}>{label}</Text>
-                  </Pressable>
-                );
-              })}
+                    {mapChildren}
+                  </MapView>
+                ) : null}
+                {loading ? (
+                  <View style={styles.mapLoadingOverlay} pointerEvents="none">
+                    <ActivityIndicator color={colors.primary} />
+                  </View>
+                ) : null}
+              </View>
+              {footerChrome}
             </View>
-
-            <Pressable style={styles.closeBtn} onPress={handleClose}>
-              <Text style={styles.closeText}>Close</Text>
-            </Pressable>
-          </View>
+          ) : (
+            <>
+              {headerChrome}
+              <View style={{ flex: 1 }}>
+                <MapView
+                  ref={mapRef}
+                  provider={mapProvider}
+                  style={styles.map}
+                  initialRegion={initialRegion}
+                  showsUserLocation={!permissionDenied && !!userLoc}
+                  showsMyLocationButton={false}
+                >
+                  {mapChildren}
+                </MapView>
+              </View>
+              {loading ? <ActivityIndicator style={{ marginVertical: 8 }} color={colors.primary} /> : null}
+              {footerChrome}
+            </>
+          )}
         </Animated.View>
       </View>
     </Modal>

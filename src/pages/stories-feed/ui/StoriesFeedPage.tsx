@@ -43,7 +43,7 @@ import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySou
 import { profileDisplayName } from "@/shared/lib/profileDisplayName";
 import { profileAvatar, profileAvatarDisplay, profileName, getPostImages, slideBlurhashesForPost, type FeedPostVm } from "@/pages/stories-feed/lib/feedPostHelpers";
 import type { BrowseFlowParamList, FeedStackParamList, RootTabParamList } from "@/app/navigation/types";
-import { navigateToPublicProfile } from "@/app/navigation/navigationHelpers";
+import { navigateToPublicProfile, resetProfileTabToAuth } from "@/app/navigation/navigationHelpers";
 import type { StoryGroup } from "@/shared/model/types/stories";
 import { useCreatePostComposer, CreatePostModal } from "@/features/create-post";
 import { useBatchStoryUpload } from "@/features/create-story";
@@ -306,7 +306,7 @@ export default function StoriesFeedScreen() {
 
   // ─── Auth guard ──────────────────────────────────────────────────────────
   const redirectToAuth = useCallback(() => {
-    rootNavigation.navigate("Profile", { screen: "Auth" });
+    resetProfileTabToAuth(rootNavigation);
   }, [rootNavigation]);
 
   const runAuthedAction = useCallback(

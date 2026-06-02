@@ -28,7 +28,11 @@
   },
   "placeDetail": {
     "seeAllPhotos": "See all {{count}} photos",
-    "seeAllPhotosA11y": "See all {{count}} photos"
+    "seeAllPhotosA11y": "See all {{count}} photos",
+    "call": "Call",
+    "directions": "Directions",
+    "bookNow": "Book now",
+    "bookWithPixAI": "Book with PixAI"
   },
   "feed": {
     "addStory": "Add story",

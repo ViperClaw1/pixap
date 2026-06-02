@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useVenueLiveCrowd } from "@/entities/venue-crowd";
+import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { getCrowdPresentation } from "../lib/crowdPresentation";
 
 type Props = {
@@ -33,6 +34,7 @@ export function LiveCrowdCard({
   crowdCheckInTextStyle,
 }: Props) {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   const { data, isLoading, isError } = useVenueLiveCrowd(venueId, { enabled });
 
   if (isLoading && !data) {
@@ -74,14 +76,15 @@ export function LiveCrowdCard({
 
       {onCheckIn ? (
         <Pressable
-          style={crowdCheckInBtnStyle}
+          style={[crowdCheckInBtnStyle, isCheckingIn && { opacity: 0.65 }]}
           onPress={onCheckIn}
           disabled={isCheckingIn}
           accessibilityRole="button"
           accessibilityLabel={t("crowd.checkInCta")}
+          accessibilityState={{ disabled: isCheckingIn, busy: isCheckingIn }}
         >
           {isCheckingIn ? (
-            <ActivityIndicator size="small" />
+            <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
             <Text style={crowdCheckInTextStyle}>{t("crowd.checkInCta")}</Text>
           )}

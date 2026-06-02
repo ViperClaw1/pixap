@@ -1,6 +1,7 @@
 import * as Linking from "expo-linking";
 import type { NavigationContainerRefWithCurrent } from "@react-navigation/native";
 import { shouldRouteToAuthEmailCallback } from "@/shared/lib/supabaseAuthDeepLink";
+import { isOAuthCallbackHandled } from "@/shared/lib/oauthCallbackHandled";
 import type { RootTabParamList } from "./types";
 
 const DEDUPE_MS = 3000;
@@ -17,6 +18,7 @@ export function subscribeSupabaseAuthDeepLinks(
 
   const enqueue = (href: string | null) => {
     if (!href || !shouldRouteToAuthEmailCallback(href)) return;
+    if (isOAuthCallbackHandled(href)) return;
 
     const now = Date.now();
     if (href === lastHref && now - lastEnqueuedAt < DEDUPE_MS) return;

@@ -41,7 +41,7 @@ import {
   type FeedPostVm,
 } from "@/pages/stories-feed/lib/feedPostHelpers";
 import type { BrowseFlowParamList, RootTabParamList } from "@/app/navigation/types";
-import { navigateToPublicProfile } from "@/app/navigation/navigationHelpers";
+import { navigateToPublicProfile, resetProfileTabToAuth } from "@/app/navigation/navigationHelpers";
 import { getFeedPostCarouselImageUrls } from "@/shared/lib/feedMediaUrls";
 import { profileMentionTag } from "@/shared/lib/profileMentionTag";
 
@@ -103,7 +103,7 @@ export default function PostDetailPage() {
   }, [myProfile?.avatar_url, user?.user_metadata]);
 
   const redirectToAuth = useCallback(() => {
-    rootNavigation.navigate("Profile", { screen: "Auth" });
+    resetProfileTabToAuth(rootNavigation);
   }, [rootNavigation]);
 
   const runAuthedAction = useCallback(

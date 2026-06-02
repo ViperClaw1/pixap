@@ -2,7 +2,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -34,10 +33,6 @@ type ThemeProviderProps = {
 export function ThemeProvider({ children, initialMode = "system" }: ThemeProviderProps) {
   const systemScheme = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>(initialMode);
-
-  useEffect(() => {
-    setModeState(initialMode);
-  }, [initialMode]);
 
   const setMode = useCallback((m: ThemeMode) => {
     setModeState(m);
