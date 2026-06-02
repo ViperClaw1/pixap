@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  PixelRatio
+  PixelRatio,
+  InteractionManager,
 } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
@@ -249,7 +250,35 @@ function VibeMatchPageContent() {
     city: string;
   } | null>(null);
   const selectionSeededForPlanRef = useRef("");
+  const scrollRef = useRef<ScrollView>(null);
+  const conciergeScrollYRef = useRef(0);
+  const pendingScrollToConciergeRef = useRef(false);
   const bookingBusy = bookingAction !== null;
+
+  const scrollToConciergeTop = useCallback(() => {
+    if (!pendingScrollToConciergeRef.current) return;
+    const y = conciergeScrollYRef.current;
+    if (y <= 0) return;
+    pendingScrollToConciergeRef.current = false;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y), animated: true });
+  }, []);
+
+  const scheduleScrollToConcierge = useCallback(() => {
+    if (!pendingScrollToConciergeRef.current || !vibeResult || isVibeLoading) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      requestAnimationFrame(() => {
+        scrollToConciergeTop();
+        if (pendingScrollToConciergeRef.current) {
+          requestAnimationFrame(scrollToConciergeTop);
+        }
+      });
+    });
+    return () => task.cancel();
+  }, [isVibeLoading, scrollToConciergeTop, vibeResult]);
+
+  useEffect(() => {
+    return scheduleScrollToConcierge();
+  }, [vibeResult, isVibeLoading, scheduleScrollToConcierge]);
 
   const plan = useMemo(
     () => normalizeVibePlanStops(vibeResult?.plan ?? [], timeline),
@@ -525,7 +554,9 @@ function VibeMatchPageContent() {
     setLastVibeContext({ mood: resolveMoodDisplay(), timeline, city: cityTrim });
     try {
       await runVibePlan({ mood: moodSlugs, timeline, city: cityTrim, limit: MAX_SUGGESTED_VENUES });
+      pendingScrollToConciergeRef.current = true;
     } catch {
+      pendingScrollToConciergeRef.current = false;
       /* surfaced via vibeError */
     }
   }, [city, resolveMoodDisplay, resolveMoodSlugs, runVibePlan, t, timeline]);
@@ -711,7 +742,12 @@ function VibeMatchPageContent() {
 
   return (
     <Animated.View style={[styles.root, keyboardRootStyle]} {...androidSwipeBackPanHandlers}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
         <View style={styles.topRow}>
           <AppPressable style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel={t("bookingCommon.goBack")}>
             <Ionicons name="chevron-back" size={22} color={colors.text} />
@@ -783,7 +819,13 @@ function VibeMatchPageContent() {
         </View>
 
         {vibeResult && !isVibeLoading ? (
-          <View style={styles.section}>
+          <View
+            style={styles.section}
+            onLayout={(event) => {
+              conciergeScrollYRef.current = event.nativeEvent.layout.y;
+              scheduleScrollToConcierge();
+            }}
+          >
             <Text style={styles.label}>{t("vibeMatch.conciergeLabel")}</Text>
             <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>{conciergeMessage}</Text>
           </View>

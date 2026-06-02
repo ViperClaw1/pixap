@@ -1,18 +1,13 @@
-import { useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import Constants from "expo-constants";
-import { Image } from "expo-image";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
+import { VibeRouteMapInteractive } from "@/components/maps";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { env } from "@/shared/lib/env";
 import type { TravelMode } from "@/shared/lib/directionsApi";
 import type { LatLng } from "@/shared/lib/polylineDecode";
-import { useVibeRouteStaticMap } from "../lib/useVibeRouteStaticMap";
 import type { VibeRouteMapPoint } from "../lib/useVibePlanMapPoints";
-import { VibeRouteMapNative } from "./VibeRouteMapNative";
 
 const MAP_HEIGHT = 200;
 
@@ -31,12 +26,13 @@ type Props = {
   onTravelModeChange: (mode: TravelMode) => void;
   isLoading?: boolean;
   loadingLabel?: string;
-  /** White spinner + label on dark map overlay (route rebuild). */
   loadingOverlayLight?: boolean;
   missingCount?: number;
   durationText?: string | null;
   distanceText?: string | null;
   usesStraightFallback?: boolean;
+  highlightedVenueId?: string | null;
+  onMarkerPress?: (venueId: string) => void;
 };
 
 export function VibeRouteMap({
@@ -51,18 +47,16 @@ export function VibeRouteMap({
   durationText = null,
   distanceText = null,
   usesStraightFallback = false,
+  highlightedVenueId = null,
+  onMarkerPress,
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
-  const apiKey = env.googleMapsWebApiKey;
-  const useNativeMapFallback = Constants.appOwnership === "expo";
-
-  const mapImageKey = `${travelMode}|${points.map((point) => `${point.order}:${point.latitude},${point.longitude}`).join("|")}|${polylineCoords
-    .map((coord) => `${coord.latitude},${coord.longitude}`)
-    .join("|")}|${colors.accent}`;
 
   const activeMode = ROUTE_MODES.find((mode) => mode.key === travelMode) ?? ROUTE_MODES[0];
   const showRouteMeta = Boolean(durationText || distanceText) && !usesStraightFallback;
+  const loadingSpinnerColor = loadingOverlayLight ? "#ffffff" : colors.primary;
+  const loadingTextColor = loadingOverlayLight ? "#ffffff" : colors.text;
 
   if (!isLoading && points.length === 0) {
     return (
@@ -74,133 +68,23 @@ export function VibeRouteMap({
     );
   }
 
-  if (!apiKey) {
-    return (
-      <View style={[styles.placeholder, { backgroundColor: colors.background, borderColor: colors.border }]}>
-        <Text style={[styles.placeholderText, { color: colors.textMuted }]}>
-          {t("vibeMatch.routeMapPreviewFailed")}
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <VibeRouteMapFrame
-      points={points}
-      polylineCoords={polylineCoords}
-      travelMode={travelMode}
-      onTravelModeChange={onTravelModeChange}
-      isLoading={isLoading}
-      loadingLabel={loadingLabel}
-      loadingOverlayLight={loadingOverlayLight}
-      missingCount={missingCount}
-      durationText={durationText}
-      distanceText={distanceText}
-      showRouteMeta={showRouteMeta}
-      activeMode={activeMode}
-      apiKey={apiKey}
-      mapImageKey={mapImageKey}
-      useNativeMapFallback={useNativeMapFallback}
-      colors={colors}
-      t={t}
-    />
-  );
-}
-
-type FrameProps = Props & {
-  showRouteMeta: boolean;
-  activeMode: (typeof ROUTE_MODES)[number];
-  apiKey: string;
-  mapImageKey: string;
-  useNativeMapFallback: boolean;
-  colors: ReturnType<typeof useAppTheme>["colors"];
-  t: ReturnType<typeof useTranslation>["t"];
-};
-
-function VibeRouteMapFrame({
-  points,
-  polylineCoords,
-  travelMode,
-  onTravelModeChange,
-  isLoading = false,
-  loadingLabel,
-  loadingOverlayLight = false,
-  missingCount = 0,
-  durationText,
-  distanceText,
-  showRouteMeta,
-  activeMode,
-  apiKey,
-  mapImageKey,
-  useNativeMapFallback,
-  colors,
-  t,
-}: FrameProps) {
-  const [mapWidth, setMapWidth] = useState(0);
-
-  const staticMapQuery = useVibeRouteStaticMap({
-    apiKey,
-    mapWidth,
-    cacheKey: mapImageKey,
-    polylineCoords,
-    points,
-    pathColor: colors.accent,
-  });
-
-  const showNativeMap = useNativeMapFallback && points.length > 0 && staticMapQuery.isError;
-  const showStaticImage = Boolean(staticMapQuery.data);
-  const showMapLoading =
-    !showNativeMap && !showStaticImage && (mapWidth <= 0 || staticMapQuery.isPending);
-  const showPreviewFailed =
-    !useNativeMapFallback &&
-    !showStaticImage &&
-    !showMapLoading &&
-    staticMapQuery.isError &&
-    points.length > 0;
-
-  const loadingSpinnerColor = loadingOverlayLight ? "#ffffff" : colors.primary;
-  const loadingTextColor = loadingOverlayLight ? "#ffffff" : colors.text;
-
-  return (
-    <View
-      style={[styles.wrap, { borderColor: colors.border, backgroundColor: colors.card }]}
-      onLayout={(event) => {
-        const nextWidth = Math.round(event.nativeEvent.layout.width);
-        if (nextWidth > 0 && nextWidth !== mapWidth) {
-          setMapWidth(nextWidth);
-        }
-      }}
-    >
-      {showStaticImage ? (
-        <Image
-          source={{ uri: staticMapQuery.data! }}
-          style={styles.map}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-          recyclingKey={mapImageKey}
-        />
-      ) : null}
-      {showNativeMap ? (
-        <VibeRouteMapNative
+    <View style={[styles.wrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
+      {points.length > 0 ? (
+        <VibeRouteMapInteractive
           points={points}
           polylineCoords={polylineCoords}
           travelMode={travelMode}
           accentColor={colors.accent}
           labelColor={colors.onAccent}
+          highlightedVenueId={highlightedVenueId}
+          onMarkerPress={onMarkerPress}
         />
-      ) : null}
-      {showMapLoading ? (
+      ) : (
         <View style={[styles.mapFallback, { backgroundColor: colors.background }]}>
           <ActivityIndicator color={colors.primary} />
         </View>
-      ) : null}
-      {showPreviewFailed ? (
-        <View style={[styles.mapFallback, { backgroundColor: colors.background }]}>
-          <Text style={[styles.placeholderText, { color: colors.textMuted }]}>
-            {t("vibeMatch.routeMapPreviewFailed")}
-          </Text>
-        </View>
-      ) : null}
+      )}
       {isLoading ? (
         <View style={styles.loadingOverlay} pointerEvents="auto">
           <ActivityIndicator color={loadingSpinnerColor} />
@@ -275,14 +159,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
   },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
   mapFallback: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 20,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
