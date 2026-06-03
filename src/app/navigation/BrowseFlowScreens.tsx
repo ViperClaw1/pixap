@@ -6,6 +6,11 @@ const fullWidthSwipeBackOptions = {
   fullScreenGestureEnabled: true,
 } as const;
 
+const aiBookingScreenOptions = {
+  ...fullWidthSwipeBackOptions,
+  freezeOnBlur: false,
+} as const;
+
 /** Галерея — полноэкранная модалка как раньше. */
 const galleryModalOptions = {
   presentation: "fullScreenModal" as const,
@@ -113,7 +118,7 @@ export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
       <Screen
         name="AIBooking"
         getComponent={() => require("@/pages/ai-booking").default}
-        options={fullWidthSwipeBackOptions}
+        options={aiBookingScreenOptions}
       />
       <Screen name="VibeMatch" getComponent={() => require("@/pages/vibe-match").default} options={fullWidthSwipeBackOptions} />
       <Screen
