@@ -113,6 +113,24 @@ export async function restorePurchases(): Promise<RestoredPurchase[]> {
   }));
 }
 
+export async function getPendingPurchases(): Promise<RestoredPurchase[]> {
+  try {
+    const purchases = await getAvailablePurchases();
+    return purchases
+      .filter((purchase) => {
+        if (!purchase.transactionId) return false;
+        if (Platform.OS !== "android") return true;
+        return "isAcknowledgedAndroid" in purchase && !purchase.isAcknowledgedAndroid;
+      })
+      .map((purchase) => ({
+        payload: normalizePurchase(purchase),
+        raw: purchase,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export function startPurchaseListeners(options: {
   onPurchase: (purchase: PurchasePayload, raw: SubscriptionPurchase) => Promise<void> | void;
   onError?: (error: PurchaseError) => void;

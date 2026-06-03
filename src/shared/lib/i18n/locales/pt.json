@@ -43,6 +43,7 @@
     "loading": "A carregar...",
     "unknownError": "Erro desconhecido",
     "cancel": "Cancelar",
+    "close": "Fechar",
     "ok": "OK",
     "delete": "Eliminar",
     "unknownUser": "Utilizador desconhecido"
@@ -596,6 +597,15 @@
     "manageGoogle": "Gerir no Google Play",
     "legal": "Termos e faturação são geridos pela loja de apps.",
     "expoGoHint": "Compras não disponíveis no Expo Go.",
+    "purchaseSuccessTitle": "Tudo pronto!",
+    "purchaseSuccessBody": "A sua subscrição PixAI Premium está ativa. Os créditos foram adicionados.",
+    "purchaseSuccessCta": "Começar a explorar",
+    "purchaseErrorTitle": "Compra não confirmada",
+    "purchaseErrorBody": "O pagamento foi processado, mas não conseguimos confirmar a subscrição. Use Restaurar compras ou contacte o suporte.",
+    "purchaseVerifying": "A confirmar a compra…",
+    "restoreSuccessToast": "Subscrição restaurada com sucesso.",
+    "restoreNothingToast": "Nenhuma compra ativa encontrada para restaurar.",
+    "restoreErrorToast": "Falha ao restaurar. Tente novamente.",
     "tour": {
       "rewatch": "Como funciona o PixAI",
       "back": "Voltar",

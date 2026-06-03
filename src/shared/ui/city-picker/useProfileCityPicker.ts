@@ -3,6 +3,7 @@ import { Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { ALL_CITIES_OPTION } from "@/entities/business-card";
+import { bootstrapMyDailyRecommendations } from "@/entities/daily-recommendation";
 import { useProfile, useUpdateProfile } from "@/entities/user";
 import { queryKeys } from "@/shared/api/queryKeys";
 
@@ -24,10 +25,18 @@ export function useProfileCityPicker() {
     async (city: string) => {
       if (city === selectedCity) return false;
       const previous = selectedCity;
+      const nextCity = city === ALL_CITIES_OPTION ? null : city.trim() || null;
       setSelectedCity(city);
       try {
-        await updateProfile.mutateAsync({ city: city === ALL_CITIES_OPTION ? null : city });
+        await updateProfile.mutateAsync({ city: nextCity });
         await queryClient.invalidateQueries({ queryKey: queryKeys.businessCards.listPrefix });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.dailyRecommendations.prefix });
+        if (nextCity) {
+          void bootstrapMyDailyRecommendations(undefined, { force: true }).then((result) => {
+            if (!result) return;
+            void queryClient.invalidateQueries({ queryKey: queryKeys.dailyRecommendations.prefix });
+          });
+        }
         return true;
       } catch {
         setSelectedCity(previous);

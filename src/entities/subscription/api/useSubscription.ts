@@ -11,6 +11,12 @@ import type { PurchasePayload, SubscriptionPurchase } from "@/shared/lib/iap/sub
 
 type IapService = typeof import("@/shared/lib/iap/subscriptionIapService");
 
+export type VerificationState =
+  | { status: "idle" }
+  | { status: "verifying" }
+  | { status: "success" }
+  | { status: "error"; message: string };
+
 function isExpoGoRuntime(): boolean {
   return Constants.appOwnership === "expo";
 }
@@ -46,6 +52,7 @@ export function useSubscription() {
   const [iapReady, setIapReady] = useState(false);
   const [iapSupported, setIapSupported] = useState(!isExpoGoRuntime());
   const [iapService, setIapService] = useState<IapService | null>(null);
+  const [verificationState, setVerificationState] = useState<VerificationState>({ status: "idle" });
   const iapServiceRef = useRef<IapService | null>(null);
   const authRef = useRef<{ userId: string | null; accessToken: string | null }>({ userId: null, accessToken: null });
 
@@ -75,19 +82,39 @@ export function useSubscription() {
   });
 
   const verifyAndRefresh = useCallback(
-    async (payload: PurchasePayload, source: "purchase" | "restore" | "sync", rawPurchase?: SubscriptionPurchase) => {
-      const { accessToken, userId } = authRef.current;
-      if (!accessToken || !userId) throw new Error("Sign in required");
-      const verified = await verifyPurchaseWithBackend(accessToken, payload, source);
-      if (verified?.error) throw new Error(verified.error);
-      if (rawPurchase && iapServiceRef.current) {
-        await iapServiceRef.current.acknowledgePurchase(rawPurchase);
+    async (
+      payload: PurchasePayload,
+      source: "purchase" | "restore" | "sync",
+      rawPurchase?: SubscriptionPurchase,
+      options: { silent?: boolean } = {},
+    ) => {
+      const shouldUpdateVerificationState = source !== "sync" && !options.silent;
+      if (shouldUpdateVerificationState) {
+        setVerificationState({ status: "verifying" });
       }
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.subscription.entitlement(userId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.bookingCredits.prefix }),
-      ]);
-      return verified;
+      try {
+        const { accessToken, userId } = authRef.current;
+        if (!accessToken || !userId) throw new Error("Sign in required");
+        const verified = await verifyPurchaseWithBackend(accessToken, payload, source);
+        if (verified?.error) throw new Error(verified.error);
+        if (rawPurchase && iapServiceRef.current) {
+          await iapServiceRef.current.acknowledgePurchase(rawPurchase);
+        }
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.subscription.entitlement(userId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.bookingCredits.prefix }),
+        ]);
+        if (shouldUpdateVerificationState) {
+          setVerificationState({ status: "success" });
+        }
+        return verified;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Verification failed";
+        if (shouldUpdateVerificationState) {
+          setVerificationState({ status: "error", message });
+        }
+        throw error;
+      }
     },
     [queryClient],
   );
@@ -125,6 +152,14 @@ export function useSubscription() {
             }
           },
         });
+        const pendingPurchases = await service.getPendingPurchases();
+        for (const purchase of pendingPurchases) {
+          try {
+            await verifyAndRefresh(purchase.payload, "purchase", purchase.raw, { silent: true });
+          } catch (error) {
+            devWarn("[subscription] pending purchase verification failed", error);
+          }
+        }
       } catch (error) {
         setIapSupported(false);
         devWarn("[subscription] IAP init failed", error);
@@ -161,6 +196,7 @@ export function useSubscription() {
       if (!iapSupported || !iapService) {
         throw new Error("In-app purchases are not available in Expo Go. Use a development or production build.");
       }
+      setVerificationState({ status: "idle" });
       await iapService.startSubscriptionPurchase(targetSku, productsQuery.data ?? []);
     },
   });
@@ -170,15 +206,23 @@ export function useSubscription() {
       if (!iapSupported || !iapService) {
         throw new Error("In-app purchases are not available in Expo Go. Use a development or production build.");
       }
+      setVerificationState({ status: "idle" });
       const purchases = await iapService.restorePurchases();
-      if (purchases.length === 0) return;
+      if (purchases.length === 0) {
+        throw Object.assign(new Error("no_purchases"), { code: "no_purchases" });
+      }
       const seenPurchases = new Set<string>();
+      let restoredCount = 0;
       for (const purchase of purchases) {
         if (!purchase.payload.productId || !productIds.includes(purchase.payload.productId)) continue;
         const key = purchaseDedupeKey(purchase.payload);
         if (!key || seenPurchases.has(key)) continue;
         seenPurchases.add(key);
         await verifyAndRefresh(purchase.payload, "restore", purchase.raw);
+        restoredCount += 1;
+      }
+      if (restoredCount === 0) {
+        throw Object.assign(new Error("no_purchases"), { code: "no_purchases" });
       }
     },
   });
@@ -193,5 +237,8 @@ export function useSubscription() {
     restore: restoreMutation.mutateAsync,
     purchasePending: buyMutation.isPending,
     restorePending: restoreMutation.isPending,
+    verificationState,
+    verifying: verificationState.status === "verifying",
+    resetVerificationState: () => setVerificationState({ status: "idle" }),
   };
 }

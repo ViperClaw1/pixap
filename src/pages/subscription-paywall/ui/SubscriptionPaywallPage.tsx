@@ -1,14 +1,15 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Platform, ScrollView, Text, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Alert, Linking, Platform, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { useSubscription, useEntitlement } from "@/entities/subscription";
+import { useSubscription } from "@/entities/subscription";
 import { useBookingAccess } from "@/features/booking-access";
+import { SubscriptionPurchaseResultModal } from "@/features/subscription-paywall-redirect";
 import { env } from "@/shared/lib/env";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
@@ -30,23 +31,23 @@ export default function SubscriptionPaywallScreen() {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   useDisableGestureDuringTransition();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
-  const { iapSupported, products, productsLoading, purchase, restore, purchasePending, restorePending } =
-    useSubscription();
-  const { isActive } = useEntitlement();
+  const {
+    iapSupported,
+    products,
+    productsLoading,
+    purchase,
+    restore,
+    purchasePending,
+    restorePending,
+    verificationState,
+    verifying,
+    resetVerificationState,
+  } = useSubscription();
   const { balance, isIntroActive, introPeriodEndsAt } = useBookingAccess();
   const [selectedSku, setSelectedSku] = useState(env.pixAiMonthlySubscriptionSku);
   const { tourVisible, openTour, closeTour } = usePaywallTourAutoOpen();
 
   const paywallReason = route.params?.reason;
-
-  useEffect(() => {
-    if (!isActive) return;
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
-    }
-    navigation.navigate("AIBooking");
-  }, [isActive, navigation]);
 
   const styles = useSubscriptionPaywallStyles(insets.top, insets.bottom);
 
@@ -72,6 +73,45 @@ export default function SubscriptionPaywallScreen() {
     paywallReason === "no_credits"
       ? t("subscriptionPaywall.subtitleNoCredits")
       : t("subscriptionPaywall.subtitleUpgrade");
+
+  const handleSuccessDismiss = () => {
+    resetVerificationState();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate("AIBooking");
+  };
+
+  const handleErrorDismiss = () => {
+    resetVerificationState();
+  };
+
+  const handlePurchase = async () => {
+    try {
+      await purchase(selectedSku);
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === "user-cancelled") return;
+      const message = error instanceof Error ? error.message : t("subscriptionPaywall.purchaseErrorBody");
+      Alert.alert(t("subscriptionPaywall.purchaseErrorTitle"), message);
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      await restore();
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === "no_purchases") {
+        Alert.alert(t("subscriptionPaywall.restoreNothingToast"), undefined, [{ text: t("common.ok") }]);
+        return;
+      }
+      if (code !== "user-cancelled") {
+        Alert.alert(t("subscriptionPaywall.restoreErrorToast"));
+      }
+    }
+  };
 
   return (
     <>
@@ -117,17 +157,22 @@ export default function SubscriptionPaywallScreen() {
           <Text style={styles.subtitle}>{t("subscriptionPaywall.expoGoHint")}</Text>
         ) : null}
         <AppPressable
-          disabled={!iapSupported || purchasePending || productsLoading}
+          disabled={!iapSupported || purchasePending || productsLoading || verifying}
           style={styles.cta}
-          onPress={() => void purchase(selectedSku)}
+          onPress={() => void handlePurchase()}
         >
-          {purchasePending || productsLoading ? (
+          {purchasePending || productsLoading || verifying ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.ctaText}>{purchaseLabel}</Text>
           )}
         </AppPressable>
-        <AppPressable disabled={!iapSupported || restorePending} style={styles.secondary} onPress={() => void restore()}>
+        {verifying ? (
+          <Text style={[styles.legal, { textAlign: "center", marginTop: 6 }]}>
+            {t("subscriptionPaywall.purchaseVerifying")}
+          </Text>
+        ) : null}
+        <AppPressable disabled={!iapSupported || restorePending || verifying} style={styles.secondary} onPress={() => void handleRestore()}>
           {restorePending ? <ActivityIndicator color={colors.text} /> : <Text style={styles.secondaryText}>{t("subscriptionPaywall.restore")}</Text>}
         </AppPressable>
         {Platform.OS === "ios" ? (
@@ -144,6 +189,20 @@ export default function SubscriptionPaywallScreen() {
       </View>
       </ScrollView>
       <SubscriptionPaywallTourModal visible={tourVisible} onClose={closeTour} />
+      <SubscriptionPurchaseResultModal
+        visible={verificationState.status === "success" || verificationState.status === "error"}
+        success={verificationState.status === "success"}
+        errorMessage={verificationState.status === "error" ? verificationState.message : undefined}
+        onDismiss={verificationState.status === "success" ? handleSuccessDismiss : handleErrorDismiss}
+        onRetry={
+          verificationState.status === "error"
+            ? () => {
+                handleErrorDismiss();
+                void handleRestore();
+              }
+            : undefined
+        }
+      />
     </>
   );
 }
