@@ -319,7 +319,7 @@ function VibeMatchPageContent() {
     queries: plan.map((stop) => {
       const ymd = toYmd(new Date(stop.time_slot));
       return {
-        queryKey: queryKeys.availableSlots(stop.venue_id, ymd),
+        queryKey: queryKeys.availableSlots.forDay(stop.venue_id, ymd),
         queryFn: () => fetchAvailableSlotsForDay(stop.venue_id, ymd),
         enabled: plan.length > 0,
       };

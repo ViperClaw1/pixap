@@ -89,7 +89,7 @@ export async function fetchAvailableSlotsForDay(businessId: string, dateYmd: str
 
 export function useAvailableSlots(businessCardId: string | null, dateYmd: string | null) {
   return useQuery({
-    queryKey: queryKeys.availableSlots(businessCardId, dateYmd),
+    queryKey: queryKeys.availableSlots.forDay(businessCardId, dateYmd),
     queryFn: async () => fetchAvailableSlotsForDay(businessCardId!, dateYmd!),
     enabled: !!businessCardId && !!dateYmd,
   });
