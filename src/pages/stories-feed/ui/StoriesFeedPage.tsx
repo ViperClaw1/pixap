@@ -522,6 +522,7 @@ export default function StoriesFeedScreen() {
       <FlashList
         ref={feedListRef}
         data={focusedPostVms}
+        extraData={comments.expandedPostContentIds}
         keyExtractor={(item) => item.post.id}
         estimatedItemSize={sliderHeight + FEED_POST_LIST_ITEM_EXTRA_HEIGHT}
         getItemType={() => "feed-post"}

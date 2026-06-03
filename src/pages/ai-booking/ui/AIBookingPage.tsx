@@ -92,7 +92,10 @@ import {
   type BookingSearchSnapshot,
 } from "@/features/ai-booking-chat";
 import { collectOpeningTypewriterKeysFromMessages } from "@/features/ai-booking-chat/lib/collectOpeningTypewriterKeys";
-import { clearBookingOpeningTypewriterKeys } from "@/features/ai-booking-chat/lib/bookingOpeningTypewriterRegistry";
+import {
+  clearBookingOpeningTypewriterKeys,
+  markBookingOpeningTypewriterComplete,
+} from "@/features/ai-booking-chat/lib/bookingOpeningTypewriterRegistry";
 import {
   BookingRequestHistoryDrawer,
   buildHistoryItemFromTab,
@@ -175,6 +178,7 @@ function AIBookingPageContent() {
   const keyboardTopScreenRef = useRef<number | null>(null);
   const greetingBootstrappedRef = useRef(new Set<string>());
   const openingReplayGuardRef = useRef<string | null>(null);
+  const manualCitySelectionRef = useRef(false);
   const [openingTypewriterEpoch, setOpeningTypewriterEpoch] = useState(0);
 
   const persistScrollState = useCallback(() => {
@@ -743,6 +747,9 @@ function AIBookingPageContent() {
     const phase = tab?.onboardingPhase;
 
     if (!patched) {
+      if (manualCitySelectionRef.current) {
+        manualCitySelectionRef.current = false;
+      }
       if (phase === "greeting" || phase === "await_city") {
         store.setTabOnboardingPhase(activeTabId, "await_category");
       }
@@ -750,6 +757,11 @@ function AIBookingPageContent() {
     }
 
     const greetingId = onboardingAssistantMessageId(activeTabId, "greeting");
+    if (manualCitySelectionRef.current) {
+      manualCitySelectionRef.current = false;
+      markBookingOpeningTypewriterComplete(greetingId);
+      return;
+    }
     clearBookingOpeningTypewriterKeys([greetingId]);
     openingReplayGuardRef.current = null;
     if (phase !== "assistant_typing") {
@@ -1341,6 +1353,7 @@ function AIBookingPageContent() {
                 key={city}
                 style={styles.pickerRow}
                 onPress={() => {
+                  manualCitySelectionRef.current = true;
                   setSelectedCity(city);
                   setCitySearchQuery("");
                   setCityPickerVisible(false);

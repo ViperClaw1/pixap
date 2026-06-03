@@ -103,7 +103,7 @@ export const FeedPostCard = memo(function FeedPostCard({
 
   useEffect(() => {
     setShowMoreLink(false);
-  }, [item.id, postContent, isContentExpanded]);
+  }, [item.id, postContent]);
 
   useEffect(() => {
     setIsEditingTitle(false);
@@ -461,7 +461,21 @@ export const FeedPostCard = memo(function FeedPostCard({
                   </Text>
                 ) : null}
                 {isContentExpanded ? (
-                  <Text style={[styles.storyText, { color: colors.text }]}>{postContent}</Text>
+                  <Text style={[styles.storyText, { color: colors.text }]}>
+                    {postContent}
+                    {showMoreLink ? (
+                      <>
+                        {" "}
+                        <Text
+                          style={[styles.moreLink, { color: colors.textMuted }]}
+                          onPress={onToggleContent}
+                          suppressHighlighting
+                        >
+                          less...
+                        </Text>
+                      </>
+                    ) : null}
+                  </Text>
                 ) : (
                   <View style={styles.postTextRow}>
                     <Text
