@@ -80,6 +80,8 @@ function EditProfileScreenContent() {
   const { colors, mode, setMode } = useAppTheme();
   const { user } = useAuth();
   const { data: profile } = useProfile();
+  const authAvatarUrl = typeof user?.user_metadata?.avatar_url === "string" ? user.user_metadata.avatar_url : "";
+  const authEmail = user?.email;
   const isIos = Platform.OS === "ios";
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffsetYRef = useRef(0);
@@ -156,13 +158,13 @@ function EditProfileScreenContent() {
   const update = useUpdateProfile();
   const uploadProfileAvatar = useUploadProfileAvatar();
   const [username, setUsername] = useState(
-    profile?.username?.trim() || deriveDefaultUsername(profile?.email ?? user?.email),
+    profile?.username?.trim() || deriveDefaultUsername(profile?.email ?? authEmail),
   );
   const [first, setFirst] = useState(profile?.first_name ?? "");
   const [last, setLast] = useState(profile?.last_name ?? "");
   const [phoneValue, setPhoneValue] = useState<PhoneValue>(DEFAULT_PHONE_VALUE);
   const [bio, setBio] = useState(profile?.bio ?? "");
-  const [avatarUrl, setAvatarUrl] = useState<string>(profile?.avatar_url ?? ((user?.user_metadata?.avatar_url as string) ?? ""));
+  const [avatarUrl, setAvatarUrl] = useState<string>(profile?.avatar_url ?? authAvatarUrl);
   const [avatarBlurhash, setAvatarBlurhash] = useState<string | null>(profile?.avatar_blurhash ?? null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -172,28 +174,33 @@ function EditProfileScreenContent() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [avatarSourcePickerVisible, setAvatarSourcePickerVisible] = useState(false);
+  const initializedProfileIdRef = useRef<string | null>(null);
 
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
   };
 
   useEffect(() => {
+    initializedProfileIdRef.current = null;
+  }, [user?.id]);
+
+  useEffect(() => {
     if (!profile) return;
+    if (user?.id && profile.id !== user.id) return;
+    if (initializedProfileIdRef.current === profile.id) return;
+    initializedProfileIdRef.current = profile.id;
     const storedUsername = profile.username?.trim();
-    setUsername(storedUsername || deriveDefaultUsername(profile.email ?? user?.email));
+    setUsername(storedUsername || deriveDefaultUsername(profile.email ?? authEmail));
     setFirst(profile.first_name ?? "");
     setLast(profile.last_name ?? "");
     setPhoneValue(parseStoredPhone(profile.phone));
     setBio(profile.bio ?? "");
-    setAvatarUrl(profile.avatar_url ?? ((user?.user_metadata?.avatar_url as string) ?? ""));
-    setAvatarBlurhash(profile.avatar_blurhash ?? null);
-  }, [profile, user]);
+  }, [authEmail, profile, user?.id]);
 
   useEffect(() => {
-    if (!profile?.avatar_url) {
-      setAvatarUrl((user?.user_metadata?.avatar_url as string) ?? "");
-    }
-  }, [profile?.avatar_url, user]);
+    setAvatarUrl(profile?.avatar_url ?? authAvatarUrl);
+    setAvatarBlurhash(profile?.avatar_blurhash ?? null);
+  }, [authAvatarUrl, profile?.avatar_blurhash, profile?.avatar_url]);
 
   const handlePhoneChange = (next: PhoneValue) => {
     setPhoneValue(next);

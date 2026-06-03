@@ -1,4 +1,4 @@
-import { Linking, Platform } from "react-native";
+import { Linking } from "react-native";
 
 const PLACEHOLDER_PHONE = /^[—\-–.\s]+$/;
 
@@ -20,18 +20,14 @@ export type OpenPhoneDialerResult = "ok" | "invalid" | "unavailable";
 
 /**
  * Opens the system phone dialer.
- * On Android 11+, `Linking.canOpenURL('tel:…')` is often false without manifest queries;
- * `openURL` still works, so Android skips the pre-check (iOS keeps `canOpenURL`).
+ * `openURL` throws when the scheme is unavailable, so a separate `canOpenURL('tel:...')`
+ * pre-check only adds bridge latency and can require platform-specific query config.
  */
 export async function openPhoneDialer(raw: string): Promise<OpenPhoneDialerResult> {
   const url = buildTelUrl(raw);
   if (!url) return "invalid";
 
   try {
-    if (Platform.OS === "ios") {
-      const canOpen = await Linking.canOpenURL(url);
-      if (!canOpen) return "unavailable";
-    }
     await Linking.openURL(url);
     return "ok";
   } catch {

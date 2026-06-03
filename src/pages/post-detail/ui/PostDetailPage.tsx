@@ -44,12 +44,14 @@ import type { BrowseFlowParamList, RootTabParamList } from "@/app/navigation/typ
 import { navigateToPublicProfile, resetProfileTabToAuth } from "@/app/navigation/navigationHelpers";
 import { getFeedPostCarouselImageUrls } from "@/shared/lib/feedMediaUrls";
 import { profileMentionTag } from "@/shared/lib/profileMentionTag";
+import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 
 type PostDetailRoute = RouteProp<BrowseFlowParamList, "PostDetail">;
 
 export default function PostDetailPage() {
   const { colors } = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<BrowseFlowParamList>>();
+  useDisableGestureDuringTransition();
   const rootNavigation = useNavigation<NavigationProp<RootTabParamList>>();
   const route = useRoute<PostDetailRoute>();
   const isScreenFocused = useIsFocused();

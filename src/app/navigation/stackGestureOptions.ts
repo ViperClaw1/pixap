@@ -1,12 +1,11 @@
 import { Platform } from "react-native";
 
 /**
- * Browse/detail pushes (Home → PlaceDetail → BookingFlow, …).
+ * Edge-only swipe-back fallback for screens that do not install
+ * `useDisableGestureDuringTransition`.
  *
- * iOS: edge-only back swipe — `fullScreenGestureEnabled` lets one continuous swipe
- * chain pops and re-focus PlaceDetail with a visible flash.
- *
- * Android: native stack gestures are unreliable; screens use `useAndroidFullSwipeBackPanHandlers`.
+ * Android native stack gestures are unreliable; screens use
+ * `useAndroidFullSwipeBackPanHandlers`.
  */
 export const browseFlowSwipeBackOptions = {
   gestureEnabled: Platform.OS === "ios",

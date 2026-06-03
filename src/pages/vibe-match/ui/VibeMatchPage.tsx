@@ -4,12 +4,10 @@ import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   ScrollView,
   ActivityIndicator,
   Alert,
-  Platform,
   PixelRatio,
   InteractionManager,
 } from "react-native";
@@ -17,7 +15,7 @@ import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CommonActions, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { useQueries } from "@tanstack/react-query";
@@ -91,6 +89,7 @@ import {
 import { toYmd } from "@/shared/lib/bookingCalendar";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { VIBE_OPTIONS, type TaxonomyOption } from "@/entities/user-preferences";
 import { OnboardingChipGrid } from "@/shared/ui/onboarding/OnboardingChipGrid";
 import { devWarn } from "@/shared/lib/devLog";
@@ -195,6 +194,7 @@ function VibeMatchPageContent() {
   );
   const { colors } = useAppTheme();
   const navigation = useNavigation<Nav>();
+  useDisableGestureDuringTransition();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const { user, session, loading: authLoading } = useAuth();
   const {

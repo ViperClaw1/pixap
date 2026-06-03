@@ -11,6 +11,7 @@ import { useSubscription, useEntitlement } from "@/entities/subscription";
 import { useBookingAccess } from "@/features/booking-access";
 import { env } from "@/shared/lib/env";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { SubscriptionPaywallTourModal, usePaywallTourAutoOpen } from "@/features/subscription-paywall-tour";
@@ -27,6 +28,7 @@ export default function SubscriptionPaywallScreen() {
   const insets = useSafeAreaInsets();
   const route = useRoute<PaywallRoute>();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  useDisableGestureDuringTransition();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const { iapSupported, products, productsLoading, purchase, restore, purchasePending, restorePending } =
     useSubscription();

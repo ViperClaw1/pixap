@@ -19,14 +19,9 @@ export async function encodeBlurHashFromPickerAssetUri(assetUri: string): Promis
     const decoded = decode(raw, { useTArray: true });
     const { width, height, data } = decoded;
     if (!width || !height || !data.length) return null;
-    const pixels = new Uint8ClampedArray(width * height * 3);
-    for (let i = 0; i < width * height; i += 1) {
-      const o = i * 4;
-      const p = i * 3;
-      pixels[p] = data[o]!;
-      pixels[p + 1] = data[o + 1]!;
-      pixels[p + 2] = data[o + 2]!;
-    }
+    const expectedLength = width * height * 4;
+    if (data.length !== expectedLength) return null;
+    const pixels = new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength);
     return encode(pixels, width, height, 4, 3);
   } catch {
     return null;

@@ -254,8 +254,8 @@
     "nearMe5Miles": "Near me (5 miles)",
     "allPlacesInCity": "All places in city",
     "allPlacesInMyCity": "All places in my city",
-    "selectServiceOrTable": "Select service or table",
-    "chooseServiceOrTable": "Choose service or table",
+    "selectServiceOrTable": "Select place type",
+    "chooseServiceOrTable": "Select place type",
     "continue": "Continue",
     "backStep": "Back step",
     "retry": "Retry",
@@ -289,7 +289,7 @@
     "step1PlacesTitle": "Step 1. Suggested places",
     "step2BookingTitle": "Step 2. Booking details",
     "selectCityHint": "Select your city to continue.",
-    "selectCategoryHint": "Select a service or table to continue.",
+    "selectCategoryHint": "Select a place type to continue.",
     "commentPlaceholder": "Optional comment (preferences, budget, atmosphere...)",
     "nearbyHelper": "Nearby search will ask for fine location permission only when you start search.",
     "searching": "Searching...",
@@ -298,7 +298,7 @@
     "locationRequiredTitle": "Location is required",
     "locationRequiredMessage": "To search near you, allow fine location permission.",
     "chooseRequestTitle": "Choose request",
-    "chooseRequestMessage": "Select a category or restaurant table.",
+    "chooseRequestMessage": "Select a place type.",
     "listUpdatedTitle": "List updated",
     "listUpdatedMessage": "The assistant removed or re-ranked places and your previous pick is no longer available. Choose another place.",
     "searchFailed": "Could not search places.",
@@ -750,7 +750,7 @@
         },
         "smartBookingCategory": {
           "title": "Choose a category",
-          "description": "Pick the service or table type you need — bars, restaurants, and more. Add an optional comment with preferences or budget."
+          "description": "Pick the place type you need — bars, restaurants, and more. Add an optional comment with preferences or budget."
         },
         "smartBookingScope": {
           "title": "Set search scope",

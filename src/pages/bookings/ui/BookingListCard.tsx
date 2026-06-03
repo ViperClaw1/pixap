@@ -19,6 +19,7 @@ import {
   businessCardDisplayFallback,
   getBusinessCardDisplayUrl,
 } from "@/shared/lib/business-card/businessCardDisplayUrl";
+import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
 import type { bookingsStaticStyles } from "./bookingsStyles";
 
 export const BOOKING_THUMB_SIZE = 64;
@@ -104,6 +105,7 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
     Boolean(item.waPaymentLink);
   const thumbEdge = isCompact ? 56 : BOOKING_THUMB_SIZE;
   const { uri: thumbUri, fallbackUri: thumbFallback } = bookingThumbUris(item.business_card?.images, thumbEdge);
+  const coverBlurhash = getBusinessCardCoverBlurhash(item.business_card?.blurhashes);
 
   const openPaymentLink = async (paymentLink: string | null) => {
     if (!paymentLink) {
@@ -134,6 +136,7 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
         recyclingKey={`${item.id}-thumb`}
         style={[styles.thumb, isCompact ? styles.thumbCompact : null]}
         contentFit="cover"
+        blurhash={coverBlurhash}
       />
       <View style={{ flex: 1 }}>
         <View style={styles.rowHead}>

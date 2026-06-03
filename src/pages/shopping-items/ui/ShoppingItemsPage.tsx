@@ -30,6 +30,7 @@ import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { shoppingItemsStaticStyles, shoppingItemsThemeStyles } from "./shoppingItemsStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
+import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 
 type R = RouteProp<BrowseFlowParamList, "ShoppingItems">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "ShoppingItems">;
@@ -37,6 +38,7 @@ type Nav = NativeStackNavigationProp<BrowseFlowParamList, "ShoppingItems">;
 export default function ShoppingItemsScreen() {
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
+  useDisableGestureDuringTransition();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { user } = useAuth();
