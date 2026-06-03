@@ -139,8 +139,8 @@
     "nearMe5Miles": "In meiner Nähe (8 km)",
     "allPlacesInCity": "Alle Orte in der Stadt",
     "allPlacesInMyCity": "Alle Orte in meiner Stadt",
-    "selectServiceOrTable": "Service oder Tisch wählen",
-    "chooseServiceOrTable": "Service oder Tisch auswählen",
+    "selectServiceOrTable": "Ortstyp auswählen",
+    "chooseServiceOrTable": "Ortstyp auswählen",
     "continue": "Weiter",
     "backStep": "Zurück",
     "retry": "Erneut versuchen",
@@ -174,7 +174,7 @@
     "step1PlacesTitle": "Schritt 1. Empfohlene Orte",
     "step2BookingTitle": "Schritt 2. Buchungsdetails",
     "selectCityHint": "Wählen Sie Ihre Stadt, um fortzufahren.",
-    "selectCategoryHint": "Wählen Sie einen Service oder Tisch, um fortzufahren.",
+    "selectCategoryHint": "Wählen Sie einen Ortstyp, um fortzufahren.",
     "commentPlaceholder": "Kommentar (Präferenzen, Budget, Atmosphäre...)",
     "nearbyHelper": "Die Suche in der Nähe fragt den Standortzugriff erst beim Start der Suche an.",
     "searching": "Suche...",
@@ -183,7 +183,7 @@
     "locationRequiredTitle": "Standort erforderlich",
     "locationRequiredMessage": "Erlauben Sie den genauen Standortzugriff, um in Ihrer Nähe zu suchen.",
     "chooseRequestTitle": "Anfrage wählen",
-    "chooseRequestMessage": "Wählen Sie eine Kategorie oder einen Restauranttisch.",
+    "chooseRequestMessage": "Wählen Sie einen Ortstyp.",
     "listUpdatedTitle": "Liste aktualisiert",
     "listUpdatedMessage": "Der Assistent hat Orte entfernt oder neu sortiert. Ihre vorherige Auswahl ist nicht mehr verfügbar. Wählen Sie einen anderen Ort.",
     "searchFailed": "Orte konnten nicht gesucht werden.",
@@ -609,7 +609,7 @@
         },
         "smartBookingCategory": {
           "title": "Kategorie wählen",
-          "description": "Wählen Sie Service oder Tischtyp — z. B. Bars oder Restaurants. Optional Wünsche oder Budget ergänzen."
+          "description": "Wählen Sie den gewünschten Ortstyp — z. B. Bars oder Restaurants. Optional Wünsche oder Budget ergänzen."
         },
         "smartBookingScope": {
           "title": "Suchbereich festlegen",

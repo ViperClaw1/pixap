@@ -23,6 +23,7 @@ import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { BookingFlowPlacePanel } from "@/shared/ui/booking-place-panel";
 import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { devWarn } from "@/shared/lib/devLog";
 import { appAlert } from "@/shared/ui/app-popup";
 import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
@@ -64,6 +65,7 @@ type Nav = NativeStackNavigationProp<BrowseFlowParamList, "BookingFlow">;
 export default function BookingFlowPage() {
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
+  useDisableGestureDuringTransition();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
     sensitivity: "high",
   });

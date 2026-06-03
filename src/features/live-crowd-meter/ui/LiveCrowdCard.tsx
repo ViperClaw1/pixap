@@ -1,28 +1,32 @@
-import { ActivityIndicator, Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import type { ReactNode } from "react";
+import { ActivityIndicator, Pressable, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useVenueLiveCrowd } from "@/entities/venue-crowd";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 import { getCrowdPresentation } from "../lib/crowdPresentation";
 
 type Props = {
   venueId: string;
   enabled?: boolean;
   onCheckIn?: () => void;
+  onCardPress?: () => void;
   isCheckingIn?: boolean;
   style?: StyleProp<ViewStyle>;
   crowdCardStyle?: StyleProp<ViewStyle>;
   crowdBadgeStyle?: StyleProp<ViewStyle>;
-  crowdTitleStyle?: StyleProp<ViewStyle>;
-  crowdHeadlineStyle?: StyleProp<ViewStyle>;
-  crowdMetaStyle?: StyleProp<ViewStyle>;
+  crowdTitleStyle?: StyleProp<TextStyle>;
+  crowdHeadlineStyle?: StyleProp<TextStyle>;
+  crowdMetaStyle?: StyleProp<TextStyle>;
   crowdCheckInBtnStyle?: StyleProp<ViewStyle>;
-  crowdCheckInTextStyle?: StyleProp<ViewStyle>;
+  crowdCheckInTextStyle?: StyleProp<TextStyle>;
 };
 
 export function LiveCrowdCard({
   venueId,
   enabled = true,
   onCheckIn,
+  onCardPress,
   isCheckingIn = false,
   style,
   crowdCardStyle,
@@ -36,12 +40,45 @@ export function LiveCrowdCard({
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const { data, isLoading, isError } = useVenueLiveCrowd(venueId, { enabled });
+  const renderCard = (children: ReactNode, accessibilityState?: { busy?: boolean }) => {
+    const cardStyle = [style, crowdCardStyle];
+    if (!onCardPress) {
+      return <View style={cardStyle}>{children}</View>;
+    }
+    return (
+      <Pressable
+        style={cardStyle}
+        onPress={onCardPress}
+        accessibilityRole="button"
+        accessibilityLabel={t("crowd.liveMeter")}
+        accessibilityState={accessibilityState}
+      >
+        {children}
+      </Pressable>
+    );
+  };
 
   if (isLoading && !data) {
     return (
-      <View style={[style, crowdCardStyle]}>
-        <ActivityIndicator size="small" />
-      </View>
+      <ShimmerProvider active>
+        {renderCard(
+          <>
+            <View style={crowdBadgeStyle}>
+              <ShimmerSurface width={112} height={16} borderRadius={8} />
+              <ShimmerSurface width={172} height={19} borderRadius={10} />
+            </View>
+
+            <ShimmerSurface width={132} height={15} borderRadius={8} style={{ marginTop: 6 }} />
+
+            {onCheckIn ? (
+              <View style={crowdCheckInBtnStyle}>
+                <ShimmerSurface width={96} height={14} borderRadius={7} />
+              </View>
+            ) : null}
+          </>,
+          { busy: true },
+        )}
+      </ShimmerProvider>
     );
   }
 
@@ -59,8 +96,8 @@ export function LiveCrowdCard({
 
   const presentation = getCrowdPresentation(crowd.crowd_level);
 
-  return (
-    <View style={[style, crowdCardStyle]}>
+  return renderCard(
+    <>
       <View style={crowdBadgeStyle}>
         <Text style={crowdTitleStyle}>
           {presentation.emoji} {t("crowd.liveMeter")}
@@ -90,6 +127,6 @@ export function LiveCrowdCard({
           )}
         </Pressable>
       ) : null}
-    </View>
+    </>,
   );
 }

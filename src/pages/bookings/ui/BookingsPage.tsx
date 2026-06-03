@@ -43,6 +43,7 @@ import { ShimmerProvider } from "@/shared/ui/shimmer";
 import { bookingStatusNotificationText, useCreateNotification } from "@/entities/notification";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
+import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
 
 type Nav = NativeStackNavigationProp<BookingsStackParamList, "BookingsMain">;
 
@@ -226,6 +227,7 @@ export default function BookingsScreen() {
             businessCards.map((item) => {
               const thumbEdge = isCompact ? 56 : BOOKING_THUMB_SIZE;
               const { uri: thumbUri, fallbackUri: thumbFallback } = bookingThumbUris(item.images, thumbEdge);
+              const coverBlurhash = getBusinessCardCoverBlurhash(item.blurhashes);
               return (
               <View key={item.id} style={styles.card}>
                 <SmartImage
@@ -235,6 +237,7 @@ export default function BookingsScreen() {
                   recyclingKey={`book-place-${item.id}`}
                   style={[styles.thumb, isCompact ? styles.thumbCompact : null]}
                   contentFit="cover"
+                  blurhash={coverBlurhash}
                 />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.name} numberOfLines={1}>

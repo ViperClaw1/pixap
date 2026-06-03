@@ -25,6 +25,7 @@ import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { devWarn } from "@/shared/lib/devLog";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { useAndroidHardwareBack } from "@/shared/lib/useAndroidHardwareBack";
+import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { profileFullName } from "@/pages/profile/model/format";
 import { publicProfileStaticStyles, publicProfileThemeStyles } from "./publicProfileStyles";
 
@@ -39,6 +40,7 @@ export default function PublicProfilePage() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<PublicProfileNav>();
+  useDisableGestureDuringTransition();
   const rootNavigation = useNavigation<NavigationProp<RootTabParamList>>();
   const route = useRoute<PublicProfileRoute>();
   const userId = route.params.userId.trim();

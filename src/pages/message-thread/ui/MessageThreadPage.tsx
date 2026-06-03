@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -49,6 +49,7 @@ import Toast from "react-native-toast-message";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { useAndroidHardwareBack } from "@/shared/lib/useAndroidHardwareBack";
 import { useInterceptNativeStackBack } from "@/shared/lib/useInterceptNativeStackBack";
+import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { KeyboardStickyView, useKeyboardInset } from "@/shared/lib/keyboard";
 import {
@@ -94,6 +95,7 @@ export default function MessageThreadPage() {
   const { t, i18n } = useTranslation();
   const reportLabels = useMemo(() => buildMessageReportLabels(t), [t, i18n.language]);
   const navigation = useNavigation<MessageThreadNav>();
+  useDisableGestureDuringTransition();
   const { params } = useRoute<MessageThreadRoute>();
   const isSupport = params.isSupport === true;
   const insets = useSafeAreaInsets();

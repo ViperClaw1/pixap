@@ -139,8 +139,8 @@
     "nearMe5Miles": "Perto de mim (8 km)",
     "allPlacesInCity": "Todos os locais na cidade",
     "allPlacesInMyCity": "Todos os locais na minha cidade",
-    "selectServiceOrTable": "Selecionar serviço ou mesa",
-    "chooseServiceOrTable": "Escolher serviço ou mesa",
+    "selectServiceOrTable": "Selecionar tipo de local",
+    "chooseServiceOrTable": "Selecionar tipo de local",
     "continue": "Continuar",
     "backStep": "Voltar",
     "retry": "Tentar novamente",
@@ -174,7 +174,7 @@
     "step1PlacesTitle": "Passo 1. Locais sugeridos",
     "step2BookingTitle": "Passo 2. Detalhes da reserva",
     "selectCityHint": "Seleciona a tua cidade para continuar.",
-    "selectCategoryHint": "Seleciona um serviço ou mesa para continuar.",
+    "selectCategoryHint": "Seleciona um tipo de local para continuar.",
     "commentPlaceholder": "Comentário (preferências, orçamento, ambiente...)",
     "nearbyHelper": "A pesquisa por perto pedirá acesso à localização apenas ao iniciar a pesquisa.",
     "searching": "A pesquisar...",
@@ -183,7 +183,7 @@
     "locationRequiredTitle": "Localização necessária",
     "locationRequiredMessage": "Para pesquisar perto, permite o acesso à localização precisa.",
     "chooseRequestTitle": "Escolher pedido",
-    "chooseRequestMessage": "Seleciona uma categoria ou mesa de restaurante.",
+    "chooseRequestMessage": "Seleciona um tipo de local.",
     "listUpdatedTitle": "Lista atualizada",
     "listUpdatedMessage": "O assistente removeu ou reordenou locais e a tua escolha anterior já não está disponível. Escolhe outro local.",
     "searchFailed": "Não foi possível pesquisar locais.",
@@ -609,7 +609,7 @@
         },
         "smartBookingCategory": {
           "title": "Escolha a categoria",
-          "description": "Indique o tipo de serviço ou mesa — bares, restaurantes e mais. Adicione um comentário opcional com preferências ou orçamento."
+          "description": "Indique o tipo de local de que precisas — bares, restaurantes e mais. Adicione um comentário opcional com preferências ou orçamento."
         },
         "smartBookingScope": {
           "title": "Escopo da busca",

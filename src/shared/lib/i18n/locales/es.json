@@ -139,8 +139,8 @@
     "nearMe5Miles": "Cerca de mí (8 km)",
     "allPlacesInCity": "Todos los lugares en la ciudad",
     "allPlacesInMyCity": "Todos los lugares en mi ciudad",
-    "selectServiceOrTable": "Selecciona servicio o mesa",
-    "chooseServiceOrTable": "Elegir servicio o mesa",
+    "selectServiceOrTable": "Seleccionar tipo de lugar",
+    "chooseServiceOrTable": "Seleccionar tipo de lugar",
     "continue": "Continuar",
     "backStep": "Atrás",
     "retry": "Reintentar",
@@ -174,7 +174,7 @@
     "step1PlacesTitle": "Paso 1. Lugares sugeridos",
     "step2BookingTitle": "Paso 2. Detalles de reserva",
     "selectCityHint": "Selecciona tu ciudad para continuar.",
-    "selectCategoryHint": "Selecciona un servicio o mesa para continuar.",
+    "selectCategoryHint": "Selecciona un tipo de lugar para continuar.",
     "commentPlaceholder": "Comentario (preferencias, presupuesto, ambiente...)",
     "nearbyHelper": "La búsqueda cercana pedirá acceso a la ubicación solo al iniciar la búsqueda.",
     "searching": "Buscando...",
@@ -183,7 +183,7 @@
     "locationRequiredTitle": "Ubicación requerida",
     "locationRequiredMessage": "Para buscar cerca, permite el acceso a la ubicación precisa.",
     "chooseRequestTitle": "Elige la solicitud",
-    "chooseRequestMessage": "Selecciona una categoría o mesa en restaurante.",
+    "chooseRequestMessage": "Selecciona un tipo de lugar.",
     "listUpdatedTitle": "Lista actualizada",
     "listUpdatedMessage": "El asistente eliminó o reordenó lugares y tu selección anterior ya no está disponible. Elige otro lugar.",
     "searchFailed": "No se pudieron buscar lugares.",
@@ -609,7 +609,7 @@
         },
         "smartBookingCategory": {
           "title": "Elige una categoría",
-          "description": "Selecciona el tipo de servicio o mesa — bares, restaurantes y más. Añade un comentario opcional con preferencias o presupuesto."
+          "description": "Selecciona el tipo de lugar que necesitas — bares, restaurantes y más. Añade un comentario opcional con preferencias o presupuesto."
         },
         "smartBookingScope": {
           "title": "Alcance de búsqueda",

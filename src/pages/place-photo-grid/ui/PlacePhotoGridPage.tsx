@@ -13,6 +13,7 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 
 const GRID_COLUMNS = 3;
 const GRID_BATCH_ROWS = 7;
@@ -76,6 +77,7 @@ const PhotoGridCell = memo(function PhotoGridCell({
 export default function PlacePhotoGridPage() {
   const { params } = useRoute<Route>();
   const navigation = useNavigation<Nav>();
+  useDisableGestureDuringTransition();
   const { colors } = useAppTheme();
   const { width: windowWidth } = useWindowDimensions();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);

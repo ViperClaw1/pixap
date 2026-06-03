@@ -33,13 +33,8 @@ import {
 import Carousel from "react-native-reanimated-carousel";
 import { StoryBubblesRow } from "@/widgets/stories-strip";
 import { useStories } from "@/entities/story";
-import {
-  SHARED_PRESSABLE_HEIGHT,
-  SHARED_PRESSABLE_RADIUS,
-  primaryPressableStyle,
-  primaryPressableTextStyle,
-} from "@/shared/theme/primaryPressable";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
@@ -65,6 +60,7 @@ const DOUBLE_TAP_DELAY_MS = 260;
 export default function PlaceDetailScreen() {
   const { id } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
+  useDisableGestureDuringTransition();
   const { openAIBooking, openBookingFlow } = useSubscriptionGatedNavigation(navigation);
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
     sensitivity: "high",
@@ -145,7 +141,15 @@ export default function PlaceDetailScreen() {
     [t],
   );
 
+  const openAuth = useCallback(() => {
+    navigateToProfileAuth(navigation);
+  }, [navigation]);
+
   const onCrowdCheckIn = useCallback(async () => {
+    if (!user?.id) {
+      openAuth();
+      return;
+    }
     if (crowdCheckin.isCheckingIn) return;
 
     const outcome = await crowdCheckin.checkInManual();
@@ -156,7 +160,7 @@ export default function PlaceDetailScreen() {
       return;
     }
     presentCrowdCheckInOutcome(outcome);
-  }, [crowdCheckin, presentCrowdCheckInOutcome]);
+  }, [crowdCheckin, openAuth, presentCrowdCheckInOutcome, user?.id]);
 
   const themed = useThemeStyles(({ colors: c }) => placeDetailThemeStyles(c));
   const styles = useMemo(
@@ -480,10 +484,10 @@ export default function PlaceDetailScreen() {
           {Number(place.rating).toFixed(1)} ({reviews.length} reviews)
         </Text>
 
-        {user?.id ? (
         <LiveCrowdCard
           venueId={place.id}
           enabled={isScreenFocused}
+          onCardPress={user?.id ? undefined : openAuth}
           onCheckIn={() => void onCrowdCheckIn()}
           isCheckingIn={crowdCheckin.isCheckingIn}
           crowdCardStyle={styles.crowdCard}
@@ -494,7 +498,6 @@ export default function PlaceDetailScreen() {
           crowdCheckInBtnStyle={styles.crowdCheckInBtn}
           crowdCheckInTextStyle={styles.crowdCheckInText}
         />
-        ) : null}
 
         <View style={styles.tags}>
           {place.tags.map((tag) => (

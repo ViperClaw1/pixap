@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import type { CartItem } from "@/entities/cart";
 import { BOOKINGS_SELECT, localizeBusinessCard } from "@/entities/business-card";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
+import { normalizeBusinessCardBlurhashes } from "@/shared/lib/business-card/businessCardBlurhash";
 import { suppressBookingStatusNotification } from "../lib/bookingDisplayStatusTracker";
 
 export interface Booking {
@@ -27,6 +28,7 @@ export interface Booking {
     id: string;
     name: string;
     images: string[] | null;
+    blurhashes?: string[] | null;
     address: string;
     category_id: string | null;
   } | null;
@@ -120,6 +122,7 @@ export const useBookings = (options?: { enabled?: boolean }) => {
               {
                 ...row.business_card,
                 images: normalizeBusinessCardImages(row.business_card.images),
+                blurhashes: normalizeBusinessCardBlurhashes(row.business_card.blurhashes),
               },
               language,
             )

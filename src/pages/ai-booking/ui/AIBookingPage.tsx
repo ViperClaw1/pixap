@@ -79,6 +79,7 @@ import {
   buildMonthCells,
 } from "@/shared/lib/bookingCalendar";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
+import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { OnboardingStepTransition } from "@/pages/preference-onboarding/ui/OnboardingStepTransition";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -344,6 +345,7 @@ function AIBookingPageContent() {
   const startN8nWaBooking = useStartN8nWaBooking();
   const { data: cartItems = [] } = useCartItems();
   const [currentStep, setCurrentStep] = useState<FlowStep>(initialStepRef.current);
+  useDisableGestureDuringTransition({ restoreGestureEnabled: currentStep === "assistant" });
   const [stepDirection, setStepDirection] = useState<1 | -1>(1);
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
