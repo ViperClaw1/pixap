@@ -22,15 +22,17 @@ export function useProfileCityPicker() {
 
   const selectCity = useCallback(
     async (city: string) => {
-      if (city === selectedCity) return;
+      if (city === selectedCity) return false;
       const previous = selectedCity;
       setSelectedCity(city);
       try {
         await updateProfile.mutateAsync({ city: city === ALL_CITIES_OPTION ? null : city });
         await queryClient.invalidateQueries({ queryKey: queryKeys.businessCards.listPrefix });
+        return true;
       } catch {
         setSelectedCity(previous);
         Alert.alert(t("home.alerts.citySaveTitle"), t("home.alerts.citySaveBody"));
+        return false;
       }
     },
     [queryClient, selectedCity, t, updateProfile],
