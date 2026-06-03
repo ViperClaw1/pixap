@@ -61,6 +61,7 @@ import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCar
 import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
 import { useExpandVisibleBatch } from "@/shared/lib/useExpandVisibleBatch";
 import { ShowMoreButton } from "@/shared/ui/show-more-button";
+import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
 
 const VIBE_TOOLBAR_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
 const FEATURED_THUMB_W = 200;
@@ -180,6 +181,16 @@ export default function HomeScreen() {
     navigateToProfileAuth(navigation);
     return false;
   }, [navigation, user]);
+
+  const handleCityChange = useCallback(
+    async (city: string) => {
+      const changed = await selectCity(city);
+      if (changed) {
+        await resetBookingChatPersistedSession();
+      }
+    },
+    [selectCity],
+  );
 
   const handleOpenAIBooking = useCallback(() => {
     if (!user) {
@@ -321,7 +332,7 @@ export default function HomeScreen() {
         <View style={styles.cityToolbarRow}>
           <CityPickerField
             value={selectedCity}
-            onChange={selectCity}
+            onChange={handleCityChange}
             onOpen={handleCityPickerOpen}
             triggerStyle={styles.citySelector}
           />
@@ -407,6 +418,7 @@ export default function HomeScreen() {
       featured,
       handleOpenAIBooking,
       handleOpenVibeMatch,
+      handleCityChange,
       handleCityPickerOpen,
       isDark,
       i18n.language,

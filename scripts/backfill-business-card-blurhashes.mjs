@@ -3,7 +3,7 @@
  * Backfill business_cards.blurhashes from the first image URL.
  *
  * Usage:
- *   node scripts/backfill-business-card-blurhashes.mjs [--dry-run] [--limit 50] [--order-asc]
+ *   node scripts/backfill-business-card-blurhashes.mjs [--dry-run] [--city Paris] [--limit 50] [--order-asc]
  */
 import { encode } from "blurhash";
 import { createSupabaseAdmin, loadEnv, log } from "./seed-business-cards/lib.mjs";
@@ -12,12 +12,23 @@ import { thumbPublicUrlFromOriginalPublicUrl } from "./seed-business-cards/thumb
 const BLUR_SAMPLE_SIZE = 32;
 const DOWNLOAD_TIMEOUT_MS = 30_000;
 
+function argValue(args, name) {
+  const prefix = `${name}=`;
+  const inline = args.find((arg) => arg.startsWith(prefix));
+  if (inline) return inline.slice(prefix.length);
+
+  const idx = args.indexOf(name);
+  return idx >= 0 ? args[idx + 1] : null;
+}
+
 function parseArgs(argv) {
   const args = argv.slice(2);
-  const limitIdx = args.indexOf("--limit");
-  const limitRaw = limitIdx >= 0 ? args[limitIdx + 1] : null;
+  const limitRaw = argValue(args, "--limit");
   const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 200;
+  const cityRaw = argValue(args, "--city");
+  const city = cityRaw?.trim();
   return {
+    city: city || null,
     dryRun: args.includes("--dry-run"),
     orderAsc: args.includes("--order-asc"),
     limit: Number.isFinite(limit) && limit > 0 ? limit : 200,
@@ -59,20 +70,50 @@ function publicImageUrl(supabaseUrl, pathOrUrl) {
   return `${supabaseUrl}/storage/v1/object/public/business-cards/${trimmed.replace(/^\/+/, "")}`;
 }
 
+function preferredDownloadUrls(imageUrl) {
+  return [thumbPublicUrlFromOriginalPublicUrl(imageUrl), imageUrl].filter((url, index, urls) => url && urls.indexOf(url) === index);
+}
+
+function errorMessage(err) {
+  return err instanceof Error ? err.message : String(err);
+}
+
+async function fetchFirstImageRgb(urls) {
+  const errors = [];
+  for (const url of urls) {
+    try {
+      return await fetchImageRgb(url);
+    } catch (err) {
+      const source = url.includes("_thumb.") ? "thumb" : "original";
+      errors.push(`${source}: ${errorMessage(err)}`);
+    }
+  }
+  throw new Error(errors.join("; ") || "no downloadable image URL");
+}
+
 async function main() {
   const cli = parseArgs(process.argv);
   const { url } = loadEnv();
   const supabaseUrl = url.replace(/\/$/, "");
   const supabase = createSupabaseAdmin();
 
-  const { data: rows, error } = await supabase
+  let query = supabase
     .from("business_cards")
-    .select("id, images, image, blurhashes")
+    .select("id, city, images, image, blurhashes")
     .or("blurhashes.is.null,blurhashes.eq.{}")
-    .order("created_at", { ascending: cli.orderAsc })
-    .limit(cli.limit);
+    .order("created_at", { ascending: cli.orderAsc });
+
+  if (cli.city) {
+    query = query.eq("city", cli.city);
+  }
+
+  const { data: rows, error } = await query.limit(cli.limit);
 
   if (error) throw error;
+
+  if (cli.city) {
+    log("blurhash", `city filter: ${cli.city}`);
+  }
 
   let updated = 0;
   for (const row of rows ?? []) {
@@ -81,8 +122,7 @@ async function main() {
     if (!imageUrl) continue;
 
     try {
-      const downloadUrl = thumbPublicUrlFromOriginalPublicUrl(imageUrl) ?? imageUrl;
-      const { pixels, width, height } = await fetchImageRgb(downloadUrl);
+      const { pixels, width, height } = await fetchFirstImageRgb(preferredDownloadUrls(imageUrl));
       const hash = encode(pixels, width, height, 4, 3);
       if (cli.dryRun) {
         log("blurhash", `[dry-run] ${row.id} -> ${hash.slice(0, 12)}…`);
@@ -97,7 +137,7 @@ async function main() {
       log("blurhash", `updated ${row.id}`);
       updated += 1;
     } catch (err) {
-      log("blurhash", `skip ${row.id}: ${err instanceof Error ? err.message : String(err)}`);
+      log("blurhash", `skip ${row.id}: ${errorMessage(err)}`);
     }
   }
 
