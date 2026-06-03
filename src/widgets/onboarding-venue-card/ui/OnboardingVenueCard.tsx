@@ -127,7 +127,12 @@ function OnboardingVenueCardInner({ venue }: Props) {
               {venue.description}
             </Text>
           ) : null}
-          <LiveCrowdCard venueId={venue.venue_id} style={styles.crowd} />
+          <LiveCrowdCard
+            venueId={venue.venue_id}
+            style={styles.crowd}
+            crowdTitleStyle={{ color: colors.text }}
+            crowdMetaStyle={{ color: colors.text }}
+          />
         </ScrollView>
       </View>
     </View>

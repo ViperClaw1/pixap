@@ -20,6 +20,7 @@ import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import Toast from "react-native-toast-message";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useProfile, useUserRole, isProfileAdmin } from "@/entities/user";
 import { useAdminModerationPendingCount } from "@/entities/admin-moderation";
@@ -49,7 +50,6 @@ import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { NotificationsSheetModal } from "@/shared/ui/notifications-sheet";
 import { profileStoryPathBuilder, uploadPostPickerAssets, uploadStoryPickerAssets } from "@/entities/story/lib/uploadStoriesBucketMedia";
-import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import {
   APPLE_SUBSCRIPTION_URL,
@@ -434,6 +434,30 @@ function ProfileScreenContent() {
     }
   };
 
+  const handleSuggestionFollow = useCallback(
+    async (item: { id: string; first_name: string | null; last_name: string | null; username: string | null }) => {
+      try {
+        const result = await toggleFollow.mutateAsync({ followingId: item.id, isFollowing: false });
+        if (result.skipped) return;
+        const displayName =
+          profileFullName(item.first_name, item.last_name).trim() ||
+          (item.username?.trim() ? `@${item.username.trim()}` : t("profile.defaultUserName"));
+        Toast.show({
+          type: "success",
+          text1: t("messages.toastAddedFollowers"),
+          text2: displayName,
+        });
+      } catch (error) {
+        Toast.show({
+          type: "error",
+          text1: t("messages.toastFollowFailed"),
+          text2: error instanceof Error ? error.message : t("messages.toastTryAgain"),
+        });
+      }
+    },
+    [t, toggleFollow],
+  );
+
   const actions: ActionItem[] = useMemo(
     () => [
       {
@@ -664,7 +688,7 @@ function ProfileScreenContent() {
                 </AppPressable>
                 <AppPressable
                   style={styles.suggestionFollowBtn}
-                  onPress={() => void toggleFollow.mutateAsync({ followingId: item.id, isFollowing: false })}
+                  onPress={() => void handleSuggestionFollow(item)}
                   disabled={toggleFollow.isPending}
                 >
                   <Text style={styles.suggestionFollowBtnText}>{t("profile.suggestions.follow")}</Text>
