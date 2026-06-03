@@ -2,7 +2,7 @@ import type { PixAIVibeTimeline, VibePlanStop } from "../api/usePixAI";
 
 /** Earliest instant a booking can be created (not used for suggested route display). */
 export const VIBE_BOOKING_WINDOW_MIN_MS = 30 * 60_000;
-export const VIBE_STOP_SPACING_MS = 90 * 60_000;
+export const VIBE_STOP_SPACING_MS = 60 * 60_000;
 export const VIBE_SLOT_GRID_MS = 30 * 60_000;
 
 type TimelineWindowDef = {

@@ -119,7 +119,7 @@ function isVibeTimeline(v: string): v is VibeTimeline {
   return v === "day" || v === "evening" || v === "night" || v === "late_night";
 }
 
-const VIBE_STOP_SPACING_MS = 90 * 60_000;
+const VIBE_STOP_SPACING_MS = 60 * 60_000;
 const VIBE_SLOT_GRID_MS = 30 * 60_000;
 
 type TimelineWindowDef = { startMinutes: number; endMinutes: number };
