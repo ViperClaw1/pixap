@@ -33,6 +33,7 @@ export const authStaticStyles = StyleSheet.create({
     ...primaryPressableStyle,
     marginTop: 14,
   },
+  primaryDisabled: { opacity: 0.75 },
   primaryText: primaryPressableTextStyle,
   smallLink: { marginTop: 10, alignSelf: "flex-start" },
   smallLinkText: { color: AUTH_PRIMARY_COLOR, fontSize: 14, fontWeight: "500" },

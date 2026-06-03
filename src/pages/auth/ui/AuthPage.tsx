@@ -548,15 +548,20 @@ export default function AuthScreen() {
         </>
       )}
 
-      {showSubmitLoading ? (
-        <ActivityIndicator style={{ marginTop: 16 }} color={colors.primary} />
-      ) : (
-        <AppPressable style={styles.primary} onPress={() => void submit()}>
+      <AppPressable
+        style={[styles.primary, showSubmitLoading && styles.primaryDisabled]}
+        onPress={() => void submit()}
+        disabled={showSubmitLoading}
+        accessibilityState={{ disabled: showSubmitLoading, busy: showSubmitLoading }}
+      >
+        {showSubmitLoading ? (
+          <ActivityIndicator color={colors.onPrimary} />
+        ) : (
           <Text style={styles.primaryText}>
             {mode === "login" ? t("auth.btnSignIn") : mode === "signup" ? t("auth.btnSignUp") : t("auth.btnSendReset")}
           </Text>
-        </AppPressable>
-      )}
+        )}
+      </AppPressable>
 
       {mode === "login" ? (
         <AppPressable style={styles.smallLink} onPress={() => setMode("forgot")}>
