@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/shared/api/supabase/client";
@@ -54,6 +55,7 @@ function isWaVenueUnavailable(linkedCartItem?: CartItem | null): boolean {
     text.includes("not available") ||
     text.includes("unavailable") ||
     text.includes("slot is not available") ||
+    text.includes("declin") ||
     text.includes("недоступен") ||
     text.includes("отклон")
   );
@@ -102,8 +104,29 @@ export function deriveBookingDisplayStatus(booking: Booking, linkedCartItem?: Ca
 
 export const useBookings = (options?: { enabled?: boolean }) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { i18n } = useTranslation();
   const language = i18n.language;
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`bookings_user_${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings", filter: `user_id=eq.${user.id}` },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [queryClient, user?.id]);
 
   return useQuery({
     queryKey: queryKeys.bookings.user(user?.id, language),

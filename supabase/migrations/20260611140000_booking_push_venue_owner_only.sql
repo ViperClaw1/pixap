@@ -21,7 +21,7 @@ returns boolean
 language sql
 immutable
 as $$
-  select private.wa_status_lines_text(p_lines) ~ '(not available|unavailable|slot is not available|недоступен|отклон|reject)';
+  select private.wa_status_lines_text(p_lines) ~ '(not available|unavailable|slot is not available|declin|недоступен|отклон|reject)';
 $$;
 
 create or replace function public.notify_booking_status_change()

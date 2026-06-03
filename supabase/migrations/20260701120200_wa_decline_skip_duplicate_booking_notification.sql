@@ -29,8 +29,6 @@ begin
   -- WhatsApp venue rejection already notifies through cart_items.wa_status_lines.
   if old.status = 'upcoming'
      and new.status = 'expired'
-     and old.payment_status = 'pending'
-     and new.payment_status = 'pending'
      and exists (
        select 1
        from public.cart_items ci

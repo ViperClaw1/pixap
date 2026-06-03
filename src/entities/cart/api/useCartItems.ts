@@ -63,6 +63,7 @@ export const useCartItems = () => {
         { event: "UPDATE", schema: "public", table: "cart_items", filter: `user_id=eq.${user.id}` },
         () => {
           void queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
         },
       )
       .subscribe();
