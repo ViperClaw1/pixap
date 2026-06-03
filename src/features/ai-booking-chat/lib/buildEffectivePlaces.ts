@@ -6,6 +6,10 @@ export function buildEffectivePlaces(
   placeOptions: PixAIPlace[],
   view: BookingRecommendationView,
 ): PixAIPlace[] {
+  if (view.excludedPlaceIds.length === 0 && view.rerankedPlaceIds.length === 0) {
+    return placeOptions;
+  }
+
   const excluded = new Set(view.excludedPlaceIds);
   const filtered = placeOptions.filter((p) => !excluded.has(p.id));
   const idSet = new Set(filtered.map((p) => p.id));

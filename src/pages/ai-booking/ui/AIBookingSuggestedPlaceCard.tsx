@@ -14,6 +14,7 @@ import {
   businessCardDisplayFallback,
   getBusinessCardDisplayUrl,
 } from "@/shared/lib/business-card/businessCardDisplayUrl";
+import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
@@ -58,6 +59,27 @@ function buildVisibleTags(placeTags: string[] | undefined): TagItem[] {
   return items;
 }
 
+function visibleTagLabelsEqual(prevTags: string[] | undefined, nextTags: string[] | undefined): boolean {
+  const prev = buildVisibleTags(prevTags);
+  const next = buildVisibleTags(nextTags);
+  if (prev.length !== next.length) return false;
+  return prev.every((tag, index) => tag.label === next[index]?.label);
+}
+
+function placesEqualByCardData(prev: PixAIPlace, next: PixAIPlace): boolean {
+  return (
+    prev.id === next.id &&
+    prev.name === next.name &&
+    prev.address === next.address &&
+    prev.city === next.city &&
+    prev.rating === next.rating &&
+    prev.booking_price === next.booking_price &&
+    getPrimaryBusinessCardImage(prev.images) === getPrimaryBusinessCardImage(next.images) &&
+    getBusinessCardCoverBlurhash(prev.blurhashes) === getBusinessCardCoverBlurhash(next.blurhashes) &&
+    visibleTagLabelsEqual(prev.tags, next.tags)
+  );
+}
+
 type Props = {
   styles: AIBookingStyles;
   place: PixAIPlace;
@@ -86,6 +108,7 @@ function AIBookingSuggestedPlaceCardInner({
   const { user } = useAuth();
   const thumbSize = windowWidth <= COMPACT_CARD_WIDTH ? THUMB_SIZE_COMPACT : THUMB_SIZE_DEFAULT;
   const { uri, fallbackUri } = placeThumbUris(place.images, thumbSize);
+  const coverBlurhash = getBusinessCardCoverBlurhash(place.blurhashes);
   const isFavorite = useIsFavorite(place.id);
   const toggleFavorite = useToggleFavorite();
 
@@ -107,7 +130,8 @@ function AIBookingSuggestedPlaceCardInner({
           uri={uri}
           fallbackUri={fallbackUri}
           bundledFallback={PLACE_IMAGE_FALLBACK}
-          recyclingKey={`${place.id}-thumb`}
+          blurhash={coverBlurhash}
+          skipBundledPlaceholder={Boolean(coverBlurhash)}
           style={[s.placeThumb, { width: thumbSize, height: thumbSize }]}
           contentFit="cover"
           transition={0}
@@ -206,7 +230,7 @@ function AIBookingSuggestedPlaceCardInner({
 export const AIBookingSuggestedPlaceCard = memo(
   AIBookingSuggestedPlaceCardInner,
   (prev, next) =>
-    prev.place === next.place &&
+    placesEqualByCardData(prev.place, next.place) &&
     prev.selected === next.selected &&
     prev.personsLabel === next.personsLabel &&
     prev.bookingTimeLabel === next.bookingTimeLabel &&

@@ -1,8 +1,7 @@
 import { APP_LANGUAGES, type AppLanguage } from "@/shared/lib/i18n/init";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 
-const NON_EN_LOCALES = ["ru", "es", "pt", "fr", "de"] as const;
-type NonEnLocale = (typeof NON_EN_LOCALES)[number];
+type NonEnLocale = "ru" | "es" | "pt" | "fr" | "de";
 
 /** Raw `business_cards` row fields used to resolve UI locale. */
 export type BusinessCardI18nRow = {
@@ -60,7 +59,7 @@ export const FAVORITES_SELECT = `*, ${embed("images, address, rating, booking_pr
 export const CART_ITEMS_SELECT = `*, ${embed("images, address, category_id, contact_whatsapp")}`;
 export const BOOKINGS_SELECT = `*, ${embed("images, address, category_id")}`;
 export const SHOPPING_CART_SELECT = `*, shopping_item:shopping_items(*), ${embed("images, contact_whatsapp")}`;
-export const PIXAI_BUSINESS_CARD_SELECT = `id, ${BUSINESS_CARD_I18N_COLUMN_LIST}, address, city, rating, booking_price, images`;
+export const PIXAI_BUSINESS_CARD_SELECT = `id, ${BUSINESS_CARD_I18N_COLUMN_LIST}, address, city, rating, booking_price, images, blurhashes`;
 
 function resolveAppLanguage(language: string): AppLanguage {
   const base = language.split("-")[0]?.toLowerCase() ?? "en";
