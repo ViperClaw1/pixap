@@ -43,6 +43,7 @@
     "loading": "Загрузка...",
     "unknownError": "Неизвестная ошибка",
     "cancel": "Отмена",
+    "close": "Закрыть",
     "ok": "ОК",
     "delete": "Удалить",
     "unknownUser": "Неизвестный пользователь"
@@ -737,6 +738,15 @@
     "manageGoogle": "Управление в Google Play",
     "legal": "Условия и оплата управляются аккаунтом магазина приложений.",
     "expoGoHint": "Покупки недоступны в Expo Go. Используйте dev или production сборку.",
+    "purchaseSuccessTitle": "Готово!",
+    "purchaseSuccessBody": "Подписка PixAI Premium активна. Кредиты добавлены на ваш аккаунт.",
+    "purchaseSuccessCta": "Начать пользоваться",
+    "purchaseErrorTitle": "Покупка не подтверждена",
+    "purchaseErrorBody": "Оплата прошла, но мы не смогли подтвердить подписку. Используйте восстановление покупок или обратитесь в поддержку.",
+    "purchaseVerifying": "Подтверждаем покупку…",
+    "restoreSuccessToast": "Подписка успешно восстановлена.",
+    "restoreNothingToast": "Активных покупок для восстановления не найдено.",
+    "restoreErrorToast": "Не удалось восстановить покупки. Попробуйте ещё раз.",
     "tour": {
       "rewatch": "Как работает PixAI",
       "back": "Назад",

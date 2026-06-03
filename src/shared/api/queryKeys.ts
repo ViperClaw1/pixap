@@ -147,8 +147,8 @@ export const queryKeys = {
       ["onboarding_venues", offset, prefsFingerprint, language] as const,
   },
   dailyRecommendations: {
-    today: (userId: string | undefined | null, dateYmd: string, language: string) =>
-      ["daily_recommendations", "today", userId ?? null, dateYmd, language] as const,
+    today: (userId: string | undefined | null, dateYmd: string, language: string, city?: string | null) =>
+      ["daily_recommendations", "today", userId ?? null, dateYmd, language, city ?? "all"] as const,
     prefix: ["daily_recommendations"] as const,
   },
   pixai: {

@@ -54,7 +54,7 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
 
     if (!initialStep && serverPrefs.onboarding_step !== "completed") {
       let nextStep = serverPrefs.onboarding_step;
-      if (!profileCity && nextStep !== "city_selection" && nextStep !== "completed") {
+      if (!profileCity && nextStep !== "city_selection") {
         nextStep = "city_selection";
       }
       setStep(nextStep);
@@ -131,6 +131,7 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
       const city = selectedCity.trim();
       await updateProfile.mutateAsync({ city });
       await queryClient.invalidateQueries({ queryKey: queryKeys.businessCards.listPrefix });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dailyRecommendations.prefix });
       setStep("venue_categories");
       await flushSave({ onboarding_step: "venue_categories" });
       return;
@@ -200,7 +201,13 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
       onboarding_skipped_at: new Date().toISOString(),
       onboarding_step: step,
     });
-  }, [flushSave, step]);
+    if (selectedCity.trim()) {
+      void bootstrapMyDailyRecommendations(undefined, { force: true }).then((result) => {
+        if (!result) return;
+        void queryClient.invalidateQueries({ queryKey: queryKeys.dailyRecommendations.prefix });
+      });
+    }
+  }, [flushSave, queryClient, selectedCity, step]);
 
   const completeOnboarding = useCallback(async () => {
     const isFirstCompletion = !serverPrefs?.onboarding_completed;
@@ -210,8 +217,8 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
       clear_skipped: true,
     });
     if (isFirstCompletion) {
-      void bootstrapMyDailyRecommendations().then((result) => {
-        if (!result || result.inserted_count <= 0) return;
+      void bootstrapMyDailyRecommendations(undefined, { force: true }).then((result) => {
+        if (!result) return;
         void queryClient.invalidateQueries({ queryKey: queryKeys.dailyRecommendations.prefix });
       });
     }

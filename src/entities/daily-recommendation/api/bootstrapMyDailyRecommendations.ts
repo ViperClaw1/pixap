@@ -7,6 +7,10 @@ export type BootstrapMyDailyRecommendationsResult = {
   generated_for_date: string;
 };
 
+export type BootstrapMyDailyRecommendationsOptions = {
+  force?: boolean;
+};
+
 function todayUtcYmd(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -18,10 +22,10 @@ function todayUtcYmd(): string {
  */
 export async function bootstrapMyDailyRecommendations(
   dateYmd: string = todayUtcYmd(),
+  options?: BootstrapMyDailyRecommendationsOptions,
 ): Promise<BootstrapMyDailyRecommendationsResult | null> {
-  const { data, error } = await supabase.rpc("bootstrap_my_daily_recommendations" as never, {
-    p_date: dateYmd,
-  } as never);
+  const params = options?.force ? { p_date: dateYmd, p_force: true } : { p_date: dateYmd };
+  const { data, error } = await supabase.rpc("bootstrap_my_daily_recommendations" as never, params as never);
 
   if (error) {
     if (__DEV__) {

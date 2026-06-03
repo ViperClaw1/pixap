@@ -43,6 +43,7 @@
     "loading": "Loading...",
     "unknownError": "Unknown error",
     "cancel": "Cancel",
+    "close": "Close",
     "ok": "OK",
     "delete": "Delete",
     "unknownUser": "Unknown user"
@@ -737,6 +738,15 @@
     "manageGoogle": "Manage on Google Play",
     "legal": "Subscription terms and billing are managed by your app store account.",
     "expoGoHint": "In-app purchases are unavailable in Expo Go. Use a development or production build to subscribe.",
+    "purchaseSuccessTitle": "You're all set!",
+    "purchaseSuccessBody": "Your PixAI Premium subscription is now active. Your credits have been added.",
+    "purchaseSuccessCta": "Start exploring",
+    "purchaseErrorTitle": "Purchase not confirmed",
+    "purchaseErrorBody": "The payment was processed, but we couldn't confirm your subscription. Please use Restore Purchases or contact support.",
+    "purchaseVerifying": "Confirming your purchase…",
+    "restoreSuccessToast": "Subscription restored successfully.",
+    "restoreNothingToast": "No active purchases found to restore.",
+    "restoreErrorToast": "Restore failed. Please try again.",
     "tour": {
       "rewatch": "How PixAI works",
       "back": "Back",

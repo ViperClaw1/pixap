@@ -4,6 +4,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { localizeBusinessCard } from "@/entities/business-card";
+import { useProfile } from "@/entities/user";
 import type { DailyRecommendation } from "../model/types";
 
 type RpcRow = {
@@ -20,15 +21,17 @@ type RpcRow = {
 };
 
 export function useDailyRecommendations(targetDate?: string) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { i18n } = useTranslation();
+  const { data: profile, isLoading: profileLoading } = useProfile();
   const language = i18n.language;
   const date = targetDate ?? new Date().toISOString().slice(0, 10);
+  const userCity = profile?.city?.trim() || null;
+  const normalizedUserCity = userCity?.toLowerCase() ?? null;
 
-  const { loading } = useAuth();
   return useQuery({
-    queryKey: queryKeys.dailyRecommendations.today(user?.id, date, language),
-    enabled: Boolean(user?.id) && !loading,
+    queryKey: queryKeys.dailyRecommendations.today(user?.id, date, language, normalizedUserCity),
+    enabled: Boolean(user?.id) && !loading && !profileLoading,
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<DailyRecommendation[]> => {
@@ -37,7 +40,16 @@ export function useDailyRecommendations(targetDate?: string) {
       });
       if (error) throw error;
 
-      return ((data ?? []) as RpcRow[]).map((row) => {
+      const rows = (data ?? []) as RpcRow[];
+      const filteredRows = normalizedUserCity
+        ? rows.filter((row) => {
+            const rowCity = row.city?.trim();
+            if (!rowCity) return true;
+            return rowCity.toLowerCase() === normalizedUserCity;
+          })
+        : rows;
+
+      return filteredRows.map((row) => {
         const localized = localizeBusinessCard(
           {
             name: row.name,
