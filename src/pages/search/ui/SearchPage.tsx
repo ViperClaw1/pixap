@@ -10,6 +10,8 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useBusinessCards, type BusinessCard } from "@/entities/business-card";
 import { CityPickerField, useProfileCityPicker } from "@/shared/ui/city-picker";
 import type { SearchStackParamList } from "@/app/navigation/types";
+import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
@@ -94,6 +96,7 @@ export default function SearchScreen() {
   const { guardedNavigate } = useNavigationGuard();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const { colors, mode, setMode } = useAppTheme();
+  const { user } = useAuth();
   const toggleThemeMode = () => {
     setMode(mode === "dark" ? "light" : "dark");
   };
@@ -158,6 +161,12 @@ export default function SearchScreen() {
     });
   }, [expandVisibleBatch]);
 
+  const handleCityPickerOpen = useCallback(() => {
+    if (user) return true;
+    navigateToProfileAuth(navigation);
+    return false;
+  }, [navigation, user]);
+
   const listFooter = useMemo(
     () =>
       !isLoading && (canShowMore || isLoadingMore) ? (
@@ -184,7 +193,7 @@ export default function SearchScreen() {
       />
       <View style={styles.content}>
       <View style={styles.cityRow}>
-        <CityPickerField value={selectedCity} onChange={selectCity} />
+        <CityPickerField value={selectedCity} onChange={selectCity} onOpen={handleCityPickerOpen} />
       </View>
       <View style={styles.inputWrap}>
         <TextInput

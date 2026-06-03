@@ -160,12 +160,15 @@ export function SmartImage({
   }, [chain.length, chainKey, onSourcesExhausted, skipBundledPlaceholder, sourcesExhausted]);
 
   const sourceIndex = Math.min(Math.max(chain.length - 1, 0), attempt);
-  /** Без кастомного `cacheKey`: ключ кэша = `uri`, как у `Image.prefetch` — повторный mount попадает в disk/memory. */
+  /** Keep ImageSource stable across parent re-renders so cached images do not flash placeholders. */
   const activeUri =
     !sourcesExhausted && sourceIndex >= 0 && sourceIndex < chain.length
       ? chain[sourceIndex]!
       : null;
-  const source = activeUri ? { uri: activeUri, priority, cacheKey: activeUri } : undefined;
+  const source = useMemo(
+    () => (activeUri ? { uri: activeUri, priority, cacheKey: activeUri } : undefined),
+    [activeUri, priority],
+  );
 
   useEffect(() => {
     if (!showLoadingSpinner) return;

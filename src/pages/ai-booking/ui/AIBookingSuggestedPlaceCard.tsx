@@ -110,6 +110,7 @@ function AIBookingSuggestedPlaceCardInner({
           recyclingKey={`${place.id}-thumb`}
           style={[s.placeThumb, { width: thumbSize, height: thumbSize }]}
           contentFit="cover"
+          transition={0}
         />
         <View style={s.placeTextCol}>
           <View>
@@ -202,4 +203,14 @@ function AIBookingSuggestedPlaceCardInner({
   );
 }
 
-export const AIBookingSuggestedPlaceCard = memo(AIBookingSuggestedPlaceCardInner);
+export const AIBookingSuggestedPlaceCard = memo(
+  AIBookingSuggestedPlaceCardInner,
+  (prev, next) =>
+    prev.place === next.place &&
+    prev.selected === next.selected &&
+    prev.personsLabel === next.personsLabel &&
+    prev.bookingTimeLabel === next.bookingTimeLabel &&
+    prev.bookingLoading === next.bookingLoading &&
+    prev.bookingDisabled === next.bookingDisabled &&
+    prev.onBook === next.onBook,
+);
