@@ -1,16 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
-  refillBookingCreditsByEntitlementRef,
+  refillBookingCreditsForUser,
   shouldRefillCreditsOnAppleNotification,
 } from "../_shared/bookingCredits.ts";
-
-function decodeJwtPayload<T>(jwt: string): T {
-  const parts = jwt.split(".");
-  if (parts.length < 2) throw new Error("Invalid JWS");
-  const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-  const decoded = atob(padded.padEnd(Math.ceil(padded.length / 4) * 4, "="));
-  return JSON.parse(decoded) as T;
-}
+import { claimProcessedTransaction } from "../_shared/iapIdempotency.ts";
+import { normalizeAppleSignedTransaction } from "../_shared/iapStoreVerification.ts";
+import { verifyAppleSignedPayload } from "../_shared/iapWebhookVerification.ts";
 
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -33,13 +28,17 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing signedPayload" }), { status: 400 });
     }
 
-    const decoded = decodeJwtPayload<{
+    const decoded = await verifyAppleSignedPayload<{
       notificationType?: string;
       subtype?: string;
       notificationUUID?: string;
       signedDate?: number;
-      data?: { signedTransactionInfo?: string };
+      data?: { signedTransactionInfo?: string; bundleId?: string };
     }>(payload.signedPayload);
+    const expectedBundleId = Deno.env.get("APPLE_BUNDLE_ID");
+    if (expectedBundleId && decoded.data?.bundleId && decoded.data.bundleId !== expectedBundleId) {
+      throw new Error("Apple notification bundleId mismatch");
+    }
     const eventId = decoded.notificationUUID ?? payload.notificationUUID ?? crypto.randomUUID();
 
     await admin.from("subscription_events").upsert(
@@ -56,13 +55,14 @@ Deno.serve(async (req) => {
     );
 
     if (decoded.data?.signedTransactionInfo) {
-      const tx = decodeJwtPayload<{
+      const tx = await verifyAppleSignedPayload<{
         productId?: string;
         originalTransactionId?: string;
         transactionId?: string;
         expiresDate?: number;
         revocationDate?: number;
       }>(decoded.data.signedTransactionInfo);
+      const { entitlement } = normalizeAppleSignedTransaction(decoded.data.signedTransactionInfo);
       const expiresAt = tx.expiresDate ? new Date(tx.expiresDate).toISOString() : null;
       const status = tx.revocationDate
         ? "revoked"
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
           : "active";
 
       if (tx.originalTransactionId) {
-        await admin
+        const { data: updatedEntitlement, error: updateError } = await admin
           .from("subscription_entitlements")
           .update({
             status,
@@ -82,15 +82,32 @@ Deno.serve(async (req) => {
             last_verified_at: new Date().toISOString(),
           })
           .eq("platform", "ios")
-          .eq("original_transaction_id", tx.originalTransactionId);
+          .eq("original_transaction_id", tx.originalTransactionId)
+          .select("id,user_id,product_id")
+          .maybeSingle();
+        if (updateError) throw updateError;
 
         if (
+          updatedEntitlement?.user_id &&
+          updatedEntitlement?.product_id &&
           status === "active" &&
           shouldRefillCreditsOnAppleNotification(decoded.notificationType)
         ) {
-          await refillBookingCreditsByEntitlementRef(admin, "ios", {
+          const firstProcessing = await claimProcessedTransaction(admin, {
+            platform: "ios",
+            transactionId: entitlement.latest_transaction_id ?? tx.transactionId,
             originalTransactionId: tx.originalTransactionId,
+            userId: updatedEntitlement.user_id as string,
+            entitlementId: updatedEntitlement.id as string,
+            source: "apple_assn",
           });
+          if (firstProcessing) {
+            await refillBookingCreditsForUser(
+              admin,
+              updatedEntitlement.user_id as string,
+              updatedEntitlement.product_id as string,
+            );
+          }
         }
       }
     }

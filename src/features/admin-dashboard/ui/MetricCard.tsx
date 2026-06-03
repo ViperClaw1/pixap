@@ -25,7 +25,7 @@ export function MetricCard({ label, value, subtitle, trendPct }: MetricCardProps
 }
 
 function createStyles({ colors }: { colors: { card: string; border: string; text: string; textMuted: string } }) {
-  return {
+  return StyleSheet.create({
     card: {
       flex: 1,
       minWidth: 140,
@@ -39,5 +39,5 @@ function createStyles({ colors }: { colors: { card: string; border: string; text
     row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
     value: { fontSize: 22, fontWeight: "800", color: colors.text, flexShrink: 1 },
     subtitle: { fontSize: 11, color: colors.textMuted, marginTop: 6 },
-  };
+  });
 }

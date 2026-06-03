@@ -15,6 +15,10 @@ function isExpoGoRuntime(): boolean {
   return Constants.appOwnership === "expo";
 }
 
+function purchaseDedupeKey(payload: PurchasePayload): string | null {
+  return payload.transactionId ?? payload.originalTransactionId ?? payload.purchaseToken ?? null;
+}
+
 async function verifyPurchaseWithBackend(accessToken: string, payload: PurchasePayload, source: "purchase" | "restore" | "sync") {
   const { data, error } = await supabase.functions.invoke("iap-verify-purchase", {
     body: {
@@ -168,7 +172,12 @@ export function useSubscription() {
       }
       const purchases = await iapService.restorePurchases();
       if (purchases.length === 0) return;
+      const seenPurchases = new Set<string>();
       for (const purchase of purchases) {
+        if (!purchase.payload.productId || !productIds.includes(purchase.payload.productId)) continue;
+        const key = purchaseDedupeKey(purchase.payload);
+        if (!key || seenPurchases.has(key)) continue;
+        seenPurchases.add(key);
         await verifyAndRefresh(purchase.payload, "restore", purchase.raw);
       }
     },

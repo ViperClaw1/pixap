@@ -12,6 +12,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      subscription_entitlements: {
+        Row: {
+          id: string
+          user_id: string
+          platform: "ios" | "android"
+          product_id: string
+          status: "active" | "trialing" | "grace_period" | "expired" | "revoked" | "billing_retry"
+          expires_at: string | null
+          is_trial: boolean
+          will_renew: boolean
+          original_transaction_id: string | null
+          purchase_token: string | null
+          latest_transaction_id: string | null
+          store_environment: "production" | "sandbox" | null
+          last_verified_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          platform: "ios" | "android"
+          product_id: string
+          status: "active" | "trialing" | "grace_period" | "expired" | "revoked" | "billing_retry"
+          expires_at?: string | null
+          is_trial?: boolean
+          will_renew?: boolean
+          original_transaction_id?: string | null
+          purchase_token?: string | null
+          latest_transaction_id?: string | null
+          store_environment?: "production" | "sandbox" | null
+          last_verified_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          platform?: "ios" | "android"
+          product_id?: string
+          status?: "active" | "trialing" | "grace_period" | "expired" | "revoked" | "billing_retry"
+          expires_at?: string | null
+          is_trial?: boolean
+          will_renew?: boolean
+          original_transaction_id?: string | null
+          purchase_token?: string | null
+          latest_transaction_id?: string | null
+          store_environment?: "production" | "sandbox" | null
+          last_verified_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
           business_card_id: string

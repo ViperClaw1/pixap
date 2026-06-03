@@ -133,13 +133,6 @@ export const storiesArchiveStaticStyles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 2,
   },
-
-  mapMarkerThumbEmpty: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-  },
 });
 
 export function storiesArchiveThemeStyles(colors: ThemeColors, topInset: number) {
@@ -187,10 +180,6 @@ export function storiesArchiveThemeStyles(colors: ThemeColors, topInset: number)
     },
     mapMarkerThumb: {
       borderColor: "#fff",
-    },
-    mapMarkerThumbEmpty: {
-      borderColor: "#fff",
-      backgroundColor: colors.card,
     },
     header: {
       paddingTop: Math.max(topInset, 10),

@@ -33,7 +33,8 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useMyArchivedStories } from "@/entities/story";
 import { rotateStoriesFromIndex } from "@/entities/story/lib/archiveViewer";
 import type { StoryGroup, StoryItem } from "@/shared/model/types/stories";
-import { preloadSmartImages, SmartImage } from "@/shared/ui/smart-image/SmartImage";
+import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
+import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { parseStoryMediaUrls, resolveStoryStorageUrl } from "@/shared/lib/storyMediaUrls";
 import { getFeedStoryPreviewImageUrl } from "@/shared/lib/feedMediaUrls";
 import { chunkCells, toYmd, firstOfMonthContaining, type CalendarCell } from "@/shared/lib/bookingCalendar";
@@ -203,9 +204,8 @@ type ArchiveStoryMarkerProps = {
   storyId: string;
   latitude: number;
   longitude: number;
-  thumbUri: string | null;
-  thumbStyle: ImageStyle;
-  fallbackStyle: ViewStyle;
+  avatarUri: string | null;
+  avatarStyle: ImageStyle;
   onPress: () => void;
 };
 
@@ -213,19 +213,18 @@ const ArchiveMapStoryMarker = memo(function ArchiveMapStoryMarker({
   storyId,
   latitude,
   longitude,
-  thumbUri,
-  thumbStyle,
-  fallbackStyle,
+  avatarUri,
+  avatarStyle,
   onPress,
 }: ArchiveStoryMarkerProps) {
   const coordinate = useMemo(() => ({ latitude, longitude }), [latitude, longitude]);
-  const [tracksViewChanges, setTracksViewChanges] = useState(Boolean(thumbUri));
-  const onThumbLoad = useCallback(() => {
+  const [tracksViewChanges, setTracksViewChanges] = useState(Boolean(avatarUri));
+  const onAvatarLoad = useCallback(() => {
     setTracksViewChanges(false);
   }, []);
   useEffect(() => {
-    setTracksViewChanges(Boolean(thumbUri));
-  }, [thumbUri]);
+    setTracksViewChanges(Boolean(avatarUri));
+  }, [avatarUri]);
   return (
     <Marker
       coordinate={coordinate}
@@ -233,17 +232,14 @@ const ArchiveMapStoryMarker = memo(function ArchiveMapStoryMarker({
       tracksViewChanges={tracksViewChanges}
       onPress={onPress}
     >
-      {thumbUri ? (
-        <SmartImage
-          uri={thumbUri}
-          style={thumbStyle}
-          contentFit="cover"
-          recyclingKey={thumbUri}
-          onLoad={onThumbLoad}
-        />
-      ) : (
-        <View style={fallbackStyle} />
-      )}
+      <UserAvatarImage
+        uri={avatarUri}
+        style={avatarStyle}
+        contentFit="cover"
+        recyclingKey={avatarUri ?? storyId}
+        iconSize={18}
+        onLoad={onAvatarLoad}
+      />
     </Marker>
   );
 });
@@ -769,16 +765,15 @@ export function StoriesArchiveView({ onRequestClose, overlayActive = true }: Sto
             }
             const sid = props.storyId;
             const story = sid ? storyById.get(sid) : undefined;
-            const uri = story ? (storyMediaById.get(story.id) ?? [])[0] ?? null : null;
+            const avatarUri = story?.profile?.avatar_url ?? null;
             return (
               <ArchiveMapStoryMarker
                 key={`s-${sid ?? "x"}`}
                 storyId={sid ?? "x"}
                 latitude={lat}
                 longitude={lng}
-                thumbUri={uri}
-                thumbStyle={styles.mapMarkerThumb}
-                fallbackStyle={styles.mapMarkerThumbEmpty}
+                avatarUri={avatarUri}
+                avatarStyle={styles.mapMarkerThumb}
                 onPress={() => handleMapFeaturePress(f)}
               />
             );

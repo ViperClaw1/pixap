@@ -26,6 +26,10 @@ verify_jwt = false
 [functions.iap-google-rtdn]
 verify_jwt = false
 
+[functions.iap-reconcile-subscriptions]
+# Invoked by pg_cron/pg_net with service role bearer.
+verify_jwt = false
+
 [functions.consume-push-outbox]
 # Invoked by pg_cron/pg_net with service role bearer (not a user session JWT).
 verify_jwt = false
