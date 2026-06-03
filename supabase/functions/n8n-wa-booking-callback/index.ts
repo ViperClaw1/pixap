@@ -40,7 +40,7 @@ function normalizeStatusLines(raw: unknown): string[] | null {
 }
 
 function statusLinesIndicateRejection(lines: string[]): boolean {
-  return /(not available|unavailable|slot is not available|недоступен|отклон|reject)/i.test(lines.join(" "));
+  return /(not available|unavailable|slot is not available|declin|недоступен|отклон|reject)/i.test(lines.join(" "));
 }
 
 function findClosestBookingCandidate(
@@ -217,7 +217,6 @@ Deno.serve(async (req) => {
       .eq("business_card_id", row.business_card_id)
       .eq("date_time", row.date_time)
       .eq("status", "upcoming")
-      .eq("payment_status", "pending")
       .order("created_at", { ascending: false });
 
     if (bookingSelectErr) {
@@ -237,8 +236,7 @@ Deno.serve(async (req) => {
         .from("bookings")
         .update({ status: "expired" })
         .eq("id", linkedBooking.id)
-        .eq("status", "upcoming")
-        .eq("payment_status", "pending");
+        .eq("status", "upcoming");
 
       if (bookingUpdateErr) {
         console.error("[n8n-wa-booking-callback] cancel linked booking", bookingUpdateErr);
@@ -249,7 +247,7 @@ Deno.serve(async (req) => {
       }
       cancelledBookingId = linkedBooking.id;
     } else {
-      console.warn("[n8n-wa-booking-callback] no linked pending booking to cancel", {
+      console.warn("[n8n-wa-booking-callback] no linked booking to cancel", {
         cart_item_id: row.id,
         user_id: row.user_id,
         business_card_id: row.business_card_id,
