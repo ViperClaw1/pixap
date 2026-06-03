@@ -131,7 +131,7 @@ function OnboardingVenueCardInner({ venue }: Props) {
             venueId={venue.venue_id}
             style={styles.crowd}
             crowdTitleStyle={{ color: colors.text }}
-            crowdMetaStyle={{ color: colors.text }}
+            crowdMetaStyle={[styles.crowdMeta, { color: colors.text }]}
           />
         </ScrollView>
       </View>
@@ -176,4 +176,5 @@ const styles = StyleSheet.create({
   tagText: { fontSize: 11, fontWeight: "600" },
   desc: { fontSize: 14, lineHeight: 20, marginTop: 4 },
   crowd: { marginTop: 8 },
+  crowdMeta: { marginBottom: 18 },
 });
