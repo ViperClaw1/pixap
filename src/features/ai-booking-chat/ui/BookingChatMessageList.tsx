@@ -17,8 +17,12 @@ function isOnboardingAssistantMessage(messageId: string): boolean {
   return messageId.startsWith("onb-");
 }
 
-function typewriterRunKey(messageId: string, epoch: number): string {
+function greetingRunKey(messageId: string, epoch: number): string {
   return epoch > 0 ? `${messageId}@${epoch}` : messageId;
+}
+
+function onboardingRunKey(messageId: string): string {
+  return messageId;
 }
 
 export function BookingChatMessageList({
@@ -41,12 +45,12 @@ export function BookingChatMessageList({
               <View style={[ts.bubble, isUser ? ts.bubbleMine : ts.bubblePeer]}>
                 {greetingTw ? (
                   <BookingGreetingTypewriterText
-                    runOnceKey={typewriterRunKey(item.id, openingTypewriterEpoch)}
+                    runOnceKey={greetingRunKey(item.id, openingTypewriterEpoch)}
                     textStyle={isUser ? ts.bubbleTextMine : ts.bubbleTextPeer}
                   />
                 ) : onboardingTw ? (
                   <BookingTypewriterText
-                    runOnceKey={typewriterRunKey(item.id, openingTypewriterEpoch)}
+                    runOnceKey={onboardingRunKey(item.id)}
                     fullText={item.content}
                     textStyle={isUser ? ts.bubbleTextMine : ts.bubbleTextPeer}
                     onComplete={() => onOnboardingTypewriterComplete?.(item.id)}
