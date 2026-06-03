@@ -13,6 +13,8 @@ import { useBusinessCardsByCategory } from "@/entities/business-card";
 import { useCategories } from "@/entities/category";
 import { CityPickerField, useProfileCityPicker } from "@/shared/ui/city-picker";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
+import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
@@ -121,6 +123,7 @@ export default function CategoryScreen() {
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
+  const { user } = useAuth();
   const { selectedCity, profileCityFilter, selectCity } = useProfileCityPicker();
   const { data = [], isLoading } = useBusinessCardsByCategory(id, profileCityFilter);
   const { data: categories = [] } = useCategories();
@@ -182,6 +185,12 @@ export default function CategoryScreen() {
     });
   }, [expandVisibleBatch]);
 
+  const handleCityPickerOpen = useCallback(() => {
+    if (user) return true;
+    navigateToProfileAuth(navigation);
+    return false;
+  }, [navigation, user]);
+
   const listFooter = useMemo(
     () =>
       !isLoading && (canShowMore || isLoadingMore) ? (
@@ -226,7 +235,7 @@ export default function CategoryScreen() {
           </View>
         </View>
         <View style={styles.cityRow}>
-          <CityPickerField value={selectedCity} onChange={selectCity} />
+          <CityPickerField value={selectedCity} onChange={selectCity} onOpen={handleCityPickerOpen} />
         </View>
       </View>
 

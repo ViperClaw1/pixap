@@ -295,7 +295,7 @@ function AIBookingPageContent() {
       replace: (name: "SubscriptionPaywall", params?: { reason?: "no_credits" | "upgrade" }) => void;
     },
   });
-  const { messages, runFlow, isLoading, resetFlowSearchTranscript } = usePixAI();
+  const { runFlow, isLoading, resetFlowSearchTranscript } = usePixAI();
   const { data: profile, isPending: profilePending } = useProfile();
   const { needsPrompt: needsAiConsentPrompt, status: aiConsentStatus } = useAiDataConsent();
 
@@ -558,12 +558,7 @@ function AIBookingPageContent() {
     }));
   }, [profile]);
 
-  const latestToolResult = [...messages]
-    .reverse()
-    .find((m) => m.role === "assistant" && m.toolResult)?.toolResult;
-
   const placeOptions =
-    latestToolResult?.places ??
     activeTabSnapshot?.catalogPlaces ??
     lastSearchSnapshot?.catalogPlaces ??
     [];

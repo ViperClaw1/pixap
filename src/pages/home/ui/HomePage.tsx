@@ -181,6 +181,22 @@ export default function HomeScreen() {
     return false;
   }, [navigation, user]);
 
+  const handleOpenAIBooking = useCallback(() => {
+    if (!user) {
+      navigateToProfileAuth(navigation);
+      return;
+    }
+    openAIBooking();
+  }, [navigation, openAIBooking, user]);
+
+  const handleOpenVibeMatch = useCallback(() => {
+    if (!user) {
+      navigateToProfileAuth(navigation);
+      return;
+    }
+    openVibeMatch();
+  }, [navigation, openVibeMatch, user]);
+
   const renderCategoryRow = useCallback<ListRenderItem<HomeCategoryListItem>>(
     ({ item }) => {
       const iconSpec = resolveCategoryIconSpec(item.name);
@@ -262,7 +278,7 @@ export default function HomeScreen() {
               style={styles.aiBookingBtn}
               accessibilityRole="button"
               accessibilityLabel={t("home.a11y.openPixaiBooking")}
-              onPress={() => openAIBooking()}
+              onPress={handleOpenAIBooking}
             >
               <AnimatedHomeSparklesIcon size={16} color={colors.onPrimary} />
               <Text
@@ -312,7 +328,7 @@ export default function HomeScreen() {
           <AppPressable
             accessibilityRole="button"
             accessibilityLabel={t("home.a11y.openPixaiVibeMatch")}
-            onPress={() => openVibeMatch()}
+            onPress={handleOpenVibeMatch}
             style={styles.vibeToolbarPressable}
           >
             <LinearGradient
@@ -389,6 +405,8 @@ export default function HomeScreen() {
       colors,
       dailyRecommendations,
       featured,
+      handleOpenAIBooking,
+      handleOpenVibeMatch,
       handleCityPickerOpen,
       isDark,
       i18n.language,
