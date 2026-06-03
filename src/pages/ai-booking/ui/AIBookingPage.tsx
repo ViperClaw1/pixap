@@ -13,7 +13,7 @@ import {
   Modal,
   type KeyboardEvent
 } from "react-native";
-import { CommonActions, useFocusEffect, useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
+import { CommonActions, useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { Ionicons } from "@expo/vector-icons";
@@ -129,6 +129,14 @@ const DEFAULT_RADIUS_MILES = 5;
 
 type FlowStep = "assistant" | "booking";
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "AIBooking">;
+type AIBookingRoute = RouteProp<BrowseFlowParamList, "AIBooking">;
+type AIBookingScrollState = {
+  assistantY: number;
+  bookingY: number;
+  step: FlowStep;
+};
+
+const aiBookingScrollStateByRouteKey = new Map<string, AIBookingScrollState>();
 
 const validationSchema = {
   persons: (value: string) => {
@@ -141,20 +149,41 @@ const validationSchema = {
 };
 
 function AIBookingPageContent() {
+  const route = useRoute<AIBookingRoute>();
+  const initialScrollState = aiBookingScrollStateByRouteKey.get(route.key);
   const insets = useSafeAreaInsets();
   const bookingComposerScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bookingComposerFocusedRef = useRef(false);
   const bookingScrollRef = useRef<ScrollView>(null);
   const androidScreenSwipeEnabledRef = useRef(true);
-  const bookingScrollYRef = useRef(0);
+  const initialStepRef = useRef<FlowStep>(initialScrollState?.step ?? "assistant");
+  const currentStepRef = useRef<FlowStep>(initialStepRef.current);
+  const bookingScrollYRef = useRef(initialScrollState?.bookingY ?? 0);
   /** Scroll offset on step 1 saved when opening booking — restored on return. */
-  const assistantScrollYRef = useRef(0);
+  const assistantScrollYRef = useRef(initialScrollState?.assistantY ?? 0);
+  const initialScrollOffsetRef = useRef({
+    x: 0,
+    y:
+      initialStepRef.current === "assistant"
+        ? (initialScrollState?.assistantY ?? 0)
+        : (initialScrollState?.bookingY ?? 0),
+  });
   const bookingScrollLayoutRef = useRef({ viewH: 0, contentH: 0 });
   const bookingComposerInputRef = useRef<TextInput>(null);
   const keyboardTopScreenRef = useRef<number | null>(null);
   const greetingBootstrappedRef = useRef(new Set<string>());
   const openingReplayGuardRef = useRef<string | null>(null);
   const [openingTypewriterEpoch, setOpeningTypewriterEpoch] = useState(0);
+
+  const persistScrollState = useCallback(() => {
+    const step = currentStepRef.current;
+    const visibleY = bookingScrollYRef.current;
+    aiBookingScrollStateByRouteKey.set(route.key, {
+      assistantY: step === "assistant" ? visibleY : assistantScrollYRef.current,
+      bookingY: step === "booking" ? visibleY : 0,
+      step,
+    });
+  }, [route.key]);
 
   const scrollBookingContentToUncoverComposer = useCallback(() => {
     if (!bookingComposerFocusedRef.current) return;
@@ -313,7 +342,7 @@ function AIBookingPageContent() {
   const createBooking = useCreateBooking();
   const startN8nWaBooking = useStartN8nWaBooking();
   const { data: cartItems = [] } = useCartItems();
-  const [currentStep, setCurrentStep] = useState<FlowStep>("assistant");
+  const [currentStep, setCurrentStep] = useState<FlowStep>(initialStepRef.current);
   const [stepDirection, setStepDirection] = useState<1 | -1>(1);
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
@@ -355,6 +384,7 @@ function AIBookingPageContent() {
   }, []);
 
   useLayoutEffect(() => {
+    currentStepRef.current = currentStep;
     if (currentStep !== "booking") return;
     setBookingPlaceId(null);
     bookingScrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -362,6 +392,7 @@ function AIBookingPageContent() {
   }, [currentStep]);
 
   useLayoutEffect(() => {
+    currentStepRef.current = currentStep;
     if (currentStep !== "assistant") return;
     const targetY = assistantScrollYRef.current;
     if (targetY <= 0) return;
@@ -378,6 +409,29 @@ function AIBookingPageContent() {
       cancelAnimationFrame(raf2);
     };
   }, [currentStep]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const cached = aiBookingScrollStateByRouteKey.get(route.key);
+      if (cached) {
+        assistantScrollYRef.current = cached.assistantY;
+        if (currentStepRef.current === "assistant") {
+          bookingScrollYRef.current = cached.assistantY;
+          bookingScrollRef.current?.scrollTo({ y: cached.assistantY, animated: false });
+        }
+      }
+
+      return () => {
+        persistScrollState();
+      };
+    }, [persistScrollState, route.key]),
+  );
+
+  useEffect(() => {
+    return () => {
+      persistScrollState();
+    };
+  }, [persistScrollState]);
 
   useEffect(() => {
     androidScreenSwipeEnabledRef.current = currentStep === "assistant";
@@ -1097,9 +1151,14 @@ function AIBookingPageContent() {
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          contentOffset={initialScrollOffsetRef.current}
           scrollEventThrottle={16}
           onScroll={(e) => {
-            bookingScrollYRef.current = e.nativeEvent.contentOffset.y;
+            const y = e.nativeEvent.contentOffset.y;
+            bookingScrollYRef.current = y;
+            if (currentStepRef.current === "assistant") {
+              assistantScrollYRef.current = y;
+            }
           }}
           onLayout={(e) => {
             bookingScrollLayoutRef.current = {
@@ -1334,7 +1393,7 @@ function AIBookingPageContent() {
               }
               onPress={() => {
                 if (!isSelectable) return;
-                let categoryLabel = "";
+                let categoryLabel: string;
                 if (isRestaurantCategoryName(category.name)) {
                   setSelectedCategoryId(RESTAURANT_TABLE_KEY);
                   setSelectedCategoryName(restaurantTableLabel);
