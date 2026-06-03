@@ -7,6 +7,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import type { BusinessCard } from "@/entities/business-card";
 import { PIXAI_BUSINESS_CARD_SELECT, localizeBusinessCard } from "@/entities/business-card";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
+import { normalizeBusinessCardBlurhashes } from "@/shared/lib/business-card/businessCardBlurhash";
 import { invokePixaiOrchestrateWithAuth, logPixaiOrchestrateInvokeFailure } from "./invokePixaiOrchestrate";
 import {
   getBookingAssistantGreetingText,
@@ -17,7 +18,7 @@ import { buildSearchResultsLineFromFlow } from "../lib/buildSearchResultsAssista
 
 export type PixAIPlace = Pick<
   BusinessCard,
-  "id" | "name" | "address" | "city" | "rating" | "booking_price" | "images" | "tags"
+  "id" | "name" | "address" | "city" | "rating" | "booking_price" | "images" | "tags" | "blurhashes"
 >;
 
 export type PixAISlot = {
@@ -181,6 +182,7 @@ function mapRowsToPlaces(rows: unknown, language: string): PixAIPlace[] {
       rating: Number(r.rating ?? 0),
       booking_price: Number(r.booking_price ?? 0),
       images: images.length > 0 ? images : normalizeBusinessCardImages(legacyImage),
+      blurhashes: normalizeBusinessCardBlurhashes(r.blurhashes),
       tags: localized.tags,
     };
   });

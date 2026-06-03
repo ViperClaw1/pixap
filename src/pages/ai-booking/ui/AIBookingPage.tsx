@@ -120,6 +120,7 @@ const DEFAULT_BOOKING_REC_VIEW: BookingRecommendationView = {
   excludedPlaceIds: [],
   filters: {},
 };
+const EMPTY_PLACE_OPTIONS: PixAIPlace[] = [];
 
 type DraftForm = AIBookingDraftForm;
 
@@ -558,10 +559,10 @@ function AIBookingPageContent() {
     }));
   }, [profile]);
 
-  const placeOptions =
-    activeTabSnapshot?.catalogPlaces ??
-    lastSearchSnapshot?.catalogPlaces ??
-    [];
+  const placeOptions = useMemo(
+    () => activeTabSnapshot?.catalogPlaces ?? lastSearchSnapshot?.catalogPlaces ?? EMPTY_PLACE_OPTIONS,
+    [activeTabSnapshot?.catalogPlaces, lastSearchSnapshot?.catalogPlaces],
+  );
 
   const recommendationView = useBookingChatStore(
     useShallow((s) => {
