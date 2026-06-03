@@ -22,6 +22,7 @@ import { fetchDirections, geocodeAddressDetailed, type TravelMode } from "@/shar
 import type { LatLng } from "@/shared/lib/polylineDecode";
 import { regionAroundPoint, regionFromCoordinates, type MapRegion } from "@/shared/lib/mapRegion";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useThemedGoogleMapStyle } from "@/shared/ui/themed-google-map";
 import { useDirectionsModalStyles } from "./directionsModalStyles";
 
 /** Стабильные маркеры: стабильный `coordinate` + `tracksViewChanges={false}` — меньше перерисовок нативных аннотаций. */
@@ -163,6 +164,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
   const { height: screenH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
+  const themedMapStyle = useThemedGoogleMapStyle();
   const fetchGeneration = useRef(0);
   const requestControllerRef = useRef<AbortController | null>(null);
   const closingViaSwipeRef = useRef(false);
@@ -597,6 +599,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
                     ref={mapRef}
                     provider={mapProvider}
                     style={StyleSheet.absoluteFillObject}
+                    customMapStyle={themedMapStyle}
                     initialRegion={initialRegion}
                     showsUserLocation={!permissionDenied && !!userLoc}
                     showsMyLocationButton={false}
@@ -620,6 +623,7 @@ export function DirectionsModal({ visible, onClose, placeName, address }: Props)
                   ref={mapRef}
                   provider={mapProvider}
                   style={styles.map}
+                  customMapStyle={themedMapStyle}
                   initialRegion={initialRegion}
                   showsUserLocation={!permissionDenied && !!userLoc}
                   showsMyLocationButton={false}

@@ -4,6 +4,7 @@ import MapView, { Polyline, PROVIDER_GOOGLE, type Region } from "react-native-ma
 import { regionAroundPoint, regionFromCoordinates } from "@/shared/lib/mapRegion";
 import { useFitMapToRoute } from "@/shared/lib/useFitMapToRoute";
 import type { LatLng } from "@/shared/lib/polylineDecode";
+import { useThemedGoogleMapStyle } from "@/shared/ui/themed-google-map";
 import { RouteNumberMarker } from "./RouteNumberMarker";
 import type { VibeRouteMapInteractiveProps } from "./types";
 
@@ -24,6 +25,7 @@ function VibeRouteMapInteractiveComponent({
   onMarkerPress,
 }: VibeRouteMapInteractiveProps) {
   const mapRef = useRef<MapView | null>(null);
+  const themedMapStyle = useThemedGoogleMapStyle();
 
   const fitCoords = useMemo((): LatLng[] => {
     if (polylineCoords.length >= 2) return polylineCoords;
@@ -58,6 +60,7 @@ function VibeRouteMapInteractiveComponent({
       ref={mapRef}
       provider={PROVIDER_GOOGLE}
       style={StyleSheet.absoluteFillObject}
+      customMapStyle={themedMapStyle}
       initialRegion={initialRegion}
       scrollEnabled
       zoomEnabled
