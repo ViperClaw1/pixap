@@ -23,8 +23,8 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { tintForTagKey } from "@/shared/lib/tagTint";
 import type { AIBookingStyles } from "./aiBookingStyles";
 
-const THUMB_SIZE_DEFAULT = 112;
-const THUMB_SIZE_COMPACT = 88;
+const THUMB_SIZE_DEFAULT = 96;
+const THUMB_SIZE_COMPACT = 80;
 const COMPACT_CARD_WIDTH = 360;
 const MAX_TAGS = 3;
 const BOOK_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
@@ -139,7 +139,7 @@ function AIBookingSuggestedPlaceCardInner({
         <View style={s.placeTextCol}>
           <View>
             <View style={s.placeNameRow}>
-              <Text style={s.placeName} numberOfLines={2}>
+              <Text style={s.placeName} numberOfLines={1} ellipsizeMode="tail">
                 {place.name}
               </Text>
               <AppPressable style={s.placeHeartBtn} onPress={onFavoritePress} hitSlop={8}>
@@ -152,12 +152,9 @@ function AIBookingSuggestedPlaceCardInner({
               </AppPressable>
             </View>
             {addressLine ? (
-              <View style={s.placeAddressRow}>
-                <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-                <Text style={s.placeAddressText} numberOfLines={2}>
-                  {addressLine}
-                </Text>
-              </View>
+              <Text style={s.placeAddressText} numberOfLines={2}>
+                <Ionicons name="location-outline" size={14} color={colors.textMuted} /> {addressLine}
+              </Text>
             ) : null}
             {visibleTags.length > 0 ? (
               <View style={s.placeTagsRow}>

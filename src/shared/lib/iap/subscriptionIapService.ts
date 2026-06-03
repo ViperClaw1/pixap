@@ -106,7 +106,7 @@ export async function startSubscriptionPurchase(productId: string, products: Pro
 }
 
 export async function restorePurchases(): Promise<RestoredPurchase[]> {
-  const purchases = await getAvailablePurchases({ onlyIncludeActiveItemsIOS: false });
+  const purchases = await getAvailablePurchases({ onlyIncludeActiveItemsIOS: true });
   return purchases.map((purchase) => ({
     payload: normalizePurchase(purchase),
     raw: purchase,

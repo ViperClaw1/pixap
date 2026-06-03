@@ -7,8 +7,8 @@ import { isProfileAdmin, useProfile } from "@/entities/user";
 
 export function useBookingAccess() {
   const { user } = useAuth();
-  const { isLoading: entitlementLoading, isActive, entitlement } = useEntitlement();
-  const { isLoading: creditsLoading, credits, balance } = useBookingCredits();
+  const { isLoading: entitlementLoading, isError: entitlementError, isActive, entitlement, entitlementHydrated } = useEntitlement();
+  const { isLoading: creditsLoading, isError: creditsError, credits, balance } = useBookingCredits();
   const { data: profile, isLoading: profileLoading } = useProfile();
 
   const isProfileAdminUser = isProfileAdmin(profile?.account_role);
@@ -22,7 +22,7 @@ export function useBookingAccess() {
     credits?.hasPremiumPlus === true ||
     (isActive && isPremiumPlusProduct(entitlement?.product_id));
   const isIntroActive = credits?.isIntroActive === true;
-  const hasCreditsBalance = balance > 0;
+  const hasCreditsBalance = balance > 0 || (creditsError && hasPaidPremium);
   const canUseBookingCredits = exemptFromBookingCredits || hasCreditsBalance;
 
   const standardPaidBookingAccess = hasCreditsBalance && (isIntroActive || hasPaidPremium);
@@ -37,7 +37,11 @@ export function useBookingAccess() {
     [exemptFromBookingCredits, hasPremiumPlus, standardPaidBookingAccess],
   );
 
-  const isLoading = entitlementLoading || creditsLoading || (!!user && profileLoading);
+  const isLoading =
+    !entitlementHydrated ||
+    (entitlementLoading && !entitlementError) ||
+    (creditsLoading && !creditsError) ||
+    (!!user && profileLoading);
 
   const needsPaywall =
     !isLoading && !exemptFromBookingCredits && !access.canAccessBookingFlow && !access.canAccessVibeMatch;

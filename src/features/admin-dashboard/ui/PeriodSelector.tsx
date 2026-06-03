@@ -40,7 +40,7 @@ function createStyles({
 }: {
   colors: { surface: string; border: string; text: string; textMuted: string; primary: string; onPrimary: string };
 }) {
-  return {
+  return StyleSheet.create({
     row: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
     chip: {
       paddingHorizontal: 14,
@@ -53,5 +53,5 @@ function createStyles({
     chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
     chipText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
     chipTextActive: { color: colors.onPrimary },
-  };
+  });
 }

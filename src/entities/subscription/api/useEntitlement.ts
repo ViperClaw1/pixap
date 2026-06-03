@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { readCachedEntitlement, writeCachedEntitlement } from "../lib/entitlementCache";
 
 export type EntitlementStatus = "active" | "trialing" | "grace_period" | "expired" | "revoked" | "billing_retry";
 
@@ -28,23 +29,35 @@ const INTRO_FREE_DAYS = 7;
 export function useEntitlement(options?: { enabled?: boolean }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const enabled = Boolean(user?.id) && (options?.enabled ?? true);
 
   const query = useQuery({
     queryKey: queryKeys.subscription.entitlement(user?.id),
-    enabled: Boolean(user?.id) && (options?.enabled ?? true),
+    enabled,
     staleTime: 120 * 1000,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("subscription_entitlements")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return (data ?? null) as SubscriptionEntitlement | null;
+      try {
+        const { data, error } = await supabase
+          .from("subscription_entitlements")
+          .select("*")
+          .eq("user_id", user!.id)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        return (data ?? null) as SubscriptionEntitlement | null;
+      } catch (error) {
+        const cached = await readCachedEntitlement(user!.id);
+        if (cached) return cached;
+        throw error;
+      }
     },
   });
+
+  useEffect(() => {
+    if (!user?.id || query.data === undefined) return;
+    void writeCachedEntitlement(user.id, query.data);
+  }, [query.data, user?.id]);
 
   const computed = useMemo(() => {
     const entitlement = query.data;
@@ -68,8 +81,9 @@ export function useEntitlement(options?: { enabled?: boolean }) {
       storeEnvironment: entitlement?.store_environment ?? null,
       willRenew: entitlement?.will_renew ?? false,
       status: entitlement?.status ?? null,
+      entitlementHydrated: !enabled || query.isFetched || query.isError,
     };
-  }, [query.data, user?.created_at]);
+  }, [enabled, query.data, query.isError, query.isFetched, user?.created_at]);
 
   return {
     ...query,

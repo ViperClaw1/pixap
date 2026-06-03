@@ -1,8 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
-  refillBookingCreditsByEntitlementRef,
+  refillBookingCreditsForUser,
   shouldRefillCreditsOnGoogleNotification,
 } from "../_shared/bookingCredits.ts";
+import { claimProcessedTransaction } from "../_shared/iapIdempotency.ts";
+import { verifyAndroidPurchase } from "../_shared/iapStoreVerification.ts";
+import { verifyGooglePubSubRequest } from "../_shared/iapWebhookVerification.ts";
 
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -22,6 +25,8 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
 
   try {
+    await verifyGooglePubSubRequest(req);
+
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     if (!serviceKey || !supabaseUrl) throw new Error("Missing service role env");
@@ -41,8 +46,12 @@ Deno.serve(async (req) => {
         notificationType?: number;
       };
     };
+    const expectedPackageName = Deno.env.get("GOOGLE_PLAY_PACKAGE_NAME");
+    if (expectedPackageName && decodedMessage.packageName && decodedMessage.packageName !== expectedPackageName) {
+      throw new Error("Google RTDN packageName mismatch");
+    }
     const notification = decodedMessage.subscriptionNotification;
-    if (!notification?.purchaseToken) {
+    if (!notification?.purchaseToken || !notification.subscriptionId) {
       return new Response(JSON.stringify({ ok: true, ignored: true }), { status: 200 });
     }
 
@@ -63,35 +72,57 @@ Deno.serve(async (req) => {
       { onConflict: "platform,event_id" },
     );
 
-    const normalizedStatus: "active" | "grace_period" | "billing_retry" | "expired" | "revoked" =
-      notificationType === 12
-        ? "revoked"
-        : notificationType === 3 || notificationType === 13
-          ? "expired"
-          : notificationType === 5
-            ? "grace_period"
-            : notificationType === 10 || notificationType === 11
-              ? "billing_retry"
-              : "active";
+    const verification = await verifyAndroidPurchase({
+      platform: "android",
+      productId: notification.subscriptionId,
+      purchaseToken: notification.purchaseToken,
+      purchase: {},
+    });
+    const normalizedStatus =
+      notificationType === 12 ? "revoked" : verification.entitlement.status;
 
-    await admin
+    const { data: updatedEntitlement, error: updateError } = await admin
       .from("subscription_entitlements")
       .update({
         status: normalizedStatus,
-        will_renew: normalizedStatus === "active" || normalizedStatus === "grace_period",
+        product_id: verification.entitlement.product_id,
+        expires_at: verification.entitlement.expires_at,
+        latest_transaction_id: verification.entitlement.latest_transaction_id,
+        store_environment: verification.entitlement.store_environment,
+        will_renew:
+          normalizedStatus === "active" ||
+          normalizedStatus === "trialing" ||
+          normalizedStatus === "grace_period",
         updated_at: new Date().toISOString(),
         last_verified_at: new Date().toISOString(),
       })
       .eq("platform", "android")
-      .eq("purchase_token", notification.purchaseToken);
+      .eq("purchase_token", notification.purchaseToken)
+      .select("id,user_id,product_id")
+      .maybeSingle();
+    if (updateError) throw updateError;
 
     if (
-      (normalizedStatus === "active" || normalizedStatus === "grace_period") &&
+      updatedEntitlement?.user_id &&
+      updatedEntitlement?.product_id &&
+      (normalizedStatus === "active" || normalizedStatus === "trialing" || normalizedStatus === "grace_period") &&
       shouldRefillCreditsOnGoogleNotification(notificationType)
     ) {
-      await refillBookingCreditsByEntitlementRef(admin, "android", {
+      const firstProcessing = await claimProcessedTransaction(admin, {
+        platform: "android",
+        transactionId: verification.entitlement.latest_transaction_id ?? notification.purchaseToken,
         purchaseToken: notification.purchaseToken,
+        userId: updatedEntitlement.user_id as string,
+        entitlementId: updatedEntitlement.id as string,
+        source: "google_rtdn",
       });
+      if (firstProcessing) {
+        await refillBookingCreditsForUser(
+          admin,
+          updatedEntitlement.user_id as string,
+          updatedEntitlement.product_id as string,
+        );
+      }
     }
 
     await admin

@@ -356,7 +356,7 @@ function BusinessPlaceCardInner({
             />
             {place.address?.trim() ? (
               <Text style={styles.hAddress} numberOfLines={2}>
-                {place.address.trim()}
+                <Ionicons name="location-outline" size={14} color={colors.textMuted} /> {place.address.trim()}
               </Text>
             ) : null}
           </View>
