@@ -22,10 +22,9 @@ export function clearBookingOpeningTypewriterKeys(keys: Iterable<string>): void 
   }
 }
 
-/** Restored tabs with committed search: skip opening typewriter on rehydrate. */
+/** Restored tabs already contain full assistant text, so skip opening typewriter on rehydrate. */
 export function syncOpeningTypewriterRegistryFromTabs(tabs: BookingChatTab[]): void {
   for (const tab of tabs) {
-    if (!tab.searchSnapshot) continue;
     for (const key of collectOpeningTypewriterKeysFromTabs([tab])) {
       markBookingOpeningTypewriterComplete(key);
     }

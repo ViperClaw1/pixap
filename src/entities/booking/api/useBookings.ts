@@ -193,6 +193,7 @@ export const useCreateBooking = () => {
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookingCredits.prefix });
+      queryClient.invalidateQueries({ queryKey: queryKeys.availableSlots.prefix });
     },
   });
 };
@@ -214,6 +215,7 @@ export const useCancelBooking = () => {
         suppressBookingStatusNotification(user.id, bookingId);
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
+      queryClient.invalidateQueries({ queryKey: queryKeys.availableSlots.prefix });
     },
   });
 };

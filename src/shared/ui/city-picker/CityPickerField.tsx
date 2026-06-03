@@ -94,7 +94,9 @@ export function CityPickerField({
         visible={picker.visible}
         onClose={picker.close}
         title={t("bookingCommon.chooseCity")}
-        maxHeightFraction={0.72}
+        maxHeightFraction={0.58}
+        minHeightFraction={0.38}
+        fitContent
       >
         <View style={styles.citySearchBox}>
           <Ionicons name="search-outline" size={20} color={colors.textMuted} />

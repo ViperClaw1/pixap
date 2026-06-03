@@ -64,6 +64,7 @@ export const useCartItems = () => {
         () => {
           void queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
           void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.availableSlots.prefix });
         },
       )
       .subscribe();
@@ -125,6 +126,7 @@ export const useConfirmServiceCartBooking = () => {
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.prefix });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.availableSlots.prefix });
     },
   });
 };
@@ -157,7 +159,10 @@ export const useCreateCartItem = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
+      queryClient.invalidateQueries({ queryKey: queryKeys.availableSlots.prefix });
+    },
   });
 };
 
@@ -169,6 +174,9 @@ export const useDeleteCartItem = () => {
       const { error } = await supabase.from("cart_items").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.cart.itemsPrefix });
+      queryClient.invalidateQueries({ queryKey: queryKeys.availableSlots.prefix });
+    },
   });
 };

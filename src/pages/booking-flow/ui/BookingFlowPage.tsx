@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useBusinessCard } from "@/entities/business-card";
 import { useCreateCartItem, useStartN8nWaBooking } from "@/entities/cart";
-import { useCreateBooking } from "@/entities/booking";
+import { useAvailableSlots, useCreateBooking } from "@/entities/booking";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useProfile } from "@/entities/user";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
@@ -36,7 +36,6 @@ import {
   BOOKING_FLOW_DEFAULT_GUESTS,
   BOOKING_FLOW_MAX_GUESTS,
   BOOKING_FLOW_MIN_GUESTS,
-  BOOKING_FLOW_TIME_SLOTS,
   BOOKING_FLOW_TOTAL_STEPS,
 } from "../model/constants";
 import { BOOKING_SLOT_GRID_COLUMNS } from "@/entities/booking/lib/bookingSlots";
@@ -113,6 +112,16 @@ export default function BookingFlowPage() {
     () => buildMonthCells(visibleCalendarMonth.getFullYear(), visibleCalendarMonth.getMonth()),
     [visibleCalendarMonth],
   );
+  const {
+    data: slotsForDate = [],
+    isFetching: slotsFetching,
+    isError: slotsError,
+    refetch: refetchSlots,
+  } = useAvailableSlots(id, selectedDateYmd);
+  const selectedAvailableSlot = useMemo(
+    () => slotsForDate.find((slot) => slot.label === selectedTime && slot.available) ?? null,
+    [selectedTime, slotsForDate],
+  );
 
   if (placeLoading) {
     return (
@@ -168,9 +177,11 @@ export default function BookingFlowPage() {
       );
       return;
     }
-    const dateTime = new Date(selectedDate);
-    const [h, m] = selectedTime.split(":").map(Number);
-    dateTime.setHours(h, m, 0, 0);
+    if (!selectedAvailableSlot) {
+      Alert.alert("Pick an available time");
+      return;
+    }
+    const dateTime = new Date(selectedAvailableSlot.dateTimeIso);
     const customerName =
       profileString(user?.user_metadata?.full_name) ??
       profileString(user?.email?.split("@")[0]) ??
@@ -315,7 +326,10 @@ export default function BookingFlowPage() {
                           accessibilityRole="button"
                           accessibilityLabel={`${ymd}`}
                           disabled={isPast}
-                          onPress={() => setSelectedDateYmd(ymd)}
+                          onPress={() => {
+                            setSelectedDateYmd(ymd);
+                            setSelectedTime("");
+                          }}
                           style={[
                             styles.calendarCellDayInner,
                             themedStyles.calendarCellDayInner,
@@ -337,23 +351,46 @@ export default function BookingFlowPage() {
                 </View>
               ))}
             </View>
-            <View style={styles.timeGrid}>
-              {chunkCells([...BOOKING_FLOW_TIME_SLOTS], BOOKING_SLOT_GRID_COLUMNS).map((row, rowIdx) => (
-                <View key={`time-row-${rowIdx}`} style={styles.timeGridRow}>
-                  {row.map((t) => (
-                    <AppPressable
-                      key={t}
-                      style={[styles.timeCell, themedStyles.timeCell, selectedTime === t && styles.timeCellSel, selectedTime === t && themedStyles.timeCellSel]}
-                      onPress={() => setSelectedTime(t)}
-                    >
-                      <Text style={[themedStyles.timeCellText, selectedTime === t && styles.timeCellTextSel, selectedTime === t && themedStyles.timeCellTextSel]}>
-                        {t}
-                      </Text>
-                    </AppPressable>
-                  ))}
-                </View>
-              ))}
-            </View>
+            {slotsFetching ? (
+              <ActivityIndicator style={styles.slotsLoading} color={colors.primary} />
+            ) : slotsError ? (
+              <View style={styles.slotsError}>
+                <Text style={themedStyles.headerStep}>Could not load available slots.</Text>
+                <AppPressable style={styles.retrySlotsBtn} onPress={() => void refetchSlots()}>
+                  <Text style={themedStyles.headerTitle}>Retry</Text>
+                </AppPressable>
+              </View>
+            ) : slotsForDate.length === 0 ? (
+              <Text style={[styles.slotsEmptyText, themedStyles.headerStep]}>No time slots for this date.</Text>
+            ) : (
+              <View style={styles.timeGrid}>
+                {chunkCells(slotsForDate, BOOKING_SLOT_GRID_COLUMNS).map((row, rowIdx) => (
+                  <View key={`time-row-${rowIdx}`} style={styles.timeGridRow}>
+                    {row.map((slot) => {
+                      const isSelected = selectedTime === slot.label && slot.available;
+                      return (
+                        <AppPressable
+                          key={slot.dateTimeIso}
+                          disabled={!slot.available}
+                          style={[
+                            styles.timeCell,
+                            themedStyles.timeCell,
+                            isSelected && styles.timeCellSel,
+                            isSelected && themedStyles.timeCellSel,
+                            !slot.available && themedStyles.timeCellUnavailable,
+                          ]}
+                          onPress={() => setSelectedTime(slot.label)}
+                        >
+                          <Text style={[themedStyles.timeCellText, isSelected && styles.timeCellTextSel, isSelected && themedStyles.timeCellTextSel]}>
+                            {slot.label}
+                          </Text>
+                        </AppPressable>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </ScrollView>
       ) : (
@@ -429,6 +466,10 @@ export default function BookingFlowPage() {
               }
               if (step === 1 && !selectedTime) {
                 Alert.alert("Pick a time");
+                return;
+              }
+              if (step === 1 && !selectedAvailableSlot) {
+                Alert.alert("Pick an available time");
                 return;
               }
               setStep(step + 1);
@@ -525,6 +566,10 @@ const styles = StyleSheet.create({
   },
   timeCellSel: { backgroundColor: "#111" },
   timeCellTextSel: { color: "#fff", fontWeight: "600" },
+  slotsLoading: { marginTop: 16 },
+  slotsError: { marginTop: 16, gap: 8 },
+  retrySlotsBtn: { alignSelf: "flex-start", paddingVertical: 8 },
+  slotsEmptyText: { marginTop: 16 },
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: "#eee" },
   primary: primaryPressableStyle,
   primaryText: primaryPressableTextStyle,

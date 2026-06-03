@@ -110,8 +110,11 @@ export const queryKeys = {
     listPrefix: ["business_cards"] as const,
     singlePrefix: ["business_card"] as const,
   },
-  availableSlots: (businessCardId: string | null, dateYmd: string | null) =>
-    ["available_slots", businessCardId, dateYmd] as const,
+  availableSlots: {
+    prefix: ["available_slots"] as const,
+    forDay: (businessCardId: string | null, dateYmd: string | null) =>
+      ["available_slots", businessCardId, dateYmd] as const,
+  },
   shoppingItems: {
     main: (businessCardId: string) => ["shopping_items", businessCardId, "main"] as const,
     additional: (businessCardId: string) => ["shopping_items", businessCardId, "additional"] as const,

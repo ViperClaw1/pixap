@@ -78,12 +78,26 @@ Deno.serve(async (req) => {
       .from("bookings")
       .select("date_time")
       .eq("business_card_id", body.business_id)
-      .eq("payment_status", "paid")
+      .neq("status", "expired")
       .gte("date_time", dayStart.toISOString())
       .lt("date_time", dayEnd.toISOString());
     if (error) throw error;
 
-    const busy = new Set((bookings ?? []).map((b) => snapIsoToSlotMs(String(b.date_time))));
+    const { data: confirmedCartItems, error: cartError } = await db
+      .from("cart_items")
+      .select("date_time")
+      .eq("business_card_id", body.business_id)
+      .eq("wa_confirmable", true)
+      .gte("date_time", dayStart.toISOString())
+      .lt("date_time", dayEnd.toISOString());
+    if (cartError) throw cartError;
+
+    const activeBookingTimes = new Set((bookings ?? []).map((b) => snapIsoToSlotMs(String(b.date_time))));
+    const busy = new Set(
+      (confirmedCartItems ?? [])
+        .map((item) => snapIsoToSlotMs(String(item.date_time)))
+        .filter((time) => activeBookingTimes.has(time)),
+    );
     const minStart = Date.now() + BOOKING_MIN_LEAD_MS;
 
     const slots = buildSlotTimeLabels().map((label) => {

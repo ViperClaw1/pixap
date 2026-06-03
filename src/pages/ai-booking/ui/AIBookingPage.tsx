@@ -91,7 +91,6 @@ import {
   type BookingRecommendationView,
   type BookingSearchSnapshot,
 } from "@/features/ai-booking-chat";
-import { collectOpeningTypewriterKeysFromMessages } from "@/features/ai-booking-chat/lib/collectOpeningTypewriterKeys";
 import {
   clearBookingOpeningTypewriterKeys,
   markBookingOpeningTypewriterComplete,
@@ -177,7 +176,6 @@ function AIBookingPageContent() {
   const bookingComposerInputRef = useRef<TextInput>(null);
   const keyboardTopScreenRef = useRef<number | null>(null);
   const greetingBootstrappedRef = useRef(new Set<string>());
-  const openingReplayGuardRef = useRef<string | null>(null);
   const manualCitySelectionRef = useRef(false);
   const [openingTypewriterEpoch, setOpeningTypewriterEpoch] = useState(0);
 
@@ -304,42 +302,6 @@ function AIBookingPageContent() {
   const { runFlow, isLoading, resetFlowSearchTranscript } = usePixAI();
   const { data: profile, isPending: profilePending } = useProfile();
   const { needsPrompt: needsAiConsentPrompt, status: aiConsentStatus } = useAiDataConsent();
-
-  const replayOnboardingOpeningTypewriter = useCallback(() => {
-    const store = useBookingChatStore.getState();
-    const tabId = store.activeTabId;
-    if (!tabId) return;
-    const tab = store.tabs.find((t) => t.id === tabId);
-    if (!tab || tab.searchSnapshot) return;
-    if (tab.onboardingPhase === "gemini" || tab.onboardingPhase === "search_results") return;
-
-    const keys = collectOpeningTypewriterKeysFromMessages(tab.messages);
-    if (keys.length === 0) return;
-
-    const replayGuardKey = `${tabId}:${keys.join("|")}`;
-    if (openingReplayGuardRef.current === replayGuardKey) return;
-    openingReplayGuardRef.current = replayGuardKey;
-
-    clearBookingOpeningTypewriterKeys(keys);
-    if (
-      tab.onboardingPhase === "greeting" ||
-      tab.onboardingPhase === "await_city" ||
-      tab.onboardingPhase === "await_category" ||
-      tab.onboardingPhase === "await_scope"
-    ) {
-      store.setTabOnboardingPhase(tabId, "assistant_typing");
-    }
-    setOpeningTypewriterEpoch((epoch) => epoch + 1);
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      openingReplayGuardRef.current = null;
-      if (aiConsentStatus === "loading" || needsAiConsentPrompt) return;
-      replayOnboardingOpeningTypewriter();
-      return undefined;
-    }, [aiConsentStatus, needsAiConsentPrompt, replayOnboardingOpeningTypewriter]),
-  );
 
   const { data: availableCities = [ALL_CITIES_OPTION] } = useAvailableCities();
   const { data: categories = [] } = useCategories();
@@ -763,7 +725,6 @@ function AIBookingPageContent() {
       return;
     }
     clearBookingOpeningTypewriterKeys([greetingId]);
-    openingReplayGuardRef.current = null;
     if (phase !== "assistant_typing") {
       store.setTabOnboardingPhase(activeTabId, "assistant_typing");
     }
@@ -1013,7 +974,6 @@ function AIBookingPageContent() {
   const confirmResetChat = useCallback(() => {
     const tabId = useBookingChatStore.getState().activeTabId;
     if (tabId) greetingBootstrappedRef.current.delete(tabId);
-    openingReplayGuardRef.current = null;
     useBookingChatStore.getState().resetActiveTabChat();
     resetAssistantSessionState();
     resetFlowSearchTranscript();
@@ -1327,7 +1287,9 @@ function AIBookingPageContent() {
           setCityPickerVisible(false);
         }}
         title={t("bookingCommon.chooseCity")}
-        maxHeightFraction={0.72}
+        maxHeightFraction={0.58}
+        minHeightFraction={0.38}
+        fitContent
       >
         <View style={styles.citySearchBox}>
           <Ionicons name="search-outline" size={20} color={colors.textMuted} />
