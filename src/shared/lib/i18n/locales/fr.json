@@ -31,6 +31,7 @@
     "seeAllPhotosA11y": "Voir les {{count}} photos",
     "call": "Appeler",
     "directions": "Itinéraire",
+    "seeDetails": "Voir les détails",
     "bookNow": "Réserver",
     "bookWithPixAI": "Réserver avec PixAI"
   },

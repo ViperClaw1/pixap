@@ -31,6 +31,7 @@
     "seeAllPhotosA11y": "Смотреть все {{count}} фото",
     "call": "Позвонить",
     "directions": "Маршрут",
+    "seeDetails": "Подробнее",
     "bookNow": "Забронировать",
     "bookWithPixAI": "Забронировать с PixAI"
   },

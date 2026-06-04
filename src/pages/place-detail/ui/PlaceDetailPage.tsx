@@ -58,7 +58,7 @@ const AUTO_SLIDE_MS = 5000;
 const DOUBLE_TAP_DELAY_MS = 260;
 
 export default function PlaceDetailScreen() {
-  const { id } = useRoute<R>().params;
+  const { id, hideBookingActions } = useRoute<R>().params;
   const navigation = useNavigation<Nav>();
   useDisableGestureDuringTransition();
   const { openAIBooking, openBookingFlow } = useSubscriptionGatedNavigation(navigation);
@@ -527,12 +527,16 @@ export default function PlaceDetailScreen() {
           </AppPressable>
         </View>
 
-        <AppPressable style={styles.primaryBtn} onPress={() => openBookingFlow({ id: place.id })}>
-          <Text style={styles.primaryBtnText}>{t("placeDetail.bookNow")}</Text>
-        </AppPressable>
-        <AppPressable style={styles.outlineBtn} onPress={() => openAIBooking({ id: place.id })}>
-          <Text style={styles.outlineBtnText}>{t("placeDetail.bookWithPixAI")}</Text>
-        </AppPressable>
+        {!hideBookingActions ? (
+          <>
+            <AppPressable style={styles.primaryBtn} onPress={() => openBookingFlow({ id: place.id })}>
+              <Text style={styles.primaryBtnText}>{t("placeDetail.bookNow")}</Text>
+            </AppPressable>
+            <AppPressable style={styles.outlineBtn} onPress={() => openAIBooking({ id: place.id })}>
+              <Text style={styles.outlineBtnText}>{t("placeDetail.bookWithPixAI")}</Text>
+            </AppPressable>
+          </>
+        ) : null}
         {/* <AppPressable style={styles.outlineBtn} onPress={() => navigation.navigate("ShoppingItems", { id: place.id })}>
           <Text style={styles.outlineBtnText}>Order items</Text>
         </AppPressable> */}

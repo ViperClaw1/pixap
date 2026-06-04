@@ -31,6 +31,7 @@
     "seeAllPhotosA11y": "See all {{count}} photos",
     "call": "Call",
     "directions": "Directions",
+    "seeDetails": "See details",
     "bookNow": "Book now",
     "bookWithPixAI": "Book with PixAI"
   },

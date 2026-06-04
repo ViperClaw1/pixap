@@ -40,7 +40,7 @@ export type MessageThreadRouteParams = {
 /** Shared routes for browse/detail flows (mounted on Home + Feed stacks). */
 export type BrowseFlowParamList = {
   PostDetail: { postId: string };
-  PlaceDetail: { id: string };
+  PlaceDetail: { id: string; hideBookingActions?: boolean };
   PlacePhotoGrid: { title: string; images: string[]; rawImages?: string[] };
   PlaceGallery: { images: string[]; rawImages?: string[]; initialIndex?: number };
   StoryViewer: StoryViewerRouteParams;
