@@ -1,0 +1,58 @@
+# Reverse proxy: https://pixapp.kz -> Supabase Edge Function link-router.
+# Serves Universal/App Links verification files and browser fallback pages.
+# Replace ylcyktbppowabnxuwdrr with the Supabase project reference if it changes.
+#
+# TLS: terminate HTTPS on this host (Let's Encrypt / provider cert).
+# Point DNS for pixapp.kz and www.pixapp.kz to this server.
+
+server {
+    listen 443 ssl http2;
+    server_name pixapp.kz www.pixapp.kz;
+
+    # ssl_certificate     /etc/letsencrypt/live/pixapp.kz/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/pixapp.kz/privkey.pem;
+
+    if ($host = www.pixapp.kz) {
+        return 301 https://pixapp.kz$request_uri;
+    }
+
+    location = /.well-known/apple-app-site-association {
+        proxy_pass https://ylcyktbppowabnxuwdrr.supabase.co/functions/v1/link-router/.well-known/apple-app-site-association;
+        proxy_ssl_server_name on;
+        proxy_set_header Host ylcyktbppowabnxuwdrr.supabase.co;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /apple-app-site-association {
+        proxy_pass https://ylcyktbppowabnxuwdrr.supabase.co/functions/v1/link-router/apple-app-site-association;
+        proxy_ssl_server_name on;
+        proxy_set_header Host ylcyktbppowabnxuwdrr.supabase.co;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /.well-known/assetlinks.json {
+        proxy_pass https://ylcyktbppowabnxuwdrr.supabase.co/functions/v1/link-router/.well-known/assetlinks.json;
+        proxy_ssl_server_name on;
+        proxy_set_header Host ylcyktbppowabnxuwdrr.supabase.co;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location ~ ^/(place|post|story)/ {
+        proxy_pass https://ylcyktbppowabnxuwdrr.supabase.co/functions/v1/link-router$request_uri;
+        proxy_ssl_server_name on;
+        proxy_set_header Host ylcyktbppowabnxuwdrr.supabase.co;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        return 302 https://apps.apple.com/app/pixap/id6760616898;
+    }
+}
