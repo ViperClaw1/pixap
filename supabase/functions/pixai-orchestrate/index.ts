@@ -68,7 +68,7 @@ async function fetchPlacesInCityLegacy(
 ): Promise<Array<Record<string, unknown>>> {
   let query = supabase
     .from("business_cards")
-    .select("id,name,address,city,rating,booking_price,image,tags,category_id")
+    .select("id,name,address,city,rating,booking_price,image,images,blurhashes,tags,category_id")
     .ilike("city", city)
     .order("rating", { ascending: false })
     .limit(limit);

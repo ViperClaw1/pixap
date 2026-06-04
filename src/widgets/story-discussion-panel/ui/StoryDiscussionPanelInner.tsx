@@ -86,6 +86,8 @@ export type StoryDiscussionPanelInnerProps = {
   onDismissDragStart?: () => void;
   onDismissDragUpdate?: (translationY: number) => void;
   onDismissDragEnd?: (translationY: number, velocityY: number) => void;
+  /** Disable custom grabber pan when a native modal already owns swipe-to-dismiss. */
+  dismissPanEnabled?: boolean;
   /** When false, pagination/scroll reset waits until the sheet opens again. Defaults to true. */
   isActive?: boolean;
 };
@@ -103,6 +105,7 @@ export function StoryDiscussionPanelInner({
   onDismissDragStart,
   onDismissDragUpdate,
   onDismissDragEnd,
+  dismissPanEnabled = true,
   isActive = true,
 }: StoryDiscussionPanelInnerProps) {
   const { height: windowHeight } = useWindowDimensions();
@@ -142,7 +145,7 @@ export function StoryDiscussionPanelInner({
   );
 
   const { panGesture, dismissDragStyle } = useStoryDiscussionDismissPan({
-    enabled: Boolean(onClose) && isActive,
+    enabled: Boolean(onClose) && dismissPanEnabled && isActive,
     dismissHeight: windowHeight,
     onClose,
     dragHandlers: dismissDragHandlers,
@@ -527,8 +530,7 @@ export function StoryDiscussionPanelInner({
     [onListContentSizeChange],
   );
 
-  const dismissHeader = onClose ? (
-    <GestureDetector gesture={panGesture}>
+  const dismissHeaderContent = onClose ? (
       <View>
         <Pressable
           onPress={() => Keyboard.dismiss()}
@@ -551,8 +553,15 @@ export function StoryDiscussionPanelInner({
           </Pressable>
         </View>
       </View>
-    </GestureDetector>
   ) : null;
+
+  const dismissHeader = dismissHeaderContent && dismissPanEnabled ? (
+    <GestureDetector gesture={panGesture}>
+      {dismissHeaderContent}
+    </GestureDetector>
+  ) : (
+    dismissHeaderContent
+  );
 
   const panelBody = (
     <>
@@ -768,7 +777,7 @@ export function StoryDiscussionPanelInner({
     </>
   );
 
-  if (onClose && !dismissDragHandlers) {
+  if (onClose && dismissPanEnabled && !dismissDragHandlers) {
     return (
       <RootOuter style={[styles.flex, androidRootLiftStyle]}>
         <Animated.View style={[styles.flex, dismissDragStyle]}>{panelBody}</Animated.View>

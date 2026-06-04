@@ -134,7 +134,14 @@ export function AppPopupModal({
               />
             </View>
           ) : null}
-          <Text style={styles.title}>{title}</Text>
+          <Text
+            style={styles.title}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.78}
+          >
+            {title}
+          </Text>
           {loading ? (
             <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 8 }} />
           ) : null}

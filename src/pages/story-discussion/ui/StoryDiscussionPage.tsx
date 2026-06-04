@@ -37,6 +37,7 @@ export default function StoryDiscussionPage() {
         onRequireAuth={onRequireAuth}
         discussionPalette={palette}
         onClose={() => navigation.goBack()}
+        dismissPanEnabled={Platform.OS !== "ios"}
       />
     </View>
   );
