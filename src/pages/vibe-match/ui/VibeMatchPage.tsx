@@ -13,9 +13,9 @@ import {
 } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
-import { Ionicons } from "@expo/vector-icons";
+import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CommonActions, useNavigation } from "@react-navigation/native";
+import { CommonActions, useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { useQueries } from "@tanstack/react-query";
@@ -251,6 +251,7 @@ function VibeMatchPageContent() {
   } | null>(null);
   const selectionSeededForPlanRef = useRef("");
   const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
   const conciergeScrollYRef = useRef(0);
   const pendingScrollToConciergeRef = useRef(false);
   const bookingBusy = bookingAction !== null;
@@ -279,6 +280,19 @@ function VibeMatchPageContent() {
   useEffect(() => {
     return scheduleScrollToConcierge();
   }, [vibeResult, isVibeLoading, scheduleScrollToConcierge]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const y = scrollYRef.current;
+      if (y <= 0) return undefined;
+      const task = InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(() => {
+          scrollRef.current?.scrollTo({ y, animated: false });
+        });
+      });
+      return () => task.cancel();
+    }, []),
+  );
 
   const plan = useMemo(
     () => normalizeVibePlanStops(vibeResult?.plan ?? [], timeline),
@@ -717,6 +731,13 @@ function VibeMatchPageContent() {
     await runBookStops(selectedBookableStops, "all");
   }, [runBookStops, selectedBookableStops]);
 
+  const openPlaceDetails = useCallback(
+    (venueId: string) => {
+      navigation.navigate("PlaceDetail", { id: venueId, hideBookingActions: true });
+    },
+    [navigation],
+  );
+
   const failedStops = useMemo(
     () => (lastBookResults?.filter((r): r is Extract<BookRowResult, { ok: false }> => !r.ok) ?? []).map((r) => r.stop),
     [lastBookResults],
@@ -747,6 +768,10 @@ function VibeMatchPageContent() {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
+        onScroll={(event) => {
+          scrollYRef.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
       >
         <View style={styles.topRow}>
           <AppPressable style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel={t("bookingCommon.goBack")}>
@@ -870,8 +895,6 @@ function VibeMatchPageContent() {
             <View style={styles.routeTimeline}>
               {suggestedPlan.map((stop, i) => {
                 const checked = selectedVenueIdSet.has(stop.venue_id);
-                const routeStopMeta = bookableRouteStopByVenueId.get(stop.venue_id);
-                const slotBookable = routeStopMeta?.meta.bookable === true;
                 const isLast = i === suggestedPlan.length - 1;
                 const { uri: thumbUri, fallbackUri: thumbFallback } = vibeStopThumbUris(stop.images);
                 const addressLine = formatStopAddress(stop);
@@ -929,13 +952,17 @@ function VibeMatchPageContent() {
                             <View style={styles.routeCategoryPill}>
                               <Text style={styles.routeCategoryText}>{categoryLabel}</Text>
                             </View>
-                            <View style={[styles.statusPill, slotBookable ? styles.statusOk : styles.statusPending]}>
-                              <Text style={[styles.statusText, { color: colors.text }]}>
-                                {slotBookable
-                                  ? t("vibeMatch.slotAvailable")
-                                  : t("vibeMatch.slotSuggested")}
+                            <AppPressable
+                              style={[styles.routeDetailsButton, styles.statusOk]}
+                              onPress={() => openPlaceDetails(stop.venue_id)}
+                              accessibilityRole="button"
+                              accessibilityLabel={t("placeDetail.seeDetails")}
+                            >
+                              <FontAwesome6 name="share" size={10} color={colors.text} />
+                              <Text style={[styles.routeDetailsButtonText, { color: colors.text }]}>
+                                {t("placeDetail.seeDetails")}
                               </Text>
-                            </View>
+                            </AppPressable>
                           </View>
                         </View>
                         <View style={styles.routeThumbWrap}>

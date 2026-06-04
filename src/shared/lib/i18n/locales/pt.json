@@ -31,6 +31,7 @@
     "seeAllPhotosA11y": "Ver todas as {{count}} fotos",
     "call": "Ligar",
     "directions": "Como chegar",
+    "seeDetails": "Ver detalhes",
     "bookNow": "Reservar agora",
     "bookWithPixAI": "Reservar com PixAI"
   },

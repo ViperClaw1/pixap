@@ -148,6 +148,16 @@ export const vibeMatchStaticStyles = StyleSheet.create({
   statusPending: {},
   statusBad: {},
   statusText: { fontSize: 10, fontWeight: "700" },
+  routeDetailsButton: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  routeDetailsButtonText: { fontSize: 10, fontWeight: "700" },
   errorBox: { padding: 12, borderRadius: 10, borderWidth: 1 },
   errorText: { fontSize: 13 },
   selectionWarning: {
