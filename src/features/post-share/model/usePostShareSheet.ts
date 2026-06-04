@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { Linking, Share } from "react-native";
+import { Linking, Platform, Share } from "react-native";
 import { appAlert } from "@/shared/ui/app-popup";
 import type { AppPopupOptions, AppPopupVariant } from "@/shared/ui/app-popup";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
@@ -8,9 +9,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { fetchProfilePhone, usePublicProfiles } from "@/entities/user";
 import { queryKeys } from "@/shared/api/queryKeys";
-import { buildPlaceShareUrl } from "@/shared/lib/placeShareLink";
-import { buildPostShareUrl } from "@/shared/lib/postShareLink";
-import { buildStoryShareUrl } from "@/shared/lib/storyShareLink";
+import { buildPlaceShareUniversalUrl } from "@/shared/lib/placeShareLink";
+import { buildPostShareUniversalUrl } from "@/shared/lib/postShareLink";
+import { buildStoryShareUniversalUrl } from "@/shared/lib/storyShareLink";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 
@@ -19,6 +20,7 @@ function normalizePhoneToDigits(value?: string | null) {
 }
 
 export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase>) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [shareVisible, setShareVisible] = useState(false);
@@ -84,12 +86,23 @@ export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase
     setShareAlert(null);
   }, []);
 
-  const resolveShareLink = useCallback(() => {
-    if (shareStoryId) return buildStoryShareUrl(shareStoryId);
-    if (sharePostId) return buildPostShareUrl(sharePostId);
-    if (shareOnlyPlaceId) return buildPlaceShareUrl(shareOnlyPlaceId);
+  const resolveShareUrl = useCallback(() => {
+    if (shareStoryId) return buildStoryShareUniversalUrl(shareStoryId);
+    if (sharePostId) return buildPostShareUniversalUrl(sharePostId);
+    if (shareOnlyPlaceId) return buildPlaceShareUniversalUrl(shareOnlyPlaceId);
     return "";
   }, [shareOnlyPlaceId, sharePostId, shareStoryId]);
+
+  const resolveSharePayload = useCallback(() => {
+    const url = resolveShareUrl();
+    if (!url) return null;
+    return {
+      title: t("shareSheet.shareTitle"),
+      url,
+      message: t("shareSheet.shareMessage", { url }),
+      messageWithoutUrl: t("shareSheet.shareMessageWithoutUrl"),
+    };
+  }, [resolveShareUrl, t]);
 
   const openShareForPost = useCallback(
     (params: { postId: string; placeId: string | null; images: string[]; placeName: string }) => {
@@ -150,8 +163,8 @@ export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase
 
   const handleShareToWhatsapp = useCallback(
     async (peerUserId: string) => {
-      const link = resolveShareLink();
-      if (!link) return;
+      const payload = resolveSharePayload();
+      if (!payload) return;
       setShareSending(true);
       try {
         const phone = await queryClient.fetchQuery({
@@ -164,7 +177,7 @@ export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase
           showShareAlert("No phone number", "This user has no phone number in their profile.", undefined, "info");
           return;
         }
-        const whatsappUrl = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(link)}`;
+        const whatsappUrl = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(payload.message)}`;
         setShareVisible(false);
         setShareAlert(null);
         await Linking.openURL(whatsappUrl);
@@ -179,20 +192,24 @@ export function usePostShareSheet(_rootNavigation?: NavigationProp<ParamListBase
         setShareSending(false);
       }
     },
-    [queryClient, resolveShareLink, showShareAlert],
+    [queryClient, resolveSharePayload, showShareAlert],
   );
 
   const handleSystemShare = useCallback(async () => {
-    const link = resolveShareLink();
-    if (!link) return;
-    await Share.share({ message: link, url: link });
-  }, [resolveShareLink]);
+    const payload = resolveSharePayload();
+    if (!payload) return;
+    await Share.share({
+      title: payload.title,
+      message: Platform.OS === "ios" ? payload.messageWithoutUrl : payload.message,
+      url: payload.url,
+    });
+  }, [resolveSharePayload]);
 
   const handleCopyPostLink = useCallback(async () => {
-    const link = resolveShareLink();
-    if (!link) return;
-    await Clipboard.setStringAsync(link);
-  }, [resolveShareLink]);
+    const payload = resolveSharePayload();
+    if (!payload) return;
+    await Clipboard.setStringAsync(payload.message);
+  }, [resolveSharePayload]);
 
   return {
     shareVisible,
