@@ -19,6 +19,28 @@ import {
 
 const REASON_CARD_COUNT = 4;
 const IMAGE_META_MIN_HEIGHT = 108;
+const REASON_HERO_BADGE_BACKGROUND_ALPHA = 0.78;
+
+function withHexAlpha(color: string, alpha: number): string {
+  const normalized = color.trim();
+  const hex = normalized.startsWith("#") ? normalized.slice(1) : normalized;
+  const expandedHex =
+    hex.length === 3
+      ? hex
+          .split("")
+          .map((char) => char + char)
+          .join("")
+      : hex;
+
+  if (expandedHex.length !== 6) return normalized;
+
+  const red = Number.parseInt(expandedHex.slice(0, 2), 16);
+  const green = Number.parseInt(expandedHex.slice(2, 4), 16);
+  const blue = Number.parseInt(expandedHex.slice(4, 6), 16);
+  if ([red, green, blue].some(Number.isNaN)) return normalized;
+
+  return `rgba(${red},${green},${blue},${alpha})`;
+}
 
 type Props = {
   item: DailyRecommendation;
@@ -62,6 +84,10 @@ function DailyRecommendationSlideInner({
   const primaryReason = reasons[0] ?? null;
   const locationLine = addressLine ?? formatLocationLine(null, item.city);
   const ratingLabel = item.rating > 0 ? item.rating.toFixed(1) : null;
+  const reasonHeroBadgeBackground = useMemo(
+    () => withHexAlpha(accentColor, REASON_HERO_BADGE_BACKGROUND_ALPHA),
+    [accentColor],
+  );
 
   const heroUris = useMemo(() => {
     const raw = getPrimaryBusinessCardImage(item.images);
@@ -106,7 +132,7 @@ function DailyRecommendationSlideInner({
         ) : null}
 
         {primaryReason ? (
-          <View style={[styles.reasonHeroBadge, { backgroundColor: accentColor }]}>
+          <View style={[styles.reasonHeroBadge, { backgroundColor: reasonHeroBadgeBackground }]}>
             <Ionicons name={getRecommendationReasonIcon(primaryReason)} size={12} color="#ffffff" />
             <Text style={styles.reasonHeroBadgeText} numberOfLines={1}>
               {formatRecommendationReasonLabel(primaryReason, t)}

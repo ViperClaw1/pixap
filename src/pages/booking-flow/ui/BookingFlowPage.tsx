@@ -182,11 +182,17 @@ export default function BookingFlowPage() {
       return;
     }
     const dateTime = new Date(selectedAvailableSlot.dateTimeIso);
+    const profileFullName = [profile?.first_name, profile?.last_name]
+      .map((part) => profileString(part))
+      .filter(Boolean)
+      .join(" ");
     const customerName =
+      profileString(profileFullName) ??
       profileString(user?.user_metadata?.full_name) ??
       profileString(user?.email?.split("@")[0]) ??
       "Client";
     const customerPhone =
+      profileString(profile?.phone) ??
       profileString(user?.user_metadata?.phone) ??
       profileString(user?.phone) ??
       null;

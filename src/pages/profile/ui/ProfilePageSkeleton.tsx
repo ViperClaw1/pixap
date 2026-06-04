@@ -3,10 +3,9 @@ import { memo } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
-import { useProfileStyles } from "./profileStyles";
+import { resolveProfileAvatarSize, useProfileStyles } from "./profileStyles";
 
 /** Keep in sync with `profileStaticStyles` / `ProfilePage` layout. */
-const AVATAR_SIZE = 56;
 const SETTINGS_BTN_SIZE = 34;
 const STAT_VALUE_H = 22;
 const STAT_LABEL_H = 11;
@@ -30,6 +29,7 @@ function ProfilePageSkeletonInner({ isCompact = false }: Props) {
   const { colors } = useAppTheme();
   const styles = useProfileStyles();
   const { width: windowWidth } = useStaticWindowSize();
+  const profileAvatarSize = resolveProfileAvatarSize(windowWidth);
   const pagePadding = isCompact ? 12 : 16;
   const contentWidth = windowWidth - pagePadding * 2;
   const bioTextW = Math.max(120, contentWidth - 28);
@@ -41,7 +41,11 @@ function ProfilePageSkeletonInner({ isCompact = false }: Props) {
     <ShimmerProvider active>
       <View style={styles.card}>
         <View style={styles.profileRow}>
-          <ShimmerSurface width={AVATAR_SIZE} height={AVATAR_SIZE} borderRadius={AVATAR_SIZE / 2} />
+          <ShimmerSurface
+            width={profileAvatarSize}
+            height={profileAvatarSize}
+            borderRadius={profileAvatarSize / 2}
+          />
           <View style={skeletonStyles.profileMeta}>
             <ShimmerSurface width={nameLineW} height={18} borderRadius={4} />
             <ShimmerSurface width={emailLineW} height={13} borderRadius={4} style={skeletonStyles.gapXs} />

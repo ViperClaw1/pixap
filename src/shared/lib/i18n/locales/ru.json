@@ -634,7 +634,7 @@
     "expires": "Истекает: {{date}}",
     "expiresSandbox": "Тест (Sandbox), текущий период до: {{date}} (в проде — ~1 месяц)",
     "emailVerified": "Email подтверждён",
-    "emailNotVerified": "Email не подтверждён",
+    "emailNotVerified": "Email не подтвержён",
     "verifyEmail": "Подтвердить",
     "stats": {
       "bookings": "Бронирования",
