@@ -140,6 +140,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ],
     "expo-localization",
     "expo-apple-authentication",
+    "expo-asset",
     "expo-web-browser",
     [
       "expo-location",
