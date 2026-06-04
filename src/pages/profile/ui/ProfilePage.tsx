@@ -35,7 +35,7 @@ import type { ProfileStackParamList, RootTabParamList } from "@/app/navigation/t
 import { navigateToPublicProfile } from "@/app/navigation/navigationHelpers";
 import { StoriesArchiveView } from "@/widgets/stories-archive";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { PROFILE_CARD_PADDING, PROFILE_COMPACT_WIDTH, useProfileStyles } from "./profileStyles";
+import { PROFILE_CARD_PADDING, PROFILE_COMPACT_WIDTH, resolveProfileAvatarSize, useProfileStyles } from "./profileStyles";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { useEntitlement } from "@/entities/subscription";
@@ -72,9 +72,9 @@ type Nav = CompositeNavigationProp<
 >;
 const SCROLL_BOTTOM_PADDING = 32;
 const DANGER_ZONE_KEYBOARD_MARGIN = 12;
-const PROFILE_AVATAR_SIZE = 56;
 const PROFILE_INFO_MARGIN_LEFT = 12;
 const VERIFICATION_BASE_FONT_SIZE = 12;
+const VERIFICATION_RU_FONT_SIZE = 10;
 const VERIFICATION_MIN_FONT_SIZE = 8;
 const VERIFICATION_CHAR_WIDTH_RATIO = 0.58;
 const VERIFICATION_FIXED_WIDTH = 14 + 4 + 8 * 2 + 10 * 2 + 6;
@@ -87,7 +87,7 @@ type ActionItem = {
 };
 
 function ProfileScreenContent() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<ProfileStackParamList, "ProfileMain">>();
   const { colors, mode, setMode } = useAppTheme();
@@ -169,6 +169,15 @@ function ProfileScreenContent() {
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions(); // orientation-aware by design (compact layout)
   const isCompact = windowWidth < PROFILE_COMPACT_WIDTH;
+  const profileAvatarSize = resolveProfileAvatarSize(windowWidth);
+  const profileAvatarStyle = useMemo(
+    () => ({
+      width: profileAvatarSize,
+      height: profileAvatarSize,
+      borderRadius: profileAvatarSize / 2,
+    }),
+    [profileAvatarSize],
+  );
   const styles = useProfileStyles();
   const linkRowStyle = isCompact ? [styles.link, styles.linkCompact] : styles.link;
   const profileScrollRef = useRef<ScrollView>(null);
@@ -246,13 +255,15 @@ function ProfileScreenContent() {
   const isEmailVerified = Boolean(profile?.is_verified);
   const emailVerificationLabel = isEmailVerified ? t("profile.emailVerified") : t("profile.emailNotVerified");
   const verifyEmailLabel = t("profile.verifyEmail");
+  const isRussianLocale = i18n.language.startsWith("ru");
   const verificationFontSize = useMemo(() => {
+    if (isRussianLocale) return VERIFICATION_RU_FONT_SIZE;
     const contentPadding = isCompact ? 12 : 16;
     const rowWidth =
       windowWidth -
       contentPadding * 2 -
       PROFILE_CARD_PADDING * 2 -
-      PROFILE_AVATAR_SIZE -
+      profileAvatarSize -
       PROFILE_INFO_MARGIN_LEFT;
     if (isEmailVerified) return VERIFICATION_BASE_FONT_SIZE;
     const textLength = emailVerificationLabel.length + verifyEmailLabel.length;
@@ -262,7 +273,7 @@ function ProfileScreenContent() {
     const availableTextWidth = Math.max(0, rowWidth - VERIFICATION_FIXED_WIDTH);
     const nextFontSize = availableTextWidth / Math.max(1, textLength * VERIFICATION_CHAR_WIDTH_RATIO);
     return Math.max(VERIFICATION_MIN_FONT_SIZE, Math.min(VERIFICATION_BASE_FONT_SIZE, nextFontSize));
-  }, [emailVerificationLabel, isCompact, isEmailVerified, verifyEmailLabel, windowWidth]);
+  }, [emailVerificationLabel, isCompact, isEmailVerified, isRussianLocale, profileAvatarSize, verifyEmailLabel, windowWidth]);
   const warningColor = "#f59e0b";
   const openPrivacy = () => {
     void Linking.openURL(PRIVACY_URL);
@@ -562,13 +573,13 @@ function ProfileScreenContent() {
         <>
       <View style={styles.card}>
         <View style={styles.profileRow}>
-          <View style={styles.avatarWrap}>
+          <View style={[styles.avatarWrap, profileAvatarStyle]}>
             <UserAvatarImage
               uri={profile?.avatar_url}
               recyclingKey={profile?.avatar_url ?? "profile-avatar"}
-              style={{ width: 56, height: 56, borderRadius: 28 }}
+              style={profileAvatarStyle}
               contentFit="cover"
-              iconSize={28}
+              iconSize={profileAvatarSize / 2}
             />
           </View>
           <View style={styles.profileInfo}>

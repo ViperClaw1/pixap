@@ -8,7 +8,15 @@ import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 
 /** Below this width, action rows use tighter padding so labels can wrap without ellipsis. */
 export const PROFILE_COMPACT_WIDTH = 400;
+/** Below this width, profile header avatar uses a smaller layout size. */
+export const PROFILE_NARROW_WIDTH = 390;
+export const PROFILE_AVATAR_SIZE = 56;
+export const PROFILE_AVATAR_SIZE_NARROW = 48;
 export const PROFILE_CARD_PADDING = 16;
+
+export function resolveProfileAvatarSize(windowWidth: number): number {
+  return windowWidth < PROFILE_NARROW_WIDTH ? PROFILE_AVATAR_SIZE_NARROW : PROFILE_AVATAR_SIZE;
+}
 const PROFILE_VERIFICATION_CONTROL_HEIGHT = 30;
 
 export const profileStaticStyles = StyleSheet.create({
