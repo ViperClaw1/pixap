@@ -1,5 +1,5 @@
 # Reverse proxy: https://pixapp.kz -> Supabase Edge Function link-router.
-# Serves Universal/App Links verification files and browser fallback pages.
+# Serves AASA statically, and proxies Android App Links + fallback pages.
 # Replace ylcyktbppowabnxuwdrr with the Supabase project reference if it changes.
 #
 # TLS: terminate HTTPS on this host (Let's Encrypt / provider cert).
@@ -16,22 +16,18 @@ server {
         return 301 https://pixapp.kz$request_uri;
     }
 
+    # Apple requires this file without an extension. Serve it statically so
+    # /.well-known/ platform routing never prevents the response from reaching iOS.
     location = /.well-known/apple-app-site-association {
-        proxy_pass https://ylcyktbppowabnxuwdrr.supabase.co/functions/v1/link-router/.well-known/apple-app-site-association;
-        proxy_ssl_server_name on;
-        proxy_set_header Host ylcyktbppowabnxuwdrr.supabase.co;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        alias /etc/nginx/well-known/apple-app-site-association;
+        default_type application/json;
+        add_header Cache-Control "public, max-age=3600";
     }
 
     location = /apple-app-site-association {
-        proxy_pass https://ylcyktbppowabnxuwdrr.supabase.co/functions/v1/link-router/apple-app-site-association;
-        proxy_ssl_server_name on;
-        proxy_set_header Host ylcyktbppowabnxuwdrr.supabase.co;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        alias /etc/nginx/well-known/apple-app-site-association;
+        default_type application/json;
+        add_header Cache-Control "public, max-age=3600";
     }
 
     location = /.well-known/assetlinks.json {
