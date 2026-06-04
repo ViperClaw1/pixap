@@ -49,7 +49,10 @@
     "whatsapp": "WhatsApp",
     "shareTo": "Share to",
     "copyLink": "Copy link",
-    "copied": "Copied"
+    "copied": "Copied",
+    "shareTitle": "Open in Pixap",
+    "shareMessage": "Open in Pixap: {{url}}",
+    "shareMessageWithoutUrl": "Open in Pixap"
   },
   "common": {
     "loading": "Loading...",
