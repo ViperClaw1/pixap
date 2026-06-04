@@ -96,10 +96,10 @@ export default function HomeScreen() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [visibleRecommendedCount, setVisibleRecommendedCount] = useState(RECOMMENDED_BATCH_SIZE);
   const { isLoadingMore: isLoadingMoreRecommended, expand: expandRecommendedBatch } = useExpandVisibleBatch();
-  const { data: featured = [], isLoading: lf } = useBusinessCards("featured", selectedCity, {
+  const { data: featured = [], isPending: lf } = useBusinessCards("featured", selectedCity, {
     enabled: isCityReady,
   });
-  const { data: recommended = [], isLoading: lr } = useBusinessCards("recommended", selectedCity, {
+  const { data: recommended = [], isPending: lr } = useBusinessCards("recommended", selectedCity, {
     enabled: isCityReady,
   });
   const { data: categories = [], isLoading: lc } = useCategories();
@@ -411,6 +411,7 @@ export default function HomeScreen() {
         ) : (
           <FlashList
             horizontal
+            style={styles.featuredList}
             data={featured}
             keyExtractor={(p) => p.id}
             estimatedItemSize={FEATURED_CARD_ESTIMATED_WIDTH}

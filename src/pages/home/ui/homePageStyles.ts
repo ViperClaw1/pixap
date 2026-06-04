@@ -170,6 +170,9 @@ export const homePageStaticStyles = StyleSheet.create({
     textTransform: "uppercase",
   },
   categoriesFlatList: { marginBottom: 12 },
+  featuredList: {
+    height: FEATURED_CARD_HEIGHT,
+  },
   featuredCardWrap: {
     width: FEATURED_CARD_WIDTH,
     height: FEATURED_CARD_HEIGHT,

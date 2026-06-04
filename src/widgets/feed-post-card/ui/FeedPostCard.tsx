@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -110,6 +111,21 @@ export const FeedPostCard = memo(function FeedPostCard({
     setTitleDraft("");
     setDeleteConfirmVisible(false);
   }, [item.id]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android" || !isEditingTitle) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const raf = requestAnimationFrame(() => {
+      timer = setTimeout(() => {
+        titleInputRef.current?.focus();
+      }, 80);
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timer) clearTimeout(timer);
+    };
+  }, [isEditingTitle]);
 
   const reportTitleInputLayout = useCallback(() => {
     const input = titleInputRef.current;
@@ -428,8 +444,8 @@ export const FeedPostCard = memo(function FeedPostCard({
                   ]}
                   editable={!updatePostMutation.isPending}
                   multiline
-                  autoFocus
-                  onFocus={reportTitleInputLayout}
+                  autoFocus={Platform.OS !== "android"}
+                  onFocus={Platform.OS === "ios" ? reportTitleInputLayout : undefined}
                 />
                 <Pressable
                   accessibilityRole="button"
