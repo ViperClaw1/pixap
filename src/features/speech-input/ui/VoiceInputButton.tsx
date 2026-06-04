@@ -1,11 +1,11 @@
 import { useEffect, useRef, type ComponentProps, type RefObject } from "react";
-import { ActivityIndicator, Alert, type ViewStyle } from "react-native";
+import { ActivityIndicator, Alert, Keyboard, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { useSpeechToText } from "../lib/useSpeechToText";
+import { useAudioRecorder } from "../lib/useAudioRecorder";
 
 type Props = {
   disabled?: boolean;
@@ -35,24 +35,20 @@ export function VoiceInputButton({
   const callbacksRef = useRef({ onTranscriptChange, onListeningChange });
   callbacksRef.current = { onTranscriptChange, onListeningChange };
 
-  const { isListening, isAvailable, runtimeChecked, stop, toggle } = useSpeechToText({
+  const { isListening, isRecording, isTranscribing, isAvailable, runtimeChecked, stop, toggle } = useAudioRecorder({
     onTranscript: (text, meta) => callbacksRef.current.onTranscriptChange(text, meta),
     onListeningChange: (listening) => callbacksRef.current.onListeningChange?.(listening),
     onError: (code, message) => {
-      if (code === "service-not-allowed" || code === "language-not-supported") {
-        Alert.alert(t("speechInput.errorTitle"), message || t("speechInput.serviceNotAllowed"));
-        return;
-      }
-      if (code === "not-allowed") {
+      if (code === "permission-denied") {
         Alert.alert(t("speechInput.permissionTitle"), t("speechInput.permissionMessage"));
         return;
       }
-      if (code === "no-speech" || code === "speech-timeout") {
-        Toast.show({ type: "info", text1: t("speechInput.noSpeech") });
+      if (code === "recording-too-short") {
+        Toast.show({ type: "info", text1: t("speechInput.recordingTooShort") });
         return;
       }
-      if (code === "network") {
-        Toast.show({ type: "error", text1: t("speechInput.networkError") });
+      if (code === "upload-failed" || code === "transcription-failed") {
+        Toast.show({ type: "error", text1: t("speechInput.uploadError"), text2: message });
         return;
       }
       Toast.show({
@@ -75,13 +71,19 @@ export function VoiceInputButton({
     return null;
   }
 
-  const isDisabled = disabled;
-  const iconColor = isListening ? colors.primary : colors.textMuted;
+  const isDisabled = disabled || isTranscribing;
+  const iconColor = isRecording ? colors.primary : colors.textMuted;
 
   return (
     <AppPressable
       accessibilityRole="button"
-      accessibilityLabel={isListening ? t("speechInput.stopA11y") : t("speechInput.startA11y")}
+      accessibilityLabel={
+        isTranscribing
+          ? t("speechInput.transcribing")
+          : isRecording
+            ? t("speechInput.stopA11y")
+            : t("speechInput.startA11y")
+      }
       accessibilityState={{ disabled: isDisabled, selected: isListening }}
       hitSlop={bare ? 6 : undefined}
       style={
@@ -103,13 +105,14 @@ export function VoiceInputButton({
       }
       disabled={isDisabled}
       onPress={() => {
+        Keyboard.dismiss();
         void toggle();
       }}
     >
-      {isListening ? (
+      {isTranscribing ? (
         <ActivityIndicator size="small" color={colors.primary} />
       ) : (
-        <Ionicons name={iconName} size={iconSize} color={iconColor} />
+        <Ionicons name={isRecording ? "stop-circle" : iconName} size={iconSize} color={iconColor} />
       )}
     </AppPressable>
   );

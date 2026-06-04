@@ -67,14 +67,12 @@
     "startA11y": "Iniciar entrada de voz",
     "stopA11y": "Detener entrada de voz",
     "permissionTitle": "Se necesita acceso al micrófono",
-    "permissionMessage": "Permite el micrófono y el reconocimiento de voz para dictar mensajes en el chat.",
-    "unavailableTitle": "Entrada de voz no disponible",
-    "unavailableMessage": "El reconocimiento de voz no está disponible en este dispositivo.",
+    "permissionMessage": "Permite el acceso al micrófono para dictar mensajes en el chat.",
+    "transcribing": "Transcribiendo...",
     "errorTitle": "Error de entrada de voz",
-    "errorGeneric": "No se pudo reconocer la voz. Inténtalo de nuevo.",
-    "noSpeech": "No se detectó voz. Inténtalo de nuevo.",
-    "networkError": "Error de red durante el reconocimiento de voz.",
-    "serviceNotAllowed": "El reconocimiento de voz no está disponible. Comprueba tu conexión a internet y que Siri y la dictación estén activados en Ajustes."
+    "errorGeneric": "No se pudo procesar la grabación. Inténtalo de nuevo.",
+    "recordingTooShort": "La grabación es demasiado corta. Inténtalo de nuevo.",
+    "uploadError": "No se pudo enviar el audio. Comprueba tu conexión."
   },
   "editProfile": {
     "savedTitle": "Guardado",

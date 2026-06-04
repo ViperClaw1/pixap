@@ -67,14 +67,12 @@
     "startA11y": "Start voice input",
     "stopA11y": "Stop voice input",
     "permissionTitle": "Microphone access needed",
-    "permissionMessage": "Allow microphone and speech recognition to dictate messages in chat.",
-    "unavailableTitle": "Voice input unavailable",
-    "unavailableMessage": "Speech recognition is not available on this device.",
+    "permissionMessage": "Allow microphone access to dictate messages in chat.",
+    "transcribing": "Transcribing...",
     "errorTitle": "Voice input error",
-    "errorGeneric": "Could not recognize speech. Please try again.",
-    "noSpeech": "No speech detected. Try again.",
-    "networkError": "Network error during speech recognition.",
-    "serviceNotAllowed": "Speech recognition is not available. Check your internet connection and that Siri & Dictation are enabled in Settings."
+    "errorGeneric": "Could not process the recording. Please try again.",
+    "recordingTooShort": "Recording too short. Try again.",
+    "uploadError": "Could not send audio. Check your connection."
   },
   "editProfile": {
     "savedTitle": "Saved",
