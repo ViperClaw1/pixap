@@ -433,6 +433,7 @@ function EditProfileScreenContent() {
             setFirst(value);
             if (firstError && value.trim()) setFirstError(null);
           }}
+          placeholder={t("editProfile.firstNamePlaceholder")}
           placeholderTextColor={colors.textMuted}
           onFocus={() => onInputFocus(firstInputRef)}
           onBlur={() => {
@@ -449,6 +450,7 @@ function EditProfileScreenContent() {
             setLast(value);
             if (lastError && value.trim()) setLastError(null);
           }}
+          placeholder={t("editProfile.lastNamePlaceholder")}
           placeholderTextColor={colors.textMuted}
           onFocus={() => onInputFocus(lastInputRef)}
           onBlur={() => {
@@ -457,7 +459,13 @@ function EditProfileScreenContent() {
         />
         {lastError ? <Text style={styles.errorText}>{lastError}</Text> : null}
         <Text style={styles.label}>{t("editProfile.emailLabel")}</Text>
-        <TextInput style={[styles.input, styles.disabledInput]} value={profile?.email ?? user?.email ?? ""} editable={false} />
+        <TextInput
+          style={[styles.input, styles.disabledInput]}
+          value={profile?.email ?? user?.email ?? ""}
+          editable={false}
+          placeholder={t("editProfile.emailPlaceholder")}
+          placeholderTextColor={colors.textMuted}
+        />
         <Text style={styles.label}>{t("editProfile.phoneLabel")}</Text>
         <View style={styles.phoneInputWrap}>
           <PhoneInput
@@ -465,6 +473,7 @@ function EditProfileScreenContent() {
             onChange={handlePhoneChange}
             hasError={Boolean(phoneError)}
             inputRef={phoneInputRef}
+            placeholder={t("editProfile.phonePlaceholder")}
             onFocus={() => onInputFocus(phoneInputRef)}
             onBlur={() => {
               setPhoneTouched(true);

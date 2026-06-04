@@ -35,7 +35,7 @@ import type { ProfileStackParamList, RootTabParamList } from "@/app/navigation/t
 import { navigateToPublicProfile } from "@/app/navigation/navigationHelpers";
 import { StoriesArchiveView } from "@/widgets/stories-archive";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { PROFILE_COMPACT_WIDTH, useProfileStyles } from "./profileStyles";
+import { PROFILE_CARD_PADDING, PROFILE_COMPACT_WIDTH, useProfileStyles } from "./profileStyles";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { useEntitlement } from "@/entities/subscription";
@@ -72,6 +72,12 @@ type Nav = CompositeNavigationProp<
 >;
 const SCROLL_BOTTOM_PADDING = 32;
 const DANGER_ZONE_KEYBOARD_MARGIN = 12;
+const PROFILE_AVATAR_SIZE = 56;
+const PROFILE_INFO_MARGIN_LEFT = 12;
+const VERIFICATION_BASE_FONT_SIZE = 12;
+const VERIFICATION_MIN_FONT_SIZE = 8;
+const VERIFICATION_CHAR_WIDTH_RATIO = 0.58;
+const VERIFICATION_FIXED_WIDTH = 14 + 4 + 8 * 2 + 10 * 2 + 6;
 type ActionItem = {
   key: string;
   label: string;
@@ -238,6 +244,25 @@ function ProfileScreenContent() {
 
   const userName = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || t("profile.defaultUserName");
   const isEmailVerified = Boolean(profile?.is_verified);
+  const emailVerificationLabel = isEmailVerified ? t("profile.emailVerified") : t("profile.emailNotVerified");
+  const verifyEmailLabel = t("profile.verifyEmail");
+  const verificationFontSize = useMemo(() => {
+    const contentPadding = isCompact ? 12 : 16;
+    const rowWidth =
+      windowWidth -
+      contentPadding * 2 -
+      PROFILE_CARD_PADDING * 2 -
+      PROFILE_AVATAR_SIZE -
+      PROFILE_INFO_MARGIN_LEFT;
+    if (isEmailVerified) return VERIFICATION_BASE_FONT_SIZE;
+    const textLength = emailVerificationLabel.length + verifyEmailLabel.length;
+    const estimatedBaseWidth =
+      VERIFICATION_FIXED_WIDTH + textLength * VERIFICATION_BASE_FONT_SIZE * VERIFICATION_CHAR_WIDTH_RATIO;
+    if (estimatedBaseWidth <= rowWidth) return VERIFICATION_BASE_FONT_SIZE;
+    const availableTextWidth = Math.max(0, rowWidth - VERIFICATION_FIXED_WIDTH);
+    const nextFontSize = availableTextWidth / Math.max(1, textLength * VERIFICATION_CHAR_WIDTH_RATIO);
+    return Math.max(VERIFICATION_MIN_FONT_SIZE, Math.min(VERIFICATION_BASE_FONT_SIZE, nextFontSize));
+  }, [emailVerificationLabel, isCompact, isEmailVerified, verifyEmailLabel, windowWidth]);
   const warningColor = "#f59e0b";
   const openPrivacy = () => {
     void Linking.openURL(PRIVACY_URL);
@@ -546,10 +571,10 @@ function ProfileScreenContent() {
               iconSize={28}
             />
           </View>
-          <View style={{ marginLeft: 12, flex: 1 }}>
+          <View style={styles.profileInfo}>
             <Text style={styles.name}>{userName}</Text>
             <Text style={styles.email}>{profile?.email ?? user?.email}</Text>
-            <View style={styles.emailVerificationRow}>
+            <View style={[styles.emailVerificationRow, styles.profileInfoFullBleed]}>
               <View
                 style={[
                   styles.emailBadge,
@@ -560,25 +585,39 @@ function ProfileScreenContent() {
                 ]}
               >
                 <Ionicons name={isEmailVerified ? "checkmark-circle-outline" : "alert-circle-outline"} size={14} color={isEmailVerified ? "#22c55e" : warningColor} />
-                <Text style={[styles.emailBadgeText, { color: isEmailVerified ? "#22c55e" : warningColor }]}>
-                  {isEmailVerified ? t("profile.emailVerified") : t("profile.emailNotVerified")}
+                <Text
+                  style={[
+                    styles.emailBadgeText,
+                    {
+                      color: isEmailVerified ? "#22c55e" : warningColor,
+                      fontSize: verificationFontSize,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {emailVerificationLabel}
                 </Text>
               </View>
               {!isEmailVerified ? (
                 <AppPressable style={styles.verifyBtn} onPress={() => navigation.navigate("VerifyEmailOtp", { flow: "verify" })}>
-                  <Text style={styles.verifyBtnText}>{t("profile.verifyEmail")}</Text>
+                  <Text
+                    style={[styles.verifyBtnText, { fontSize: verificationFontSize }]}
+                    numberOfLines={1}
+                  >
+                    {verifyEmailLabel}
+                  </Text>
                 </AppPressable>
               ) : null}
             </View>
           </View>
-          <AppPressable
-            style={styles.settingsBtn}
-            onPressIn={ensureEditProfileScreenReady}
-            onPress={openEditProfile}
-          >
-            <Ionicons name="settings-outline" size={16} color={colors.text} />
-          </AppPressable>
         </View>
+        <AppPressable
+          style={styles.settingsBtn}
+          onPressIn={ensureEditProfileScreenReady}
+          onPress={openEditProfile}
+        >
+          <Ionicons name="settings-outline" size={16} color={colors.text} />
+        </AppPressable>
         <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
           <Text style={{ color: colors.text, fontWeight: "700" }}>
             {t("profile.subscriptionTitle", { status: subscriptionLabel })}
