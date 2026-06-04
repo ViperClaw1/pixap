@@ -21,7 +21,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/shared/api/supabase/client";
-import { useAuth } from "@/app/providers/AuthProvider";
+import { useAuth, type AuthErrorCode } from "@/app/providers/AuthProvider";
 import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession";
 import { markOAuthCallbackHandled } from "@/shared/lib/oauthCallbackHandled";
 import { env } from "@/shared/lib/env";
@@ -46,6 +46,44 @@ type Mode = "login" | "signup" | "forgot";
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Auth">;
 const KEYBOARD_GAP = Platform.OS === "android" ? 48 : 24;
 const PASSWORD_RULE_SUCCESS_COLOR = "#22c55e";
+
+function getAuthErrorTranslationKey(code: AuthErrorCode | undefined): string {
+  switch (code) {
+    case "email_already_registered":
+      return "auth.errors.emailAlreadyRegistered";
+    case "invalid_email":
+      return "auth.errors.invalidEmail";
+    case "missing_required_fields":
+      return "auth.errors.missingRequiredFields";
+    case "weak_password":
+      return "auth.errors.weakPassword";
+    case "terms_required":
+      return "auth.errors.termsRequired";
+    case "invalid_credentials":
+      return "auth.errors.invalidCredentials";
+    case "email_not_confirmed":
+      return "auth.errors.emailNotConfirmed";
+    case "too_many_requests":
+      return "auth.errors.tooManyRequests";
+    case "unauthorized":
+      return "auth.errors.unauthorized";
+    case "email_mismatch":
+      return "auth.errors.emailMismatch";
+    case "invalid_otp":
+      return "auth.errors.invalidOtp";
+    case "expired_otp":
+      return "auth.errors.expiredOtp";
+    case "otp_send_failed":
+      return "auth.errors.otpSendFailed";
+    case "auth_service_unavailable":
+      return "auth.errors.authServiceUnavailable";
+    case "network_unavailable":
+      return "auth.errors.networkUnavailable";
+    case "unknown":
+    default:
+      return "auth.errors.generic";
+  }
+}
 
 export default function AuthScreen() {
   const { t } = useTranslation();
@@ -113,6 +151,11 @@ export default function AuthScreen() {
     (title: string, message?: string, variant: AppPopupVariant = "alert") => {
       appAlert(title, message, [{ text: t("common.ok") }], variant);
     },
+    [t],
+  );
+
+  const getAuthErrorMessage = useCallback(
+    (code: AuthErrorCode | undefined) => t(getAuthErrorTranslationKey(code)),
     [t],
   );
 
@@ -232,7 +275,7 @@ export default function AuthScreen() {
         });
         if (error) {
           devError("[Apple][native] signInWithIdToken error:", error.message);
-          showUserAlert(t("auth.alerts.signInFailed"), error.message);
+          showUserAlert(t("auth.alerts.signInFailed"), getAuthErrorMessage("unknown"));
           return;
         }
         devInfo("[Apple][native] signInWithIdToken success");
@@ -267,7 +310,7 @@ export default function AuthScreen() {
         if (finished.ok) devInfo("[OAuth] callback exchange: success");
         else devError("[OAuth] callback exchange: failed:", finished.message);
         if (!finished.ok) {
-          showUserAlert(t("auth.alerts.signInFailed"), finished.message);
+          showUserAlert(t("auth.alerts.signInFailed"), getAuthErrorMessage("unknown"));
           return;
         }
         markOAuthCallbackHandled(result.url);
@@ -279,7 +322,8 @@ export default function AuthScreen() {
         showUserAlert(t("auth.alerts.signInCancelled"), undefined, "info");
       }
     } catch (e: unknown) {
-      showUserAlert(t("auth.alerts.oauthError"), e instanceof Error ? e.message : t("auth.alerts.unknown"));
+      devError("[Auth][social] OAuth error:", e instanceof Error ? e.message : e);
+      showUserAlert(t("auth.alerts.oauthError"), getAuthErrorMessage("unknown"));
     } finally {
       finishAuthAttempt(keepLoading);
     }
@@ -292,9 +336,9 @@ export default function AuthScreen() {
     let keepLoading = false;
     try {
       if (mode === "login") {
-        const { error } = await signIn(email, password);
+        const { error, errorCode } = await signIn(email, password);
         if (error) {
-          showUserAlert(t("auth.alerts.signInFailed"), error);
+          showUserAlert(t("auth.alerts.signInFailed"), getAuthErrorMessage(errorCode));
           return;
         }
         beginAuthTransition("ProfileMain");
@@ -325,13 +369,13 @@ export default function AuthScreen() {
           showUserAlert(t("auth.alerts.validationTitle"), t("legal.acceptTermsRequired"));
           return;
         }
-        const { error, isUserAlreadyExists } = await signUp(email, password, firstName, lastName, true);
+        const { error, errorCode, isUserAlreadyExists } = await signUp(email, password, firstName, lastName, true);
         if (error) {
           if (isUserAlreadyExists) {
             showUserAlert(t("auth.alerts.emailAlreadyRegisteredTitle"), t("auth.alerts.emailAlreadyRegisteredBody"), "info");
             return;
           }
-          showUserAlert(t("auth.alerts.signUpFailed"), error);
+          showUserAlert(t("auth.alerts.signUpFailed"), getAuthErrorMessage(errorCode));
           return;
         }
         const signInResult = await signIn(email, password);

@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { useSubscription } from "@/entities/subscription";
+import { useSubscription, type SubscriptionErrorCode } from "@/entities/subscription";
 import { useBookingAccess } from "@/features/booking-access";
 import { SubscriptionPurchaseResultModal } from "@/features/subscription-paywall-redirect";
 import { env } from "@/shared/lib/env";
@@ -22,6 +22,36 @@ const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
 const GOOGLE_SUBSCRIPTION_URL = "https://play.google.com/store/account/subscriptions";
 
 type PaywallRoute = RouteProp<BrowseFlowParamList, "SubscriptionPaywall">;
+
+function getSubscriptionErrorTranslationKey(code: SubscriptionErrorCode | undefined): string {
+  switch (code) {
+    case "auth_required":
+      return "subscriptionPaywall.errors.authRequired";
+    case "invalid_purchase":
+      return "subscriptionPaywall.errors.invalidPurchase";
+    case "purchase_already_linked":
+      return "subscriptionPaywall.errors.purchaseAlreadyLinked";
+    case "verification_unavailable":
+      return "subscriptionPaywall.errors.verificationUnavailable";
+    case "network_unavailable":
+      return "subscriptionPaywall.errors.networkUnavailable";
+    case "iap_unavailable":
+      return "subscriptionPaywall.errors.iapUnavailable";
+    case "missing_sku":
+      return "subscriptionPaywall.errors.missingSku";
+    case "no_eligible_offer":
+      return "subscriptionPaywall.errors.noEligibleOffer";
+    case "store_purchase_failed":
+      return "subscriptionPaywall.errors.storePurchaseFailed";
+    case "restore_no_purchases":
+      return "subscriptionPaywall.restoreNothingToast";
+    case "restore_failed":
+      return "subscriptionPaywall.restoreErrorToast";
+    case "verification_failed":
+    default:
+      return "subscriptionPaywall.purchaseErrorBody";
+  }
+}
 
 export default function SubscriptionPaywallScreen() {
   const { colors } = useAppTheme();
@@ -93,7 +123,7 @@ export default function SubscriptionPaywallScreen() {
     } catch (error) {
       const code = (error as { code?: string })?.code;
       if (code === "user-cancelled") return;
-      const message = error instanceof Error ? error.message : t("subscriptionPaywall.purchaseErrorBody");
+      const message = t(getSubscriptionErrorTranslationKey(code as SubscriptionErrorCode | undefined));
       Alert.alert(t("subscriptionPaywall.purchaseErrorTitle"), message);
     }
   };
@@ -103,7 +133,7 @@ export default function SubscriptionPaywallScreen() {
       await restore();
     } catch (error) {
       const code = (error as { code?: string })?.code;
-      if (code === "no_purchases") {
+      if (code === "restore_no_purchases") {
         Alert.alert(t("subscriptionPaywall.restoreNothingToast"), undefined, [{ text: t("common.ok") }]);
         return;
       }
@@ -192,7 +222,11 @@ export default function SubscriptionPaywallScreen() {
       <SubscriptionPurchaseResultModal
         visible={verificationState.status === "success" || verificationState.status === "error"}
         success={verificationState.status === "success"}
-        errorMessage={verificationState.status === "error" ? verificationState.message : undefined}
+        errorMessage={
+          verificationState.status === "error"
+            ? t(getSubscriptionErrorTranslationKey(verificationState.code))
+            : undefined
+        }
         onDismiss={verificationState.status === "success" ? handleSuccessDismiss : handleErrorDismiss}
         onRetry={
           verificationState.status === "error"

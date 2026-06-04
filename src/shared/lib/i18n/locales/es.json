@@ -427,6 +427,24 @@
       "signUpAutoSignInFailedBody": "La cuenta se creó, pero el inicio automático falló. Inicia sesión manualmente.",
       "errorTitle": "Error"
     },
+    "errors": {
+      "emailAlreadyRegistered": "Ya existe una cuenta con este correo. Inicia sesión o restablece la contraseña.",
+      "invalidEmail": "Introduce un correo válido.",
+      "missingRequiredFields": "Completa todos los campos obligatorios.",
+      "weakPassword": "La contraseña no cumple los requisitos de seguridad.",
+      "termsRequired": "Acepta los Términos de servicio para continuar.",
+      "invalidCredentials": "Correo o contraseña incorrectos. Revisa los datos e inténtalo de nuevo.",
+      "emailNotConfirmed": "Confirma tu correo antes de iniciar sesión.",
+      "tooManyRequests": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+      "unauthorized": "Tu sesión ha caducado. Inicia sesión de nuevo.",
+      "emailMismatch": "Este correo no coincide con tu cuenta.",
+      "invalidOtp": "El código de verificación es incorrecto. Revisa el código e inténtalo de nuevo.",
+      "expiredOtp": "Este código ha caducado. Solicita uno nuevo.",
+      "otpSendFailed": "No pudimos enviar el código de verificación. Inténtalo de nuevo.",
+      "authServiceUnavailable": "La autenticación no está disponible temporalmente. Inténtalo más tarde.",
+      "networkUnavailable": "Error de conexión. Comprueba tu internet e inténtalo de nuevo.",
+      "generic": "Algo salió mal. Inténtalo de nuevo."
+    },
     "passwordReset": {
       "title": "Restablecer contraseña",
       "hintLinkReceived": "Enlace recibido. Introduce una nueva contraseña abajo.",
@@ -606,6 +624,17 @@
     "restoreSuccessToast": "Suscripción restaurada correctamente.",
     "restoreNothingToast": "No se encontraron compras activas para restaurar.",
     "restoreErrorToast": "No se pudo restaurar. Inténtalo de nuevo.",
+    "errors": {
+      "authRequired": "Inicia sesión de nuevo antes de confirmar la suscripción.",
+      "invalidPurchase": "No pudimos leer esta compra desde la tienda de apps. Inténtalo de nuevo o usa Restaurar compras.",
+      "purchaseAlreadyLinked": "Esta suscripción ya está vinculada a otra cuenta de Pixap. Inicia sesión con esa cuenta o contacta con soporte.",
+      "verificationUnavailable": "El pago puede haberse procesado, pero el servicio de confirmación no está disponible temporalmente. Usa Restaurar compras en unos minutos.",
+      "networkUnavailable": "La conexión se interrumpió al confirmar la suscripción. Usa Restaurar compras cuando vuelvas a estar en línea.",
+      "iapUnavailable": "Las compras dentro de la app no están disponibles en esta compilación. Usa una build de desarrollo o producción.",
+      "missingSku": "Este plan de suscripción no está disponible ahora. Inténtalo más tarde.",
+      "noEligibleOffer": "Esta oferta de suscripción no está disponible para tu cuenta de la tienda. Prueba otro plan o usa Restaurar compras.",
+      "storePurchaseFailed": "La tienda de apps no pudo iniciar la compra. Inténtalo de nuevo."
+    },
     "tour": {
       "rewatch": "Cómo funciona PixAI",
       "back": "Atrás",

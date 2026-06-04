@@ -99,7 +99,7 @@ export const businessPlaceCardStaticStyles = StyleSheet.create({
     color: "#fff",
   },
   vMeta: { marginTop: 8, paddingHorizontal: 2 },
-  vName: { fontSize: 14, fontWeight: "600" },
+  vName: { fontSize: 14, fontWeight: "600", lineHeight: 18 },
   vTagsRow: { flexDirection: "row", flexWrap: "nowrap", gap: 6, marginTop: 6, overflow: "hidden" },
   vTagPill: {
     paddingHorizontal: 10,
@@ -110,6 +110,7 @@ export const businessPlaceCardStaticStyles = StyleSheet.create({
   vTagText: {
     fontSize: 11,
     fontWeight: "700",
+    lineHeight: 14,
   },
 });
 

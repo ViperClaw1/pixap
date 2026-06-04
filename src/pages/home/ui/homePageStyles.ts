@@ -1,6 +1,11 @@
 import { StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
-import { HOME_CATEGORY_PILL_HEIGHT } from "../model/constants";
+import {
+  FEATURED_CARD_HEIGHT,
+  FEATURED_CARD_ITEM_GAP,
+  FEATURED_CARD_WIDTH,
+  HOME_CATEGORY_PILL_HEIGHT,
+} from "../model/constants";
 
 export const homePageStaticStyles = StyleSheet.create({
   root: { flex: 1 },
@@ -165,7 +170,11 @@ export const homePageStaticStyles = StyleSheet.create({
     textTransform: "uppercase",
   },
   categoriesFlatList: { marginBottom: 12 },
-  featuredCardWrap: { marginRight: 12 },
+  featuredCardWrap: {
+    width: FEATURED_CARD_WIDTH,
+    height: FEATURED_CARD_HEIGHT,
+    marginRight: FEATURED_CARD_ITEM_GAP,
+  },
   /** Included in FlashList item measurement (padding, not margin). */
   recommendedItemWrap: { paddingBottom: 12 },
   showMoreBtn: {

@@ -67,6 +67,7 @@ import {
   type PhoneValue,
 } from "@/shared/ui/phone-input";
 import { useAIBookingStyles } from "./aiBookingStyles";
+import { AIBookingSelectedPlaceDetails } from "./AIBookingSelectedPlaceDetails";
 import { AIBookingSuggestedPlaces } from "./AIBookingSuggestedPlaces";
 import { AIBookingSlotPicker } from "./AIBookingSlotPicker";
 import { AIBookingCustomerForm, type AIBookingDraftForm } from "./AIBookingCustomerForm";
@@ -1216,25 +1217,28 @@ function AIBookingPageContent() {
         ) : null}
 
         {currentStep === "booking" && selectedPlace ? (
-          <AIBookingSlotPicker
-            styles={styles}
-            selectedPlace={selectedPlace}
-            visibleCalendarMonth={visibleCalendarMonth}
-            setVisibleCalendarMonth={setVisibleCalendarMonth}
-            canGoPrevMonth={canGoPrevMonth}
-            canGoNextMonth={canGoNextMonth}
-            calendarCells={calendarCells}
-            todayYmd={todayYmd}
-            bookingDateYmd={bookingDateYmd}
-            setBookingDateYmd={setBookingDateYmd}
-            setSelectedSlot={setSelectedSlot}
-            slotsForDate={slotsForDate}
-            slotsFetching={slotsFetching}
-            slotsError={slotsError}
-            refetchSlots={refetchSlots}
-            cartReservedSlotTimes={cartReservedSlotTimes}
-            selectedSlot={selectedSlot}
-          />
+          <>
+            <AIBookingSelectedPlaceDetails styles={styles} selectedPlace={selectedPlace} />
+            <AIBookingSlotPicker
+              styles={styles}
+              selectedPlace={selectedPlace}
+              visibleCalendarMonth={visibleCalendarMonth}
+              setVisibleCalendarMonth={setVisibleCalendarMonth}
+              canGoPrevMonth={canGoPrevMonth}
+              canGoNextMonth={canGoNextMonth}
+              calendarCells={calendarCells}
+              todayYmd={todayYmd}
+              bookingDateYmd={bookingDateYmd}
+              setBookingDateYmd={setBookingDateYmd}
+              setSelectedSlot={setSelectedSlot}
+              slotsForDate={slotsForDate}
+              slotsFetching={slotsFetching}
+              slotsError={slotsError}
+              refetchSlots={refetchSlots}
+              cartReservedSlotTimes={cartReservedSlotTimes}
+              selectedSlot={selectedSlot}
+            />
+          </>
         ) : null}
 
         {currentStep === "booking" ? (

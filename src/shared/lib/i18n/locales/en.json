@@ -567,6 +567,24 @@
       "signUpAutoSignInFailedBody": "Account was created, but auto sign in failed. Please log in manually.",
       "errorTitle": "Error"
     },
+    "errors": {
+      "emailAlreadyRegistered": "Account with this email already exists. Please sign in or reset your password.",
+      "invalidEmail": "Please enter a valid email address.",
+      "missingRequiredFields": "Please fill in all required fields.",
+      "weakPassword": "Password does not meet security requirements.",
+      "termsRequired": "Please accept the Terms of Service to continue.",
+      "invalidCredentials": "Incorrect email or password. Check your details and try again.",
+      "emailNotConfirmed": "Please confirm your email before signing in.",
+      "tooManyRequests": "Too many attempts. Please wait a few minutes and try again.",
+      "unauthorized": "Your session expired. Please sign in again.",
+      "emailMismatch": "This email does not match your account.",
+      "invalidOtp": "The verification code is incorrect. Check the code and try again.",
+      "expiredOtp": "This verification code has expired. Request a new code.",
+      "otpSendFailed": "We could not send the verification code. Please try again.",
+      "authServiceUnavailable": "Authentication is temporarily unavailable. Please try again later.",
+      "networkUnavailable": "Network connection failed. Check your internet and try again.",
+      "generic": "Something went wrong. Please try again."
+    },
     "passwordReset": {
       "title": "Reset password",
       "hintLinkReceived": "Link received. Enter a new password below.",
@@ -747,6 +765,17 @@
     "restoreSuccessToast": "Subscription restored successfully.",
     "restoreNothingToast": "No active purchases found to restore.",
     "restoreErrorToast": "Restore failed. Please try again.",
+    "errors": {
+      "authRequired": "Please sign in again before confirming your subscription.",
+      "invalidPurchase": "We could not read this purchase from the app store. Please try again or use Restore Purchases.",
+      "purchaseAlreadyLinked": "This subscription is already linked to another Pixap account. Sign in with that account or contact support.",
+      "verificationUnavailable": "The payment may have been processed, but our confirmation service is temporarily unavailable. Please use Restore Purchases in a few minutes.",
+      "networkUnavailable": "Your connection was interrupted while confirming the subscription. Please use Restore Purchases when you are back online.",
+      "iapUnavailable": "In-app purchases are not available in this build. Use a development or production build to subscribe.",
+      "missingSku": "This subscription plan is not available right now. Please try again later.",
+      "noEligibleOffer": "This subscription offer is not available for your store account. Try another plan or use Restore Purchases.",
+      "storePurchaseFailed": "The app store could not start the purchase. Please try again."
+    },
     "tour": {
       "rewatch": "How PixAI works",
       "back": "Back",

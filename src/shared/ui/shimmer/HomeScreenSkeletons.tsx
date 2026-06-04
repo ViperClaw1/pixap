@@ -17,13 +17,23 @@ const CATEGORY_PILL_R = 999;
 const DEFAULT_FEATURED_COUNT = 3;
 const DEFAULT_RECOMMENDED_COUNT = 3;
 const DEFAULT_CATEGORY_PILLS = 6;
+const FEATURED_META_TOP_GAP = 8;
+const FEATURED_TITLE_HEIGHT = 18;
+const FEATURED_TAG_TOP_GAP = 6;
+const FEATURED_TAG_HEIGHT = 22;
 
 type CategoryProps = {
   pillCount?: number;
   /** Match `HOME_CATEGORY_PILL_HEIGHT` on Home categories row. */
   pillHeight?: number;
 };
-type FeaturedProps = { cardCount?: number };
+type FeaturedProps = {
+  cardCount?: number;
+  cardWidth?: number;
+  cardHeight?: number;
+  imageHeight?: number;
+  itemGap?: number;
+};
 type RecommendedProps = { cardWidth: number; cardCount?: number };
 
 function CategorySkeletonRowInner({ pillCount = DEFAULT_CATEGORY_PILLS, pillHeight = CATEGORY_PILL_H }: CategoryProps) {
@@ -42,16 +52,41 @@ function CategorySkeletonRowInner({ pillCount = DEFAULT_CATEGORY_PILLS, pillHeig
   );
 }
 
-function FeaturedSkeletonRowInner({ cardCount = DEFAULT_FEATURED_COUNT }: FeaturedProps) {
+function FeaturedSkeletonRowInner({
+  cardCount = DEFAULT_FEATURED_COUNT,
+  cardWidth = IMAGE_VERTICAL_W,
+  cardHeight =
+    IMAGE_VERTICAL_H +
+    FEATURED_META_TOP_GAP +
+    FEATURED_TITLE_HEIGHT +
+    FEATURED_TAG_TOP_GAP +
+    FEATURED_TAG_HEIGHT,
+  imageHeight = IMAGE_VERTICAL_H,
+  itemGap = 12,
+}: FeaturedProps) {
+  const titleWidth = Math.min(170, cardWidth - 4);
+  const firstTagWidth = Math.min(72, cardWidth - 4);
+  const secondTagWidth = Math.min(56, Math.max(0, cardWidth - firstTagWidth - 10));
+
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hContent}>
       {Array.from({ length: cardCount }).map((_, i) => (
-        <View key={i} style={styles.featuredWrap}>
-          <ShimmerSurface width={IMAGE_VERTICAL_W} height={IMAGE_VERTICAL_H} borderRadius={12} />
+        <View
+          key={i}
+          style={[
+            styles.featuredWrap,
+            { width: cardWidth, height: cardHeight, marginRight: itemGap },
+          ]}
+        >
+          <ShimmerSurface width={cardWidth} height={imageHeight} borderRadius={12} />
           <View style={styles.featuredMeta}>
-            <ShimmerSurface width={170} height={14} borderRadius={4} />
-            <ShimmerSurface width={130} height={12} borderRadius={4} style={styles.metaGap} />
-            <ShimmerSurface width={90} height={12} borderRadius={4} style={styles.metaGap} />
+            <ShimmerSurface width={titleWidth} height={FEATURED_TITLE_HEIGHT} borderRadius={4} />
+            <View style={styles.featuredTagRow}>
+              <ShimmerSurface width={firstTagWidth} height={FEATURED_TAG_HEIGHT} borderRadius={999} />
+              {secondTagWidth > 0 ? (
+                <ShimmerSurface width={secondTagWidth} height={FEATURED_TAG_HEIGHT} borderRadius={999} />
+              ) : null}
+            </View>
           </View>
         </View>
       ))}
@@ -110,8 +145,14 @@ const styles = StyleSheet.create({
   hContent: { paddingRight: 8 },
   pillWrap: { marginRight: 8 },
   featuredWrap: { width: IMAGE_VERTICAL_W, marginRight: 12 },
-  featuredMeta: { marginTop: 8, paddingHorizontal: 2 },
-  metaGap: { marginTop: 6 },
+  featuredMeta: { marginTop: FEATURED_META_TOP_GAP, paddingHorizontal: 2 },
+  featuredTagRow: {
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    gap: 6,
+    marginTop: FEATURED_TAG_TOP_GAP,
+    overflow: "hidden",
+  },
   recRow: {
     flexDirection: "row",
     gap: H_GAP,
