@@ -47,7 +47,11 @@ import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { homePageStaticStyles, homePageThemeStyles } from "./homePageStyles";
 import {
   CATEGORY_PILL_ESTIMATED_WIDTH,
+  FEATURED_CARD_HEIGHT,
   FEATURED_CARD_ESTIMATED_WIDTH,
+  FEATURED_CARD_IMAGE_HEIGHT,
+  FEATURED_CARD_ITEM_GAP,
+  FEATURED_CARD_WIDTH,
   HOME_CATEGORY_PILL_HEIGHT,
   RECOMMENDED_BATCH_SIZE,
   RECOMMENDED_ITEM_ESTIMATED_SIZE,
@@ -64,8 +68,6 @@ import { ShowMoreButton } from "@/shared/ui/show-more-button";
 import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
 
 const VIBE_TOOLBAR_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
-const FEATURED_THUMB_W = 200;
-const FEATURED_THUMB_H = 140;
 const RECOMMENDED_THUMB_SIZE = 96;
 
 function thumbUriForCard(place: BusinessCard, layoutW: number, layoutH: number): string | null {
@@ -89,13 +91,17 @@ export default function HomeScreen() {
   const { width: windowWidth } = useStaticWindowSize();
   const { colors, isDark } = useAppTheme();
   const { user } = useAuth();
-  const { selectedCity, selectCity } = useProfileCityPicker();
+  const { selectedCity, selectCity, isCityReady } = useProfileCityPicker();
   const [languageOpen, setLanguageOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [visibleRecommendedCount, setVisibleRecommendedCount] = useState(RECOMMENDED_BATCH_SIZE);
   const { isLoadingMore: isLoadingMoreRecommended, expand: expandRecommendedBatch } = useExpandVisibleBatch();
-  const { data: featured = [], isLoading: lf } = useBusinessCards("featured", selectedCity);
-  const { data: recommended = [], isLoading: lr } = useBusinessCards("recommended", selectedCity);
+  const { data: featured = [], isLoading: lf } = useBusinessCards("featured", selectedCity, {
+    enabled: isCityReady,
+  });
+  const { data: recommended = [], isLoading: lr } = useBusinessCards("recommended", selectedCity, {
+    enabled: isCityReady,
+  });
   const { data: categories = [], isLoading: lc } = useCategories();
   const homeCategories = useMemo(() => buildHomeCategoryList(categories), [categories]);
   const { data: dailyRecommendations = [] } = useDailyRecommendations();
@@ -106,7 +112,9 @@ export default function HomeScreen() {
 
   /** Horizontal padding 16 + 16 from `content` — matches full-width recommended cards */
   const recommendedCardWidth = windowWidth - 32;
-  const homeQueriesLoading = lc || lf || lr;
+  const featuredLoading = !isCityReady || lf;
+  const recommendedLoading = !isCityReady || lr;
+  const homeQueriesLoading = lc || featuredLoading || recommendedLoading;
 
   useEffect(() => {
     setVisibleRecommendedCount(RECOMMENDED_BATCH_SIZE);
@@ -130,7 +138,7 @@ export default function HomeScreen() {
     if (!featured.length) return;
     const uris = featured
       .slice(0, 8)
-      .map((p) => thumbUriForCard(p, FEATURED_THUMB_W, FEATURED_THUMB_H));
+      .map((p) => thumbUriForCard(p, FEATURED_CARD_WIDTH, FEATURED_CARD_IMAGE_HEIGHT));
     let cancelled = false;
     let task: { cancel: () => void } | null = null;
     const timer = setTimeout(() => {
@@ -393,8 +401,13 @@ export default function HomeScreen() {
             <Text style={styles.link}>{t("home.seeAll")}</Text>
           </AppPressable>
         </View>
-        {lf ? (
-          <FeaturedSkeletonRow />
+        {featuredLoading ? (
+          <FeaturedSkeletonRow
+            cardWidth={FEATURED_CARD_WIDTH}
+            cardHeight={FEATURED_CARD_HEIGHT}
+            imageHeight={FEATURED_CARD_IMAGE_HEIGHT}
+            itemGap={FEATURED_CARD_ITEM_GAP}
+          />
         ) : (
           <FlashList
             horizontal
@@ -407,7 +420,7 @@ export default function HomeScreen() {
         )}
 
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{t("home.recommended")}</Text>
-        {lr ? <RecommendedSkeletonList cardWidth={recommendedCardWidth} /> : null}
+        {recommendedLoading ? <RecommendedSkeletonList cardWidth={recommendedCardWidth} /> : null}
       </>
     ),
     [
@@ -424,8 +437,8 @@ export default function HomeScreen() {
       i18n.language,
       languageOpen,
       lc,
-      lf,
-      lr,
+      featuredLoading,
+      recommendedLoading,
       navigation,
       notificationsOpen,
       openDailyRecommendations,
@@ -447,7 +460,7 @@ export default function HomeScreen() {
 
   const listFooter = useMemo(
     () =>
-      !lr && (canShowMoreRecommended || isLoadingMoreRecommended) ? (
+      !recommendedLoading && (canShowMoreRecommended || isLoadingMoreRecommended) ? (
         <ShowMoreButton
           label={t("home.showMore")}
           loading={isLoadingMoreRecommended}
@@ -463,7 +476,7 @@ export default function HomeScreen() {
       handleShowMoreRecommended,
       i18n.language,
       isLoadingMoreRecommended,
-      lr,
+      recommendedLoading,
       styles.showMoreBtn,
       styles.showMoreBtnText,
       t,
@@ -479,7 +492,7 @@ export default function HomeScreen() {
     <ShimmerProvider active={homeQueriesLoading}>
       <FlashList
         style={styles.root}
-        data={lr ? [] : visibleRecommended}
+        data={recommendedLoading ? [] : visibleRecommended}
         extraData={`${i18n.language}|${recommendedListExtraData}|${isDark ? "d" : "l"}`}
         keyExtractor={(p) => p.id}
         estimatedItemSize={RECOMMENDED_ITEM_ESTIMATED_SIZE}

@@ -427,6 +427,24 @@
       "signUpAutoSignInFailedBody": "A conta foi criada, mas o início automático falhou. Inicia sessão manualmente.",
       "errorTitle": "Erro"
     },
+    "errors": {
+      "emailAlreadyRegistered": "Já existe uma conta com este email. Inicia sessão ou repõe a palavra-passe.",
+      "invalidEmail": "Introduz um email válido.",
+      "missingRequiredFields": "Preenche todos os campos obrigatórios.",
+      "weakPassword": "A palavra-passe não cumpre os requisitos de segurança.",
+      "termsRequired": "Aceita os Termos de Serviço para continuar.",
+      "invalidCredentials": "Email ou palavra-passe incorretos. Verifica os dados e tenta novamente.",
+      "emailNotConfirmed": "Confirma o teu email antes de iniciar sessão.",
+      "tooManyRequests": "Demasiadas tentativas. Aguarda alguns minutos e tenta novamente.",
+      "unauthorized": "A sessão expirou. Inicia sessão novamente.",
+      "emailMismatch": "Este email não corresponde à tua conta.",
+      "invalidOtp": "O código de verificação está incorreto. Verifica o código e tenta novamente.",
+      "expiredOtp": "Este código expirou. Solicita um novo código.",
+      "otpSendFailed": "Não foi possível enviar o código de verificação. Tenta novamente.",
+      "authServiceUnavailable": "A autenticação está temporariamente indisponível. Tenta mais tarde.",
+      "networkUnavailable": "Falha de ligação. Verifica a internet e tenta novamente.",
+      "generic": "Algo correu mal. Tenta novamente."
+    },
     "passwordReset": {
       "title": "Repor palavra-passe",
       "hintLinkReceived": "Link recebido. Introduz uma nova palavra-passe abaixo.",
@@ -606,6 +624,17 @@
     "restoreSuccessToast": "Subscrição restaurada com sucesso.",
     "restoreNothingToast": "Nenhuma compra ativa encontrada para restaurar.",
     "restoreErrorToast": "Falha ao restaurar. Tente novamente.",
+    "errors": {
+      "authRequired": "Inicie sessão novamente antes de confirmar a subscrição.",
+      "invalidPurchase": "Não conseguimos ler esta compra na loja de apps. Tente novamente ou use Restaurar compras.",
+      "purchaseAlreadyLinked": "Esta subscrição já está associada a outra conta Pixap. Inicie sessão nessa conta ou contacte o suporte.",
+      "verificationUnavailable": "O pagamento pode ter sido processado, mas o serviço de confirmação está temporariamente indisponível. Use Restaurar compras dentro de alguns minutos.",
+      "networkUnavailable": "A ligação foi interrompida ao confirmar a subscrição. Use Restaurar compras quando estiver online novamente.",
+      "iapUnavailable": "As compras na app não estão disponíveis nesta build. Use uma build de desenvolvimento ou produção.",
+      "missingSku": "Este plano de subscrição não está disponível agora. Tente mais tarde.",
+      "noEligibleOffer": "Esta oferta de subscrição não está disponível para a sua conta da loja. Tente outro plano ou use Restaurar compras.",
+      "storePurchaseFailed": "A loja de apps não conseguiu iniciar a compra. Tente novamente."
+    },
     "tour": {
       "rewatch": "Como funciona o PixAI",
       "back": "Voltar",

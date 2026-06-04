@@ -427,6 +427,24 @@
       "signUpAutoSignInFailedBody": "Le compte a été créé, mais la connexion automatique a échoué. Connectez-vous manuellement.",
       "errorTitle": "Erreur"
     },
+    "errors": {
+      "emailAlreadyRegistered": "Un compte existe déjà avec cet e-mail. Connectez-vous ou réinitialisez votre mot de passe.",
+      "invalidEmail": "Veuillez entrer une adresse e-mail valide.",
+      "missingRequiredFields": "Veuillez remplir tous les champs obligatoires.",
+      "weakPassword": "Le mot de passe ne respecte pas les exigences de sécurité.",
+      "termsRequired": "Veuillez accepter les Conditions d'utilisation pour continuer.",
+      "invalidCredentials": "E-mail ou mot de passe incorrect. Vérifiez vos informations et réessayez.",
+      "emailNotConfirmed": "Veuillez confirmer votre e-mail avant de vous connecter.",
+      "tooManyRequests": "Trop de tentatives. Attendez quelques minutes puis réessayez.",
+      "unauthorized": "Votre session a expiré. Connectez-vous à nouveau.",
+      "emailMismatch": "Cet e-mail ne correspond pas à votre compte.",
+      "invalidOtp": "Le code de vérification est incorrect. Vérifiez le code et réessayez.",
+      "expiredOtp": "Ce code a expiré. Demandez un nouveau code.",
+      "otpSendFailed": "Nous n'avons pas pu envoyer le code de vérification. Réessayez.",
+      "authServiceUnavailable": "L'authentification est temporairement indisponible. Réessayez plus tard.",
+      "networkUnavailable": "Erreur de connexion. Vérifiez votre internet et réessayez.",
+      "generic": "Une erreur s'est produite. Réessayez."
+    },
     "passwordReset": {
       "title": "Réinitialiser le mot de passe",
       "hintLinkReceived": "Lien reçu. Saisissez un nouveau mot de passe ci-dessous.",
@@ -606,6 +624,17 @@
     "restoreSuccessToast": "Abonnement restauré avec succès.",
     "restoreNothingToast": "Aucun achat actif à restaurer.",
     "restoreErrorToast": "La restauration a échoué. Réessayez.",
+    "errors": {
+      "authRequired": "Reconnectez-vous avant de confirmer votre abonnement.",
+      "invalidPurchase": "Nous n'avons pas pu lire cet achat depuis la boutique d'apps. Réessayez ou utilisez Restaurer les achats.",
+      "purchaseAlreadyLinked": "Cet abonnement est déjà lié à un autre compte Pixap. Connectez-vous avec ce compte ou contactez le support.",
+      "verificationUnavailable": "Le paiement a peut-être été traité, mais le service de confirmation est temporairement indisponible. Utilisez Restaurer les achats dans quelques minutes.",
+      "networkUnavailable": "La connexion a été interrompue pendant la confirmation de l'abonnement. Utilisez Restaurer les achats quand vous serez de nouveau en ligne.",
+      "iapUnavailable": "Les achats intégrés ne sont pas disponibles dans cette build. Utilisez une build de développement ou de production.",
+      "missingSku": "Cette offre d'abonnement n'est pas disponible pour le moment. Réessayez plus tard.",
+      "noEligibleOffer": "Cette offre d'abonnement n'est pas disponible pour votre compte de boutique. Essayez une autre offre ou utilisez Restaurer les achats.",
+      "storePurchaseFailed": "La boutique d'apps n'a pas pu démarrer l'achat. Réessayez."
+    },
     "tour": {
       "rewatch": "Comment fonctionne PixAI",
       "back": "Retour",

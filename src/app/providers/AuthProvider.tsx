@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Session, User } from "@supabase/supabase-js";
+import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError, type Session, type User } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import { AppState, InteractionManager } from "react-native";
@@ -17,9 +17,30 @@ import { devError, devInfo, devWarn } from "@/shared/lib/devLog";
 import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
 import { clearOnboardingDraft } from "@/features/preference-onboarding";
 
-interface SignInResult {
+export type AuthErrorCode =
+  | "email_already_registered"
+  | "invalid_email"
+  | "missing_required_fields"
+  | "weak_password"
+  | "terms_required"
+  | "invalid_credentials"
+  | "email_not_confirmed"
+  | "too_many_requests"
+  | "unauthorized"
+  | "email_mismatch"
+  | "invalid_otp"
+  | "expired_otp"
+  | "otp_send_failed"
+  | "auth_service_unavailable"
+  | "network_unavailable"
+  | "unknown";
+
+interface AuthActionResult {
   error: string | null;
+  errorCode?: AuthErrorCode;
 }
+
+type SignInResult = AuthActionResult;
 
 interface AuthContextType {
   user: User | null;
@@ -32,16 +53,16 @@ interface AuthContextType {
     firstName: string,
     lastName: string,
     acceptTerms?: boolean,
-  ) => Promise<{ error: string | null; isUserAlreadyExists?: boolean }>;
+  ) => Promise<AuthActionResult & { isUserAlreadyExists?: boolean }>;
   signIn: (email: string, password: string) => Promise<SignInResult>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{ error: string | null }>;
-  updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
-  resendVerification: (email: string) => Promise<{ error: string | null }>;
-  sendVerificationOtp: (email: string) => Promise<{ error: string | null }>;
-  verifyEmailOtp: (code: string) => Promise<{ error: string | null }>;
-  sendRecoveryOtp: (email: string) => Promise<{ error: string | null }>;
-  verifyRecoveryOtp: (email: string, code: string) => Promise<{ error: string | null }>;
+  resetPassword: (email: string) => Promise<AuthActionResult>;
+  updatePassword: (newPassword: string) => Promise<AuthActionResult>;
+  resendVerification: (email: string) => Promise<AuthActionResult>;
+  sendVerificationOtp: (email: string) => Promise<AuthActionResult>;
+  verifyEmailOtp: (code: string) => Promise<AuthActionResult>;
+  sendRecoveryOtp: (email: string) => Promise<AuthActionResult>;
+  verifyRecoveryOtp: (email: string, code: string) => Promise<AuthActionResult>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,6 +80,60 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       normalized.includes("user already")
     );
   };
+
+  const classifyAuthMessage = (message: string, status?: number): AuthErrorCode => {
+    const normalized = message.toLowerCase();
+    if (isUserAlreadyExistsError(message) || status === 409) return "email_already_registered";
+    if (normalized.includes("invalid email")) return "invalid_email";
+    if (normalized.includes("missing required")) return "missing_required_fields";
+    if (normalized.includes("password")) return "weak_password";
+    if (normalized.includes("terms")) return "terms_required";
+    if (normalized.includes("invalid login") || normalized.includes("invalid credentials")) return "invalid_credentials";
+    if (normalized.includes("email not confirmed")) return "email_not_confirmed";
+    if (normalized.includes("too many") || status === 429) return "too_many_requests";
+    if (normalized.includes("unauthorized") || status === 401) return "unauthorized";
+    if (normalized.includes("email does not match") || status === 403) return "email_mismatch";
+    if (normalized.includes("expired")) return "expired_otp";
+    if (normalized.includes("verification code") || normalized.includes("verification payload") || normalized.includes("otp")) {
+      return "invalid_otp";
+    }
+    if (normalized.includes("send") || normalized.includes("create verification") || normalized.includes("reset code")) {
+      return "otp_send_failed";
+    }
+    if (status != null && status >= 500) return "auth_service_unavailable";
+    return "unknown";
+  };
+
+  const parseFunctionErrorPayload = async (error: FunctionsHttpError): Promise<{ error?: unknown }> => {
+    try {
+      return (await error.context.json()) as { error?: unknown };
+    } catch {
+      return {};
+    }
+  };
+
+  const authResultFromFunctionError = async (error: unknown, fallbackMessage: string): Promise<AuthActionResult> => {
+    if (error instanceof FunctionsHttpError) {
+      const payload = await parseFunctionErrorPayload(error);
+      const message = typeof payload.error === "string" ? payload.error : error.message;
+      return { error: message, errorCode: classifyAuthMessage(message, error.context.status) };
+    }
+    if (error instanceof FunctionsFetchError) {
+      return { error: error.message, errorCode: "network_unavailable" };
+    }
+    if (error instanceof FunctionsRelayError) {
+      return { error: error.message, errorCode: "auth_service_unavailable" };
+    }
+    if (error instanceof Error) {
+      return { error: error.message, errorCode: classifyAuthMessage(error.message) };
+    }
+    return { error: fallbackMessage, errorCode: "unknown" };
+  };
+
+  const authResultFromResponseError = (message: string): AuthActionResult => ({
+    error: message,
+    errorCode: classifyAuthMessage(message),
+  });
 
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -158,12 +233,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       });
       if (error) {
-        const message = error.message ?? "Sign up failed";
-        return { error: message, isUserAlreadyExists: isUserAlreadyExistsError(message) };
+        const result = await authResultFromFunctionError(error, "Sign up failed");
+        return { ...result, isUserAlreadyExists: result.errorCode === "email_already_registered" };
       }
       if (data && typeof data === "object" && "error" in data && data.error) {
         const message = String(data.error);
-        return { error: message, isUserAlreadyExists: isUserAlreadyExistsError(message) };
+        const result = authResultFromResponseError(message);
+        return { ...result, isUserAlreadyExists: result.errorCode === "email_already_registered" };
       }
       return { error: null };
     },
@@ -172,7 +248,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = useCallback(async (email: string, password: string): Promise<SignInResult> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message ?? "Sign in failed" };
+    if (error) {
+      const message = error.message ?? "Sign in failed";
+      return { error: message, errorCode: classifyAuthMessage(message, error.status) };
+    }
     return { error: null };
   }, []);
 
@@ -188,26 +267,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const resetPassword = useCallback(
-    async (email: string) => {
+    async (email: string): Promise<AuthActionResult> => {
       const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-recovery", {
         body: {
           email,
           redirectTo: getEmailCallbackRedirectUrl(),
         },
       });
-      if (error) return { error: error.message };
-      if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+      if (error) return await authResultFromFunctionError(error, "Password reset failed");
+      if (data && typeof data === "object" && "error" in data && data.error) return authResultFromResponseError(String(data.error));
       return { error: null };
     },
     [getEmailCallbackRedirectUrl],
   );
 
-  const updatePassword = useCallback(async (newPassword: string) => {
+  const updatePassword = useCallback(async (newPassword: string): Promise<AuthActionResult> => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-    return { error: error?.message ?? null };
+    if (!error) return { error: null };
+    const message = error.message ?? "Password update failed";
+    return { error: message, errorCode: classifyAuthMessage(message, error.status) };
   }, []);
 
-  const sendVerificationOtp = useCallback(async (email: string) => {
+  const sendVerificationOtp = useCallback(async (email: string): Promise<AuthActionResult> => {
     devInfo("[auth][sendVerificationOtp] invoke auth-email-verify", { email });
     const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-verify", {
       body: {
@@ -216,35 +297,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     if (error) {
       devError("[auth][sendVerificationOtp] edge invoke error:", error.message);
-      return { error: error.message };
+      return await authResultFromFunctionError(error, "Failed to send verification code");
     }
     if (data && typeof data === "object" && "error" in data && data.error) {
-      devError("[auth][sendVerificationOtp] edge response error:", String(data.error));
-      return { error: String(data.error) };
+      const message = String(data.error);
+      devError("[auth][sendVerificationOtp] edge response error:", message);
+      return authResultFromResponseError(message);
     }
     devInfo("[auth][sendVerificationOtp] edge invoke success");
     return { error: null };
   }, []);
 
-  const verifyEmailOtp = useCallback(async (code: string) => {
+  const verifyEmailOtp = useCallback(async (code: string): Promise<AuthActionResult> => {
     const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-verify-otp", {
       body: { code },
     });
-    if (error) return { error: error.message };
-    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+    if (error) return await authResultFromFunctionError(error, "Failed to verify email");
+    if (data && typeof data === "object" && "error" in data && data.error) return authResultFromResponseError(String(data.error));
     return { error: null };
   }, []);
 
-  const sendRecoveryOtp = useCallback(async (email: string) => {
+  const sendRecoveryOtp = useCallback(async (email: string): Promise<AuthActionResult> => {
     const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-recovery", {
       body: { action: "send", email },
     });
-    if (error) return { error: error.message };
-    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+    if (error) return await authResultFromFunctionError(error, "Failed to send recovery code");
+    if (data && typeof data === "object" && "error" in data && data.error) return authResultFromResponseError(String(data.error));
     return { error: null };
   }, []);
 
-  const verifyRecoveryOtp = useCallback(async (email: string, code: string) => {
+  const verifyRecoveryOtp = useCallback(async (email: string, code: string): Promise<AuthActionResult> => {
     const { data, error } = await supabase.functions.invoke<{
       ok: boolean;
       error?: string;
@@ -252,18 +334,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }>("auth-email-recovery", {
       body: { action: "verify", email, code },
     });
-    if (error) return { error: error.message };
-    if (data && typeof data === "object" && "error" in data && data.error) return { error: String(data.error) };
+    if (error) return await authResultFromFunctionError(error, "Failed to verify recovery code");
+    if (data && typeof data === "object" && "error" in data && data.error) return authResultFromResponseError(String(data.error));
 
     const accessToken = data?.session?.access_token;
     const refreshToken = data?.session?.refresh_token;
-    if (!accessToken || !refreshToken) return { error: "Recovery session is missing" };
+    if (!accessToken || !refreshToken) return { error: "Recovery session is missing", errorCode: "auth_service_unavailable" };
 
     const { error: setSessionError } = await supabase.auth.setSession({
       access_token: accessToken,
       refresh_token: refreshToken,
     });
-    if (setSessionError) return { error: setSessionError.message };
+    if (setSessionError) {
+      const message = setSessionError.message;
+      return { error: message, errorCode: classifyAuthMessage(message, setSessionError.status) };
+    }
     return { error: null };
   }, []);
 

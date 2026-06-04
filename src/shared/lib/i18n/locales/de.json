@@ -427,6 +427,24 @@
       "signUpAutoSignInFailedBody": "Konto wurde erstellt, aber die automatische Anmeldung ist fehlgeschlagen. Bitte manuell anmelden.",
       "errorTitle": "Fehler"
     },
+    "errors": {
+      "emailAlreadyRegistered": "Mit dieser E-Mail existiert bereits ein Konto. Bitte anmelden oder Passwort zurücksetzen.",
+      "invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+      "missingRequiredFields": "Bitte füllen Sie alle Pflichtfelder aus.",
+      "weakPassword": "Das Passwort erfüllt nicht die Sicherheitsanforderungen.",
+      "termsRequired": "Bitte akzeptieren Sie die Nutzungsbedingungen, um fortzufahren.",
+      "invalidCredentials": "E-Mail oder Passwort ist falsch. Prüfen Sie die Angaben und versuchen Sie es erneut.",
+      "emailNotConfirmed": "Bitte bestätigen Sie Ihre E-Mail, bevor Sie sich anmelden.",
+      "tooManyRequests": "Zu viele Versuche. Bitte warten Sie ein paar Minuten und versuchen Sie es erneut.",
+      "unauthorized": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
+      "emailMismatch": "Diese E-Mail passt nicht zu Ihrem Konto.",
+      "invalidOtp": "Der Bestätigungscode ist falsch. Prüfen Sie den Code und versuchen Sie es erneut.",
+      "expiredOtp": "Dieser Code ist abgelaufen. Fordern Sie einen neuen Code an.",
+      "otpSendFailed": "Der Bestätigungscode konnte nicht gesendet werden. Bitte versuchen Sie es erneut.",
+      "authServiceUnavailable": "Die Authentifizierung ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
+      "networkUnavailable": "Verbindungsfehler. Prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.",
+      "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+    },
     "passwordReset": {
       "title": "Passwort zurücksetzen",
       "hintLinkReceived": "Link erhalten. Gib unten ein neues Passwort ein.",
@@ -606,6 +624,17 @@
     "restoreSuccessToast": "Abo erfolgreich wiederhergestellt.",
     "restoreNothingToast": "Keine aktiven Käufe zum Wiederherstellen gefunden.",
     "restoreErrorToast": "Wiederherstellung fehlgeschlagen. Bitte erneut versuchen.",
+    "errors": {
+      "authRequired": "Melden Sie sich erneut an, bevor das Abo bestätigt wird.",
+      "invalidPurchase": "Dieser Kauf konnte nicht aus dem App Store gelesen werden. Versuchen Sie es erneut oder nutzen Sie Käufe wiederherstellen.",
+      "purchaseAlreadyLinked": "Dieses Abo ist bereits mit einem anderen Pixap-Konto verknüpft. Melden Sie sich mit diesem Konto an oder kontaktieren Sie den Support.",
+      "verificationUnavailable": "Die Zahlung wurde möglicherweise verarbeitet, aber der Bestätigungsdienst ist vorübergehend nicht verfügbar. Nutzen Sie Käufe wiederherstellen in ein paar Minuten.",
+      "networkUnavailable": "Die Verbindung wurde während der Abo-Bestätigung unterbrochen. Nutzen Sie Käufe wiederherstellen, sobald Sie wieder online sind.",
+      "iapUnavailable": "In-App-Käufe sind in diesem Build nicht verfügbar. Verwenden Sie einen Entwicklungs- oder Produktions-Build.",
+      "missingSku": "Dieser Abo-Plan ist derzeit nicht verfügbar. Bitte versuchen Sie es später erneut.",
+      "noEligibleOffer": "Dieses Abo-Angebot ist für Ihr Store-Konto nicht verfügbar. Versuchen Sie einen anderen Plan oder nutzen Sie Käufe wiederherstellen.",
+      "storePurchaseFailed": "Der App Store konnte den Kauf nicht starten. Bitte versuchen Sie es erneut."
+    },
     "tour": {
       "rewatch": "So funktioniert PixAI",
       "back": "Zurück",
