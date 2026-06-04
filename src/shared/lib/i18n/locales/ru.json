@@ -39,6 +39,18 @@
     "follow": "Подписаться",
     "following": "Подписан"
   },
+  "shareSheet": {
+    "title": "Поделиться",
+    "searchPlaceholder": "Поиск",
+    "chooseUserTitle": "Выберите пользователя",
+    "chooseUserMessage": "Выберите пользователя, с которым хотите поделиться.",
+    "sharing": "Поделиться: {{name}}",
+    "addToStory": "В сторис",
+    "whatsapp": "WhatsApp",
+    "shareTo": "Поделиться",
+    "copyLink": "Скопировать",
+    "copied": "Скопировано"
+  },
   "common": {
     "loading": "Загрузка...",
     "unknownError": "Неизвестная ошибка",

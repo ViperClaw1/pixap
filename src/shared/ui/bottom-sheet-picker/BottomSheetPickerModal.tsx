@@ -143,6 +143,10 @@ export function BottomSheetPickerModal({
     }
     return { flex: 1, minHeight: minBodyHeight };
   }, [fitContent, hasFixedMinSheetHeight, minBodyHeight]);
+  const bodyViewContentStyle = useMemo(
+    () => [mergedBodyContentContainerStyle, bodyInnerStyle],
+    [bodyInnerStyle, mergedBodyContentContainerStyle],
+  );
 
   const handleBodyLayout = useCallback(
     (height: number) => {
@@ -266,28 +270,45 @@ export function BottomSheetPickerModal({
               <Text style={styles.title}>{title}</Text>
             </View>
           </GestureDetector>
-          <ScrollView
-            style={bodyScrollStyle}
-            contentContainerStyle={mergedBodyContentContainerStyle}
-            scrollEnabled={scrollEnabled}
-            nestedScrollEnabled
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            showsVerticalScrollIndicator={!contentFitsWithoutScroll}
-          >
-            <View
-              style={bodyInnerStyle}
-              onLayout={
-                fitContent
-                  ? (e) => {
-                      handleBodyLayout(e.nativeEvent.layout.height);
-                    }
-                  : undefined
-              }
+          {bodyScrollEnabled ? (
+            <ScrollView
+              style={bodyScrollStyle}
+              contentContainerStyle={mergedBodyContentContainerStyle}
+              scrollEnabled={scrollEnabled}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              showsVerticalScrollIndicator={!contentFitsWithoutScroll}
             >
-              {children}
+              <View
+                style={bodyInnerStyle}
+                onLayout={
+                  fitContent
+                    ? (e) => {
+                        handleBodyLayout(e.nativeEvent.layout.height);
+                      }
+                    : undefined
+                }
+              >
+                {children}
+              </View>
+            </ScrollView>
+          ) : (
+            <View style={bodyScrollStyle}>
+              <View
+                style={bodyViewContentStyle}
+                onLayout={
+                  fitContent
+                    ? (e) => {
+                        handleBodyLayout(e.nativeEvent.layout.height);
+                      }
+                    : undefined
+                }
+              >
+                {children}
+              </View>
             </View>
-          </ScrollView>
+          )}
           {footer ? (
             <View
               onLayout={(e) => {

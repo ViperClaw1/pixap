@@ -39,6 +39,18 @@
     "follow": "Follow",
     "following": "Following"
   },
+  "shareSheet": {
+    "title": "Share",
+    "searchPlaceholder": "Search",
+    "chooseUserTitle": "Choose a user",
+    "chooseUserMessage": "Please choose a user to share with.",
+    "sharing": "Sharing: {{name}}",
+    "addToStory": "Add to story",
+    "whatsapp": "WhatsApp",
+    "shareTo": "Share to",
+    "copyLink": "Copy link",
+    "copied": "Copied"
+  },
   "common": {
     "loading": "Loading...",
     "unknownError": "Unknown error",
