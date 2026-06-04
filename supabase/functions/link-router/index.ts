@@ -1,5 +1,3 @@
-const APPLE_TEAM_ID = Deno.env.get("PIXAP_APPLE_TEAM_ID")?.trim() || "7HJ8NA3358";
-const BUNDLE_ID = Deno.env.get("PIXAP_IOS_BUNDLE_ID")?.trim() || "com.pixap.pixap";
 const ANDROID_PACKAGE = Deno.env.get("PIXAP_ANDROID_PACKAGE")?.trim() || "com.pixap.pixap";
 const ANDROID_SHA256 = Deno.env.get("PIXAP_ANDROID_SHA256")?.trim() || "CC:CA:D9:5B:0B:86:17:31:44:A7:6D:E3:55:6D:0B:80:3B:B5:87:16:DF:DF:1C:16:BB:FE:F2:82:E8:91:9F:EC";
 const APP_STORE_URL = Deno.env.get("PIXAP_APP_STORE_URL")?.trim() || "https://apps.apple.com/app/pixap/id6760616898";
@@ -130,15 +128,11 @@ Deno.serve((req) => {
   const path = normalizePath(url.pathname);
 
   if (path === "/.well-known/apple-app-site-association" || path === "/apple-app-site-association") {
-    return json({
-      applinks: {
-        apps: [],
-        details: [
-          {
-            appID: `${APPLE_TEAM_ID}.${BUNDLE_ID}`,
-            paths: ["/place/*", "/post/*", "/story/*"],
-          },
-        ],
+    return new Response(null, {
+      status: 301,
+      headers: {
+        Location: "https://pixapp.kz/.well-known/apple-app-site-association.json",
+        "Cache-Control": "public, max-age=3600",
       },
     });
   }
