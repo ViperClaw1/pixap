@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
@@ -38,8 +39,8 @@ type Props = {
   onCopyLink: () => Promise<void>;
 };
 
-function fullName(user: PublicProfileItem) {
-  return `${user.first_name?.trim() ?? ""} ${user.last_name?.trim() ?? ""}`.trim() || "Unknown user";
+function fullName(user: PublicProfileItem, fallback: string) {
+  return `${user.first_name?.trim() ?? ""} ${user.last_name?.trim() ?? ""}`.trim() || fallback;
 }
 
 function chunkUsers<T>(items: T[], columns: number): T[][] {
@@ -55,17 +56,17 @@ const USER_GRID_GAP = 20;
 const USER_AVATAR_INNER_RATIO = 0.92;
 const USER_AVATAR_BORDER = 1.5;
 
-const CHOOSE_USER_ALERT: AppPopupOptions = {
-  title: "Choose a user",
-  message: "Please choose a user to share with.",
-  variant: "alert",
-  buttons: [{ text: "OK" }],
-};
-
 /** Matches default react-native-toast-message visibility (4s). */
 const COPY_LINK_FEEDBACK_MS = 4000;
 const COPIED_COLOR = "#22c55e";
 const SHARE_SHEET_HEIGHT_FRACTION = 0.72;
+const ACTION_COLORS = {
+  story: { background: "#ec6544", icon: "#ffffff" },
+  whatsapp: { background: "#25D366", icon: "#ffffff" },
+  system: { background: "#7c3aed", icon: "#ffffff" },
+  link: { background: "#2563eb", icon: "#ffffff" },
+  copied: { background: COPIED_COLOR, icon: "#ffffff" },
+} as const;
 
 export function ShareBottomSheet({
   visible,
@@ -90,6 +91,7 @@ export function ShareBottomSheet({
   onSystemShare,
   onCopyLink,
 }: Props) {
+  const { t } = useTranslation();
   const { colors } = useAppTheme();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -121,10 +123,19 @@ export function ShareBottomSheet({
   const actionsEnabled = shareTargetActive && !shareSending;
   const canRunPlaceStoryPicker = Boolean(sharePlaceId && !sharePostId);
   const canRunAddStoryAction = actionsEnabled && (sharePostHasMedia || canRunPlaceStoryPicker);
+  const chooseUserAlert = useMemo<AppPopupOptions>(
+    () => ({
+      title: t("shareSheet.chooseUserTitle"),
+      message: t("shareSheet.chooseUserMessage"),
+      variant: "alert",
+      buttons: [{ text: t("common.ok") }],
+    }),
+    [t],
+  );
 
   const requireSelectedUser = () => {
     if (hasSelectedUser) return true;
-    onShowSheetAlert?.(CHOOSE_USER_ALERT);
+    onShowSheetAlert?.(chooseUserAlert);
     return false;
   };
 
@@ -168,7 +179,9 @@ export function ShareBottomSheet({
     shareTargetActive ? (
       <View style={[styles.footer, { borderTopColor: colors.border }]}>
         {sharePlaceName ? (
-          <Text style={[styles.shareContext, { color: colors.textMuted }]}>Sharing: {sharePlaceName}</Text>
+          <Text style={[styles.shareContext, { color: colors.textMuted }]}>
+            {t("shareSheet.sharing", { name: sharePlaceName })}
+          </Text>
         ) : null}
         <View style={styles.actionsRow}>
           {!hideAddToStory ? (
@@ -176,17 +189,21 @@ export function ShareBottomSheet({
               <Pressable
                 style={[
                   styles.actionCard,
-                  { backgroundColor: colors.card, borderColor: colors.border, opacity: canRunAddStoryAction ? 1 : 0.5 },
+                  {
+                    backgroundColor: ACTION_COLORS.story.background,
+                    borderColor: ACTION_COLORS.story.background,
+                    opacity: canRunAddStoryAction ? 1 : 0.5,
+                  },
                 ]}
                 onPress={() => void onAddToStory()}
                 disabled={!canRunAddStoryAction}
               >
-                <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
-                  <Ionicons name="add-circle-outline" size={32} color={colors.text} />
+                <View style={styles.actionIconWrap}>
+                  <Ionicons name="add-circle-outline" size={32} color={ACTION_COLORS.story.icon} />
                 </View>
               </Pressable>
               <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
-                Add to story
+                {t("shareSheet.addToStory")}
               </Text>
             </View>
           ) : null}
@@ -194,34 +211,21 @@ export function ShareBottomSheet({
             <Pressable
               style={[
                 styles.actionCard,
-                { backgroundColor: colors.card, borderColor: colors.border, opacity: actionsEnabled ? 1 : 0.5 },
+                {
+                  backgroundColor: ACTION_COLORS.whatsapp.background,
+                  borderColor: ACTION_COLORS.whatsapp.background,
+                  opacity: actionsEnabled ? 1 : 0.5,
+                },
               ]}
               onPress={handleWhatsAppPress}
               disabled={!actionsEnabled}
             >
-              <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
-                <Ionicons name="logo-whatsapp" size={32} color={colors.text} />
+              <View style={styles.actionIconWrap}>
+                <Ionicons name="logo-whatsapp" size={32} color={ACTION_COLORS.whatsapp.icon} />
               </View>
             </Pressable>
             <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
-              Whatsapp
-            </Text>
-          </View>
-          <View style={styles.actionItem}>
-            <Pressable
-              style={[
-                styles.actionCard,
-                { backgroundColor: colors.card, borderColor: colors.border, opacity: actionsEnabled ? 1 : 0.5 },
-              ]}
-              onPress={handleShareToPress}
-              disabled={!actionsEnabled}
-            >
-              <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
-                <Ionicons name="share-social-outline" size={32} color={colors.text} />
-              </View>
-            </Pressable>
-            <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
-              Share to
+              {t("shareSheet.whatsapp")}
             </Text>
           </View>
           <View style={styles.actionItem}>
@@ -229,19 +233,40 @@ export function ShareBottomSheet({
               style={[
                 styles.actionCard,
                 {
-                  backgroundColor: colors.card,
-                  borderColor: linkCopied ? COPIED_COLOR : colors.border,
+                  backgroundColor: ACTION_COLORS.system.background,
+                  borderColor: ACTION_COLORS.system.background,
+                  opacity: actionsEnabled ? 1 : 0.5,
+                },
+              ]}
+              onPress={handleShareToPress}
+              disabled={!actionsEnabled}
+            >
+              <View style={styles.actionIconWrap}>
+                <Ionicons name="share-social-outline" size={32} color={ACTION_COLORS.system.icon} />
+              </View>
+            </Pressable>
+            <Text style={[styles.actionLabel, { color: colors.text }]} numberOfLines={1}>
+              {t("shareSheet.shareTo")}
+            </Text>
+          </View>
+          <View style={styles.actionItem}>
+            <Pressable
+              style={[
+                styles.actionCard,
+                {
+                  backgroundColor: linkCopied ? ACTION_COLORS.copied.background : ACTION_COLORS.link.background,
+                  borderColor: linkCopied ? ACTION_COLORS.copied.background : ACTION_COLORS.link.background,
                   opacity: actionsEnabled ? 1 : 0.5,
                 },
               ]}
               onPress={() => void handleCopyLinkPress()}
               disabled={!actionsEnabled || linkCopied}
             >
-              <View style={[styles.actionIconWrap, { backgroundColor: colors.background }]}>
+              <View style={styles.actionIconWrap}>
                 <Ionicons
                   name={linkCopied ? "checkmark-circle" : "link-outline"}
                   size={32}
-                  color={linkCopied ? COPIED_COLOR : colors.text}
+                  color={linkCopied ? ACTION_COLORS.copied.icon : ACTION_COLORS.link.icon}
                 />
               </View>
             </Pressable>
@@ -249,7 +274,7 @@ export function ShareBottomSheet({
               style={[styles.actionLabel, { color: linkCopied ? COPIED_COLOR : colors.text }]}
               numberOfLines={1}
             >
-              {linkCopied ? "Copied" : "Copy link"}
+              {linkCopied ? t("shareSheet.copied") : t("shareSheet.copyLink")}
             </Text>
           </View>
         </View>
@@ -260,7 +285,7 @@ export function ShareBottomSheet({
     <BottomSheetPickerModal
       visible={visible}
       onClose={onClose}
-      title="Share"
+      title={t("shareSheet.title")}
       overlay={sheetAlertOverlay}
       maxHeightFraction={SHARE_SHEET_HEIGHT_FRACTION}
       minHeightFraction={SHARE_SHEET_HEIGHT_FRACTION}
@@ -274,7 +299,7 @@ export function ShareBottomSheet({
           <TextInput
             value={searchValue}
             onChangeText={onChangeSearch}
-            placeholder="Search"
+            placeholder={t("shareSheet.searchPlaceholder")}
             placeholderTextColor={colors.textMuted}
             multiline={false}
             style={[styles.searchInput, { color: colors.text }]}
@@ -359,7 +384,7 @@ export function ShareBottomSheet({
                             ]}
                             numberOfLines={2}
                           >
-                            {fullName(user)}
+                            {fullName(user, t("common.unknownUser"))}
                           </Text>
                         </Pressable>
                       </View>
@@ -511,32 +536,35 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   actionItem: {
+    flex: 1,
+    minWidth: 0,
     alignItems: "center",
-    gap: 5,
+    gap: 7,
     paddingHorizontal: 2,
   },
   actionCard: {
-    width: 58,
-    height: 58,
+    width: 64,
+    height: 64,
     borderWidth: 1,
-    borderRadius: 29,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
-    padding: 6,
+    padding: 10,
   },
   actionIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.18)",
   },
   actionLabel: {
-    fontSize: 11,
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: "700",
     textAlign: "center",
-    lineHeight: 14,
+    lineHeight: 15,
     paddingHorizontal: 2,
   },
 });

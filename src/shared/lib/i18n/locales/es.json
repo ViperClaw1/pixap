@@ -39,6 +39,18 @@
     "follow": "Seguir",
     "following": "Siguiendo"
   },
+  "shareSheet": {
+    "title": "Compartir",
+    "searchPlaceholder": "Buscar",
+    "chooseUserTitle": "Elige un usuario",
+    "chooseUserMessage": "Elige un usuario con quien compartir.",
+    "sharing": "Compartiendo: {{name}}",
+    "addToStory": "A la historia",
+    "whatsapp": "WhatsApp",
+    "shareTo": "Compartir",
+    "copyLink": "Copiar enlace",
+    "copied": "Copiado"
+  },
   "common": {
     "loading": "Cargando...",
     "unknownError": "Error desconocido",
