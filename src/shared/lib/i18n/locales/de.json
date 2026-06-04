@@ -67,14 +67,12 @@
     "startA11y": "Spracheingabe starten",
     "stopA11y": "Spracheingabe stoppen",
     "permissionTitle": "Mikrofonzugriff erforderlich",
-    "permissionMessage": "Erlauben Sie Mikrofon und Spracherkennung, um Nachrichten im Chat zu diktieren.",
-    "unavailableTitle": "Spracheingabe nicht verfügbar",
-    "unavailableMessage": "Spracherkennung ist auf diesem Gerät nicht verfügbar.",
+    "permissionMessage": "Erlaube den Mikrofonzugriff, um Nachrichten im Chat zu diktieren.",
+    "transcribing": "Transkription läuft...",
     "errorTitle": "Fehler bei der Spracheingabe",
-    "errorGeneric": "Sprache konnte nicht erkannt werden. Bitte erneut versuchen.",
-    "noSpeech": "Keine Sprache erkannt. Bitte erneut versuchen.",
-    "networkError": "Netzwerkfehler bei der Spracherkennung.",
-    "serviceNotAllowed": "Spracherkennung ist nicht verfügbar. Prüfen Sie die Internetverbindung und ob Siri und Diktierfunktion in den Einstellungen aktiviert sind."
+    "errorGeneric": "Die Aufnahme konnte nicht verarbeitet werden. Bitte erneut versuchen.",
+    "recordingTooShort": "Die Aufnahme ist zu kurz. Bitte erneut versuchen.",
+    "uploadError": "Audio konnte nicht gesendet werden. Prüfe deine Verbindung."
   },
   "editProfile": {
     "savedTitle": "Gespeichert",

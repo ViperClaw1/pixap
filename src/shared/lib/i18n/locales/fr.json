@@ -67,14 +67,12 @@
     "startA11y": "Démarrer la saisie vocale",
     "stopA11y": "Arrêter la saisie vocale",
     "permissionTitle": "Accès au micro requis",
-    "permissionMessage": "Autorisez le micro et la reconnaissance vocale pour dicter des messages dans le chat.",
-    "unavailableTitle": "Saisie vocale indisponible",
-    "unavailableMessage": "La reconnaissance vocale n'est pas disponible sur cet appareil.",
+    "permissionMessage": "Autorisez l'accès au micro pour dicter des messages dans le chat.",
+    "transcribing": "Transcription...",
     "errorTitle": "Erreur de saisie vocale",
-    "errorGeneric": "Impossible de reconnaître la voix. Réessayez.",
-    "noSpeech": "Aucune voix détectée. Réessayez.",
-    "networkError": "Erreur réseau pendant la reconnaissance vocale.",
-    "serviceNotAllowed": "La reconnaissance vocale n'est pas disponible. Vérifiez votre connexion internet et que Siri et la dictée sont activés dans Réglages."
+    "errorGeneric": "Impossible de traiter l'enregistrement. Réessayez.",
+    "recordingTooShort": "Enregistrement trop court. Réessayez.",
+    "uploadError": "Impossible d'envoyer l'audio. Vérifiez votre connexion."
   },
   "editProfile": {
     "savedTitle": "Enregistré",

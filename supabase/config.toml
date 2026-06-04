@@ -44,3 +44,6 @@ verify_jwt = false
 [functions.link-router]
 verify_jwt = false
 
+[functions.transcribe-audio]
+verify_jwt = false
+

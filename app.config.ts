@@ -6,7 +6,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const googleMapsAndroidCertSha1 = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_CERT_SHA1?.replace(/:/g, "").trim();
   const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
   const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.0";
-  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "38";
+  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "39";
   const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "37");
   const androidVersionCode = Number.parseInt(androidVersionCodeRaw, 10);
   const nativeOAuthRedirectUri =
@@ -37,7 +37,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   ios: {
     ...config.ios,
     buildNumber: iosBuildNumber,
-    supportsTablet: true,
+    supportsTablet: false,
     bundleIdentifier: "com.pixap.pixap",
     associatedDomains: ["applinks:pixapp.kz", "applinks:www.pixapp.kz"],
     infoPlist: {
@@ -158,12 +158,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ],
     "expo-video",
     [
-      "expo-speech-recognition",
+      "expo-audio",
       {
         microphonePermission:
           "Pixap uses the microphone so you can dictate messages in chat.",
-        speechRecognitionPermission:
-          "Pixap uses speech recognition to convert your voice into text in chat.",
       },
     ],
   ],
