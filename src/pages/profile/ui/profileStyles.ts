@@ -8,6 +8,8 @@ import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 
 /** Below this width, action rows use tighter padding so labels can wrap without ellipsis. */
 export const PROFILE_COMPACT_WIDTH = 400;
+export const PROFILE_CARD_PADDING = 16;
+const PROFILE_VERIFICATION_CONTROL_HEIGHT = 30;
 
 export const profileStaticStyles = StyleSheet.create({
   root: {
@@ -251,15 +253,27 @@ export const profileStaticStyles = StyleSheet.create({
   },
 
   card: {
+    position: "relative",
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 16,
-    padding: 16,
+    padding: PROFILE_CARD_PADDING,
   },
 
   profileRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+  },
+
+  profileInfo: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 12,
+    paddingRight: 34,
+  },
+
+  profileInfoFullBleed: {
+    marginRight: -34,
   },
 
   avatarWrap: {
@@ -284,23 +298,28 @@ export const profileStaticStyles = StyleSheet.create({
     marginTop: 10,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    flexWrap: "wrap",
+    gap: 6,
+    flexWrap: "nowrap",
+    minWidth: 0,
   },
 
   emailBadge: {
+    alignSelf: "flex-start",
+    flexShrink: 0,
+    height: PROFILE_VERIFICATION_CONTROL_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 4,
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
   },
 
   emailBadgeText: {
     fontSize: 12,
     fontWeight: "700",
+    flexShrink: 1,
+    minWidth: 0,
   },
 
   bookingCreditsBadge: {
@@ -320,21 +339,26 @@ export const profileStaticStyles = StyleSheet.create({
   },
 
   verifyBtn: {
-    minHeight: 32,
+    height: PROFILE_VERIFICATION_CONTROL_HEIGHT,
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 1,
+    minWidth: 58,
   },
 
   verifyBtnText: {
     fontSize: 12,
     fontWeight: "700",
+    textAlign: "center",
   },
 
   settingsBtn: {
-    marginLeft: "auto",
+    position: "absolute",
+    top: PROFILE_CARD_PADDING,
+    right: PROFILE_CARD_PADDING,
     width: 34,
     height: 34,
     borderRadius: 17,
