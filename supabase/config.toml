@@ -41,3 +41,6 @@ verify_jwt = false
 [functions.pixai-booking-chat]
 verify_jwt = false
 
+[functions.link-router]
+verify_jwt = false
+
