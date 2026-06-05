@@ -89,6 +89,17 @@ function EditProfileScreenContent() {
     },
     [t],
   );
+
+  const getPhoneError = useCallback(
+    (value: PhoneValue) =>
+      getPhoneValidationMessage(value, {
+        messages: {
+          required: t("editProfile.phoneRequired"),
+          invalid: t("editProfile.phoneInvalid"),
+        },
+      }),
+    [t],
+  );
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList, "EditProfile">>();
   const leaveToProfileMain = useCallback(() => {
     navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
@@ -224,7 +235,7 @@ function EditProfileScreenContent() {
   const handlePhoneChange = (next: PhoneValue) => {
     setPhoneValue(next);
     if (!phoneTouched) return;
-    setPhoneError(getPhoneValidationMessage(next));
+    setPhoneError(getPhoneError(next));
   };
 
   const pickAvatar = () => {
@@ -314,7 +325,7 @@ function EditProfileScreenContent() {
     const trimmedBio = bio.trim();
     const trimmedAvatar = avatarUrl.trim();
     const nextUsernameError = translateUsernameError(validateUsername(normalizedUsername));
-    const nextPhoneError = getPhoneValidationMessage(phoneValue);
+    const nextPhoneError = getPhoneError(phoneValue);
 
     setUsernameError(nextUsernameError);
     setFirstError(trimmedFirst ? null : t("editProfile.firstNameRequired"));
@@ -496,7 +507,7 @@ function EditProfileScreenContent() {
             onFocus={() => onInputFocus(phoneInputRef)}
             onBlur={() => {
               setPhoneTouched(true);
-              setPhoneError(getPhoneValidationMessage(phoneValue));
+              setPhoneError(getPhoneError(phoneValue));
               if (activeInputRef.current === phoneInputRef.current) activeInputRef.current = null;
             }}
           />

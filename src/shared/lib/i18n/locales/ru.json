@@ -110,7 +110,9 @@
     "galleryUnavailable": "Галерея недоступна",
     "galleryUnavailableMessage": "Не удалось открыть галерею.",
     "chooseAvatarTitle": "Выбрать аватар",
-    "chooseAvatarSubtitle": "Выберите, откуда загрузить фото."
+    "chooseAvatarSubtitle": "Выберите, откуда загрузить фото.",
+    "phoneRequired": "Введите номер телефона.",
+    "phoneInvalid": "Введите корректный номер телефона."
   },
   "onboarding": {
     "actions": {

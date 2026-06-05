@@ -117,6 +117,9 @@ export function PhoneInput({
         onClose={closePicker}
         title={pickerTitle}
         maxHeightFraction={0.72}
+        minHeightFraction={0.72}
+        fitContent
+        keyboardTopGap={8}
       >
         <View style={styles.pickerSearchWrap}>
           <TextInput

@@ -110,7 +110,9 @@
     "galleryUnavailable": "Galerie indisponible",
     "galleryUnavailableMessage": "Impossible d'ouvrir la galerie.",
     "chooseAvatarTitle": "Choisir un avatar",
-    "chooseAvatarSubtitle": "Sélectionnez où choisir votre photo."
+    "chooseAvatarSubtitle": "Sélectionnez où choisir votre photo.",
+    "phoneRequired": "Le téléphone est requis.",
+    "phoneInvalid": "Veuillez entrer un numéro de téléphone valide."
   },
   "home": {
     "searchPlaceholder": "Rechercher restaurants, salons, événements…",
