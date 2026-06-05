@@ -1,4 +1,4 @@
-import { PhoneNumberUtil } from "google-libphonenumber";
+import { PhoneNumberUtil, PhoneNumberType } from "google-libphonenumber";
 
 export const phoneUtil = PhoneNumberUtil.getInstance();
 
@@ -85,14 +85,35 @@ export function filterCountryOptions(options: CountryOption[], query: string): C
   });
 }
 
+const PHONE_NUMBER_TYPES_TO_CHECK = [
+  PhoneNumberType.MOBILE,
+  PhoneNumberType.FIXED_LINE,
+  PhoneNumberType.FIXED_LINE_OR_MOBILE,
+  PhoneNumberType.TOLL_FREE,
+  PhoneNumberType.PREMIUM_RATE,
+  PhoneNumberType.SHARED_COST,
+  PhoneNumberType.VOIP,
+  PhoneNumberType.PERSONAL_NUMBER,
+  PhoneNumberType.PAGER,
+  PhoneNumberType.UAN,
+] as const;
+
 /** Maximum national-significant digits allowed for a given region (E.164 caps total length at 15). */
 export function getNationalMaxDigits(region: string, callingCode: string): number {
   try {
-    const example = phoneUtil.getExampleNumber(region);
-    if (example) {
-      const nationalLength = example.getNationalNumberOrDefault().toString().length;
-      if (nationalLength > 0) return nationalLength;
+    let maxLen = 0;
+    for (const type of PHONE_NUMBER_TYPES_TO_CHECK) {
+      try {
+        const example = phoneUtil.getExampleNumberForType(region, type);
+        if (example) {
+          const len = example.getNationalNumberOrDefault().toString().length;
+          if (len > maxLen) maxLen = len;
+        }
+      } catch {
+        // this type not available for region — skip
+      }
     }
+    if (maxLen > 0) return maxLen;
   } catch {
     // fall through to ITU E.164 cap
   }

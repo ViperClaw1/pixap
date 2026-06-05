@@ -92,7 +92,25 @@
     "bioLabel": "О себе (необязательно)",
     "bioPlaceholder": "Расскажите о себе...",
     "save": "Сохранить",
-    "saving": "Сохранение..."
+    "saving": "Сохранение...",
+    "usernameRequired": "Введите имя пользователя.",
+    "usernameMinLength": "Имя пользователя должно содержать не менее {{min}} символов.",
+    "usernameMaxLength": "Имя пользователя должно содержать не более {{max}} символов.",
+    "usernameInvalidChars": "Допустимы строчные буквы латиницы, цифры, «.», «_» и «-».",
+    "firstNameRequired": "Введите имя.",
+    "lastNameRequired": "Введите фамилию.",
+    "saveFailed": "Ошибка сохранения",
+    "uploadAvatarFailed": "Ошибка загрузки",
+    "uploadAvatarFailedMessage": "Не удалось загрузить аватар. Попробуйте ещё раз.",
+    "permissionNeeded": "Нет разрешения",
+    "cameraPermissionMessage": "Для съёмки необходим доступ к камере.",
+    "cameraUnavailable": "Камера недоступна",
+    "cameraUnavailableMessage": "Не удалось открыть камеру.",
+    "galleryPermissionMessage": "Для выбора фото необходим доступ к хранилищу.",
+    "galleryUnavailable": "Галерея недоступна",
+    "galleryUnavailableMessage": "Не удалось открыть галерею.",
+    "chooseAvatarTitle": "Выбрать аватар",
+    "chooseAvatarSubtitle": "Выберите, откуда загрузить фото."
   },
   "onboarding": {
     "actions": {

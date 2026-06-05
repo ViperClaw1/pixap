@@ -92,7 +92,25 @@
     "bioLabel": "Bio (optional)",
     "bioPlaceholder": "Tell people about yourself...",
     "save": "Save",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "usernameRequired": "Username is required.",
+    "usernameMinLength": "Username must be at least {{min}} characters.",
+    "usernameMaxLength": "Username must be at most {{max}} characters.",
+    "usernameInvalidChars": "Username can only contain lowercase letters, numbers, '.', '_' or '-'.",
+    "firstNameRequired": "First name is required.",
+    "lastNameRequired": "Last name is required.",
+    "saveFailed": "Failed to save",
+    "uploadAvatarFailed": "Upload failed",
+    "uploadAvatarFailedMessage": "Could not upload avatar. Please try again.",
+    "permissionNeeded": "Permission needed",
+    "cameraPermissionMessage": "Camera access is required to take a photo.",
+    "cameraUnavailable": "Camera unavailable",
+    "cameraUnavailableMessage": "Could not open the camera.",
+    "galleryPermissionMessage": "Storage access is required to choose a photo.",
+    "galleryUnavailable": "Gallery unavailable",
+    "galleryUnavailableMessage": "Could not open the photo library.",
+    "chooseAvatarTitle": "Choose avatar",
+    "chooseAvatarSubtitle": "Select where to pick your photo from."
   },
   "onboarding": {
     "actions": {
