@@ -37,6 +37,8 @@ type Props = {
   fitContent?: boolean;
   bodyScrollEnabled?: boolean;
   bodyContentContainerStyle?: StyleProp<ViewStyle>;
+  /** Optional top gap that caps keyboard lift so the sheet stays inside the viewport. */
+  keyboardTopGap?: number;
   /** Rendered above sheet + backdrop (e.g. inline alerts while sheet stays open). */
   overlay?: ReactNode;
 };
@@ -52,6 +54,7 @@ export function BottomSheetPickerModal({
   fitContent = false,
   bodyScrollEnabled = true,
   bodyContentContainerStyle,
+  keyboardTopGap,
   overlay,
 }: Props) {
   const isAndroid = Platform.OS === "android";
@@ -206,6 +209,10 @@ export function BottomSheetPickerModal({
     [dragY, finishClose],
   );
 
+  const sheetHeightForKeyboardLift = fittedSheetHeight ?? sheetMaxHeight;
+  const keyboardLiftCap =
+    keyboardTopGap == null ? null : Math.max(0, layoutWindowHeight - sheetHeightForKeyboardLift - keyboardTopGap);
+
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
@@ -223,10 +230,14 @@ export function BottomSheetPickerModal({
   );
 
   const sheetAnimatedStyle = useAnimatedStyle(
-    () => ({
-      transform: [{ translateY: dragY.value - keyboardInsetAnim.value }],
-    }),
-    [dragY, keyboardInsetAnim],
+    () => {
+      const keyboardLift =
+        keyboardLiftCap == null ? keyboardInsetAnim.value : Math.min(keyboardInsetAnim.value, keyboardLiftCap);
+      return {
+        transform: [{ translateY: dragY.value - keyboardLift }],
+      };
+    },
+    [dragY, keyboardInsetAnim, keyboardLiftCap],
   );
 
   const styles = useBottomSheetPickerStyles(

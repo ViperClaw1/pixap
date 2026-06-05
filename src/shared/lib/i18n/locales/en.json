@@ -110,7 +110,9 @@
     "galleryUnavailable": "Gallery unavailable",
     "galleryUnavailableMessage": "Could not open the photo library.",
     "chooseAvatarTitle": "Choose avatar",
-    "chooseAvatarSubtitle": "Select where to pick your photo from."
+    "chooseAvatarSubtitle": "Select where to pick your photo from.",
+    "phoneRequired": "Phone is required.",
+    "phoneInvalid": "Please enter a valid phone number."
   },
   "onboarding": {
     "actions": {
