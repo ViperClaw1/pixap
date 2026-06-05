@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useCallback, useLayoutEffect, useRef } from "react";
 import { Platform, Text, View } from "react-native";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,6 +21,12 @@ type Props = {
   onPress: () => void;
   onPressIn?: () => void;
   onDelete: () => void;
+  onSwipeableOpen?: (direction: "left" | "right", swipeable: Swipeable) => void;
+  onSwipeableClose?: (direction: "left" | "right", swipeable: Swipeable) => void;
+};
+
+type ThreadRowContentProps = Omit<Props, "onDelete" | "onSwipeableOpen" | "onSwipeableClose"> & {
+  onLongPress?: () => void;
 };
 
 function ThreadRowContent({
@@ -33,7 +39,7 @@ function ThreadRowContent({
   onPress,
   onPressIn,
   onLongPress,
-}: Props & { onLongPress?: () => void }) {
+}: ThreadRowContentProps) {
   return (
     <AppPressable
       style={[styles.card, isCompact ? styles.cardCompact : null]}
@@ -76,25 +82,38 @@ function ThreadRowContent({
 }
 
 function MessagesThreadRowComponent(props: Props) {
-  const { onDelete, ...contentProps } = props;
+  const swipeableRef = useRef<Swipeable>(null);
+  const { thread, onDelete, onSwipeableOpen, onSwipeableClose, ...contentProps } = props;
+
+  useLayoutEffect(() => {
+    swipeableRef.current?.reset();
+  }, [thread.thread_id]);
+
+  const handleSwipeDelete = useCallback(() => {
+    swipeableRef.current?.close();
+    onDelete();
+  }, [onDelete]);
 
   if (Platform.OS === "android") {
-    return <ThreadRowContent {...contentProps} onLongPress={onDelete} />;
+    return <ThreadRowContent {...contentProps} thread={thread} onLongPress={onDelete} />;
   }
 
   const { styles, colors } = props;
   return (
     <Swipeable
+      ref={swipeableRef}
       overshootRight={false}
+      onSwipeableOpen={onSwipeableOpen}
+      onSwipeableClose={onSwipeableClose}
       renderRightActions={() => (
         <View style={styles.swipeActionWrap}>
-          <AppPressable style={[styles.swipeActionBtn, styles.swipeDeleteBtn]} onPress={onDelete}>
+          <AppPressable style={[styles.swipeActionBtn, styles.swipeDeleteBtn]} onPress={handleSwipeDelete}>
             <Ionicons name="trash-outline" size={22} color={colors.onAccent} />
           </AppPressable>
         </View>
       )}
     >
-      <ThreadRowContent {...contentProps} />
+      <ThreadRowContent {...contentProps} thread={thread} />
     </Swipeable>
   );
 }

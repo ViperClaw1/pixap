@@ -27,15 +27,15 @@ export const subscriptionPaywallTourStyles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 12,
   },
-  screenshot: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
   footer: {
     paddingHorizontal: 20,
     paddingTop: 16,
     gap: 12,
+  },
+  copyBlock: {
+    height: 158,
+    justifyContent: "center",
+    gap: 16,
   },
   title: {
     color: "#fff",

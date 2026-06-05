@@ -45,6 +45,7 @@ import { ProfileBookingCreditsBadge } from "./ProfileBookingCreditsBadge";
 import { ProfileOnboardingActions } from "./ProfileOnboardingActions";
 import { ProfileDangerZone } from "./ProfileDangerZone";
 import { ProfilePageSkeleton } from "./ProfilePageSkeleton";
+import { ProfileSuggestionsSkeleton } from "./ProfileSuggestionsSkeleton";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
@@ -101,7 +102,10 @@ function ProfileScreenContent() {
   const { data: businessCards = [] } = useBusinessCards(undefined, undefined, { enabled: profileQueriesEnabled });
   const { role } = useUserRole({ enabled: profileQueriesEnabled });
   const { postsCount, followersCount, followingCount } = useProfileSocialMetrics({ enabled: profileQueriesEnabled });
-  const { suggestions } = useSuggestedProfiles(12, { enabled: profileQueriesEnabled });
+  const { suggestions, isLoading: suggestionsLoading, isFetching: suggestionsFetching } = useSuggestedProfiles(
+    12,
+    { enabled: profileQueriesEnabled },
+  );
   const toggleFollow = useToggleFollow();
   const { status: subscriptionStatus, isTrial, expiresAt, storeEnvironment, isActive } = useEntitlement({
     enabled: profileQueriesEnabled,
@@ -714,43 +718,51 @@ function ProfileScreenContent() {
           <Text style={styles.suggestionsTitle}>{t("profile.suggestions.title")}</Text>
           <Text style={styles.suggestionsSubtitle}>{t("profile.suggestions.subtitle")}</Text>
         </View>
-        {suggestions.length ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionScrollContent}>
-            {suggestions.map((item) => (
-              <View key={item.id} style={styles.suggestionCard}>
-                <AppPressable
-                  onPress={() => navigateToPublicProfile(navigation, item.id, { viewerUserId: user?.id })}
-                >
-                  <View style={styles.suggestionAvatarWrap}>
-                    <UserAvatarImage
-                      uri={item.avatar_url}
-                      style={{ width: 66, height: 66, borderRadius: 33 }}
-                      contentFit="cover"
-                      iconSize={30}
-                    />
-                  </View>
-                  <Text style={styles.suggestionName} numberOfLines={1}>
-                    {profileFullName(item.first_name, item.last_name)}
-                  </Text>
-                  <Text style={styles.suggestionReason} numberOfLines={1}>
-                    {item.reason}
-                  </Text>
-                </AppPressable>
-                <AppPressable
-                  style={styles.suggestionFollowBtn}
-                  onPress={() => void handleSuggestionFollow(item)}
-                  disabled={toggleFollow.isPending}
-                >
-                  <Text style={styles.suggestionFollowBtnText}>{t("profile.suggestions.follow")}</Text>
-                </AppPressable>
+        <View style={styles.suggestionsContent}>
+          {suggestions.length ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionScrollContent}>
+              {suggestions.map((item) => (
+                <View key={item.id} style={styles.suggestionCard}>
+                  <AppPressable
+                    onPress={() => navigateToPublicProfile(navigation, item.id, { viewerUserId: user?.id })}
+                  >
+                    <View style={styles.suggestionAvatarWrap}>
+                      <UserAvatarImage
+                        uri={item.avatar_url}
+                        style={{ width: 66, height: 66, borderRadius: 33 }}
+                        contentFit="cover"
+                        iconSize={30}
+                      />
+                    </View>
+                    <Text style={styles.suggestionName} numberOfLines={1}>
+                      {profileFullName(item.first_name, item.last_name)}
+                    </Text>
+                    <Text style={styles.suggestionReason} numberOfLines={1}>
+                      {item.reason}
+                    </Text>
+                  </AppPressable>
+                  <AppPressable
+                    style={styles.suggestionFollowBtn}
+                    onPress={() => void handleSuggestionFollow(item)}
+                    disabled={toggleFollow.isPending}
+                  >
+                    <Text style={styles.suggestionFollowBtnText}>{t("profile.suggestions.follow")}</Text>
+                  </AppPressable>
+                </View>
+              ))}
+            </ScrollView>
+          ) : suggestionsLoading || suggestionsFetching ? (
+            <ProfileSuggestionsSkeleton />
+          ) : (
+            <View style={styles.suggestionEmptyCard}>
+              <View style={styles.suggestionEmptyIconWrap}>
+                <Ionicons name="people-outline" size={26} color={colors.accent} />
               </View>
-            ))}
-          </ScrollView>
-        ) : (
-          <View style={styles.suggestionEmptyCard}>
-            <Text style={styles.suggestionReason}>{t("profile.suggestions.empty")}</Text>
-          </View>
-        )}
+              <Text style={styles.suggestionEmptyTitle}>{t("profile.suggestions.emptyTitle")}</Text>
+              <Text style={styles.suggestionEmptyDescription}>{t("profile.suggestions.emptyDescription")}</Text>
+            </View>
+          )}
+        </View>
       </View>
       <View style={styles.bioCard}>
         <Text style={styles.bioLabel}>{t("profile.bio.label")}</Text>

@@ -1,14 +1,10 @@
 import type { ImageSource } from "expo-image";
 
 export type PaywallTourSlideId =
-  | "smart-booking-city"
-  | "smart-booking-category"
-  | "smart-booking-scope"
   | "smart-booking-assistant"
   | "smart-booking-slots"
-  | "smart-booking-details"
-  | "vibe-match-mood"
-  | "vibe-match-route";
+  | "smart-booking-confirm"
+  | "vibe-matching";
 
 export type PaywallTourLocale = "en" | "ru" | "es" | "fr" | "de" | "pt";
 
@@ -21,21 +17,6 @@ export type PaywallTourSlide = {
 
 const SLIDE_DEFS: Array<Pick<PaywallTourSlide, "id" | "titleKey" | "descriptionKey">> = [
   {
-    id: "smart-booking-city",
-    titleKey: "subscriptionPaywall.tour.slides.smartBookingCity.title",
-    descriptionKey: "subscriptionPaywall.tour.slides.smartBookingCity.description",
-  },
-  {
-    id: "smart-booking-category",
-    titleKey: "subscriptionPaywall.tour.slides.smartBookingCategory.title",
-    descriptionKey: "subscriptionPaywall.tour.slides.smartBookingCategory.description",
-  },
-  {
-    id: "smart-booking-scope",
-    titleKey: "subscriptionPaywall.tour.slides.smartBookingScope.title",
-    descriptionKey: "subscriptionPaywall.tour.slides.smartBookingScope.description",
-  },
-  {
     id: "smart-booking-assistant",
     titleKey: "subscriptionPaywall.tour.slides.smartBookingAssistant.title",
     descriptionKey: "subscriptionPaywall.tour.slides.smartBookingAssistant.description",
@@ -46,86 +27,57 @@ const SLIDE_DEFS: Array<Pick<PaywallTourSlide, "id" | "titleKey" | "descriptionK
     descriptionKey: "subscriptionPaywall.tour.slides.smartBookingSlots.description",
   },
   {
-    id: "smart-booking-details",
-    titleKey: "subscriptionPaywall.tour.slides.smartBookingDetails.title",
-    descriptionKey: "subscriptionPaywall.tour.slides.smartBookingDetails.description",
+    id: "smart-booking-confirm",
+    titleKey: "subscriptionPaywall.tour.slides.smartBookingConfirm.title",
+    descriptionKey: "subscriptionPaywall.tour.slides.smartBookingConfirm.description",
   },
   {
-    id: "vibe-match-mood",
-    titleKey: "subscriptionPaywall.tour.slides.vibeMatchMood.title",
-    descriptionKey: "subscriptionPaywall.tour.slides.vibeMatchMood.description",
-  },
-  {
-    id: "vibe-match-route",
-    titleKey: "subscriptionPaywall.tour.slides.vibeMatchRoute.title",
-    descriptionKey: "subscriptionPaywall.tour.slides.vibeMatchRoute.description",
+    id: "vibe-matching",
+    titleKey: "subscriptionPaywall.tour.slides.vibeMatching.title",
+    descriptionKey: "subscriptionPaywall.tour.slides.vibeMatching.description",
   },
 ];
 
 const TOUR_IMAGES_EN: Record<PaywallTourSlideId, ImageSource> = {
-  "smart-booking-city": require("../../../../assets/onboarding/pixai-features/smart-booking-city.png"),
-  "smart-booking-category": require("../../../../assets/onboarding/pixai-features/smart-booking-category.png"),
-  "smart-booking-scope": require("../../../../assets/onboarding/pixai-features/smart-booking-scope.png"),
   "smart-booking-assistant": require("../../../../assets/onboarding/pixai-features/smart-booking-assistant.png"),
   "smart-booking-slots": require("../../../../assets/onboarding/pixai-features/smart-booking-slots.png"),
-  "smart-booking-details": require("../../../../assets/onboarding/pixai-features/smart-booking-details.png"),
-  "vibe-match-mood": require("../../../../assets/onboarding/pixai-features/vibe-match-mood.png"),
-  "vibe-match-route": require("../../../../assets/onboarding/pixai-features/vibe-match-route.png"),
+  "smart-booking-confirm": require("../../../../assets/onboarding/pixai-features/smart-booking-confirm.png"),
+  "vibe-matching": require("../../../../assets/onboarding/pixai-features/vibe-matching.png"),
 };
 
 const TOUR_IMAGES_RU: Record<PaywallTourSlideId, ImageSource> = {
-  "smart-booking-city": require("../../../../assets/onboarding/pixai-features/ru/smart-booking-city.png"),
-  "smart-booking-category": require("../../../../assets/onboarding/pixai-features/ru/smart-booking-category.png"),
-  "smart-booking-scope": require("../../../../assets/onboarding/pixai-features/ru/smart-booking-scope.png"),
   "smart-booking-assistant": require("../../../../assets/onboarding/pixai-features/ru/smart-booking-assistant.png"),
   "smart-booking-slots": require("../../../../assets/onboarding/pixai-features/ru/smart-booking-slots.png"),
-  "smart-booking-details": require("../../../../assets/onboarding/pixai-features/ru/smart-booking-details.png"),
-  "vibe-match-mood": require("../../../../assets/onboarding/pixai-features/ru/vibe-match-mood.png"),
-  "vibe-match-route": require("../../../../assets/onboarding/pixai-features/ru/vibe-match-route.png"),
+  "smart-booking-confirm": require("../../../../assets/onboarding/pixai-features/ru/smart-booking-confirm.png"),
+  "vibe-matching": require("../../../../assets/onboarding/pixai-features/ru/vibe-matching.png"),
 };
 
 const TOUR_IMAGES_ES: Record<PaywallTourSlideId, ImageSource> = {
-  "smart-booking-city": require("../../../../assets/onboarding/pixai-features/es/smart-booking-city.png"),
-  "smart-booking-category": require("../../../../assets/onboarding/pixai-features/es/smart-booking-category.png"),
-  "smart-booking-scope": require("../../../../assets/onboarding/pixai-features/es/smart-booking-scope.png"),
   "smart-booking-assistant": require("../../../../assets/onboarding/pixai-features/es/smart-booking-assistant.png"),
   "smart-booking-slots": require("../../../../assets/onboarding/pixai-features/es/smart-booking-slots.png"),
-  "smart-booking-details": require("../../../../assets/onboarding/pixai-features/es/smart-booking-details.png"),
-  "vibe-match-mood": require("../../../../assets/onboarding/pixai-features/es/vibe-match-mood.png"),
-  "vibe-match-route": require("../../../../assets/onboarding/pixai-features/es/vibe-match-route.png"),
-};
-
-const TOUR_IMAGES_FR: Record<PaywallTourSlideId, ImageSource> = {
-  "smart-booking-city": require("../../../../assets/onboarding/pixai-features/fr/smart-booking-city.png"),
-  "smart-booking-category": require("../../../../assets/onboarding/pixai-features/fr/smart-booking-category.png"),
-  "smart-booking-scope": require("../../../../assets/onboarding/pixai-features/fr/smart-booking-scope.png"),
-  "smart-booking-assistant": require("../../../../assets/onboarding/pixai-features/fr/smart-booking-assistant.png"),
-  "smart-booking-slots": require("../../../../assets/onboarding/pixai-features/fr/smart-booking-slots.png"),
-  "smart-booking-details": require("../../../../assets/onboarding/pixai-features/fr/smart-booking-details.png"),
-  "vibe-match-mood": require("../../../../assets/onboarding/pixai-features/fr/vibe-match-mood.png"),
-  "vibe-match-route": require("../../../../assets/onboarding/pixai-features/fr/vibe-match-route.png"),
-};
-
-const TOUR_IMAGES_DE: Record<PaywallTourSlideId, ImageSource> = {
-  "smart-booking-city": require("../../../../assets/onboarding/pixai-features/de/smart-booking-city.png"),
-  "smart-booking-category": require("../../../../assets/onboarding/pixai-features/de/smart-booking-category.png"),
-  "smart-booking-scope": require("../../../../assets/onboarding/pixai-features/de/smart-booking-scope.png"),
-  "smart-booking-assistant": require("../../../../assets/onboarding/pixai-features/de/smart-booking-assistant.png"),
-  "smart-booking-slots": require("../../../../assets/onboarding/pixai-features/de/smart-booking-slots.png"),
-  "smart-booking-details": require("../../../../assets/onboarding/pixai-features/de/smart-booking-details.png"),
-  "vibe-match-mood": require("../../../../assets/onboarding/pixai-features/de/vibe-match-mood.png"),
-  "vibe-match-route": require("../../../../assets/onboarding/pixai-features/de/vibe-match-route.png"),
+  "smart-booking-confirm": require("../../../../assets/onboarding/pixai-features/es/smart-booking-confirm.png"),
+  "vibe-matching": require("../../../../assets/onboarding/pixai-features/es/vibe-matching.png"),
 };
 
 const TOUR_IMAGES_PT: Record<PaywallTourSlideId, ImageSource> = {
-  "smart-booking-city": require("../../../../assets/onboarding/pixai-features/pt/smart-booking-city.png"),
-  "smart-booking-category": require("../../../../assets/onboarding/pixai-features/pt/smart-booking-category.png"),
-  "smart-booking-scope": require("../../../../assets/onboarding/pixai-features/pt/smart-booking-scope.png"),
   "smart-booking-assistant": require("../../../../assets/onboarding/pixai-features/pt/smart-booking-assistant.png"),
   "smart-booking-slots": require("../../../../assets/onboarding/pixai-features/pt/smart-booking-slots.png"),
-  "smart-booking-details": require("../../../../assets/onboarding/pixai-features/pt/smart-booking-details.png"),
-  "vibe-match-mood": require("../../../../assets/onboarding/pixai-features/pt/vibe-match-mood.png"),
-  "vibe-match-route": require("../../../../assets/onboarding/pixai-features/pt/vibe-match-route.png"),
+  "smart-booking-confirm": require("../../../../assets/onboarding/pixai-features/pt/smart-booking-confirm.png"),
+  "vibe-matching": require("../../../../assets/onboarding/pixai-features/pt/vibe-matching.png"),
+};
+
+const TOUR_IMAGES_FR: Record<PaywallTourSlideId, ImageSource> = {
+  "smart-booking-assistant": require("../../../../assets/onboarding/pixai-features/fr/smart-booking-assistant.png"),
+  "smart-booking-slots": require("../../../../assets/onboarding/pixai-features/fr/smart-booking-slots.png"),
+  "smart-booking-confirm": require("../../../../assets/onboarding/pixai-features/fr/smart-booking-confirm.png"),
+  "vibe-matching": require("../../../../assets/onboarding/pixai-features/fr/vibe-matching.png"),
+};
+
+const TOUR_IMAGES_DE: Record<PaywallTourSlideId, ImageSource> = {
+  "smart-booking-assistant": require("../../../../assets/onboarding/pixai-features/de/smart-booking-assistant.png"),
+  "smart-booking-slots": require("../../../../assets/onboarding/pixai-features/de/smart-booking-slots.png"),
+  "smart-booking-confirm": require("../../../../assets/onboarding/pixai-features/de/smart-booking-confirm.png"),
+  "vibe-matching": require("../../../../assets/onboarding/pixai-features/de/vibe-matching.png"),
 };
 
 const TOUR_IMAGES_BY_LOCALE: Record<PaywallTourLocale, Record<PaywallTourSlideId, ImageSource>> = {

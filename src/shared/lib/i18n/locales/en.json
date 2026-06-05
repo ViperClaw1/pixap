@@ -673,7 +673,8 @@
       "title": "Suggestions",
       "subtitle": "Follow some accounts",
       "follow": "Follow",
-      "empty": "No suggestions yet"
+      "emptyTitle": "Meet new people",
+      "emptyDescription": "Follow accounts with similar vibes — we'll suggest them here."
     },
     "bio": {
       "label": "Bio",
@@ -776,19 +777,20 @@
     "title": "Unlock Pix AI Booking",
     "subtitleNoCredits": "You've used your booking credits. Choose a plan to continue.",
     "subtitleUpgrade": "Get more booking credits and full PixAI access.",
-    "monthlyTitle": "PixAI Premium Monthly",
-    "annualTitle": "PixAI Premium Plus",
-    "monthlyCredits": "10 booking credits per billing cycle",
-    "annualCredits": "100 booking credits per billing cycle",
-    "featureAiBooking": "Pix AI smart booking",
-    "featureVibeMatch": "Pix AI vibe matching",
-    "featurePostBoost": "Post boost in feed (coming soon)",
+    "monthlyTitle": "Pix AI Premium",
+    "annualTitle": "Pix AI Premium Plus",
+    "recommendedBadge": "Best value",
+    "monthlyCredits": "10 bookings included every month",
+    "annualCredits": "100 bookings included every year",
+    "featureAiBooking": "AI finds the best spots for you",
+    "featureVibeMatch": "Match venues to your vibe & mood",
+    "featurePostBoost": "Boost your posts in the feed",
     "perMonth": "/month",
     "perYear": "/year",
-    "ctaMonthly": "Start Premium, {{price}}/month",
-    "ctaMonthlyFallback": "Start Premium Monthly",
-    "ctaAnnual": "Start Premium Plus, {{price}}/year",
-    "ctaAnnualFallback": "Start Premium Plus Annual",
+    "ctaMonthly": "Start Pix AI Premium, {{price}}/month",
+    "ctaMonthlyFallback": "Start Pix AI Premium",
+    "ctaAnnual": "Start Pix AI Premium Plus, {{price}}/year",
+    "ctaAnnualFallback": "Start Pix AI Premium Plus",
     "restore": "Restore purchases",
     "manageApple": "Manage on App Store",
     "manageGoogle": "Manage on Google Play",
@@ -821,37 +823,21 @@
       "done": "Done",
       "close": "Close",
       "slides": {
-        "smartBookingCity": {
-          "title": "Choose your city",
-          "description": "Start Smart Booking by selecting a city. PixAI will find places and available time slots for you."
-        },
-        "smartBookingCategory": {
-          "title": "Choose a category",
-          "description": "Pick the place type you need — bars, restaurants, and more. Add an optional comment with preferences or budget."
-        },
-        "smartBookingScope": {
-          "title": "Set search scope",
-          "description": "Search nearby or across the whole city — PixAI adapts to how far you want to go."
-        },
         "smartBookingAssistant": {
-          "title": "Chat with PixAI",
-          "description": "Describe what you're looking for. The assistant finds matching places and suggests the best options."
+          "title": "Your Pix AI concierge, 24/7",
+          "description": "Tell it your city, mood, and what you're craving. Pix AI finds top venues and serves up the best picks — no endless scrolling."
         },
         "smartBookingSlots": {
-          "title": "Pick date and time",
-          "description": "Browse the calendar and choose a convenient slot at your selected venue."
+          "title": "Pick the perfect slot",
+          "description": "Real availability on a visual calendar. Choose the date and time that fit your night — zero phone calls, zero hassle."
         },
-        "smartBookingDetails": {
-          "title": "Confirm booking details",
-          "description": "Review your request, guests, and contact info before sending the booking."
+        "smartBookingConfirm": {
+          "title": "Book it in one tap",
+          "description": "Review guests, pick your time, and confirm. From first message to locked-in reservation — all inside the app."
         },
-        "vibeMatchMood": {
-          "title": "Match your vibe",
-          "description": "Set mood and timeline — Vibe Match builds a multi-stop evening plan tailored to you."
-        },
-        "vibeMatchRoute": {
-          "title": "Book the whole route",
-          "description": "Get a ready-made route with live availability. Book every stop in one tap."
+        "vibeMatching": {
+          "title": "Your vibe. Your whole night.",
+          "description": "Luxury, underground, chaotic — set your mood and Pix AI builds a multi-stop route with map, timing, and one-tap booking at every stop."
         }
       }
     }

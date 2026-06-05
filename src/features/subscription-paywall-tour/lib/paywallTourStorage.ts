@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const KEY_PREFIX = "@pixapp/paywall_tour_seen_v1";
+const KEY_PREFIX = "@pixapp/paywall_tour_seen_v2";
 
 function storageKey(userId: string): string {
   return `${KEY_PREFIX}:${userId}`;
