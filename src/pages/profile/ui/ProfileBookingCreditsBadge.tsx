@@ -12,8 +12,10 @@ export function ProfileBookingCreditsBadge({ balance, credits }: Props) {
   const { t } = useTranslation();
   const styles = useProfileStyles();
 
+  const showIntroBadge = credits?.isIntroActive && !credits?.hasPaidPremium;
+
   const introDaysLeft =
-    credits?.isIntroActive && credits.introPeriodEndsAt
+    showIntroBadge && credits?.introPeriodEndsAt
       ? Math.max(
           0,
           Math.ceil((new Date(credits.introPeriodEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
@@ -21,7 +23,7 @@ export function ProfileBookingCreditsBadge({ balance, credits }: Props) {
       : null;
 
   const label =
-    credits?.isIntroActive && introDaysLeft != null
+    showIntroBadge && introDaysLeft != null
       ? t("bookingCredits.introBadge", { count: balance, days: introDaysLeft })
       : t("bookingCredits.balanceBadge", { count: balance });
 

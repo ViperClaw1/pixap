@@ -673,7 +673,8 @@
       "title": "Рекомендации",
       "subtitle": "Подпишитесь на аккаунты",
       "follow": "Подписаться",
-      "empty": "Пока нет рекомендаций"
+      "emptyTitle": "Новые знакомства",
+      "emptyDescription": "Подписывайтесь на интересных людей — рекомендации появятся здесь."
     },
     "bio": {
       "label": "О себе",
@@ -776,19 +777,20 @@
     "title": "Откройте Pix AI Booking",
     "subtitleNoCredits": "Кредиты на бронирование закончились. Выберите тариф, чтобы продолжить.",
     "subtitleUpgrade": "Больше кредитов и полный доступ к PixAI.",
-    "monthlyTitle": "PixAI Premium Monthly",
-    "annualTitle": "PixAI Premium Plus",
-    "monthlyCredits": "10 кредитов на бронирование за период",
-    "annualCredits": "100 кредитов на бронирование за период",
-    "featureAiBooking": "Pix AI умное бронирование",
-    "featureVibeMatch": "Pix AI vibe matching",
-    "featurePostBoost": "Продвижение постов в ленте (скоро)",
+    "monthlyTitle": "Pix AI Premium",
+    "annualTitle": "Pix AI Premium Plus",
+    "recommendedBadge": "Выгоднее",
+    "monthlyCredits": "10 бронирований каждый месяц",
+    "annualCredits": "100 бронирований каждый год",
+    "featureAiBooking": "ИИ подберёт лучшие места за вас",
+    "featureVibeMatch": "Подбор заведений под ваше настроение",
+    "featurePostBoost": "Продвижение постов в ленте",
     "perMonth": "/мес",
     "perYear": "/год",
-    "ctaMonthly": "Premium, {{price}}/мес",
-    "ctaMonthlyFallback": "Premium Monthly",
-    "ctaAnnual": "Premium Plus, {{price}}/год",
-    "ctaAnnualFallback": "Premium Plus Annual",
+    "ctaMonthly": "Pix AI Premium, {{price}}/мес",
+    "ctaMonthlyFallback": "Pix AI Premium",
+    "ctaAnnual": "Pix AI Premium Plus, {{price}}/год",
+    "ctaAnnualFallback": "Pix AI Premium Plus",
     "restore": "Восстановить покупки",
     "manageApple": "Управление в App Store",
     "manageGoogle": "Управление в Google Play",
@@ -821,37 +823,21 @@
       "done": "Готово",
       "close": "Закрыть",
       "slides": {
-        "smartBookingCity": {
-          "title": "Выберите город",
-          "description": "Начните умное бронирование с выбора города — PixAI найдёт заведения и свободные слоты."
-        },
-        "smartBookingCategory": {
-          "title": "Выберите категорию",
-          "description": "Укажите тип услуги или столика — например, бары, рестораны или другое. При желании добавьте комментарий с пожеланиями."
-        },
-        "smartBookingScope": {
-          "title": "Область поиска",
-          "description": "Ищите рядом с вами или по всему городу — PixAI подстроится под ваши предпочтения."
-        },
         "smartBookingAssistant": {
-          "title": "Чат с PixAI",
-          "description": "Опишите, что вам нужно. Ассистент найдёт подходящие места и предложит лучшие варианты."
+          "title": "Ваш Pix AI консьерж",
+          "description": "Назовите город, настроение и что хотите — Pix AI найдёт лучшие места и предложит готовые варианты за секунды."
         },
         "smartBookingSlots": {
-          "title": "Дата и время",
-          "description": "Выберите удобную дату в календаре и подходящий временной слот."
+          "title": "Выберите идеальное время",
+          "description": "Живая доступность в удобном календаре. Дата и слот — без звонков и догадок."
         },
-        "smartBookingDetails": {
-          "title": "Детали бронирования",
-          "description": "Проверьте заявку, число гостей и контакты перед отправкой бронирования."
+        "smartBookingConfirm": {
+          "title": "Бронь в одно касание",
+          "description": "Проверьте детали, выберите время и подтвердите. От первого сообщения до брони — всё в приложении."
         },
-        "vibeMatchMood": {
-          "title": "Подбор по настроению",
-          "description": "Укажите mood и время — Vibe Match составит маршрут из нескольких остановок."
-        },
-        "vibeMatchRoute": {
-          "title": "Маршрут целиком",
-          "description": "Готовый маршрут с актуальной доступностью — забронируйте все остановки одним нажатием."
+        "vibeMatching": {
+          "title": "Ваш вайб — вся ночь",
+          "description": "Люкс, хаос, андеграунд — задайте настроение, и Pix AI составит маршрут с картой, таймингом и бронированием каждой остановки в один тап."
         }
       }
     }

@@ -43,6 +43,7 @@ import { MessagesThreadRow } from "./MessagesThreadRow";
 import { MessagesPersonRow } from "./MessagesPersonRow";
 import { StartChatUserRow } from "./StartChatUserRow";
 import { scheduleMessagesScreensPrefetch } from "../lib/prefetchMessagesScreen";
+import { useMessagesListSwipeable } from "../lib/useMessagesListSwipeable";
 import { useNavigateOnce } from "@/shared/lib/navigation/useNavigateOnce";
 
 const SKELETON_IDS = ["1", "2", "3"] as const;
@@ -61,6 +62,7 @@ export default function MessagesPage() {
   const navigation = useNavigation<NativeStackNavigationProp<CartStackParamList>>();
   const navigateOnce = useNavigateOnce();
   const isScreenFocused = useIsFocused();
+  const { handleSwipeableOpen, handleSwipeableClose, closeOpenSwipeable } = useMessagesListSwipeable();
   const [inboxEffectsReady, setInboxEffectsReady] = useState(false);
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -104,6 +106,12 @@ export default function MessagesPage() {
       markMessagingPerfEnd("inbox_open", `${threads.length} threads`);
     }
   }, [sectionsPending, threads.length]);
+
+  useEffect(() => {
+    if (!isScreenFocused) {
+      closeOpenSwipeable();
+    }
+  }, [closeOpenSwipeable, isScreenFocused]);
 
   const startChatCandidates = useMemo(
     () => publicProfiles.filter((profile) => profile.id !== user?.id),
@@ -457,6 +465,8 @@ export default function MessagesPage() {
             onPress={() => openThread(item.thread)}
             onPressIn={() => prefetchThread(item.thread.thread_id)}
             onDelete={() => onDeleteThread(item.thread.thread_id, item.thread.last_sender_name || unknownLabel)}
+            onSwipeableOpen={handleSwipeableOpen}
+            onSwipeableClose={handleSwipeableClose}
           />
         );
       }
@@ -477,6 +487,8 @@ export default function MessagesPage() {
           onPressProfile={() =>
             navigateToPublicProfile(navigation, item.person.id, { viewerUserId: user?.id })
           }
+          onSwipeableOpen={handleSwipeableOpen}
+          onSwipeableClose={handleSwipeableClose}
         />
       );
     },
@@ -489,6 +501,8 @@ export default function MessagesPage() {
       onOpenChat,
       onPrefetchChat,
       onToggleFollower,
+      handleSwipeableClose,
+      handleSwipeableOpen,
       openThread,
       sectionsPending,
       peerTypingLabel,
@@ -530,6 +544,8 @@ export default function MessagesPage() {
         ListEmptyComponent={listEmpty}
         renderItem={renderItem}
         contentContainerStyle={listContentStyle}
+        onScrollBeginDrag={closeOpenSwipeable}
+        onMomentumScrollBegin={closeOpenSwipeable}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews
         initialNumToRender={10}

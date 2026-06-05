@@ -205,6 +205,7 @@ function VibeMatchPageContent() {
     exemptFromBookingCredits,
     isIntroActive,
     introPeriodEndsAt,
+    hasPaidPremium,
     canUseBookingCredits,
   } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
@@ -782,6 +783,7 @@ function VibeMatchPageContent() {
         <BookingCreditsBadge
           balance={balance}
           isIntroActive={isIntroActive}
+          hasPaidPremium={hasPaidPremium}
           introPeriodEndsAt={introPeriodEndsAt}
         />
         <Text style={styles.subtitle}>{t("vibeMatch.subtitle")}</Text>

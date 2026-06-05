@@ -5,21 +5,30 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 type Props = {
   balance: number;
   isIntroActive?: boolean;
+  hasPaidPremium?: boolean;
   introPeriodEndsAt?: string | null;
   compact?: boolean;
 };
 
-export function BookingCreditsBadge({ balance, isIntroActive, introPeriodEndsAt, compact }: Props) {
+export function BookingCreditsBadge({
+  balance,
+  isIntroActive,
+  hasPaidPremium,
+  introPeriodEndsAt,
+  compact,
+}: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
 
+  const showIntroBadge = isIntroActive && !hasPaidPremium;
+
   const introDaysLeft =
-    isIntroActive && introPeriodEndsAt
+    showIntroBadge && introPeriodEndsAt
       ? Math.max(0, Math.ceil((new Date(introPeriodEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
       : null;
 
   const label =
-    isIntroActive && introDaysLeft != null
+    showIntroBadge && introDaysLeft != null
       ? t("bookingCredits.introBadge", { count: balance, days: introDaysLeft })
       : t("bookingCredits.balanceBadge", { count: balance });
 

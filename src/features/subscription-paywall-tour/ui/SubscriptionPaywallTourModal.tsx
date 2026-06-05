@@ -10,11 +10,12 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent
 } from "react-native";
-import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { prefetchPaywallTourSlides } from "../lib/prefetchPaywallTourSlides";
 import { getPaywallTourSlides, resolvePaywallTourLocale, type PaywallTourSlide } from "../model/paywallTourSlides";
+import { PaywallTourSlideImage } from "./PaywallTourSlideImage";
 import { subscriptionPaywallTourStyles as styles } from "./subscriptionPaywallTourStyles";
 
 type Props = {
@@ -36,10 +37,19 @@ export function SubscriptionPaywallTourModal({ visible, onClose }: Props) {
   useEffect(() => {
     if (!visible) return;
     setActiveIndex(0);
+    prefetchPaywallTourSlides(slides);
     requestAnimationFrame(() => {
       listRef.current?.scrollToIndex({ index: 0, animated: false });
     });
-  }, [visible, tourLocale]);
+  }, [visible, tourLocale, slides]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const neighborIndexes = [activeIndex - 1, activeIndex, activeIndex + 1].filter(
+      (index) => index >= 0 && index < slideCount,
+    );
+    prefetchPaywallTourSlides(neighborIndexes.map((index) => slides[index]!));
+  }, [activeIndex, slideCount, slides, visible]);
 
   const isFirstSlide = activeIndex === 0;
   const isLastSlide = activeIndex === slideCount - 1;
@@ -65,10 +75,10 @@ export function SubscriptionPaywallTourModal({ visible, onClose }: Props) {
   const renderItem = useCallback<ListRenderItem<PaywallTourSlide>>(
     ({ item }) => (
       <View style={[styles.slide, { width }]}>
-        <Image source={item.image} style={styles.screenshot} contentFit="contain" transition={120} />
+        <PaywallTourSlideImage source={item.image} recyclingKey={`${tourLocale}-${item.id}`} />
       </View>
     ),
-    [width],
+    [tourLocale, width],
   );
 
   if (!visible || !activeSlide) return null;
@@ -100,15 +110,17 @@ export function SubscriptionPaywallTourModal({ visible, onClose }: Props) {
           style={styles.carousel}
           getItemLayout={(_data, index) => ({ length: width, offset: width * index, index })}
           onMomentumScrollEnd={handleMomentumScrollEnd}
-          initialNumToRender={1}
-          maxToRenderPerBatch={2}
-          windowSize={3}
-          removeClippedSubviews
+          initialNumToRender={3}
+          maxToRenderPerBatch={3}
+          windowSize={5}
+          removeClippedSubviews={false}
         />
 
         <View style={styles.footer}>
-          <Text style={styles.title}>{t(activeSlide.titleKey)}</Text>
-          <Text style={styles.description}>{t(activeSlide.descriptionKey)}</Text>
+          <View style={styles.copyBlock}>
+            <Text style={styles.title}>{t(activeSlide.titleKey)}</Text>
+            <Text style={styles.description}>{t(activeSlide.descriptionKey)}</Text>
+          </View>
 
           <View style={styles.dots}>
             {slides.map((slide, index) => (

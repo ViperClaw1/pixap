@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useCallback, useLayoutEffect, useRef } from "react";
 import { Platform, Text, View } from "react-native";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +23,8 @@ type Props = {
   onPrefetchChat?: () => void;
   onToggleFollow: () => void;
   onPressProfile?: () => void;
+  onSwipeableOpen?: (direction: "left" | "right", swipeable: Swipeable) => void;
+  onSwipeableClose?: (direction: "left" | "right", swipeable: Swipeable) => void;
 };
 
 function PersonRowContent({
@@ -95,11 +97,38 @@ function PersonRowContent({
 }
 
 function MessagesPersonRowComponent(props: Props) {
+  const swipeableRef = useRef<Swipeable>(null);
+  const {
+    person,
+    styles,
+    colors,
+    isCompact,
+    actionIconSize,
+    onOpenChat,
+    onPrefetchChat,
+    onToggleFollow,
+    isFollowing,
+    onSwipeableOpen,
+    onSwipeableClose,
+  } = props;
+
+  useLayoutEffect(() => {
+    swipeableRef.current?.reset();
+  }, [person.id]);
+
+  const handleSwipeChat = useCallback(() => {
+    swipeableRef.current?.close();
+    onOpenChat();
+  }, [onOpenChat]);
+
+  const handleSwipeFollow = useCallback(() => {
+    swipeableRef.current?.close();
+    onToggleFollow();
+  }, [onToggleFollow]);
+
   if (Platform.OS === "android") {
     return <PersonRowContent {...props} />;
   }
-
-  const { styles, colors, isCompact, actionIconSize, onOpenChat, onPrefetchChat, onToggleFollow, isFollowing } = props;
 
   const swipeWrapRight = [
     styles.swipeActionWrap,
@@ -114,13 +143,16 @@ function MessagesPersonRowComponent(props: Props) {
 
   return (
     <Swipeable
+      ref={swipeableRef}
       overshootRight={false}
       overshootLeft={false}
+      onSwipeableOpen={onSwipeableOpen}
+      onSwipeableClose={onSwipeableClose}
       renderRightActions={() => (
         <View style={swipeWrapRight}>
           <AppPressable
             style={[styles.swipeActionBtn, styles.swipeChatBtn, isCompact ? styles.swipeActionBtnCompact : null]}
-            onPress={onOpenChat}
+            onPress={handleSwipeChat}
             onPressIn={onPrefetchChat}
           >
             <Ionicons name="chatbubble-ellipses" size={actionIconSize} color={colors.onAccent} />
@@ -131,7 +163,7 @@ function MessagesPersonRowComponent(props: Props) {
         <View style={swipeWrapLeft}>
           <AppPressable
             style={[styles.swipeActionBtn, styles.swipeFollowBtn, isCompact ? styles.swipeActionBtnCompact : null]}
-            onPress={onToggleFollow}
+            onPress={handleSwipeFollow}
           >
             <Ionicons
               name={isFollowing ? "person-remove" : "person-add"}

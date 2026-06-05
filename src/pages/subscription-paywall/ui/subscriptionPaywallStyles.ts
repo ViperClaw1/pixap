@@ -18,6 +18,15 @@ export const subscriptionPaywallStaticStyles = StyleSheet.create({
   subtitle: { fontSize: 14, lineHeight: 20 },
   plan: { fontWeight: "700", fontSize: 16 },
   feature: { fontSize: 14 },
+  planCardHighlighted: {
+    borderWidth: 1.5,
+  },
+  planCardSelected: {
+    borderWidth: 2,
+  },
+  planTitleHighlighted: {
+    fontWeight: "800",
+  },
   cta: {
     borderRadius: 12,
     paddingVertical: 12,
@@ -63,6 +72,16 @@ export function subscriptionPaywallThemeStyles(
     subtitle: { color: colors.textMuted },
     plan: { color: colors.text },
     feature: { color: colors.text },
+    planCardHighlighted: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentSurface,
+    },
+    planCardSelected: {
+      borderColor: colors.primary,
+    },
+    planTitleHighlighted: {
+      color: colors.accent,
+    },
     cta: { backgroundColor: colors.primary },
     ctaText: { color: colors.onPrimary },
     secondary: {

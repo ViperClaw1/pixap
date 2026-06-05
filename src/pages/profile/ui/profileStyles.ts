@@ -423,6 +423,10 @@ export const profileStaticStyles = StyleSheet.create({
     marginBottom: 16,
   },
 
+  suggestionsContent: {
+    height: 188,
+  },
+
   suggestionsHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -446,20 +450,41 @@ export const profileStaticStyles = StyleSheet.create({
 
   suggestionCard: {
     width: 168,
+    height: 188,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 12,
   },
 
   suggestionEmptyCard: {
-    alignSelf: "stretch",
-    width: "100%",
+    flex: 1,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 18,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  suggestionEmptyIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+
+  suggestionEmptyTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  suggestionEmptyDescription: {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
   },
 
   suggestionAvatarWrap: {
@@ -494,6 +519,25 @@ export const profileStaticStyles = StyleSheet.create({
   suggestionFollowBtnText: {
     ...primaryPressableTextStyle,
     fontSize: 14,
+  },
+
+  suggestionSkeletonAvatar: {
+    alignSelf: "center",
+  },
+
+  suggestionSkeletonName: {
+    alignSelf: "center",
+    marginTop: 10,
+  },
+
+  suggestionSkeletonReason: {
+    alignSelf: "center",
+    marginTop: 4,
+  },
+
+  suggestionSkeletonButton: {
+    alignSelf: "center",
+    marginTop: 10,
   },
 
   actionsCard: {
@@ -749,6 +793,15 @@ export function profileThemeStyles(colors: ThemeColors, _mode: ThemeMode) {
     suggestionEmptyCard: {
       borderColor: colors.border,
       backgroundColor: colors.card,
+    },
+    suggestionEmptyIconWrap: {
+      backgroundColor: colors.accentSurface,
+    },
+    suggestionEmptyTitle: {
+      color: colors.text,
+    },
+    suggestionEmptyDescription: {
+      color: colors.textMuted,
     },
     suggestionAvatarWrap: {
       backgroundColor: colors.surface,

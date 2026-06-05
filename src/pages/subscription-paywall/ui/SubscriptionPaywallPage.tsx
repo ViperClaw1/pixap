@@ -16,6 +16,8 @@ import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDi
 import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { SubscriptionPaywallTourModal, usePaywallTourAutoOpen } from "@/features/subscription-paywall-tour";
+import { getAnnualPlanFeatures, getMonthlyPlanFeatures } from "../lib/paywallPlanFeatures";
+import { PaywallPlanCard } from "./PaywallPlanCard";
 import { useSubscriptionPaywallStyles } from "./subscriptionPaywallStyles";
 
 const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
@@ -73,13 +75,15 @@ export default function SubscriptionPaywallScreen() {
     verifying,
     resetVerificationState,
   } = useSubscription();
-  const { balance, isIntroActive, introPeriodEndsAt } = useBookingAccess();
-  const [selectedSku, setSelectedSku] = useState(env.pixAiMonthlySubscriptionSku);
+  const { balance, isIntroActive, introPeriodEndsAt, hasPaidPremium } = useBookingAccess();
+  const [selectedSku, setSelectedSku] = useState(env.pixAiAnnualSubscriptionSku);
   const { tourVisible, openTour, closeTour } = usePaywallTourAutoOpen();
 
   const paywallReason = route.params?.reason;
 
   const styles = useSubscriptionPaywallStyles(insets.top, insets.bottom);
+  const monthlyFeatures = getMonthlyPlanFeatures(t);
+  const annualFeatures = getAnnualPlanFeatures(t);
 
   const monthlyProduct = products.find((product) => product.id === env.pixAiMonthlySubscriptionSku);
   const annualProduct = products.find((product) => product.id === env.pixAiAnnualSubscriptionSku);
@@ -152,35 +156,46 @@ export default function SubscriptionPaywallScreen() {
           </AppPressable>
           <Text style={styles.title}>{t("subscriptionPaywall.title")}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
-          <BookingCreditsBadge balance={balance} isIntroActive={isIntroActive} introPeriodEndsAt={introPeriodEndsAt} />
+          <BookingCreditsBadge
+            balance={balance}
+            isIntroActive={isIntroActive}
+            hasPaidPremium={hasPaidPremium}
+            introPeriodEndsAt={introPeriodEndsAt}
+          />
           <AppPressable accessibilityRole="button" onPress={openTour} style={styles.tourLink}>
             <Ionicons name="play-circle-outline" size={18} color={colors.primary} />
             <Text style={[styles.tourLinkText, { color: colors.primary }]}>{t("subscriptionPaywall.tour.rewatch")}</Text>
           </AppPressable>
         </View>
 
-      <AppPressable
-        style={[styles.card, selectedSku === env.pixAiMonthlySubscriptionSku && { borderColor: colors.primary, borderWidth: 2 }]}
+      <PaywallPlanCard
+        title={t("subscriptionPaywall.monthlyTitle")}
+        features={monthlyFeatures}
+        price={monthlyPrice || undefined}
+        priceSuffix={t("subscriptionPaywall.perMonth")}
+        selected={selectedSku === env.pixAiMonthlySubscriptionSku}
         onPress={() => setSelectedSku(env.pixAiMonthlySubscriptionSku)}
-      >
-        <Text style={styles.plan}>{t("subscriptionPaywall.monthlyTitle")}</Text>
-        <Text style={styles.feature}>{t("subscriptionPaywall.monthlyCredits")}</Text>
-        <Text style={styles.feature}>{t("subscriptionPaywall.featureAiBooking")}</Text>
-        <Text style={styles.feature}>{t("subscriptionPaywall.featureVibeMatch")}</Text>
-        {monthlyPrice ? <Text style={styles.subtitle}>{monthlyPrice}{t("subscriptionPaywall.perMonth")}</Text> : null}
-      </AppPressable>
+        cardStyle={styles.card}
+        planStyle={styles.plan}
+        subtitleStyle={styles.subtitle}
+        selectedCardStyle={styles.planCardSelected}
+      />
 
-      <AppPressable
-        style={[styles.card, selectedSku === env.pixAiAnnualSubscriptionSku && { borderColor: colors.primary, borderWidth: 2 }]}
+      <PaywallPlanCard
+        title={t("subscriptionPaywall.annualTitle")}
+        features={annualFeatures}
+        price={annualPrice || undefined}
+        priceSuffix={t("subscriptionPaywall.perYear")}
+        selected={selectedSku === env.pixAiAnnualSubscriptionSku}
+        highlighted
         onPress={() => setSelectedSku(env.pixAiAnnualSubscriptionSku)}
-      >
-        <Text style={styles.plan}>{t("subscriptionPaywall.annualTitle")}</Text>
-        <Text style={styles.feature}>{t("subscriptionPaywall.annualCredits")}</Text>
-        <Text style={styles.feature}>{t("subscriptionPaywall.featureAiBooking")}</Text>
-        <Text style={styles.feature}>{t("subscriptionPaywall.featureVibeMatch")}</Text>
-        <Text style={styles.feature}>{t("subscriptionPaywall.featurePostBoost")}</Text>
-        {annualPrice ? <Text style={styles.subtitle}>{annualPrice}{t("subscriptionPaywall.perYear")}</Text> : null}
-      </AppPressable>
+        cardStyle={styles.card}
+        planStyle={styles.plan}
+        subtitleStyle={styles.subtitle}
+        highlightedCardStyle={styles.planCardHighlighted}
+        highlightedPlanStyle={styles.planTitleHighlighted}
+        selectedCardStyle={styles.planCardSelected}
+      />
 
       <View style={styles.card}>
         {!iapSupported ? (
