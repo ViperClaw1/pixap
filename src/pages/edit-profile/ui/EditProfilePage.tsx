@@ -59,17 +59,36 @@ const deriveDefaultUsername = (email?: string | null): string => {
   return sanitizeUsernameFromEmailLocalPart(local);
 };
 
-const validateUsername = (value: string): string | null => {
+type UsernameValidationError =
+  | { key: "usernameRequired" }
+  | { key: "usernameMinLength"; min: number }
+  | { key: "usernameMaxLength"; max: number }
+  | { key: "usernameInvalidChars" };
+
+const validateUsername = (value: string): UsernameValidationError | null => {
   const trimmed = value.trim();
-  if (!trimmed) return "Username is required.";
-  if (trimmed.length < USERNAME_MIN_LENGTH) return `Username must be at least ${USERNAME_MIN_LENGTH} characters.`;
-  if (trimmed.length > USERNAME_MAX_LENGTH) return `Username must be at most ${USERNAME_MAX_LENGTH} characters.`;
-  if (!USERNAME_REGEX.test(trimmed)) return "Username can only contain lowercase letters, numbers, '.', '_' or '-'.";
+  if (!trimmed) return { key: "usernameRequired" };
+  if (trimmed.length < USERNAME_MIN_LENGTH) return { key: "usernameMinLength", min: USERNAME_MIN_LENGTH };
+  if (trimmed.length > USERNAME_MAX_LENGTH) return { key: "usernameMaxLength", max: USERNAME_MAX_LENGTH };
+  if (!USERNAME_REGEX.test(trimmed)) return { key: "usernameInvalidChars" };
   return null;
 };
 
 function EditProfileScreenContent() {
   const { t } = useTranslation();
+
+  const translateUsernameError = useCallback(
+    (err: UsernameValidationError | null): string | null => {
+      if (!err) return null;
+      switch (err.key) {
+        case "usernameRequired": return t("editProfile.usernameRequired");
+        case "usernameMinLength": return t("editProfile.usernameMinLength", { min: err.min });
+        case "usernameMaxLength": return t("editProfile.usernameMaxLength", { max: err.max });
+        case "usernameInvalidChars": return t("editProfile.usernameInvalidChars");
+      }
+    },
+    [t],
+  );
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList, "EditProfile">>();
   const leaveToProfileMain = useCallback(() => {
     navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
@@ -228,8 +247,8 @@ function EditProfileScreenContent() {
         navigateToAuthScreen(navigation);
         return;
       }
-      const message = error instanceof Error ? error.message : "Could not upload avatar. Please try again.";
-      appAlert("Upload failed", message, undefined, "alert");
+      const message = error instanceof Error ? error.message : t("editProfile.uploadAvatarFailedMessage");
+      appAlert(t("editProfile.uploadAvatarFailed"), message, undefined, "alert");
     } finally {
       setUploadingAvatar(false);
     }
@@ -239,7 +258,7 @@ function EditProfileScreenContent() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") {
-        appAlert("Permission needed", "Camera access is required to take a photo.", undefined, "alert");
+        appAlert(t("editProfile.permissionNeeded"), t("editProfile.cameraPermissionMessage"), undefined, "alert");
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -252,8 +271,8 @@ function EditProfileScreenContent() {
         await uploadAvatar(result.assets[0]);
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Could not open the camera.";
-      appAlert("Camera unavailable", message, undefined, "alert");
+      const message = error instanceof Error ? error.message : t("editProfile.cameraUnavailableMessage");
+      appAlert(t("editProfile.cameraUnavailable"), message, undefined, "alert");
     }
   };
 
@@ -261,7 +280,7 @@ function EditProfileScreenContent() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        appAlert("Permission needed", "Storage access is required to choose a photo.", undefined, "alert");
+        appAlert(t("editProfile.permissionNeeded"), t("editProfile.galleryPermissionMessage"), undefined, "alert");
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -274,8 +293,8 @@ function EditProfileScreenContent() {
         await uploadAvatar(result.assets[0]);
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Could not open the photo library.";
-      appAlert("Gallery unavailable", message, undefined, "alert");
+      const message = error instanceof Error ? error.message : t("editProfile.galleryUnavailableMessage");
+      appAlert(t("editProfile.galleryUnavailable"), message, undefined, "alert");
     }
   };
 
@@ -294,12 +313,12 @@ function EditProfileScreenContent() {
     const trimmedLast = last.trim();
     const trimmedBio = bio.trim();
     const trimmedAvatar = avatarUrl.trim();
-    const nextUsernameError = validateUsername(normalizedUsername);
+    const nextUsernameError = translateUsernameError(validateUsername(normalizedUsername));
     const nextPhoneError = getPhoneValidationMessage(phoneValue);
 
     setUsernameError(nextUsernameError);
-    setFirstError(trimmedFirst ? null : "First name is required.");
-    setLastError(trimmedLast ? null : "Last name is required.");
+    setFirstError(trimmedFirst ? null : t("editProfile.firstNameRequired"));
+    setLastError(trimmedLast ? null : t("editProfile.lastNameRequired"));
     setAvatarError(null);
     setPhoneError(nextPhoneError);
     setPhoneTouched(true);
@@ -347,8 +366,8 @@ function EditProfileScreenContent() {
         navigateToAuthScreen(navigation);
         return;
       }
-      const message = error instanceof Error ? error.message : "Failed to save";
-      appAlert("Failed to save", message, undefined, "alert");
+      const message = error instanceof Error ? error.message : t("editProfile.saveFailed");
+      appAlert(t("editProfile.saveFailed"), message, undefined, "alert");
     }
   };
 
@@ -506,8 +525,8 @@ function EditProfileScreenContent() {
         visible={avatarSourcePickerVisible}
         onClose={() => setAvatarSourcePickerVisible(false)}
         onChoose={onChooseAvatarSource}
-        title="Choose avatar"
-        subtitle="Select where to pick your photo from."
+        title={t("editProfile.chooseAvatarTitle")}
+        subtitle={t("editProfile.chooseAvatarSubtitle")}
       />
     </View>
   );
