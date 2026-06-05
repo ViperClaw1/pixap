@@ -1,4 +1,3 @@
-import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,7 +5,8 @@ import {
   View,
   Text,
   PixelRatio,
-  InteractionManager
+  InteractionManager,
+  useWindowDimensions
 } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
@@ -88,7 +88,7 @@ export default function HomeScreen() {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useStaticWindowSize();
+  const { width: windowWidth } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
   const { user } = useAuth();
   const { selectedCity, selectCity, isCityReady } = useProfileCityPicker();
