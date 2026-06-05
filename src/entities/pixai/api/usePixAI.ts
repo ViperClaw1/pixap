@@ -183,7 +183,7 @@ function mapRowsToPlaces(rows: unknown, language: string): PixAIPlace[] {
       booking_price: Number(r.booking_price ?? 0),
       images: images.length > 0 ? images : normalizeBusinessCardImages(legacyImage),
       blurhashes: normalizeBusinessCardBlurhashes(r.blurhashes),
-      tags: localized.tags,
+      tags: localized.tags ?? [],
     };
   });
 }
@@ -199,6 +199,8 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload, language
   let places: PixAIPlace[] = [];
   const triedNearby = flow.mode === "nearby" && flow.location != null;
 
+  const query = (flow.comment ?? "").trim() || null;
+
   if (triedNearby && flow.location) {
     const nearbyBase: Record<string, unknown> = {
       p_latitude: flow.location.lat,
@@ -208,6 +210,7 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload, language
       p_category_id: categoryId,
       p_is_restaurant_table: flow.isRestaurantTable ?? false,
       p_limit: limit,
+      p_query: query,
     };
     let { data, error } = await rpc.rpc("search_business_cards_nearby", {
       ...nearbyBase,
@@ -226,6 +229,7 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload, language
       p_is_restaurant_table: flow.isRestaurantTable ?? false,
       p_limit: limit,
       p_category_name: categoryName,
+      p_query: query,
     });
     if (!error) {
       places = mapRowsToPlaces(data, language);
