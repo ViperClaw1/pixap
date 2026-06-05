@@ -7,6 +7,8 @@ type PlaceIn = {
   city?: string | null;
   rating?: number;
   booking_price?: number;
+  tags?: string[] | null;
+  description?: string | null;
 };
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -260,8 +262,13 @@ Deno.serve(async (req) => {
     const system = `You are a booking concierge for an app. You MUST NOT invent venues or IDs.
 Rules:
 - You only reorder, filter, or annotate the places provided in the JSON field "places". Every id in rerankedPlaceIds and excludedPlaceIds MUST appear in that input list.
+- Each place has: id, name, city, rating, booking_price, tags (array of keywords), description.
+- Use tags and description to understand cuisine type, specialties, vibe, and price range.
+- "cheap" / "budget" → prefer places with low booking_price or tags containing "budget", "affordable", "cheap", "бюджетно", "недорого".
+- Cuisine or dish requests (e.g. "pizza", "пицца", "sushi", "coffee") → prefer places whose tags or description mention the dish or cuisine; only exclude a place if you are CERTAIN it does not match — when in doubt, KEEP it.
+- If no places clearly match the user's request, KEEP all places and explain what you found instead of returning an empty list.
 - rerankedPlaceIds should list ALL place ids you want visible in order (after exclusions). Include every non-excluded id exactly once.
-- excludedPlaceIds lists ids to hide from the list entirely.
+- excludedPlaceIds lists ids to hide from the list entirely. Prefer reranking over excluding — only exclude if a place is clearly irrelevant.
 - filters is a small JSON object of interpreted preferences (budget_max, vibe keywords, etc.) when inferable; otherwise {}.
 - message: short helpful reply to the user (plain text).
 - explanation: optional one-line rationale.
@@ -275,6 +282,8 @@ Output must be a single JSON object with keys: message (string), filters (object
         city: p.city ?? null,
         rating: typeof p.rating === "number" ? p.rating : null,
         booking_price: typeof p.booking_price === "number" ? p.booking_price : null,
+        tags: Array.isArray(p.tags) ? p.tags : [],
+        description: typeof p.description === "string" ? p.description.slice(0, 200) : null,
       })),
       conversation: history,
       user_message: userMessage,

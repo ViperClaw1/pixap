@@ -91,12 +91,14 @@ async function fetchPlacesInCityRpc(
   city: string,
   limit: number,
 ): Promise<Array<Record<string, unknown>>> {
+  const comment = (flow.comment ?? "").trim();
   const { data, error } = await pixaiRpc(supabase, "search_business_cards_in_city", {
     p_city: city,
     p_category_id: normalizeCategoryId(flow),
     p_is_restaurant_table: flow.isRestaurantTable ?? false,
     p_limit: limit,
     p_category_name: normalizeCategoryName(flow),
+    p_query: comment || null,
   });
   if (!error) return (data ?? []) as Array<Record<string, unknown>>;
   return fetchPlacesInCityLegacy(supabase, flow, city, limit);
@@ -361,6 +363,7 @@ Deno.serve(async (req) => {
       const triedNearby = flow.mode === "nearby" && flow.location?.lat != null && flow.location?.lng != null;
 
       if (triedNearby) {
+        const nearbyComment = (flow.comment ?? "").trim();
         const nearbyBase = {
           p_latitude: flow.location!.lat,
           p_longitude: flow.location!.lng,
@@ -369,6 +372,7 @@ Deno.serve(async (req) => {
           p_category_id: normalizeCategoryId(flow),
           p_is_restaurant_table: flow.isRestaurantTable ?? false,
           p_limit: limit,
+          p_query: nearbyComment || null,
         };
         let { data, error } = await pixaiRpc(supabase, "search_business_cards_nearby", {
           ...nearbyBase,
