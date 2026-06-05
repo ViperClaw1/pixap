@@ -11,6 +11,13 @@ import { normalizeBusinessCardBlurhashes } from "@/shared/lib/business-card/busi
 
 export const ALL_CITIES_OPTION = "All cities";
 const BUSINESS_CARDS_STARTUP_LIMIT = 120;
+const CITY_INVISIBLE_WHITESPACE_RE = /[\s\u200B-\u200D\uFEFF]+/g;
+
+function normalizeCityFilter(city?: string | null): string | null {
+  const normalized = city?.replace(CITY_INVISIBLE_WHITESPACE_RE, " ").trim();
+  if (!normalized || normalized === ALL_CITIES_OPTION) return null;
+  return normalized;
+}
 
 export interface BusinessCard {
   id: string;
@@ -102,16 +109,17 @@ export const useBusinessCards = (
 ) => {
   const { i18n } = useTranslation();
   const language = i18n.language;
+  const cityFilter = normalizeCityFilter(city);
 
   return useQuery({
-    queryKey: queryKeys.businessCards.list(type, city ?? null, language),
+    queryKey: queryKeys.businessCards.list(type, cityFilter, language),
     staleTime: 2 * 60 * 1000,
     enabled: options?.enabled ?? true,
     queryFn: async () => {
       const lang = language.split("-")[0]?.toLowerCase() ?? "en";
       const { data, error } = await supabase.rpc("get_business_cards_localized", {
         p_type: type ?? null,
-        p_city: city && city !== ALL_CITIES_OPTION ? city : null,
+        p_city: cityFilter,
         p_lang: lang,
         p_limit: BUSINESS_CARDS_STARTUP_LIMIT,
       });
@@ -161,15 +169,16 @@ export const useBusinessCard = (id: string) => {
 export const useBusinessCardsByCategory = (categoryId: string, city?: string | null) => {
   const { i18n } = useTranslation();
   const language = i18n.language;
+  const cityFilter = normalizeCityFilter(city);
 
   return useQuery({
-    queryKey: queryKeys.businessCards.byCategory(categoryId, city ?? null, language),
+    queryKey: queryKeys.businessCards.byCategory(categoryId, cityFilter, language),
     queryFn: async () => {
       let query = supabase
         .from("business_cards")
         .select(BUSINESS_CARD_LIST_SELECT)
         .eq("category_id", categoryId);
-      if (city && city !== ALL_CITIES_OPTION) query = query.eq("city", city);
+      if (cityFilter) query = query.eq("city", cityFilter);
       const { data, error } = await query;
       if (error) throw error;
       return ((data ?? []) as unknown as Parameters<typeof localizeBusinessCard>[0][]).map((row) =>
