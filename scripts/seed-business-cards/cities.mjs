@@ -114,6 +114,7 @@ export function applyGooglePlaceToVenue(venue, place) {
 
   return {
     ...venue,
+    city: place.cityLabel ?? venue.city,
     address: place.formatted_address,
     latitude: place.lat,
     longitude: place.lng,

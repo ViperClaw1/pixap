@@ -27,23 +27,22 @@ export function listingDedupeKey(name, address) {
 /**
  * Load existing catalogue rows to avoid re-inserting the same POI on repeat runs.
  * @param {import("@supabase/supabase-js").SupabaseClient} supabase
- * @param {{ cities: string[], categoryId?: string | null }} options
+ * @param {{ cities: string[], categoryId?: string | null, allCities?: boolean }} options
  * @returns {Promise<ExistingVenueIndex>}
  */
-export async function loadExistingVenueIndex(supabase, { cities, categoryId = null }) {
+export async function loadExistingVenueIndex(supabase, { cities, categoryId = null, allCities = false }) {
   const index = {
     addresses: new Set(),
     nameAddressKeys: new Set(),
     countByCity: new Map(),
   };
 
-  if (!cities.length) return index;
+  if (!allCities && !cities.length) return index;
 
-  let query = supabase
-    .from("business_cards")
-    .select("name, address, city")
-    .in("city", cities)
-    .limit(5000);
+  let query = supabase.from("business_cards").select("name, address, city").limit(5000);
+  if (!allCities) {
+    query = query.in("city", cities);
+  }
 
   if (categoryId) {
     query = query.eq("category_id", categoryId);
@@ -60,9 +59,10 @@ export async function loadExistingVenueIndex(supabase, { cities, categoryId = nu
     index.countByCity.set(city, (index.countByCity.get(city) ?? 0) + 1);
   }
 
+  const scopeLabel = allCities ? "all cities" : `${cities.length} city/cities`;
   log(
     "dedupe",
-    `Loaded ${data?.length ?? 0} existing row(s) in ${cities.length} city/cities (${index.addresses.size} unique addresses)`,
+    `Loaded ${data?.length ?? 0} existing row(s) in ${scopeLabel} (${index.addresses.size} unique addresses)`,
   );
 
   return index;

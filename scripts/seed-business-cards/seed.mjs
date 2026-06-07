@@ -10,6 +10,10 @@
  *   node scripts/seed-business-cards/seed.mjs --count 5 --city Paris
  *   node scripts/seed-business-cards/seed.mjs --tags restaurant,fine dining,paris
  *   node scripts/seed-business-cards/seed.mjs --tags '["restaurant","luxury","paris"]'
+ *   node scripts/seed-business-cards/seed.mjs --city Paris --names "Le Meurice,Septime"
+ *   node scripts/seed-business-cards/seed.mjs --city Istanbul --names '["Nobu Istanbul","Mikla"]'
+ *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc123"
+ *   node scripts/seed-business-cards/seed.mjs --link '["https://maps.app.goo.gl/one","https://maps.app.goo.gl/two"]'
  */
 import { resolveSeedCategoryType, selectVenueDefinitions } from "./categoryTypes.mjs";
 import {
@@ -27,7 +31,7 @@ import {
   loadExistingVenueIndex,
   registerPreparedListing,
 } from "./dedupe.mjs";
-import { findPlaceForVenue } from "./googleMaps.mjs";
+import { findPlaceByName, findPlaceForVenue, findPlaceFromMapsLink } from "./googleMaps.mjs";
 import { createSeedImageRegistry, uploadVenueImages } from "./images.mjs";
 import { loadExistingImageUrls } from "./seedImageRegistry.mjs";
 import {
@@ -127,13 +131,27 @@ async function prepareVenue(
   venueTemplate,
   index,
   venueCount,
-  { cityResolved, googleApiKey, rng, supabase, usedPlaceIds, usedNames, existingIndex, imageRegistry },
+  {
+    cityResolved,
+    googleApiKey,
+    rng,
+    supabase,
+    usedPlaceIds,
+    usedNames,
+    existingIndex,
+    imageRegistry,
+    targetPlaceName = null,
+    targetMapsLink = null,
+  },
 ) {
   const venue = cloneVenueDefinition(venueTemplate);
   const useGoogle = Boolean(googleApiKey) && !cli.skipImages && !cli.noGoogle;
   const requireGooglePhotos = useGoogle;
   const priorInCity = existingCountForCity(cityResolved.label, existingIndex);
-  const maxPoiAttempts = useGoogle ? 5 : 1;
+  const linkLookup = Boolean(targetMapsLink?.trim());
+  const namedLookup = Boolean(targetPlaceName?.trim()) && !linkLookup;
+  const directLookup = linkLookup || namedLookup;
+  const maxPoiAttempts = useGoogle && !directLookup ? 5 : 1;
 
   let prepared = null;
   let place = null;
@@ -147,17 +165,40 @@ async function prepareVenue(
 
     try {
       place = await withRetry(
-        `places:${venueTemplate.slug}@${cityResolved.label}`,
-        () =>
-          findPlaceForVenue(prepared, cityResolved.label, googleApiKey, {
+        linkLookup
+          ? `places:link:${index + 1}`
+          : namedLookup
+            ? `places:name:${targetPlaceName}@${cityResolved.label}`
+            : `places:${venueTemplate.slug}@${cityResolved.label}`,
+        () => {
+          if (linkLookup) {
+            return findPlaceFromMapsLink(targetMapsLink, googleApiKey, {
+              venue: prepared,
+              excludePlaceIds: usedPlaceIds,
+              excludeAddresses: existingIndex.addresses,
+            });
+          }
+          if (namedLookup) {
+            return findPlaceByName(targetPlaceName, cityResolved.label, googleApiKey, {
+              venue: prepared,
+              excludePlaceIds: usedPlaceIds,
+              excludeAddresses: existingIndex.addresses,
+            });
+          }
+          return findPlaceForVenue(prepared, cityResolved.label, googleApiKey, {
             excludePlaceIds: usedPlaceIds,
             excludeAddresses: existingIndex.addresses,
-          }),
+          });
+        },
         { attempts: 4, baseDelayMs: 1200 },
       );
     } catch (err) {
       return skipVenue(
-        `${venueTemplate.slug} (${cityResolved.label})`,
+        linkLookup
+          ? targetMapsLink.slice(0, 80)
+          : namedLookup
+            ? `${targetPlaceName} (${cityResolved.label})`
+            : `${venueTemplate.slug} (${cityResolved.label})`,
         "Google Places lookup failed",
         err.message,
       );
@@ -170,6 +211,7 @@ async function prepareVenue(
       usedPlaceIds.add(place.placeId);
       log("dedupe", `"${place.name}" skipped — ${dupReason}`);
       place = null;
+      if (directLookup) break;
       continue;
     }
 
@@ -190,6 +232,18 @@ async function prepareVenue(
       log(
         "google",
         `Template "${venueTemplate.slug}" → POI "${place.name}" (${place.distanceM}m, ${place.formatted_address}${phoneNote}${priceNote}, ${place.photoReferences.length} photos)`,
+      );
+    } else if (linkLookup) {
+      return skipVenue(
+        targetMapsLink.slice(0, 80),
+        "Could not load venue from Google Maps link",
+        "check the URL opens a place page with photos",
+      );
+    } else if (namedLookup) {
+      return skipVenue(
+        targetPlaceName,
+        "No Google Places match for requested venue name",
+        `try a more specific --names value in ${cityResolved.label}`,
       );
     } else if (prepared.photoPool === "restaurant") {
       return skipVenue(
@@ -248,11 +302,28 @@ async function prepareVenue(
     return skipVenue(row.name, dupReason);
   }
 
-  registerPreparedListing(row.name, row.address, cityResolved.label, existingIndex);
+  registerPreparedListing(row.name, row.address, prepared.city ?? cityResolved.label, existingIndex);
   return { skipped: false, row };
 }
 
 async function main() {
+  if (cli.links?.length) {
+    if (cli.noGoogle) {
+      throw new Error("--link requires Google Places API (do not use --no-google)");
+    }
+    log("link", `Maps URLs: ${cli.links.length} place(s)`);
+  }
+
+  if (cli.names?.length) {
+    if (!cli.city) {
+      throw new Error("--names requires --city so Google Text Search can scope venue names");
+    }
+    if (cli.noGoogle) {
+      throw new Error("--names requires Google Places API (do not use --no-google)");
+    }
+    log("names", `Target venues: ${cli.names.join(" · ")}`);
+  }
+
   const googleApiKey = cli.noGoogle ? null : loadGoogleMapsApiKey();
   const rng = createRng(RNG_SEED);
   const venueCount = venueDefinitions.length;
@@ -268,8 +339,13 @@ async function main() {
     supabase = createSupabaseAdmin();
   }
 
+  const LINK_CITY_PLACEHOLDER = { label: "from Google Maps link", lat: 0, lng: 0 };
+
   let cityAssignments;
-  if (cli.city) {
+  if (cli.links?.length && !cli.city) {
+    cityAssignments = Array.from({ length: venueCount }, () => LINK_CITY_PLACEHOLDER);
+    log("city", `--link mode: city will be taken from each Maps place`);
+  } else if (cli.city) {
     if (cli.cityParsedAsShorthand) {
       log(
         "cli",
@@ -299,10 +375,12 @@ async function main() {
   }
 
   const dedupeCities = [...new Set(cityAssignments.map((c) => c.label))];
+  const dedupeAllCities = Boolean(cli.links?.length && !cli.city);
   if (!cli.dryRun && supabase) {
     existingIndex = await loadExistingVenueIndex(supabase, {
       cities: dedupeCities,
       categoryId: categoryType?.categoryId ?? null,
+      allCities: dedupeAllCities,
     });
   } else if (cli.dryRun) {
     try {
@@ -310,6 +388,7 @@ async function main() {
       existingIndex = await loadExistingVenueIndex(admin, {
         cities: dedupeCities,
         categoryId: categoryType?.categoryId ?? null,
+        allCities: dedupeAllCities,
       });
     } catch (err) {
       log("dedupe", `Dry-run: could not load existing rows (${err.message})`);
@@ -339,7 +418,7 @@ async function main() {
 
   log(
     "seed",
-    `Starting business_cards seed (${venueCount} venues, count=${cli.count}, dryRun=${cli.dryRun}, skipImages=${cli.skipImages}, city=${cli.city ?? "random"}, type=${categoryType?.displayName ?? "all"}, tags=${cli.tags?.join(", ") ?? "from venues.mjs"}, googlePhotoMax=${googlePhotoCapLabel})`,
+    `Starting business_cards seed (${venueCount} venues, count=${cli.count}, dryRun=${cli.dryRun}, skipImages=${cli.skipImages}, city=${cli.city ?? (cli.links?.length ? "from link" : "random")}, source=${cli.links?.length ? `${cli.links.length} Maps link(s)` : cli.names?.join(", ") ?? "random nearby POI"}, type=${categoryType?.displayName ?? "all"}, tags=${cli.tags?.join(", ") ?? "from venues.mjs"}, googlePhotoMax=${googlePhotoCapLabel})`,
   );
 
   const prepared = [];
@@ -369,6 +448,8 @@ async function main() {
       usedNames,
       existingIndex,
       imageRegistry,
+      targetPlaceName: cli.names?.[i] ?? null,
+      targetMapsLink: cli.links?.[i] ?? null,
     });
     if (outcome.skipped) {
       skippedVenues.push(outcome);

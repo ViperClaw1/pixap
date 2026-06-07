@@ -422,13 +422,30 @@ export default function StoriesFeedScreen() {
 
   // ─── renderItem ──────────────────────────────────────────────────────────
   const renderFocusedFeedPost = useCallback<ListRenderItem<FeedPostVm>>(
-    ({ item: vm }) => {
+    ({ item: vm, index }) => {
       const h = feedCardHandlersRef.current;
+      const isEditorial = index % 3 === 0;
+      const cardWidth = isEditorial ? h.width : Math.round((h.width - 16) / 2);
+      const venueName = vm.post.business_card?.name ?? vm.post.place_name ?? null;
       return (
+        <View
+          style={{
+            width: isEditorial ? h.width : cardWidth,
+            alignSelf: isEditorial ? "stretch" : index % 3 === 1 ? "flex-start" : "flex-end",
+            paddingHorizontal: isEditorial ? 0 : 4,
+            marginBottom: isEditorial ? 10 : 6,
+          }}
+        >
         <FeedPostCard
           vm={vm}
-          width={h.width}
-          sliderHeight={h.sliderHeight}
+          width={cardWidth}
+          sliderHeight={isEditorial ? h.sliderHeight + 40 : h.sliderHeight}
+          venueName={venueName}
+          onPressVenue={
+            vm.post.place_id
+              ? () => navigateOnce(() => navigation.navigate("PlaceDetail", { id: vm.post.place_id! }))
+              : undefined
+          }
           isContentExpanded={!!h.comments.expandedPostContentIds[vm.post.id]}
           currentUserId={h.currentUserId}
           isFollowing={h.followOverrides[vm.post.user_id] ?? h.followingSet.has(vm.post.user_id)}
@@ -463,6 +480,7 @@ export default function StoriesFeedScreen() {
             }
           }}
         />
+        </View>
       );
     },
     [
@@ -474,6 +492,8 @@ export default function StoriesFeedScreen() {
       handleFeedToggleContent,
       handleFeedToggleFollow,
       handleTitleInputLayout,
+      navigateOnce,
+      navigation,
     ],
   );
 
@@ -524,7 +544,7 @@ export default function StoriesFeedScreen() {
         data={focusedPostVms}
         extraData={comments.expandedPostContentIds}
         keyExtractor={(item) => item.post.id}
-        estimatedItemSize={sliderHeight + FEED_POST_LIST_ITEM_EXTRA_HEIGHT}
+        estimatedItemSize={sliderHeight + FEED_POST_LIST_ITEM_EXTRA_HEIGHT + 40}
         getItemType={() => "feed-post"}
         contentContainerStyle={feedContentStyle}
         showsVerticalScrollIndicator={false}
@@ -683,6 +703,10 @@ function StoriesStripHeader({
         {(topStories ?? []).map((story) => {
           const name = profileDisplayName(story.profile);
           const targetGroupIndex = storyGroups.findIndex((g) => g.user_id === story.user_id);
+          const targetGroup = targetGroupIndex >= 0 ? storyGroups[targetGroupIndex] : null;
+          const reactionsTotal =
+            targetGroup?.stories.reduce((sum, item) => sum + (item.reaction_count ?? 0), 0) ?? 0;
+          const isTrending = reactionsTotal >= 8;
 
           return (
             <AppPressable
@@ -703,17 +727,29 @@ function StoriesStripHeader({
                 });
               }}
             >
-              <View style={[styles.storyBubbleRing, { borderColor: colors.primary }]}>
+              <View style={[styles.storyBubbleRing, { borderColor: colors.primary, borderWidth: 2.5 }]}>
                 <UserAvatarImage
                   uri={story.profile?.avatar_url}
                   style={styles.storyBubbleAvatar}
                   contentFit="cover"
                   iconSize={28}
                 />
+                {isTrending ? (
+                  <View style={[styles.storyTrendingBadge, { backgroundColor: colors.primary }]}>
+                    <Text style={[styles.storyTrendingBadgeText, { color: colors.onPrimary }]}>
+                      {t("feed.trending", { defaultValue: "Trending" })}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
               <Text style={[styles.storyBubbleName, { color: colors.text }]} numberOfLines={1}>
                 {name}
               </Text>
+              {targetGroup?.stories[0]?.place_id ? (
+                <Text style={[styles.storyVenueName, { color: colors.textMuted }]} numberOfLines={1}>
+                  {t("feed.storyVenue", { defaultValue: "Venue story" })}
+                </Text>
+              ) : null}
             </AppPressable>
           );
         })}
@@ -760,6 +796,16 @@ const styles = StyleSheet.create({
   storyBubbleAvatar: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
   storyPlusBadge: { position: "absolute", right: -2, bottom: -2, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   storyBubbleName: { fontSize: 12, textAlign: "center" },
+  storyVenueName: { fontSize: 10, textAlign: "center", marginTop: 2, maxWidth: 72 },
   storyBubbleAddName: { width: "100%" },
+  storyTrendingBadge: {
+    position: "absolute",
+    top: -4,
+    right: -8,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  storyTrendingBadgeText: { fontSize: 8, fontWeight: "800" },
   storyStripLoader: { marginTop: 20 },
 });

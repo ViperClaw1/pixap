@@ -225,6 +225,103 @@ export function parseTagsArg(raw) {
   return [...new Set(tags)];
 }
 
+const NAMES_MIN = 1;
+const NAMES_MAX = 50;
+
+/**
+ * @param {string} raw Comma-separated venue names or JSON string array
+ * @returns {string[]}
+ */
+export function parseNamesArg(raw) {
+  if (raw == null || String(raw).trim() === "") return null;
+
+  const trimmed = String(raw).trim();
+  let parts;
+
+  if (trimmed.startsWith("[")) {
+    let parsed;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      throw new Error(`Invalid --names JSON: ${trimmed.slice(0, 80)}`);
+    }
+    if (!Array.isArray(parsed)) {
+      throw new Error("--names JSON must be an array of strings");
+    }
+    parts = parsed;
+  } else {
+    parts = trimmed.split(",");
+  }
+
+  const names = parts.map((t) => String(t).trim()).filter((t) => t.length > 0);
+
+  if (names.length < NAMES_MIN) {
+    throw new Error(`--names requires at least ${NAMES_MIN} non-empty venue name`);
+  }
+  if (names.length > NAMES_MAX) {
+    throw new Error(`--names allows at most ${NAMES_MAX} venue names (got ${names.length})`);
+  }
+
+  return names;
+}
+
+const LINKS_MIN = 1;
+const LINKS_MAX = 50;
+
+function isGoogleMapsUrl(value) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (host === "maps.app.goo.gl" || host === "goo.gl" || host.endsWith(".goo.gl")) return true;
+    return host.includes("google.") && (url.pathname.includes("/maps") || url.searchParams.has("cid"));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {string} raw Comma-separated Maps URLs or JSON string array
+ * @returns {string[]}
+ */
+export function parseLinksArg(raw) {
+  if (raw == null || String(raw).trim() === "") return null;
+
+  const trimmed = String(raw).trim();
+  let parts;
+
+  if (trimmed.startsWith("[")) {
+    let parsed;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      throw new Error(`Invalid --link JSON: ${trimmed.slice(0, 80)}`);
+    }
+    if (!Array.isArray(parsed)) {
+      throw new Error("--link JSON must be an array of strings");
+    }
+    parts = parsed;
+  } else {
+    parts = [trimmed];
+  }
+
+  const links = parts.map((t) => String(t).trim()).filter((t) => t.length > 0);
+
+  if (links.length < LINKS_MIN) {
+    throw new Error(`--link requires at least ${LINKS_MIN} Google Maps URL`);
+  }
+  if (links.length > LINKS_MAX) {
+    throw new Error(`--link allows at most ${LINKS_MAX} URLs (got ${links.length})`);
+  }
+
+  for (const link of links) {
+    if (!isGoogleMapsUrl(link)) {
+      throw new Error(`--link value is not a Google Maps URL: ${link.slice(0, 120)}`);
+    }
+  }
+
+  return links;
+}
+
 const CLI_BOOLEAN_FLAGS = new Set(["--dry-run", "--skip-images", "--no-google"]);
 
 function requireCliValue(flag, args, index) {
@@ -242,6 +339,8 @@ export function parseCliArgs(argv) {
   let googlePhotoMaxKb = DEFAULT_GOOGLE_PHOTO_MAX_KB;
   let count = SEED_COUNT;
   let tags = null;
+  let names = null;
+  let links = null;
   const handled = new Set();
 
   for (let i = 0; i < args.length; i += 1) {
@@ -288,6 +387,22 @@ export function parseCliArgs(argv) {
       handled.add(i);
       if (!a.startsWith("--tags=")) handled.add(i + 1);
       if (!a.startsWith("--tags=")) i += 1;
+      continue;
+    }
+    if (a === "--names" || a.startsWith("--names=")) {
+      const raw = a.startsWith("--names=") ? a.slice("--names=".length) : requireCliValue("--names", args, i);
+      names = parseNamesArg(raw);
+      handled.add(i);
+      if (!a.startsWith("--names=")) handled.add(i + 1);
+      if (!a.startsWith("--names=")) i += 1;
+      continue;
+    }
+    if (a === "--link" || a.startsWith("--link=")) {
+      const raw = a.startsWith("--link=") ? a.slice("--link=".length) : requireCliValue("--link", args, i);
+      links = parseLinksArg(raw);
+      handled.add(i);
+      if (!a.startsWith("--link=")) handled.add(i + 1);
+      if (!a.startsWith("--link=")) i += 1;
     }
   }
 
@@ -309,6 +424,16 @@ export function parseCliArgs(argv) {
     handled.add(i);
   }
 
+  if (names?.length && links?.length) {
+    throw new Error("Use either --names or --link, not both");
+  }
+
+  if (links?.length) {
+    count = links.length;
+  } else if (names?.length) {
+    count = names.length;
+  }
+
   return {
     dryRun: args.includes("--dry-run"),
     skipImages: args.includes("--skip-images"),
@@ -317,6 +442,10 @@ export function parseCliArgs(argv) {
     cityParsedAsShorthand,
     type: type?.trim() || null,
     count,
+    /** When set, Google Places Text Search targets these venue names (requires `--city`). */
+    names,
+    /** When set, venue data is loaded from these Google Maps URLs (`--city` optional). */
+    links,
     /** When set, overrides `tags` / `tags_*` on every inserted row (lowercased slugs). */
     tags,
     /** `0` = no byte cap; otherwise max downloaded size per Google Places photo. */

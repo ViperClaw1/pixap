@@ -39,7 +39,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     buildNumber: iosBuildNumber,
     supportsTablet: false,
     bundleIdentifier: "com.pixap.pixap",
-    associatedDomains: ["applinks:pixapp.kz", "applinks:www.pixapp.kz"],
+    associatedDomains: ["applinks:pixapp.kz"],
     infoPlist: {
       ...config.ios?.infoPlist,
       ITSAppUsesNonExemptEncryption: false,

@@ -1,5 +1,12 @@
 import { StyleSheet } from "react-native";
+import type { ImageStyle, TextStyle, ViewStyle } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
+
+type RNStyle = ViewStyle | TextStyle | ImageStyle;
+
+export type BusinessPlaceCardThemedStyles = Partial<
+  Record<keyof typeof businessPlaceCardStaticStyles, RNStyle>
+>;
 
 const IMAGE_HORIZONTAL = 96;
 const IMAGE_VERTICAL_W = 200;
@@ -114,7 +121,7 @@ export const businessPlaceCardStaticStyles = StyleSheet.create({
   },
 });
 
-export function businessPlaceCardThemeStyles(colors: ThemeColors) {
+export function businessPlaceCardThemeStyles(colors: ThemeColors): BusinessPlaceCardThemedStyles {
   return {
     hRoot: {
       backgroundColor: colors.card,
@@ -125,10 +132,10 @@ export function businessPlaceCardThemeStyles(colors: ThemeColors) {
     hTitle: { color: colors.text },
     hAddress: { color: colors.textMuted },
     ratingText: { color: colors.text },
-    tagText: { fontWeight: "600" },
+    tagText: { fontWeight: "600" } satisfies TextStyle,
     vImageBlock: { backgroundColor: colors.border },
     vHeartBtn: { backgroundColor: colors.mediaOverlay },
     vName: { color: colors.text },
-    vTagText: { fontWeight: "700" },
-  } satisfies Partial<Record<keyof typeof businessPlaceCardStaticStyles, object>>;
+    vTagText: { fontWeight: "700" } satisfies TextStyle,
+  };
 }
