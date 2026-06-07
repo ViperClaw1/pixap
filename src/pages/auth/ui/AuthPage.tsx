@@ -26,6 +26,7 @@ import { completeOAuthFromCallbackUrl } from "@/shared/lib/completeOAuthSession"
 import { markOAuthCallbackHandled } from "@/shared/lib/oauthCallbackHandled";
 import { env } from "@/shared/lib/env";
 import { getOAuthRedirectUri } from "@/shared/lib/oauthRedirect";
+import { applyAppleCredentialProfile } from "@/shared/lib/auth/applyAppleCredentialProfile";
 import { isNewAuthRegistration } from "@/shared/lib/auth/isNewAuthRegistration";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 
@@ -278,8 +279,10 @@ export default function AuthScreen() {
           showUserAlert(t("auth.alerts.signInFailed"), getAuthErrorMessage("unknown"));
           return;
         }
+        await applyAppleCredentialProfile(credential);
         devInfo("[Apple][native] signInWithIdToken success");
-        beginAuthTransition(await resolveSocialPostAuthRoute());
+        // Apple HIG: do not ask for name/email after Sign in with Apple — use credential data and go to the app.
+        beginAuthTransition("ProfileMain");
         keepLoading = true;
         return;
       }
