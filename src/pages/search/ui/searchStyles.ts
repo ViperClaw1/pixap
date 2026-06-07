@@ -1,32 +1,10 @@
 import { StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
-import { radii } from "@/shared/theme/radii";
-
-export const SEARCH_PLACE_THUMB_SIZE = 104;
 
 export const searchStaticStyles = StyleSheet.create({
-  thumbWrap: { position: "relative" },
-  thumb: {
-    width: SEARCH_PLACE_THUMB_SIZE,
-    height: SEARCH_PLACE_THUMB_SIZE,
-    borderRadius: radii.thumb,
-    overflow: "hidden",
-  },
-  thumbStatus: {
-    position: "absolute",
-    left: 6,
-    bottom: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  thumbStatusDot: { width: 6, height: 6, borderRadius: 3 },
-  thumbStatusText: { fontSize: 10, fontWeight: "700", color: "#ffffff" },
+  thumb: { width: 56, height: 56, borderRadius: 8, overflow: "hidden" },
   root: { flex: 1 },
-  content: { flex: 1, paddingHorizontal: 16, minHeight: 0 },
+  content: { flex: 1, paddingHorizontal: 16 },
   cityRow: {
     marginBottom: 8,
     alignSelf: "flex-start",

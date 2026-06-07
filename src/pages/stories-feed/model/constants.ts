@@ -8,6 +8,6 @@ export const FEED_CAROUSEL_MIN_HEIGHT = 240;
 /** Extra height added to the post media carousel / SmartImage block. */
 export const FEED_CAROUSEL_HEIGHT_BOOST = 100;
 /** Extra layout slack for FlashList row height (carousel + actions). */
-export const FEED_POST_LIST_ITEM_EXTRA_HEIGHT = 240;
+export const FEED_POST_LIST_ITEM_EXTRA_HEIGHT = 200;
 /** Gap between focused post title input and keyboard top when auto-scrolling feed (iOS). */
 export const FEED_TITLE_INPUT_KEYBOARD_GAP = 12;

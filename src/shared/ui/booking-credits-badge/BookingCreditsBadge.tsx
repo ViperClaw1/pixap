@@ -1,7 +1,6 @@
-import { Text, View, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import { Text, View, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { resolveBookingCreditsBadgeSurface } from "./bookingCreditsBadgeTheme";
 
 type Props = {
   balance: number;
@@ -9,7 +8,6 @@ type Props = {
   hasPaidPremium?: boolean;
   introPeriodEndsAt?: string | null;
   compact?: boolean;
-  style?: StyleProp<ViewStyle>;
 };
 
 export function BookingCreditsBadge({
@@ -18,11 +16,9 @@ export function BookingCreditsBadge({
   hasPaidPremium,
   introPeriodEndsAt,
   compact,
-  style,
 }: Props) {
   const { t } = useTranslation();
-  const { colors, isDark } = useAppTheme();
-  const surface = resolveBookingCreditsBadgeSurface(colors, isDark);
+  const { colors } = useAppTheme();
 
   const showIntroBadge = isIntroActive && !hasPaidPremium;
 
@@ -41,14 +37,10 @@ export function BookingCreditsBadge({
       style={[
         styles.wrap,
         compact && styles.wrapCompact,
-        {
-          backgroundColor: surface.backgroundColor,
-          borderColor: surface.borderColor,
-        },
-        style,
+        { backgroundColor: colors.accentSurface, borderColor: colors.border },
       ]}
     >
-      <Text style={[styles.text, { color: surface.textColor }]} numberOfLines={compact ? 1 : 2}>
+      <Text style={[styles.text, { color: colors.text }]} numberOfLines={1}>
         {label}
       </Text>
     </View>
@@ -61,7 +53,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   wrapCompact: {
     paddingHorizontal: 8,
@@ -69,6 +61,6 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
   },
 });

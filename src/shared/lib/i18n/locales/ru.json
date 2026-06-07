@@ -33,13 +33,7 @@
     "directions": "Маршрут",
     "seeDetails": "Подробнее",
     "bookNow": "Забронировать",
-    "bookWithPixAI": "Забронировать с PixAI",
-    "reviews": "отзывов",
-    "storiesThisWeek": "{{count}} сторис за неделю",
-    "storiesEmptyTitle": "Пока нет сторис",
-    "storiesEmptyMessage": "Станьте первым — поймайте\nатмосферу этого места",
-    "storiesLoadError": "Не удалось загрузить сторис",
-    "storiesLoadErrorHint": "Проверьте соединение и попробуйте снова."
+    "bookWithPixAI": "Забронировать с PixAI"
   },
   "feed": {
     "addStory": "Добавить сторис",
@@ -266,13 +260,7 @@
   },
   "search": {
     "placeholder": "Поиск…",
-    "noMatchingPlaces": "Нет подходящих мест",
-    "filters": {
-      "restaurants": "Рестораны",
-      "bars": "Бары",
-      "clubs": "Клубы",
-      "openNow": "Открыто сейчас"
-    }
+    "noMatchingPlaces": "Нет подходящих мест"
   },
   "category": {
     "fallbackName": "Категория",
@@ -776,10 +764,7 @@
     "tooFar": "Нужно быть в пределах 100 м от заведения.",
     "locationDenied": "Для отметки нужен доступ к геолокации.",
     "rateLimited": "Повторная отметка возможна примерно через 15 минут.",
-    "checkInError": "Не удалось сохранить отметку. Попробуйте позже.",
-    "live": "Live",
-    "checkinsLastHour": "{{count}} человек отметились за час",
-    "trending": "В тренде"
+    "checkInError": "Не удалось сохранить отметку. Попробуйте позже."
   },
   "bookingCredits": {
     "balanceBadge": "Осталось кредитов: {{count}}",

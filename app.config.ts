@@ -6,8 +6,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const googleMapsAndroidCertSha1 = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_CERT_SHA1?.replace(/:/g, "").trim();
   const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
   const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.0";
-  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "41";
-  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "41");
+  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "40";
+  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "39");
   const androidVersionCode = Number.parseInt(androidVersionCodeRaw, 10);
   const nativeOAuthRedirectUri =
     oauthMobileRedirectUri && !oauthMobileRedirectUri.startsWith("exp://") ? oauthMobileRedirectUri : undefined;
@@ -39,7 +39,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     buildNumber: iosBuildNumber,
     supportsTablet: false,
     bundleIdentifier: "com.pixap.pixap",
-    associatedDomains: ["applinks:pixapp.kz"],
+    associatedDomains: ["applinks:pixapp.kz", "applinks:www.pixapp.kz"],
     infoPlist: {
       ...config.ios?.infoPlist,
       ITSAppUsesNonExemptEncryption: false,
@@ -74,9 +74,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         action: "VIEW",
         autoVerify: true,
         data: [
-          { scheme: "https", host: "pixapp.kz", pathPrefix: "/place" },
-          { scheme: "https", host: "pixapp.kz", pathPrefix: "/post" },
-          { scheme: "https", host: "pixapp.kz", pathPrefix: "/story" },
+          { scheme: "https", host: "pixapp.kz", pathPrefix: "/" },
+          { scheme: "https", host: "www.pixapp.kz", pathPrefix: "/" },
         ],
         category: ["BROWSABLE", "DEFAULT"],
       },
