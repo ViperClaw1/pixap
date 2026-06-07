@@ -56,6 +56,8 @@ interface FeedPostCardProps {
   onTitleInputLayout?: (layout: { y: number; height: number }) => void;
   /** Opens the author's public profile (avatar / name tap). */
   onPressAuthor?: () => void;
+  venueName?: string | null;
+  onPressVenue?: () => void;
 }
 
 /** Matches comment / boost icons in the actions row. */
@@ -83,6 +85,8 @@ export const FeedPostCard = memo(function FeedPostCard({
   onPostDeleted,
   onTitleInputLayout,
   onPressAuthor,
+  venueName,
+  onPressVenue,
 }: FeedPostCardProps) {
   const { colors } = useAppTheme();
   const { t, i18n } = useTranslation();
@@ -367,6 +371,13 @@ export const FeedPostCard = memo(function FeedPostCard({
             />
           </Pressable>
         )}
+        {venueName && onPressVenue ? (
+          <Pressable style={styles.venueBadge} onPress={onPressVenue}>
+            <Text style={styles.venueBadgeText} numberOfLines={1}>
+              📍 {venueName}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.actionsSection}>
@@ -551,6 +562,17 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 8 },
   mediaFrame: { position: "relative", width: "100%" },
   mediaPressable: { flex: 1 },
+  venueBadge: {
+    position: "absolute",
+    left: 10,
+    bottom: 10,
+    maxWidth: "72%",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  venueBadgeText: { color: "#ffffff", fontSize: 11, fontWeight: "700" },
   actionsSection: { paddingHorizontal: 14, paddingTop: 10 },
   actionsRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   leftActions: { flexDirection: "row", alignItems: "center", gap: 16, flex: 1, flexWrap: "wrap" },

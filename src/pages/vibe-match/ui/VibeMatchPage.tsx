@@ -7,7 +7,6 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
-  Alert,
   PixelRatio,
   InteractionManager,
 } from "react-native";
@@ -41,7 +40,7 @@ import {
 import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
 import { useBookingAccess } from "@/features/booking-access";
 import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
-import { appAlert } from "@/shared/ui/app-popup";
+import { showErrorToast, showSuccessToast } from "@/shared/ui/app-toast/showToast";
 import { useProfile } from "@/entities/user";
 import { usePixAI, type PixAIVibeTimeline, type VibePlanStop, type PixAISlot } from "@/entities/pixai";
 import { buildVibeRouteAssistantMessage } from "@/entities/pixai/lib/buildVibeRouteAssistantMessage";
@@ -91,7 +90,11 @@ import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { VIBE_OPTIONS, type TaxonomyOption } from "@/entities/user-preferences";
-import { OnboardingChipGrid } from "@/shared/ui/onboarding/OnboardingChipGrid";
+import { LinearGradient } from "expo-linear-gradient";
+import { VibeMoodCards } from "./VibeMoodCards";
+import { VibeTimelineSelector } from "./VibeTimelineSelector";
+import { VibeGenerationPulse } from "./VibeGenerationPulse";
+import { ctaGradientColors } from "@/shared/theme/gradients";
 import { devWarn } from "@/shared/lib/devLog";
 import Toast from "react-native-toast-message";
 
@@ -192,7 +195,7 @@ function VibeMatchPageContent() {
     () => ({ paddingBottom: keyboardInset.value }),
     [keyboardInset],
   );
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const navigation = useNavigation<Nav>();
   useDisableGestureDuringTransition();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
@@ -556,12 +559,12 @@ function VibeMatchPageContent() {
   const onGenerate = useCallback(async () => {
     const moodSlugs = resolveMoodSlugs();
     if (!moodSlugs) {
-      Alert.alert(t("vibeMatch.moodAlertTitle"), t("vibeMatch.moodRequired"));
+      showErrorToast(t("vibeMatch.moodAlertTitle"), t("vibeMatch.moodRequired"));
       return;
     }
     const cityTrim = city.trim();
     if (!cityTrim) {
-      Alert.alert(t("vibeMatch.cityLabel"), t("vibeMatch.cityRequiredMessage"));
+      showErrorToast(t("vibeMatch.cityLabel"), t("vibeMatch.cityRequiredMessage"));
       return;
     }
     setLastBookResults(null);
@@ -599,11 +602,11 @@ function VibeMatchPageContent() {
       if (bookingAction !== null) return;
       const err = validateForm();
       if (err) {
-        Alert.alert(t("vibeMatch.formAlertTitle"), err);
+        showErrorToast(t("vibeMatch.formAlertTitle"), err);
         return;
       }
       if (!isProfileComplete(profile)) {
-        Alert.alert(t("bookingCommon.profileIncompleteTitle"), t("bookingCommon.profileIncompleteMessage"));
+        showErrorToast(t("bookingCommon.profileIncompleteTitle"), t("bookingCommon.profileIncompleteMessage"));
         navigation.getParent()?.dispatch(
           CommonActions.navigate({
             name: "Profile",
@@ -679,19 +682,17 @@ function VibeMatchPageContent() {
         const failed = results.filter((r) => !r.ok);
         const okc = results.filter((r) => r.ok).length;
         if (failed.length === 0) {
-          appAlert(
+          showSuccessToast(
             t("bookingCommon.draftCreatedTitle"),
             t("bookingCommon.draftCreatedMessage"),
-            undefined,
-            "success",
           );
         } else if (okc > 0) {
-          Alert.alert(
+          showErrorToast(
             t("vibeMatch.partialBookingTitle"),
             t("vibeMatch.partialBookingMessage", { okCount: okc, failedCount: failed.length }),
           );
         } else {
-          Alert.alert(t("vibeMatch.bookingFailedTitle"), t("vibeMatch.bookingFailedMessage"));
+          showErrorToast(t("vibeMatch.bookingFailedTitle"), t("vibeMatch.bookingFailedMessage"));
         }
         if (okc > 0) {
           navigation.getParent()?.dispatch(
@@ -802,7 +803,7 @@ function VibeMatchPageContent() {
             </Text>
           </AppPressable>
           <Text style={styles.label}>{t("vibeMatch.moodLabel")}</Text>
-          <OnboardingChipGrid options={VIBE_MATCH_MOOD_OPTIONS} selected={selectedMoods} onToggle={toggleMood} />
+          <VibeMoodCards options={VIBE_MATCH_MOOD_OPTIONS} selected={selectedMoods} onToggle={toggleMood} />
           <TextInput
             style={styles.input}
             placeholder={t("vibeMatch.moodNotesPlaceholder")}
@@ -811,30 +812,31 @@ function VibeMatchPageContent() {
             onChangeText={setMood}
           />
           <Text style={styles.label}>{t("vibeMatch.timelineLabel")}</Text>
-          <View style={styles.timelineRow}>
-            {VIBE_TIMELINE_OPTIONS.map((timelineKey) => (
-              <AppPressable
-                key={timelineKey}
-                onPress={() => setTimeline(timelineKey)}
-                style={[styles.chip, timeline === timelineKey && styles.chipOn]}
-              >
-                <Text style={styles.chipText}>
-                  {t(`vibeMatch.timeline.${timelineKey === "late_night" ? "lateNight" : timelineKey}`)}
-                </Text>
-              </AppPressable>
-            ))}
-          </View>
+          <VibeTimelineSelector value={timeline} onChange={setTimeline} />
           <AppPressable
-            style={[primaryPressableStyle, { height: SHARED_PRESSABLE_HEIGHT, borderRadius: SHARED_PRESSABLE_RADIUS }]}
             onPress={() => void onGenerate()}
             disabled={isVibeLoading}
+            style={{ marginTop: 12, borderRadius: SHARED_PRESSABLE_RADIUS, overflow: "hidden", opacity: isVibeLoading ? 0.7 : 1 }}
           >
-            {isVibeLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={primaryPressableTextStyle}>{t("vibeMatch.generatePlan")}</Text>
-            )}
+            <LinearGradient
+              colors={[...ctaGradientColors(isDark)]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ height: SHARED_PRESSABLE_HEIGHT, alignItems: "center", justifyContent: "center" }}
+            >
+              {isVibeLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={primaryPressableTextStyle}>{t("vibeMatch.generatePlan")}</Text>
+              )}
+            </LinearGradient>
           </AppPressable>
+          {isVibeLoading ? (
+            <View style={{ marginTop: 16, position: "relative" }}>
+              <VibeRouteMapSkeleton />
+              <VibeGenerationPulse active />
+            </View>
+          ) : null}
           {vibeError ? (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{errMsg || t("vibeMatch.couldNotGeneratePlan")}</Text>
@@ -1078,24 +1080,31 @@ function VibeMatchPageContent() {
               onChangeText={setComment}
             />
             <AppPressable
-              style={[
-                primaryPressableStyle,
-                { height: SHARED_PRESSABLE_HEIGHT, borderRadius: SHARED_PRESSABLE_RADIUS },
-                (!bookAllEnabled || bookingBusy) && { opacity: 0.55 },
-              ]}
               disabled={!bookAllEnabled || bookingBusy}
               onPress={() => void onBookAll()}
               accessibilityLabel={
                 isSingleStopRoute ? t("vibeMatch.bookStopA11y") : t("vibeMatch.bookAllStopsA11y")
               }
+              style={{
+                borderRadius: SHARED_PRESSABLE_RADIUS,
+                overflow: "hidden",
+                opacity: !bookAllEnabled || bookingBusy ? 0.55 : 1,
+              }}
             >
-              {bookingAction === "all" ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={primaryPressableTextStyle}>
-                  {isSingleStopRoute ? t("vibeMatch.book") : t("vibeMatch.bookAll")}
-                </Text>
-              )}
+              <LinearGradient
+                colors={[...ctaGradientColors(isDark)]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ height: SHARED_PRESSABLE_HEIGHT, alignItems: "center", justifyContent: "center" }}
+              >
+                {bookingAction === "all" ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={primaryPressableTextStyle}>
+                    {isSingleStopRoute ? t("vibeMatch.book") : t("vibeMatch.bookAll")}
+                  </Text>
+                )}
+              </LinearGradient>
             </AppPressable>
             {failedStops.length > 0 ? (
               <AppPressable

@@ -1,6 +1,12 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useState, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import * as Haptics from "expo-haptics";
+import { showErrorToast, showSuccessToast } from "@/shared/ui/app-toast/showToast";
+import { BookingStepIndicator } from "./BookingStepIndicator";
+import { BookingConfetti } from "./BookingConfetti";
+import { BookingWhatsAppBanner } from "./BookingWhatsAppBanner";
+import { isPopularBookingSlot } from "../lib/isPopularBookingSlot";
 import { useTranslation } from "react-i18next";
 import { CommonActions, useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -25,7 +31,6 @@ import { isProfileComplete } from "@/shared/lib/profileCompletion";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { devWarn } from "@/shared/lib/devLog";
-import { appAlert } from "@/shared/ui/app-popup";
 import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
 import { useBookingAccess } from "@/features/booking-access";
 import {
@@ -101,6 +106,8 @@ export default function BookingFlowPage() {
   const [selectedTime, setSelectedTime] = useState("");
   const [guests, setGuests] = useState(BOOKING_FLOW_DEFAULT_GUESTS);
   const [confirming, setConfirming] = useState(false);
+  const [celebrationActive, setCelebrationActive] = useState(false);
+  const totalSteps = BOOKING_FLOW_TOTAL_STEPS + 1;
   const useMonotoneDarkBackground = isDark && (step === 0 || step === 2);
   const selectedDate = useMemo(() => fromYmd(selectedDateYmd), [selectedDateYmd]);
   const themed = useThemeStyles(({ colors: c, isDark: dark }) => bookingFlowThemedThemeStyles(c, dark));
@@ -164,11 +171,11 @@ export default function BookingFlowPage() {
   const handleConfirm = async () => {
     if (confirming) return;
     if (!canUseBookingCredits) {
-      Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
+      showErrorToast(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
       return;
     }
     if (!isProfileComplete(profile)) {
-      Alert.alert("Profile incomplete", "Please, fill out all your profile data before booking.");
+      showErrorToast("Profile incomplete", "Please, fill out all your profile data before booking.");
       navigation.getParent()?.dispatch(
         CommonActions.navigate({
           name: "Profile",
@@ -178,7 +185,7 @@ export default function BookingFlowPage() {
       return;
     }
     if (!selectedAvailableSlot) {
-      Alert.alert("Pick an available time");
+      showErrorToast("Pick an available time");
       return;
     }
     const dateTime = new Date(selectedAvailableSlot.dateTimeIso);
@@ -226,35 +233,48 @@ export default function BookingFlowPage() {
           }
         });
       }
-      appAlert(
-        "Draft created",
-        "Draft booking was added to Bookings. Venue check is started in background.",
-        undefined,
-        "success",
-      );
-      navigation.getParent()?.dispatch(
-        CommonActions.navigate({
-          name: "Bookings",
-          params: { screen: "BookingsMain" },
+      setCelebrationActive(true);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showSuccessToast(
+        t("bookingCommon.draftCreatedTitle", { defaultValue: "Draft created" }),
+        t("bookingCommon.draftCreatedMessage", {
+          defaultValue: "Draft booking was added to Bookings. Venue check is started in background.",
         }),
       );
+      setTimeout(() => {
+        navigation.getParent()?.dispatch(
+          CommonActions.navigate({
+            name: "Bookings",
+            params: { screen: "BookingsMain" },
+          }),
+        );
+      }, 1200);
     } catch (error) {
       if (isAuthRequiredError(error)) {
         navigateToAuthScreen(navigation);
         return;
       }
       if (isInsufficientBookingCreditsError(error)) {
-        Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
+        showErrorToast(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
         return;
       }
-      Alert.alert("Failed to add to cart");
+      showErrorToast("Failed to add to cart");
     } finally {
       setConfirming(false);
     }
   };
 
+  const adjustGuests = (delta: number) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setGuests((prev) =>
+      Math.min(BOOKING_FLOW_MAX_GUESTS, Math.max(BOOKING_FLOW_MIN_GUESTS, prev + delta)),
+    );
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]} {...androidSwipeBackPanHandlers}>
+      <BookingStepIndicator step={step} totalSteps={totalSteps} />
+      <BookingConfetti active={celebrationActive} />
       {step === 1 ? (
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
           <AppPressable onPress={() => setStep(step - 1)}>
@@ -374,6 +394,7 @@ export default function BookingFlowPage() {
                   <View key={`time-row-${rowIdx}`} style={styles.timeGridRow}>
                     {row.map((slot) => {
                       const isSelected = selectedTime === slot.label && slot.available;
+                      const isPopular = slot.available && isPopularBookingSlot(slot.dateTimeIso);
                       return (
                         <AppPressable
                           key={slot.dateTimeIso}
@@ -383,6 +404,7 @@ export default function BookingFlowPage() {
                             themedStyles.timeCell,
                             isSelected && styles.timeCellSel,
                             isSelected && themedStyles.timeCellSel,
+                            isPopular && !isSelected && { borderColor: colors.primary },
                             !slot.available && themedStyles.timeCellUnavailable,
                           ]}
                           onPress={() => setSelectedTime(slot.label)}
@@ -390,6 +412,11 @@ export default function BookingFlowPage() {
                           <Text style={[themedStyles.timeCellText, isSelected && styles.timeCellTextSel, isSelected && themedStyles.timeCellTextSel]}>
                             {slot.label}
                           </Text>
+                          {isPopular ? (
+                            <Text style={{ fontSize: 9, fontWeight: "700", color: "#f59e0b", marginTop: 2 }}>
+                              {t("bookingFlow.popular", { defaultValue: "Popular" })}
+                            </Text>
+                          ) : null}
                         </AppPressable>
                       );
                     })}
@@ -419,11 +446,11 @@ export default function BookingFlowPage() {
             >
               <Text style={[styles.section, themedStyles.sectionText]}>Number of guests</Text>
               <View style={styles.guestRow}>
-                <AppPressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.max(BOOKING_FLOW_MIN_GUESTS, guests - 1))}>
+                <AppPressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => adjustGuests(-1)}>
                   <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>−</Text>
                 </AppPressable>
                 <Text style={[styles.guestCount, themedStyles.guestCountText]}>{guests}</Text>
-                <AppPressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.min(BOOKING_FLOW_MAX_GUESTS, guests + 1))}>
+                <AppPressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => adjustGuests(1)}>
                   <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>+</Text>
                 </AppPressable>
               </View>
@@ -447,9 +474,11 @@ export default function BookingFlowPage() {
               useMonotoneDarkBackground={useMonotoneDarkBackground}
             >
               <Text style={[styles.section, themedStyles.sectionText]}>Confirm</Text>
+              <Text style={[themedStyles.confirmText, { fontSize: 18, fontWeight: "700" }]}>{place.name}</Text>
               <Text style={themedStyles.confirmText}>
                 {guests} guests · {selectedDate.toDateString()} {selectedTime}
               </Text>
+              <BookingWhatsAppBanner />
             </BookingFlowPlacePanel>
           ) : null}
         </View>
@@ -461,7 +490,7 @@ export default function BookingFlowPage() {
             style={styles.primary}
             onPress={() => {
               if (step === 0 && !isProfileComplete(profile)) {
-                Alert.alert("Profile incomplete", "Please, fill out all your profile data before booking.");
+                showErrorToast("Profile incomplete", "Please, fill out all your profile data before booking.");
                 navigation.getParent()?.dispatch(
                   CommonActions.navigate({
                     name: "Profile",
@@ -471,11 +500,11 @@ export default function BookingFlowPage() {
                 return;
               }
               if (step === 1 && !selectedTime) {
-                Alert.alert("Pick a time");
+                showErrorToast("Pick a time");
                 return;
               }
               if (step === 1 && !selectedAvailableSlot) {
-                Alert.alert("Pick an available time");
+                showErrorToast("Pick an available time");
                 return;
               }
               setStep(step + 1);
