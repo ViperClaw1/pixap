@@ -11,6 +11,7 @@ import { useSubscription, type SubscriptionErrorCode } from "@/entities/subscrip
 import { useBookingAccess } from "@/features/booking-access";
 import { SubscriptionPurchaseResultModal } from "@/features/subscription-paywall-redirect";
 import { env } from "@/shared/lib/env";
+import { PRIVACY_URL, TERMS_URL } from "@/shared/lib/legalUrls";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
@@ -230,7 +231,18 @@ export default function SubscriptionPaywallScreen() {
             <Text style={styles.secondaryText}>{t("subscriptionPaywall.manageGoogle")}</Text>
           </AppPressable>
         ) : null}
-        <Text style={styles.legal}>{t("subscriptionPaywall.legal")}</Text>
+        <Text style={styles.legal}>
+          {t(Platform.OS === "android" ? "subscriptionPaywall.legalGoogle" : "subscriptionPaywall.legalApple")}
+        </Text>
+        <Text style={styles.legal}>
+          <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(TERMS_URL)}>
+            {t("subscriptionPaywall.termsLink")}
+          </Text>
+          {" · "}
+          <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(PRIVACY_URL)}>
+            {t("subscriptionPaywall.privacyLink")}
+          </Text>
+        </Text>
       </View>
       </ScrollView>
       <SubscriptionPaywallTourModal visible={tourVisible} onClose={closeTour} />
