@@ -1,8 +1,6 @@
 import { memo, useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { ctaGradientColors } from "@/shared/theme/gradients";
 import type { StoryGroup } from "@/shared/model/types/stories";
 import { profileDisplayName } from "@/shared/lib/profileDisplayName";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
@@ -16,7 +14,7 @@ interface StoryBubbleProps {
 }
 
 function StoryBubbleComponent({ group, viewed, onPress, variant = "story", uploading = false }: StoryBubbleProps) {
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const isAdd = variant === "add";
   const name = useMemo(() => {
     if (isAdd) return "Add Story";
@@ -29,24 +27,19 @@ function StoryBubbleComponent({ group, viewed, onPress, variant = "story", uploa
         style={[
           styles.ring,
           {
-            borderColor: isAdd ? "transparent" : viewed ? colors.border : colors.primary,
+            borderColor: isAdd ? colors.primary : viewed ? colors.border : colors.primary,
             opacity: uploading ? 0.72 : 1,
           },
         ]}
       >
         {isAdd ? (
-          <LinearGradient
-            colors={[...ctaGradientColors(isDark)]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.addCircle}
-          >
+          <View style={[styles.addCircle, { backgroundColor: colors.primary }]}>
             {uploading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <ActivityIndicator size="small" color={colors.onPrimary} />
             ) : (
-              <Text style={styles.addIcon}>+</Text>
+              <Text style={[styles.addIcon, { color: colors.onPrimary }]}>+</Text>
             )}
-          </LinearGradient>
+          </View>
         ) : (
           <UserAvatarImage
             uri={group.profile?.avatar_url}
@@ -97,7 +90,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "700",
     lineHeight: 28,
-    color: "#ffffff",
   },
   label: {
     fontSize: 12,

@@ -67,8 +67,6 @@ import { useExpandVisibleBatch } from "@/shared/lib/useExpandVisibleBatch";
 import { ShowMoreButton } from "@/shared/ui/show-more-button";
 import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
 
-import { categoryAccentColor } from "../lib/categoryAccentColors";
-
 const VIBE_TOOLBAR_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
 const RECOMMENDED_THUMB_SIZE = 96;
 
@@ -239,13 +237,8 @@ export default function HomeScreen() {
           }}
         >
           <View style={styles.pillContent}>
-            <View
-              style={[
-                styles.pillIconWrap,
-                { backgroundColor: `${categoryAccentColor(item.name)}22` },
-              ]}
-            >
-              <CategoryIcon spec={iconSpec} size={16} color={categoryAccentColor(item.name)} />
+            <View style={styles.pillIconWrap}>
+              <CategoryIcon spec={iconSpec} size={14} color={colors.primary} />
             </View>
             <Text style={styles.pillText}>{label}</Text>
             {item.isComingSoon ? (
@@ -263,13 +256,7 @@ export default function HomeScreen() {
   const renderFeaturedRow = useCallback<ListRenderItem<BusinessCard>>(
     ({ item }) => (
       <View style={styles.featuredCardWrap}>
-        <BusinessPlaceCard
-          place={item}
-          variant="vertical"
-          enhancedTagContrast
-          verticalWidth={FEATURED_CARD_WIDTH}
-          verticalImageHeight={FEATURED_CARD_IMAGE_HEIGHT}
-        />
+        <BusinessPlaceCard place={item} variant="vertical" enhancedTagContrast />
       </View>
     ),
     [styles.featuredCardWrap],
@@ -380,14 +367,10 @@ export default function HomeScreen() {
         <AppPressable
           style={[
             homePageStaticStyles.searchBtn,
-            {
-              backgroundColor: colors.card,
-              borderColor: `${colors.primary}66`,
-            },
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
           onPress={() => navigation.navigate("SearchMain")}
         >
-          <Ionicons name="search" size={20} color={colors.primary} />
           <Text style={[homePageStaticStyles.searchBtnText, { color: colors.textMuted }]}>
             {t("home.searchPlaceholder")}
           </Text>

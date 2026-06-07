@@ -330,6 +330,22 @@ export const profileStaticStyles = StyleSheet.create({
     minWidth: 0,
   },
 
+  bookingCreditsBadge: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+
+  bookingCreditsBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
   verifyBtn: {
     height: PROFILE_VERIFICATION_CONTROL_HEIGHT,
     borderRadius: 999,
@@ -733,6 +749,13 @@ export function profileThemeStyles(colors: ThemeColors, _mode: ThemeMode) {
     },
     verifyBtnText: {
       color: colors.primary,
+    },
+    bookingCreditsBadge: {
+      backgroundColor: colors.accentSurface,
+      borderColor: colors.border,
+    },
+    bookingCreditsBadgeText: {
+      color: colors.text,
     },
     settingsBtn: {
       borderColor: colors.border,

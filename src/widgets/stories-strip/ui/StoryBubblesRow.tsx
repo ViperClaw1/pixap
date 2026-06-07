@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { StoryGroup } from "@/shared/model/types/stories";
 import { StoryBubble } from "./StoryBubble";
@@ -27,7 +26,6 @@ function StoryBubblesRowComponent({
   isError = false,
   onRetry,
 }: StoryBubblesRowProps) {
-  const { t } = useTranslation();
   const { colors } = useAppTheme();
 
   const titleStyle = useMemo(() => [styles.title, { color: colors.text }], [colors.text]);
@@ -43,7 +41,7 @@ function StoryBubblesRowComponent({
   return (
     <View style={styles.container}>
       <Text style={titleStyle}>Stories</Text>
-      <View style={[styles.row, !loading && groups.length === 0 && styles.rowEmpty]}>
+      <View style={styles.row}>
         <StoryBubble
           group={{
             user_id: "add-story",
@@ -79,26 +77,13 @@ function StoryBubblesRowComponent({
             removeClippedSubviews
           />
         ) : (
-          <View style={styles.emptyTextWrap}>
-            <Text style={[styles.emptyTitle, { color: colors.text }]} numberOfLines={1}>
-              {isError
-                ? t("placeDetail.storiesLoadError", { defaultValue: "Could not load stories" })
-                : t("placeDetail.storiesEmptyTitle", { defaultValue: "No stories yet" })}
-            </Text>
-            <Text style={[styles.emptyMeta, { color: colors.textMuted }]} numberOfLines={2}>
-              {isError
-                ? t("placeDetail.storiesLoadErrorHint", {
-                    defaultValue: "Check your connection and try again.",
-                  })
-                : t("placeDetail.storiesEmptyMessage", {
-                    defaultValue: "Be the first to capture the vibe here",
-                  })}
+          <View style={styles.emptyWrap}>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+              {isError ? "Could not load stories." : "Be the first to share your experience"}
             </Text>
             {isError && onRetry ? (
-              <Pressable onPress={onRetry} hitSlop={8} style={styles.retryBtn}>
-                <Text style={[styles.retryText, { color: colors.primary }]}>
-                  {t("bookingCommon.retry", { defaultValue: "Retry" })}
-                </Text>
+              <Pressable onPress={onRetry}>
+                <Text style={[styles.retryText, { color: colors.primary }]}>Retry</Text>
               </Pressable>
             ) : null}
           </View>
@@ -126,15 +111,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
   },
-  rowEmpty: {
-    alignItems: "center",
-  },
   skeletonRow: {
     flexDirection: "row",
     alignItems: "center",
     minHeight: 78,
     gap: 10,
-    marginLeft: 10,
   },
   skeletonWrap: {
     width: 64,
@@ -151,29 +132,17 @@ const styles = StyleSheet.create({
     height: 9,
     borderRadius: 6,
   },
-  emptyTextWrap: {
-    flex: 1,
-    minWidth: 0,
+  emptyWrap: {
+    minHeight: 78,
     justifyContent: "center",
-    paddingLeft: 4,
-    paddingRight: 8,
   },
-  emptyTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  emptyMeta: {
-    marginTop: 4,
+  emptyText: {
     fontSize: 12,
-    lineHeight: 17,
     fontWeight: "500",
   },
-  retryBtn: {
-    alignSelf: "flex-start",
-    marginTop: 6,
-  },
   retryText: {
-    fontSize: 12,
+    marginTop: 6,
+    fontSize: 13,
     fontWeight: "700",
   },
 });

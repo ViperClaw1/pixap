@@ -33,13 +33,7 @@
     "directions": "Directions",
     "seeDetails": "See details",
     "bookNow": "Book now",
-    "bookWithPixAI": "Book with PixAI",
-    "reviews": "reviews",
-    "storiesThisWeek": "{{count}} stories this week",
-    "storiesEmptyTitle": "No stories yet",
-    "storiesEmptyMessage": "Be the first to capture\nthe vibe here",
-    "storiesLoadError": "Could not load stories",
-    "storiesLoadErrorHint": "Check your connection and try again."
+    "bookWithPixAI": "Book with PixAI"
   },
   "feed": {
     "addStory": "Add story",
@@ -266,13 +260,7 @@
   },
   "search": {
     "placeholder": "Search…",
-    "noMatchingPlaces": "No matching places",
-    "filters": {
-      "restaurants": "Restaurants",
-      "bars": "Bars",
-      "clubs": "Clubs",
-      "openNow": "Open now"
-    }
+    "noMatchingPlaces": "No matching places"
   },
   "category": {
     "fallbackName": "Category",
@@ -776,10 +764,7 @@
     "tooFar": "You need to be within 100 m of this place.",
     "locationDenied": "Location access is required to check in.",
     "rateLimited": "You can check in again in about 15 minutes.",
-    "checkInError": "Could not record your check-in. Try again later.",
-    "live": "Live",
-    "checkinsLastHour": "{{count}} people checked in this hour",
-    "trending": "Trending"
+    "checkInError": "Could not record your check-in. Try again later."
   },
   "bookingCredits": {
     "balanceBadge": "{{count}} booking credits left",
