@@ -1,4 +1,3 @@
-export { BookingPersonalDataNotice } from "./ui/BookingPersonalDataNotice";
 export { BookingPersonalDataRequiredModal } from "./ui/BookingPersonalDataRequiredModal";
 export { BookingProfileCompleteTip } from "./ui/BookingProfileCompleteTip";
 export { isPersonalDataFormFieldError, type GuestFormFieldError } from "./lib/guestFormValidation";
