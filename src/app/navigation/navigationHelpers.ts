@@ -241,6 +241,77 @@ export function navigateToSubscriptionPaywall(nav: NavigationProp<ParamListBase>
   nav.navigate("SubscriptionPaywall");
 }
 
+export function isProfileStackNavigation(nav: NavigationProp<ParamListBase>): boolean {
+  return (nav.getState()?.routeNames ?? []).includes("ProfileMain");
+}
+
+/** Leave EditProfile: pop when pushed on a browse stack, otherwise reset/navigate within Profile tab. */
+export function leaveEditProfileScreen(nav: NavigationProp<ParamListBase>): void {
+  if (nav.canGoBack()) {
+    nav.goBack();
+    return;
+  }
+  if (isProfileStackNavigation(nav)) {
+    nav.dispatch(CommonActions.reset({ index: 0, routes: [{ name: "ProfileMain" }] }));
+    return;
+  }
+  navigateToOwnProfileTab(nav);
+}
+
+/** After saving profile — same as back unless opened without stack history on a non-Profile tab. */
+export function leaveAfterEditProfileSave(nav: NavigationProp<ParamListBase>): void {
+  leaveEditProfileScreen(nav);
+}
+
+export function openPreferenceOnboardingFromEditProfile(nav: NavigationProp<ParamListBase>): void {
+  if (isProfileStackNavigation(nav)) {
+    nav.dispatch(
+      CommonActions.reset({
+        index: 1,
+        routes: [
+          { name: "ProfileMain" },
+          { name: "PreferenceOnboarding", params: { source: "edit_profile" } },
+        ],
+      }),
+    );
+    return;
+  }
+  if (nav.canGoBack()) {
+    nav.goBack();
+  }
+  const tabNav = findTabNavigator(nav);
+  tabNav?.dispatch(
+    CommonActions.navigate({
+      name: "Profile",
+      params: {
+        screen: "PreferenceOnboarding",
+        params: { source: "edit_profile" },
+      },
+    }),
+  );
+}
+
+/** Push EditProfile on the current browse/profile stack so back returns with pop animation. */
+export function navigateToEditProfile(nav: NavigationProp<ParamListBase>): void {
+  let node: NavigationProp<ParamListBase> | undefined = nav;
+  while (node) {
+    const routeNames = node.getState()?.routeNames ?? [];
+    if (routeNames.includes("EditProfile")) {
+      (node as StackPushNav).push("EditProfile");
+      return;
+    }
+    node = node.getParent() ?? undefined;
+  }
+
+  const tabNav = findTabNavigator(nav);
+  tabNav?.dispatch(
+    CommonActions.navigate({
+      name: "Profile",
+      params: { screen: "EditProfile" },
+    }),
+  );
+}
+
 export function navigateToPublicProfile(
   nav: NavigationProp<ParamListBase>,
   userId: string,

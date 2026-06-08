@@ -55,6 +55,7 @@ export type BrowseFlowParamList = {
   AIBooking: { id?: string } | undefined;
   VibeMatch: undefined;
   SubscriptionPaywall: { reason?: "no_credits" | "upgrade" } | undefined;
+  EditProfile: undefined;
   PublicProfile: PublicProfileRouteParams;
   MessageThread: MessageThreadRouteParams;
 };

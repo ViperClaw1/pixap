@@ -17,8 +17,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { asParamListNavigation } from "@/app/navigation/appNavigation";
 import type { ProfileStackParamList } from "@/app/navigation/types";
+import {
+  leaveAfterEditProfileSave,
+  leaveEditProfileScreen,
+  openPreferenceOnboardingFromEditProfile,
+} from "@/app/navigation/navigationHelpers";
 import * as ImagePicker from "expo-image-picker";
 import { useProfile, useUpdateProfile, useUploadProfileAvatar } from "@/entities/user";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -101,11 +105,9 @@ function EditProfileScreenContent() {
     [t],
   );
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList, "EditProfile">>();
-  const leaveToProfileMain = useCallback(() => {
-    navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
-  }, [navigation]);
+  const leaveEditProfile = useCallback(() => leaveEditProfileScreen(navigation), [navigation]);
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
-    swipeBackFallback: leaveToProfileMain,
+    swipeBackFallback: leaveEditProfile,
   });
   const { colors, mode, setMode } = useAppTheme();
   const { user } = useAuth();
@@ -347,27 +349,14 @@ function EditProfileScreenContent() {
         bio: trimmedBio || null,
         avatar_url: trimmedAvatar || null,
       });
-      const stackNavigation = asParamListNavigation(navigation);
-      const goToProfile = () => {
-        stackNavigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
-        const rootNavigation = stackNavigation.getParent();
-        rootNavigation?.navigate("Profile", { screen: "ProfileMain" });
-      };
       appAlert(
         t("editProfile.savedTitle"),
         t("editProfile.savedBody"),
         [
-          { text: t("common.ok"), onPress: goToProfile },
+          { text: t("common.ok"), onPress: () => leaveAfterEditProfileSave(navigation) },
           {
             text: t("editProfile.personalizeCta"),
-            onPress: () =>
-              navigation.reset({
-                index: 1,
-                routes: [
-                  { name: "ProfileMain" },
-                  { name: "PreferenceOnboarding", params: { source: "edit_profile" } },
-                ],
-              }),
+            onPress: () => openPreferenceOnboardingFromEditProfile(navigation),
           },
         ],
         "success",
@@ -394,7 +383,7 @@ function EditProfileScreenContent() {
         title={t("header.editProfile")}
         compactTitle
         leftIcon="arrow-back"
-        onLeftPress={() => (navigation.canGoBack() ? navigation.goBack() : leaveToProfileMain())}
+        onLeftPress={leaveEditProfile}
         rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
         onRightPress={toggleThemeMode}
       />

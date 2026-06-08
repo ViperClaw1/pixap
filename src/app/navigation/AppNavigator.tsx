@@ -125,7 +125,6 @@ function ProfileStackNavigator() {
       />
       <ProfileStack.Screen name="ResetPassword" getComponent={() => require("@/pages/reset-password").default} />
       <ProfileStack.Screen name="PasswordResetSent" getComponent={() => require("@/pages/password-reset-sent").default} />
-      <ProfileStack.Screen name="EditProfile" getComponent={() => require("@/pages/edit-profile").default} options={fullWidthSwipeBackOptions} />
       <ProfileStack.Screen
         name="PreferenceOnboarding"
         getComponent={() => require("@/pages/preference-onboarding").default}

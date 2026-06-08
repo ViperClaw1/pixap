@@ -52,7 +52,16 @@ import {
   isHomeCategorySelectable,
 } from "@/entities/category";
 import { useProfile } from "@/entities/user";
-import { isProfileComplete } from "@/shared/lib/profileCompletion";
+import {
+  BookingPersonalDataNotice,
+  BookingPersonalDataRequiredModal,
+  BookingProfileCompleteTip,
+  showGuestFormValidationPopup,
+  showMissingBookingDatePopup,
+  showMissingBookingSlotPopup,
+  type GuestFormFieldError,
+} from "@/features/booking-personal-data-notice";
+import { isPersonalDataComplete, shouldShowBookingPersonalDataNotice } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
 import { useBookingAccess } from "@/features/booking-access";
@@ -330,6 +339,7 @@ function AIBookingPageContent() {
   const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [resetChatConfirmVisible, setResetChatConfirmVisible] = useState(false);
+  const [personalDataRequiredVisible, setPersonalDataRequiredVisible] = useState(false);
   const [form, setForm] = useState<DraftForm>({
     persons: AI_BOOKING_DEFAULT_PERSONS,
     customer_name: "",
@@ -488,21 +498,8 @@ function AIBookingPageContent() {
     return filterCityGroups(grouped, citySearchQuery);
   }, [concreteCities, citySearchQuery]);
 
-  const redirectToEditProfile = () => {
-    navigation.getParent()?.dispatch(
-      CommonActions.navigate({
-        name: "Profile",
-        params: { screen: "EditProfile" },
-      }),
-    );
-  };
-
-  const ensureProfileComplete = () => {
-    if (isProfileComplete(profile)) return true;
-    Alert.alert(t("bookingCommon.profileIncompleteTitle"), t("bookingCommon.profileIncompleteMessage"));
-    redirectToEditProfile();
-    return false;
-  };
+  const showPersonalDataNotice = shouldShowBookingPersonalDataNotice(user, profile);
+  const showProfileCompleteTip = !isPersonalDataComplete(profile);
 
   const styles = useAIBookingStyles({ top: insets.top, bottom: insets.bottom });
 
@@ -799,7 +796,6 @@ function AIBookingPageContent() {
 
   const onSearchPlaces = async (scopeOverride?: "nearby" | "city") => {
     if (isSearchingPlaces || isLoading) return;
-    if (!ensureProfileComplete()) return;
     const searchScope = scopeOverride ?? scope;
     if (!selectedCity || selectedCity === ALL_CITIES_OPTION) {
       Alert.alert(t("bookingCommon.chooseCity"), t("bookingCommon.chooseCityMessage"));
@@ -988,34 +984,43 @@ function AIBookingPageContent() {
   const personsCount = Number(form.persons) || Number(AI_BOOKING_DEFAULT_PERSONS);
   const bookingTimeLabel = selectedSlot?.label ?? null;
 
+  const getGuestFormError = (): GuestFormFieldError | null => {
+    if (!validationSchema.persons(form.persons)) return "partySize";
+    if (!validationSchema.customer_name(form.customer_name)) return "name";
+    if (!validationSchema.customer_phone(form.customer_phone)) return "phone";
+    if (!validationSchema.customer_email(form.customer_email)) return "email";
+    return null;
+  };
+
   const onCreateDraft = async () => {
     if (confirmingBooking) return;
     if (!canUseBookingCredits) {
       Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
       return;
     }
-    if (!ensureProfileComplete()) return;
-    if (!selectedPlace || !selectedSlot) {
-      Alert.alert(t("aiBooking.missingSelectionTitle"), t("aiBooking.missingSelectionMessage"));
+    if (!selectedPlace) {
+      appAlert(t("aiBooking.missingSelectionTitle"), t("aiBooking.missingSelectionMessage"), undefined, "info");
+      return;
+    }
+    if (!bookingDateYmd) {
+      showMissingBookingDatePopup(t);
+      return;
+    }
+    if (!selectedSlot) {
+      showMissingBookingSlotPopup(t);
+      return;
+    }
+    const formError = getGuestFormError();
+    if (formError) {
+      showGuestFormValidationPopup({
+        error: formError,
+        showPersonalDataNotice,
+        onPersonalDataRequired: () => setPersonalDataRequiredVisible(true),
+        t,
+      });
       return;
     }
     const persons = Number(form.persons);
-    if (!validationSchema.persons(form.persons)) {
-      Alert.alert(t("aiBooking.invalidPersonsTitle"), t("aiBooking.invalidPersonsMessage"));
-      return;
-    }
-    if (!validationSchema.customer_name(form.customer_name)) {
-      Alert.alert(t("aiBooking.missingDetailsTitle"), t("bookingCommon.nameRequired"));
-      return;
-    }
-    if (!validationSchema.customer_phone(form.customer_phone)) {
-      Alert.alert(t("aiBooking.invalidPhoneTitle"), t("bookingCommon.invalidPhone"));
-      return;
-    }
-    if (!validationSchema.customer_email(form.customer_email)) {
-      Alert.alert(t("aiBooking.invalidEmailTitle"), t("bookingCommon.invalidEmail"));
-      return;
-    }
 
     setConfirmingBooking(true);
     try {
@@ -1152,6 +1157,11 @@ function AIBookingPageContent() {
             <Text style={styles.title}>{t("aiBooking.title")}</Text>
           </View>
           <Text style={styles.subtitle}>{t("aiBooking.subtitle")}</Text>
+          <BookingPersonalDataNotice
+            visible={showPersonalDataNotice}
+            navigation={navigation}
+            style={{ marginTop: 12 }}
+          />
         </View>
 
         {currentStep === "assistant" ? (
@@ -1242,6 +1252,14 @@ function AIBookingPageContent() {
         ) : null}
 
         {currentStep === "booking" ? (
+          <BookingPersonalDataNotice
+            visible={showPersonalDataNotice}
+            navigation={navigation}
+            style={{ marginHorizontal: 16, marginBottom: 12 }}
+          />
+        ) : null}
+
+        {currentStep === "booking" ? (
           <AIBookingCustomerForm
             styles={styles}
             form={form}
@@ -1250,6 +1268,13 @@ function AIBookingPageContent() {
             selectedPlace={selectedPlace}
             onCreateDraft={onCreateDraft}
             submitting={confirmingBooking}
+            profileCompleteTip={
+              <BookingProfileCompleteTip
+                visible={showProfileCompleteTip}
+                navigation={navigation}
+                style={{ marginTop: 4 }}
+              />
+            }
           />
         ) : null}
         </ScrollView>
@@ -1433,6 +1458,11 @@ function AIBookingPageContent() {
           ]}
         />
       </Modal>
+      <BookingPersonalDataRequiredModal
+        visible={personalDataRequiredVisible}
+        onClose={() => setPersonalDataRequiredVisible(false)}
+        navigation={navigation}
+      />
     </View>
   );
 }

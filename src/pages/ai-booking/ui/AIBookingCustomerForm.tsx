@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { ActivityIndicator, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -23,6 +23,7 @@ type Props = {
   selectedPlace: PixAIPlace | null;
   onCreateDraft: () => void;
   submitting?: boolean;
+  profileCompleteTip?: ReactNode;
 };
 
 export function AIBookingCustomerForm({
@@ -33,6 +34,7 @@ export function AIBookingCustomerForm({
   selectedPlace,
   onCreateDraft,
   submitting = false,
+  profileCompleteTip,
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -85,6 +87,7 @@ export function AIBookingCustomerForm({
             placeholderTextColor={colors.textMuted}
           />
         </View>
+        {profileCompleteTip}
         <AppPressable
           style={[s.primaryBtn, submitting && { opacity: 0.55 }]}
           disabled={submitting}
