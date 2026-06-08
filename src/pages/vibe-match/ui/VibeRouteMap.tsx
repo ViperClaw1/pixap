@@ -58,7 +58,16 @@ export function VibeRouteMap({
   const loadingSpinnerColor = loadingOverlayLight ? "#ffffff" : colors.primary;
   const loadingTextColor = loadingOverlayLight ? "#ffffff" : colors.text;
 
-  if (!isLoading && points.length === 0) {
+  if (points.length === 0) {
+    if (isLoading) {
+      return (
+        <View style={[styles.wrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <View style={[styles.mapFallback, { backgroundColor: colors.background }]}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        </View>
+      );
+    }
     return (
       <View style={[styles.placeholder, { backgroundColor: colors.background, borderColor: colors.border }]}>
         <Text style={[styles.placeholderText, { color: colors.textMuted }]}>
@@ -93,7 +102,7 @@ export function VibeRouteMap({
           ) : null}
         </View>
       ) : null}
-      {showRouteMeta ? (
+      {showRouteMeta && !isLoading ? (
         <View style={[styles.routeMeta, { backgroundColor: colors.card }]} pointerEvents="none">
           <View style={styles.routeMetaRow}>
             <Ionicons name={activeMode.icon} size={12} color={colors.accent} />

@@ -122,6 +122,11 @@ export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
         options={fullWidthSwipeBackOptions}
       />
       <Screen
+        name="EditProfile"
+        getComponent={() => require("@/pages/edit-profile").default}
+        options={fullWidthSwipeBackOptions}
+      />
+      <Screen
         name="PublicProfile"
         getComponent={() => require("@/pages/public-profile").default}
         options={fullWidthSwipeBackOptions}

@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useTranslation } from "react-i18next";
 import { CommonActions, useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
@@ -21,7 +21,27 @@ import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { bookingFlowThemedStaticStyles, bookingFlowThemedThemeStyles } from "./bookingFlowThemeStyles";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { BookingFlowPlacePanel } from "@/shared/ui/booking-place-panel";
-import { isProfileComplete } from "@/shared/lib/profileCompletion";
+import {
+  BookingPersonalDataNotice,
+  BookingPersonalDataRequiredModal,
+  BookingProfileCompleteTip,
+  showGuestFormValidationPopup,
+  showMissingAvailableSlotPopup,
+  showMissingBookingSlotPopup,
+} from "@/features/booking-personal-data-notice";
+import type { GuestFormFieldError } from "@/features/booking-personal-data-notice/lib/guestFormValidation";
+import {
+  DEFAULT_PHONE_VALUE,
+  parseStoredPhone,
+  serializePhone,
+  validatePhoneValue,
+  type PhoneValue,
+} from "@/shared/ui/phone-input";
+import { BookingFlowCustomerForm } from "./BookingFlowCustomerForm";
+import {
+  isPersonalDataComplete,
+  shouldShowBookingPersonalDataNotice,
+} from "@/shared/lib/profileCompletion";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { devWarn } from "@/shared/lib/devLog";
@@ -52,11 +72,7 @@ import {
   chunkCells,
 } from "@/shared/lib/bookingCalendar";
 
-function profileString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type R = RouteProp<BrowseFlowParamList, "BookingFlow">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "BookingFlow">;
@@ -100,7 +116,12 @@ export default function BookingFlowPage() {
   const [visibleCalendarMonth, setVisibleCalendarMonth] = useState<Date>(() => firstOfMonthContaining(new Date()));
   const [selectedTime, setSelectedTime] = useState("");
   const [guests, setGuests] = useState(BOOKING_FLOW_DEFAULT_GUESTS);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState<PhoneValue>(DEFAULT_PHONE_VALUE);
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [comment, setComment] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [personalDataRequiredVisible, setPersonalDataRequiredVisible] = useState(false);
   const useMonotoneDarkBackground = isDark && (step === 0 || step === 2);
   const selectedDate = useMemo(() => fromYmd(selectedDateYmd), [selectedDateYmd]);
   const themed = useThemeStyles(({ colors: c, isDark: dark }) => bookingFlowThemedThemeStyles(c, dark));
@@ -122,6 +143,26 @@ export default function BookingFlowPage() {
     () => slotsForDate.find((slot) => slot.label === selectedTime && slot.available) ?? null,
     [selectedTime, slotsForDate],
   );
+  const showPersonalDataNotice = shouldShowBookingPersonalDataNotice(user, profile);
+  const showProfileCompleteTip = !isPersonalDataComplete(profile);
+
+  useEffect(() => {
+    if (!profile) return;
+    const defaultFullName = `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim();
+    const defaultPhone = parseStoredPhone(profile.phone);
+    const defaultEmail = (profile.email ?? user?.email ?? "").trim();
+    setCustomerName((prev) => (prev.trim() ? prev : defaultFullName));
+    setCustomerPhone((prev) => (prev.nationalDigits ? prev : defaultPhone));
+    setCustomerEmail((prev) => (prev.trim() ? prev : defaultEmail));
+  }, [profile, user?.email]);
+
+  const getGuestFormError = useCallback((): GuestFormFieldError | null => {
+    if (!Number.isFinite(guests) || guests < BOOKING_FLOW_MIN_GUESTS) return "partySize";
+    if (!customerName.trim()) return "name";
+    if (validatePhoneValue(customerPhone) !== null) return "phone";
+    if (!EMAIL_REGEX.test(customerEmail.trim())) return "email";
+    return null;
+  }, [customerEmail, customerName, customerPhone, guests]);
 
   if (placeLoading) {
     return (
@@ -153,6 +194,7 @@ export default function BookingFlowPage() {
   );
   const canGoPrevMonth = monthKey(visibleCalendarMonth) > monthKey(earliestBookableMonth);
   const canGoNextMonth = monthKey(visibleCalendarMonth) < monthKey(latestBookableMonth);
+
   const onFavoritePress = () => {
     if (!user) {
       navigateToProfileAuth(navigation);
@@ -167,35 +209,30 @@ export default function BookingFlowPage() {
       Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
       return;
     }
-    if (!isProfileComplete(profile)) {
-      Alert.alert("Profile incomplete", "Please, fill out all your profile data before booking.");
-      navigation.getParent()?.dispatch(
-        CommonActions.navigate({
-          name: "Profile",
-          params: { screen: "EditProfile" },
-        }),
-      );
+    if (!selectedTime) {
+      showMissingBookingSlotPopup(t);
       return;
     }
     if (!selectedAvailableSlot) {
-      Alert.alert("Pick an available time");
+      showMissingAvailableSlotPopup(t);
+      return;
+    }
+    const formError = getGuestFormError();
+    if (formError) {
+      showGuestFormValidationPopup({
+        error: formError,
+        showPersonalDataNotice,
+        onPersonalDataRequired: () => setPersonalDataRequiredVisible(true),
+        t,
+      });
+      return;
+    }
+    if (!isPersonalDataComplete(profile)) {
+      setPersonalDataRequiredVisible(true);
       return;
     }
     const dateTime = new Date(selectedAvailableSlot.dateTimeIso);
-    const profileFullName = [profile?.first_name, profile?.last_name]
-      .map((part) => profileString(part))
-      .filter(Boolean)
-      .join(" ");
-    const customerName =
-      profileString(profileFullName) ??
-      profileString(user?.user_metadata?.full_name) ??
-      profileString(user?.email?.split("@")[0]) ??
-      "Client";
-    const customerPhone =
-      profileString(profile?.phone) ??
-      profileString(user?.user_metadata?.phone) ??
-      profileString(user?.phone) ??
-      null;
+    const phoneToSave = serializePhone(customerPhone);
     setConfirming(true);
     try {
       const price = Number(place.booking_price);
@@ -204,8 +241,10 @@ export default function BookingFlowPage() {
         date_time: dateTime.toISOString(),
         cost: price,
         persons: guests,
-        customer_name: customerName,
-        customer_phone: customerPhone,
+        customer_name: customerName.trim(),
+        customer_phone: phoneToSave,
+        customer_email: customerEmail.trim(),
+        comment: comment.trim() || null,
         payment_status: "pending",
         status: "upcoming",
       });
@@ -214,8 +253,10 @@ export default function BookingFlowPage() {
         date_time: dateTime.toISOString(),
         cost: price,
         persons: guests,
-        customer_name: customerName,
-        customer_phone: customerPhone,
+        customer_name: customerName.trim(),
+        customer_phone: phoneToSave,
+        customer_email: customerEmail.trim(),
+        comment: comment.trim() || null,
         is_restaurant_table: false,
       });
       const accessToken = session?.access_token;
@@ -254,6 +295,7 @@ export default function BookingFlowPage() {
   };
 
   return (
+    <>
     <View style={[styles.root, { backgroundColor: colors.background }]} {...androidSwipeBackPanHandlers}>
       {step === 1 ? (
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
@@ -272,6 +314,11 @@ export default function BookingFlowPage() {
       {step === 1 ? (
         <ScrollView contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
           <View style={styles.stepContent}>
+            <BookingPersonalDataNotice
+              visible={showPersonalDataNotice}
+              navigation={navigation}
+              style={{ marginBottom: 12 }}
+            />
             <Text style={[styles.section, themedStyles.sectionText]}>Select date & time</Text>
             <View style={[styles.calendarPanel, themedStyles.calendarPanel]}>
               <View style={styles.calendarNav}>
@@ -397,6 +444,21 @@ export default function BookingFlowPage() {
                 ))}
               </View>
             )}
+            <BookingFlowCustomerForm
+              customerName={customerName}
+              onCustomerNameChange={setCustomerName}
+              customerPhone={customerPhone}
+              onCustomerPhoneChange={setCustomerPhone}
+              customerEmail={customerEmail}
+              onCustomerEmailChange={setCustomerEmail}
+              comment={comment}
+              onCommentChange={setComment}
+            />
+            <BookingProfileCompleteTip
+              visible={showProfileCompleteTip}
+              navigation={navigation}
+              style={{ marginTop: 4 }}
+            />
           </View>
         </ScrollView>
       ) : (
@@ -417,6 +479,11 @@ export default function BookingFlowPage() {
               onPressBack={() => navigation.goBack()}
               useMonotoneDarkBackground={useMonotoneDarkBackground}
             >
+              <BookingPersonalDataNotice
+                visible={showPersonalDataNotice}
+                navigation={navigation}
+                style={{ marginBottom: 12 }}
+              />
               <Text style={[styles.section, themedStyles.sectionText]}>Number of guests</Text>
               <View style={styles.guestRow}>
                 <AppPressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.max(BOOKING_FLOW_MIN_GUESTS, guests - 1))}>
@@ -460,23 +527,25 @@ export default function BookingFlowPage() {
           <AppPressable
             style={styles.primary}
             onPress={() => {
-              if (step === 0 && !isProfileComplete(profile)) {
-                Alert.alert("Profile incomplete", "Please, fill out all your profile data before booking.");
-                navigation.getParent()?.dispatch(
-                  CommonActions.navigate({
-                    name: "Profile",
-                    params: { screen: "EditProfile" },
-                  }),
-                );
-                return;
-              }
               if (step === 1 && !selectedTime) {
-                Alert.alert("Pick a time");
+                showMissingBookingSlotPopup(t);
                 return;
               }
               if (step === 1 && !selectedAvailableSlot) {
-                Alert.alert("Pick an available time");
+                showMissingAvailableSlotPopup(t);
                 return;
+              }
+              if (step === 1) {
+                const formError = getGuestFormError();
+                if (formError) {
+                  showGuestFormValidationPopup({
+                    error: formError,
+                    showPersonalDataNotice,
+                    onPersonalDataRequired: () => setPersonalDataRequiredVisible(true),
+                    t,
+                  });
+                  return;
+                }
               }
               setStep(step + 1);
             }}
@@ -499,6 +568,12 @@ export default function BookingFlowPage() {
         )}
       </View>
     </View>
+    <BookingPersonalDataRequiredModal
+      visible={personalDataRequiredVisible}
+      onClose={() => setPersonalDataRequiredVisible(false)}
+      navigation={navigation}
+    />
+    </>
   );
 }
 

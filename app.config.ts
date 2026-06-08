@@ -39,7 +39,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     buildNumber: iosBuildNumber,
     supportsTablet: false,
     bundleIdentifier: "com.pixap.pixap",
-    associatedDomains: ["applinks:pixapp.kz", "applinks:www.pixapp.kz"],
+    associatedDomains: ["applinks:pixapp.kz"],
     infoPlist: {
       ...config.ios?.infoPlist,
       ITSAppUsesNonExemptEncryption: false,
@@ -49,6 +49,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "Pixap accesses your photo library when you choose images to upload for partner listings.",
       NSLocationWhenInUseUsageDescription:
         "Pixap uses your location to show directions to venues and to check you in at nearby places for the Live Crowd feature.",
+      NSMicrophoneUsageDescription:
+        "Pixap uses the microphone so you can dictate messages in chat.",
+      NSUserNotificationsUsageDescription:
+        "Pixap sends notifications for booking status updates and new messages.",
       UIBackgroundModes: ["remote-notification"],
     },
     config: {
