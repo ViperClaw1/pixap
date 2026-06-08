@@ -53,7 +53,6 @@ import {
 } from "@/entities/category";
 import { useProfile } from "@/entities/user";
 import {
-  BookingPersonalDataNotice,
   BookingPersonalDataRequiredModal,
   BookingProfileCompleteTip,
   showGuestFormValidationPopup,
@@ -1157,11 +1156,6 @@ function AIBookingPageContent() {
             <Text style={styles.title}>{t("aiBooking.title")}</Text>
           </View>
           <Text style={styles.subtitle}>{t("aiBooking.subtitle")}</Text>
-          <BookingPersonalDataNotice
-            visible={showPersonalDataNotice}
-            navigation={navigation}
-            style={{ marginTop: 12 }}
-          />
         </View>
 
         {currentStep === "assistant" ? (
@@ -1249,14 +1243,6 @@ function AIBookingPageContent() {
               selectedSlot={selectedSlot}
             />
           </>
-        ) : null}
-
-        {currentStep === "booking" ? (
-          <BookingPersonalDataNotice
-            visible={showPersonalDataNotice}
-            navigation={navigation}
-            style={{ marginHorizontal: 16, marginBottom: 12 }}
-          />
         ) : null}
 
         {currentStep === "booking" ? (

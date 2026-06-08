@@ -60,7 +60,6 @@ import { normalizeWaInterfaceLocale, startN8nWaBooking } from "@/entities/cart";
 import { i18n, PageI18nProvider } from "@/shared/lib/i18n";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import {
-  BookingPersonalDataNotice,
   BookingPersonalDataRequiredModal,
   BookingProfileCompleteTip,
   showGuestFormValidationPopup,
@@ -1073,12 +1072,6 @@ function VibeMatchPageContent() {
 
         {suggestedPlan.length > 0 && !showPaywallCta ? (
           <View style={styles.section}>
-            <BookingPersonalDataNotice
-              visible={showPersonalDataNotice}
-              navigation={navigation}
-              variant="required"
-              style={{ marginBottom: 12 }}
-            />
             <Text style={styles.label}>{t("vibeMatch.guestDetails")}</Text>
             <TextInput
               style={styles.input}

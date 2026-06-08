@@ -22,7 +22,6 @@ import { bookingFlowThemedStaticStyles, bookingFlowThemedThemeStyles } from "./b
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { BookingFlowPlacePanel } from "@/shared/ui/booking-place-panel";
 import {
-  BookingPersonalDataNotice,
   BookingPersonalDataRequiredModal,
   BookingProfileCompleteTip,
   showGuestFormValidationPopup,
@@ -314,11 +313,6 @@ export default function BookingFlowPage() {
       {step === 1 ? (
         <ScrollView contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
           <View style={styles.stepContent}>
-            <BookingPersonalDataNotice
-              visible={showPersonalDataNotice}
-              navigation={navigation}
-              style={{ marginBottom: 12 }}
-            />
             <Text style={[styles.section, themedStyles.sectionText]}>Select date & time</Text>
             <View style={[styles.calendarPanel, themedStyles.calendarPanel]}>
               <View style={styles.calendarNav}>
@@ -479,11 +473,6 @@ export default function BookingFlowPage() {
               onPressBack={() => navigation.goBack()}
               useMonotoneDarkBackground={useMonotoneDarkBackground}
             >
-              <BookingPersonalDataNotice
-                visible={showPersonalDataNotice}
-                navigation={navigation}
-                style={{ marginBottom: 12 }}
-              />
               <Text style={[styles.section, themedStyles.sectionText]}>Number of guests</Text>
               <View style={styles.guestRow}>
                 <AppPressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => setGuests(Math.max(BOOKING_FLOW_MIN_GUESTS, guests - 1))}>
