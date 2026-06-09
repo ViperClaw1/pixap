@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
+import { radii } from "@/shared/theme/radii";
 import {
   SHARED_PRESSABLE_HEIGHT,
   SHARED_PRESSABLE_RADIUS,
@@ -7,11 +8,78 @@ import {
   primaryPressableTextStyle,
 } from "@/shared/theme/primaryPressable";
 
+export const PLACE_DETAIL_HERO_HEIGHT = 360;
+export const PLACE_DETAIL_STICKY_BOOKING_HEIGHT = 64;
+
+/** Hero controls sit on photos — always light glyphs on a dark frosted pill. */
+export const HERO_OVERLAY_ICON_COLOR = "#ffffff";
+export const HERO_OVERLAY_BTN_BG = "rgba(0,0,0,0.55)";
+export const HERO_OVERLAY_BTN_BORDER = "rgba(255,255,255,0.32)";
+/** White content card overlaps hero by this amount (see `card.marginTop`). */
+export const PLACE_DETAIL_CARD_HERO_OVERLAP = 24;
+/** Visible inset of hero footer above the card overlap + breathing room. */
+export const PLACE_DETAIL_HERO_FOOTER_BOTTOM =
+  PLACE_DETAIL_CARD_HERO_OVERLAP + 16;
+
 export const placeDetailStaticStyles = StyleSheet.create({
   root: { flex: 1 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
-  heroWrap: { width: "100%", height: 280, overflow: "hidden" },
-  hero: { width: "100%", height: 280 },
+  heroWrap: { width: "100%", height: PLACE_DETAIL_HERO_HEIGHT, overflow: "hidden" },
+  heroMediaLayer: { width: "100%", height: PLACE_DETAIL_HERO_HEIGHT },
+  hero: { width: "100%", height: PLACE_DETAIL_HERO_HEIGHT },
+  heroGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: PLACE_DETAIL_HERO_HEIGHT * 0.5,
+    zIndex: 2,
+  },
+  heroFooter: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: PLACE_DETAIL_HERO_FOOTER_BOTTOM,
+    zIndex: 5,
+    gap: 8,
+    paddingBottom: 4,
+  },
+  heroInfoRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 12,
+  },
+  heroInfoText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#ffffff",
+    lineHeight: 28,
+  },
+  heroRating: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.88)",
+  },
+  heroStoriesBadge: {
+    position: "absolute",
+    right: 16,
+    top: 0,
+    zIndex: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  heroStoriesBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
   heroBar: {
     position: "absolute",
     left: 16,
@@ -19,17 +87,33 @@ export const placeDetailStaticStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    zIndex: 5,
+    zIndex: 6,
   },
   heroBarActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    backgroundColor: HERO_OVERLAY_BTN_BG,
+    borderWidth: 1,
+    borderColor: HERO_OVERLAY_BTN_BORDER,
   },
-  iconBtn: {
+  heroBackBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: HERO_OVERLAY_BTN_BG,
+    borderWidth: 1,
+    borderColor: HERO_OVERLAY_BTN_BORDER,
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -41,13 +125,10 @@ export const placeDetailStaticStyles = StyleSheet.create({
     zIndex: 6,
   },
   heroDotsRow: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 10,
     flexDirection: "row",
     justifyContent: "center",
     gap: 6,
+    alignSelf: "center",
   },
   heroDot: {
     width: 7,
@@ -55,19 +136,13 @@ export const placeDetailStaticStyles = StyleSheet.create({
     borderRadius: 3.5,
   },
   heroDotActive: {},
-  heroSeeAllRow: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 33,
-    alignItems: "center",
-    zIndex: 7,
-  },
   heroSeeAllBadge: {
-    paddingHorizontal: 14,
+    flexShrink: 0,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: "rgba(0,0,0,0.55)",
+    maxWidth: 128,
   },
   heroSeeAllBadgeText: {
     fontSize: 13,
@@ -75,7 +150,7 @@ export const placeDetailStaticStyles = StyleSheet.create({
     color: "#ffffff",
   },
   card: {
-    marginTop: -24,
+    marginTop: -PLACE_DETAIL_CARD_HERO_OVERLAP,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -113,14 +188,30 @@ export const placeDetailStaticStyles = StyleSheet.create({
   desc: { marginTop: 16, lineHeight: 22 },
   addr: { marginTop: 12 },
   actions: { flexDirection: "row", gap: 10, marginTop: 16 },
-  secondaryBtn: {
+  callBtn: {
     flex: 1,
-    minHeight: SHARED_PRESSABLE_HEIGHT,
-    borderRadius: SHARED_PRESSABLE_RADIUS,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
+    minHeight: SHARED_PRESSABLE_HEIGHT,
+    borderRadius: SHARED_PRESSABLE_RADIUS,
+    borderWidth: 1.5,
+    paddingHorizontal: 10,
   },
-  secondaryBtnText: { fontWeight: "600" },
+  callBtnText: { fontWeight: "700", fontSize: 14 },
+  directionsBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    minHeight: SHARED_PRESSABLE_HEIGHT,
+    borderRadius: SHARED_PRESSABLE_RADIUS,
+    borderWidth: 1.5,
+    paddingHorizontal: 10,
+  },
+  directionsBtnText: { fontWeight: "700", fontSize: 14 },
   primaryBtn: {
     marginTop: 16,
     ...primaryPressableStyle,
@@ -135,9 +226,59 @@ export const placeDetailStaticStyles = StyleSheet.create({
     justifyContent: "center",
   },
   outlineBtnText: { fontWeight: "700" },
+  stickyBookingBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    zIndex: 20,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+  },
+  stickyBtnWrap: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: SHARED_PRESSABLE_RADIUS,
+    overflow: "hidden",
+  },
+  stickyPrimaryBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: SHARED_PRESSABLE_RADIUS,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  stickyPrimaryBtnText: { fontWeight: "700", fontSize: 15 },
+  stickyPixAIBtn: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 36,
+  },
+  stickyPixAIBtnIcon: {
+    position: "absolute",
+    left: 12,
+  },
+  stickyPixAIBtnText: {
+    fontWeight: "800",
+    fontSize: 14,
+    color: "#ffffff",
+    textAlign: "center",
+    width: "100%",
+  },
 });
 
-export function placeDetailThemeStyles(colors: ThemeColors) {
+export function placeDetailThemeStyles(colors: ThemeColors, isDark: boolean) {
   return {
     root: { backgroundColor: colors.background },
     card: {
@@ -160,12 +301,24 @@ export function placeDetailThemeStyles(colors: ThemeColors) {
     },
     desc: { color: colors.textMuted },
     addr: { color: colors.text },
-    secondaryBtn: { backgroundColor: colors.border },
-    secondaryBtnText: { color: colors.text },
+    callBtn: {
+      backgroundColor: colors.accentSurface,
+      borderColor: colors.accent,
+    },
+    callBtnText: { color: colors.accent },
+    directionsBtn: {
+      backgroundColor: isDark ? "rgba(96,165,250,0.22)" : "rgba(37,99,235,0.12)",
+      borderColor: colors.link,
+    },
+    directionsBtnText: { color: colors.link },
     outlineBtn: { borderColor: colors.primary },
     outlineBtnText: { color: colors.primary },
-    iconBtn: { backgroundColor: colors.mediaOverlay },
-    iconBtnText: { color: colors.mediaOverlayText },
+    stickyBookingBar: {
+      backgroundColor: colors.background,
+      borderTopColor: colors.border,
+    },
+    stickyPrimaryBtn: { backgroundColor: colors.primary },
+    stickyPrimaryBtnText: { color: colors.onPrimary },
     heroDot: { backgroundColor: colors.heroDot },
     heroDotActive: { backgroundColor: colors.heroDotActive },
   } satisfies Partial<Record<keyof typeof placeDetailStaticStyles, object>>;

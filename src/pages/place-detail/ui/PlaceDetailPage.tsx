@@ -3,14 +3,15 @@ import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {
+  Animated,
   InteractionManager,
   Platform,
   View,
   Text,
-  ScrollView,
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { useRoute, useNavigation, useIsFocused, type RouteProp } from "@react-navigation/native";
@@ -38,7 +39,14 @@ import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDi
 import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
-import { placeDetailStaticStyles, placeDetailThemeStyles } from "./placeDetailStyles";
+import {
+  HERO_OVERLAY_ICON_COLOR,
+  PLACE_DETAIL_HERO_HEIGHT,
+  PLACE_DETAIL_STICKY_BOOKING_HEIGHT,
+  placeDetailStaticStyles,
+  placeDetailThemeStyles,
+} from "./placeDetailStyles";
+import { ctaGradientColors, HERO_OVERLAY_GRADIENT } from "@/shared/theme/gradients";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
 import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
 import { useBatchStoryUpload } from "@/features/create-story";
@@ -67,7 +75,7 @@ export default function PlaceDetailScreen() {
   });
   const insets = useSafeAreaInsets();
   const isScreenFocused = useIsFocused();
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const { data: place, isLoading } = useBusinessCard(id);
   const { width: windowWidth } = useStaticWindowSize();
   const { data: reviews = [] } = useReviews(id);
@@ -91,8 +99,10 @@ export default function PlaceDetailScreen() {
   const [heroSlide, setHeroSlide] = useState(0);
   const [heroPaused, setHeroPaused] = useState(false);
   const [seenStoryIds, setSeenStoryIds] = useState<Record<string, true>>({});
+  const [checkInRippleToken, setCheckInRippleToken] = useState(0);
   const progress = useSharedValue(0);
   const lastTapRef = useRef<{ at: number; index: number } | null>(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const crowdCheckin = usePlaceCrowdCheckin({
     venueId: id,
@@ -116,6 +126,7 @@ export default function PlaceDetailScreen() {
   const presentCrowdCheckInOutcome = useCallback(
     (outcome: CrowdCheckinOutcome) => {
       if (outcome === "recorded") {
+        setCheckInRippleToken((prev) => prev + 1);
         appAlert(t("crowd.checkInSuccess"), t("crowd.checkInSuccessMessage"), undefined, "success");
         return;
       }
@@ -125,7 +136,7 @@ export default function PlaceDetailScreen() {
       }
       if (outcome === "too_far") {
         const devHint = __DEV__
-          ? "\n\n[DEV] См. логи [CrowdCheckin] в Metro: venue coords, GPS, client/server distance_m."
+          ? " [DEV] See [CrowdCheckin] logs in Metro."
           : "";
         appAlert(t("crowd.checkInFailed"), `${t("crowd.tooFar")}${devHint}`, undefined, "alert");
         return;
@@ -162,7 +173,7 @@ export default function PlaceDetailScreen() {
     presentCrowdCheckInOutcome(outcome);
   }, [crowdCheckin, openAuth, presentCrowdCheckInOutcome, user?.id]);
 
-  const themed = useThemeStyles(({ colors: c }) => placeDetailThemeStyles(c));
+  const themed = useThemeStyles(({ colors: c, isDark: dark }) => placeDetailThemeStyles(c, dark));
   const styles = useMemo(
     () => mergeStaticAndThemed(placeDetailStaticStyles, themed),
     [themed],
@@ -234,7 +245,25 @@ export default function PlaceDetailScreen() {
   }, [isCalling, place]);
 
   const heroTop = Math.max(insets.top, 12);
-  const bottomScrollPadding = Platform.OS === "ios" ? Math.max(insets.bottom, 24) : 20;
+  const stickyBookingInset = hideBookingActions ? 0 : PLACE_DETAIL_STICKY_BOOKING_HEIGHT + insets.bottom;
+  const bottomScrollPadding =
+    (Platform.OS === "ios" ? Math.max(insets.bottom, 24) : 20) + stickyBookingInset;
+
+  const parallaxTranslateY = scrollY.interpolate({
+    inputRange: [0, 300],
+    outputRange: [0, -60],
+    extrapolate: "clamp",
+  });
+
+  const storiesThisWeek = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return groupedStories.reduce(
+      (acc, group) =>
+        acc +
+        group.stories.filter((story) => new Date(story.created_at).getTime() >= weekAgo).length,
+      0,
+    );
+  }, [groupedStories]);
   const imageVm = useMemo(() => {
     const { heroImagesRaw, heroFallback } = resolveBusinessCardHeroImagesRaw(place);
     const heroImages = getBusinessCardDisplayUrls(heroImagesRaw, { size: "hero" });
@@ -390,79 +419,125 @@ export default function PlaceDetailScreen() {
 
   return (
     <View style={styles.root} {...androidSwipeBackPanHandlers}>
-    <ScrollView
+    <Animated.ScrollView
       style={styles.root}
       contentContainerStyle={{ paddingBottom: bottomScrollPadding }}
+      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+      })}
+      scrollEventThrottle={16}
     >
       <View style={[styles.heroWrap, { backgroundColor: colors.card }]}>
-        {imageVm.heroImages.length > 1 ? (
-          <>
-            <Carousel
-              width={windowWidth}
-              height={280}
-              data={imageVm.heroImages}
-              loop
-              autoPlay={isScreenFocused && imageVm.heroImages.length > 1}
-              autoPlayInterval={AUTO_SLIDE_MS}
-              enabled={!heroPaused}
-              scrollAnimationDuration={500}
-              onSnapToItem={setHeroSlide}
-              renderItem={renderHeroItem}
-            />
-            <View style={[styles.heroProgressWrap, { top: heroTop }]}>
-              <StoryProgressBar count={imageVm.heroImages.length} currentIndex={heroSlide} progress={progress} />
-            </View>
-            <View style={styles.heroDotsRow}>
+        <Animated.View
+          style={[styles.heroMediaLayer, { transform: [{ translateY: parallaxTranslateY }] }]}
+        >
+          {imageVm.heroImages.length > 1 ? (
+            <>
+              <Carousel
+                width={windowWidth}
+                height={PLACE_DETAIL_HERO_HEIGHT}
+                data={imageVm.heroImages}
+                loop
+                autoPlay={isScreenFocused && imageVm.heroImages.length > 1}
+                autoPlayInterval={AUTO_SLIDE_MS}
+                enabled={!heroPaused}
+                scrollAnimationDuration={500}
+                onSnapToItem={setHeroSlide}
+                renderItem={renderHeroItem}
+              />
+              <View style={[styles.heroProgressWrap, { top: heroTop }]}>
+                <StoryProgressBar count={imageVm.heroImages.length} currentIndex={heroSlide} progress={progress} />
+              </View>
+            </>
+          ) : (
+            <AppPressable
+              onPress={() => handleHeroTap(0)}
+              onLongPress={() => setHeroPaused(true)}
+              onPressOut={() => setHeroPaused(false)}
+              delayLongPress={220}
+            >
+              <SmartImage
+                uri={imageVm.heroImages[0] ?? imageVm.heroFallback}
+                fallbackUri={imageVm.heroImagesRaw[0] ?? null}
+                recyclingKey={place.id}
+                style={styles.hero}
+                contentFit="cover"
+                showLoadingSpinner
+                skipBundledPlaceholder
+                loadingSpinnerColor={colors.primary}
+              />
+            </AppPressable>
+          )}
+        </Animated.View>
+
+        <LinearGradient
+          colors={[...HERO_OVERLAY_GRADIENT]}
+          style={styles.heroGradient}
+          pointerEvents="none"
+        />
+
+        <View style={styles.heroFooter} pointerEvents="box-none">
+          {imageVm.heroImages.length > 1 ? (
+            <View style={styles.heroDotsRow} pointerEvents="none">
               {imageVm.heroImages.map((_, idx) => (
-                <View key={`${place.id}-hero-dot-${idx}`} style={[styles.heroDot, heroSlide === idx && styles.heroDotActive]} />
+                <View
+                  key={`${place.id}-hero-dot-${idx}`}
+                  style={[styles.heroDot, heroSlide === idx && styles.heroDotActive]}
+                />
               ))}
             </View>
+          ) : null}
+          <View style={styles.heroInfoRow}>
+            <View style={styles.heroInfoText} pointerEvents="none">
+              <Text style={styles.heroTitle} numberOfLines={2}>
+                {place.name}
+              </Text>
+              <Text style={styles.heroRating}>
+                {Number(place.rating).toFixed(1)} ({reviews.length}{" "}
+                {t("placeDetail.reviews", { defaultValue: "reviews" })})
+              </Text>
+            </View>
             {imageVm.heroImages.length >= 2 ? (
-              <View style={styles.heroSeeAllRow} pointerEvents="box-none">
-                <AppPressable
-                  style={styles.heroSeeAllBadge}
-                  onPress={openPhotoGrid}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("placeDetail.seeAllPhotosA11y", {
-                    count: imageVm.heroImages.length,
-                  })}
-                >
-                  <Text style={styles.heroSeeAllBadgeText}>
-                    {t("placeDetail.seeAllPhotos", { count: imageVm.heroImages.length })}
-                  </Text>
-                </AppPressable>
-              </View>
+              <AppPressable
+                style={styles.heroSeeAllBadge}
+                onPress={openPhotoGrid}
+                accessibilityRole="button"
+                accessibilityLabel={t("placeDetail.seeAllPhotosA11y", {
+                  count: imageVm.heroImages.length,
+                })}
+              >
+                <Text style={styles.heroSeeAllBadgeText} numberOfLines={1}>
+                  {t("placeDetail.seeAllPhotos", { count: imageVm.heroImages.length })}
+                </Text>
+              </AppPressable>
             ) : null}
-          </>
-        ) : (
-          <AppPressable
-            onPress={() => handleHeroTap(0)}
-            onLongPress={() => setHeroPaused(true)}
-            onPressOut={() => setHeroPaused(false)}
-            delayLongPress={220}
-          >
-            <SmartImage
-              uri={imageVm.heroImages[0] ?? imageVm.heroFallback}
-              fallbackUri={imageVm.heroImagesRaw[0] ?? null}
-              recyclingKey={place.id}
-              style={styles.hero}
-              contentFit="cover"
-              showLoadingSpinner
-              skipBundledPlaceholder
-              loadingSpinnerColor={colors.primary}
-            />
-          </AppPressable>
-        )}
-        <View style={[styles.heroBar, { top: heroTop + 18 }]}>
-          <AppPressable style={styles.iconBtn} onPress={() => navigation.goBack()} accessibilityLabel="Back">
-            <Ionicons name="arrow-back" size={20} color={colors.mediaOverlayText} />
+          </View>
+        </View>
+
+        {storiesThisWeek > 0 ? (
+          <View style={[styles.heroStoriesBadge, { top: heroTop + 52 }]} pointerEvents="none">
+            <Text style={styles.heroStoriesBadgeText}>
+              {t("placeDetail.storiesThisWeek", {
+                count: storiesThisWeek,
+                defaultValue: "{{count}} stories this week",
+              })}
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={[styles.heroBar, { top: heroTop + 8 }]}>
+          <AppPressable style={styles.heroBackBtn} onPress={() => navigation.goBack()} accessibilityLabel="Back">
+            <Ionicons name="arrow-back" size={20} color={HERO_OVERLAY_ICON_COLOR} />
           </AppPressable>
           <View style={styles.heroBarActions}>
+            <AppPressable style={styles.iconBtn} onPress={() => setDirectionsOpen(true)} accessibilityLabel={t("placeDetail.directions")}>
+              <Ionicons name="navigate-outline" size={18} color={HERO_OVERLAY_ICON_COLOR} />
+            </AppPressable>
             <AppPressable style={styles.iconBtn} onPress={onShare} accessibilityLabel="Share">
-              <Ionicons name="share-outline" size={20} color={colors.mediaOverlayText} />
+              <Ionicons name="share-outline" size={18} color={HERO_OVERLAY_ICON_COLOR} />
             </AppPressable>
             <AppPressable style={styles.iconBtn} onPress={onFavorite} accessibilityLabel="Favorite">
-              <Text style={styles.iconBtnText}>{isFavorite ? "♥" : "♡"}</Text>
+              <Text style={[styles.iconBtnText, { color: HERO_OVERLAY_ICON_COLOR }]}>{isFavorite ? "♥" : "♡"}</Text>
             </AppPressable>
           </View>
         </View>
@@ -479,17 +554,13 @@ export default function PlaceDetailScreen() {
           isError={storiesError}
           onRetry={() => void refetchStories()}
         />
-        <Text style={styles.title}>{place.name}</Text>
-        <Text style={styles.rating}>
-          {Number(place.rating).toFixed(1)} ({reviews.length} reviews)
-        </Text>
-
         <LiveCrowdCard
           venueId={place.id}
           enabled={isScreenFocused}
           onCardPress={user?.id ? undefined : openAuth}
           onCheckIn={() => void onCrowdCheckIn()}
           isCheckingIn={crowdCheckin.isCheckingIn}
+          checkInRippleToken={checkInRippleToken}
           crowdCardStyle={styles.crowdCard}
           crowdBadgeStyle={styles.crowdBadge}
           crowdTitleStyle={styles.crowdTitle}
@@ -511,32 +582,26 @@ export default function PlaceDetailScreen() {
 
         <View style={styles.actions}>
           <AppPressable
-            style={[styles.secondaryBtn, isCalling && { opacity: 0.65 }]}
+            style={[styles.callBtn, isCalling && { opacity: 0.65 }]}
             onPress={() => void onCall()}
             disabled={isCalling}
             accessibilityState={{ disabled: isCalling, busy: isCalling }}
           >
             {isCalling ? (
-              <ActivityIndicator size="small" color={colors.text} />
+              <ActivityIndicator size="small" color={colors.accent} />
             ) : (
-              <Text style={styles.secondaryBtnText}>{t("placeDetail.call")}</Text>
+              <>
+                <Ionicons name="call-outline" size={16} color={colors.accent} />
+                <Text style={styles.callBtnText}>{t("placeDetail.call")}</Text>
+              </>
             )}
           </AppPressable>
-          <AppPressable style={styles.secondaryBtn} onPress={() => setDirectionsOpen(true)}>
-            <Text style={styles.secondaryBtnText}>{t("placeDetail.directions")}</Text>
+          <AppPressable style={styles.directionsBtn} onPress={() => setDirectionsOpen(true)}>
+            <Ionicons name="navigate-outline" size={16} color={colors.link} />
+            <Text style={styles.directionsBtnText}>{t("placeDetail.directions")}</Text>
           </AppPressable>
         </View>
 
-        {!hideBookingActions ? (
-          <>
-            <AppPressable style={styles.primaryBtn} onPress={() => openBookingFlow({ id: place.id })}>
-              <Text style={styles.primaryBtnText}>{t("placeDetail.bookNow")}</Text>
-            </AppPressable>
-            <AppPressable style={styles.outlineBtn} onPress={() => openAIBooking({ id: place.id })}>
-              <Text style={styles.outlineBtnText}>{t("placeDetail.bookWithPixAI")}</Text>
-            </AppPressable>
-          </>
-        ) : null}
         {/* <AppPressable style={styles.outlineBtn} onPress={() => navigation.navigate("ShoppingItems", { id: place.id })}>
           <Text style={styles.outlineBtnText}>Order items</Text>
         </AppPressable> */}
@@ -590,7 +655,26 @@ export default function PlaceDetailScreen() {
         onSystemShare={shareSheet.handleSystemShare}
         onCopyLink={shareSheet.handleCopyPostLink}
       />
-    </ScrollView>
+    </Animated.ScrollView>
+
+      {!hideBookingActions ? (
+        <View style={[styles.stickyBookingBar, { height: PLACE_DETAIL_STICKY_BOOKING_HEIGHT + insets.bottom, paddingBottom: insets.bottom }]}>
+          <AppPressable style={styles.stickyPrimaryBtn} onPress={() => openBookingFlow({ id: place.id })}>
+            <Text style={styles.stickyPrimaryBtnText}>{t("placeDetail.bookNow")}</Text>
+          </AppPressable>
+          <AppPressable style={styles.stickyBtnWrap} onPress={() => openAIBooking({ id: place.id })}>
+            <LinearGradient
+              colors={[...ctaGradientColors(isDark)]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.stickyPixAIBtn}
+            >
+              <Ionicons name="sparkles-outline" size={16} color="#ffffff" style={styles.stickyPixAIBtnIcon} />
+              <Text style={styles.stickyPixAIBtnText}>{t("placeDetail.bookWithPixAI")}</Text>
+            </LinearGradient>
+          </AppPressable>
+        </View>
+      ) : null}
     </View>
   );
 }

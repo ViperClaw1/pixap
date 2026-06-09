@@ -1,5 +1,5 @@
-import { memo, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { memo, useMemo, useRef } from "react";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { StoryReactionType } from "@/shared/model/types/stories";
 
@@ -15,6 +15,57 @@ const options: Array<{ type: StoryReactionType; icon: string }> = [
   { type: "sticker", icon: "🎭" },
 ];
 
+function AnimatedReactionButton({
+  icon,
+  active,
+  borderColor,
+  backgroundColor,
+  onPress,
+}: {
+  icon: string;
+  active: boolean;
+  borderColor: string;
+  backgroundColor: string;
+  onPress: () => void;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(scale, {
+        toValue: 1.5,
+        duration: 150,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(scale, {
+        toValue: 1,
+        duration: 150,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+    onPress();
+  };
+
+  return (
+    <Pressable onPress={handlePress}>
+      <Animated.View
+        style={[
+          styles.reactionBtn,
+          {
+            borderColor,
+            backgroundColor,
+            transform: [{ scale }],
+          },
+        ]}
+      >
+        <Text style={styles.reactionText}>{icon}</Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 function ReactionBarComponent({ activeReaction, reactionCount, onReact }: ReactionBarProps) {
   const { colors } = useAppTheme();
   const countLabel = useMemo(() => `${reactionCount} reactions`, [reactionCount]);
@@ -25,19 +76,14 @@ function ReactionBarComponent({ activeReaction, reactionCount, onReact }: Reacti
         {options.map((option) => {
           const active = activeReaction === option.type;
           return (
-            <Pressable
+            <AnimatedReactionButton
               key={option.type}
-              style={[
-                styles.reactionBtn,
-                {
-                  borderColor: active ? colors.primary : colors.border,
-                  backgroundColor: active ? colors.primary + "22" : colors.card,
-                },
-              ]}
+              icon={option.icon}
+              active={active}
+              borderColor={active ? colors.primary : colors.border}
+              backgroundColor={active ? colors.primary + "22" : colors.card}
               onPress={() => onReact(option.type)}
-            >
-              <Text style={styles.reactionText}>{option.icon}</Text>
-            </Pressable>
+            />
           );
         })}
       </View>

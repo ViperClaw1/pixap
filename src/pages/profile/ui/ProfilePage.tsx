@@ -41,7 +41,7 @@ import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { useEntitlement } from "@/entities/subscription";
 import { useBookingCredits } from "@/entities/booking-credits";
 import { usePreferenceOnboardingGate } from "@/features/preference-onboarding";
-import { ProfileBookingCreditsBadge } from "./ProfileBookingCreditsBadge";
+import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import { ProfileOnboardingActions } from "./ProfileOnboardingActions";
 import { ProfileDangerZone } from "./ProfileDangerZone";
 import { ProfilePageSkeleton } from "./ProfilePageSkeleton";
@@ -650,7 +650,13 @@ function ProfileScreenContent() {
                 : t("profile.expires", { date: new Date(expiresAt).toLocaleDateString() })}
             </Text>
           ) : null}
-          <ProfileBookingCreditsBadge balance={balance} credits={credits} />
+          <BookingCreditsBadge
+            balance={balance}
+            isIntroActive={credits?.isIntroActive}
+            hasPaidPremium={credits?.hasPaidPremium}
+            introPeriodEndsAt={credits?.introPeriodEndsAt}
+            style={{ marginTop: 8 }}
+          />
         </View>
       </View>
       <View style={styles.statRow}>

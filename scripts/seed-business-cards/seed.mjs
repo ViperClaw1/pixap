@@ -14,6 +14,9 @@
  *   node scripts/seed-business-cards/seed.mjs --city Istanbul --names '["Nobu Istanbul","Mikla"]'
  *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc123"
  *   node scripts/seed-business-cards/seed.mjs --link '["https://maps.app.goo.gl/one","https://maps.app.goo.gl/two"]'
+ *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc" --listing-type featured
+ *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc" --tags=restaurants,dining,luxury --listing-type featured
+ *   node scripts/seed-business-cards/seed.mjs --city Paris --count 3 --listing-type recommended
  */
 import { resolveSeedCategoryType, selectVenueDefinitions } from "./categoryTypes.mjs";
 import {
@@ -67,7 +70,7 @@ function buildInsertRow(venue, rng, images, usedNames) {
 
   return {
     ...buildVenueLocalizedFields(venue, {
-      listingType: venue.listingType,
+      listingType: cli.listingType ?? venue.listingType,
       usedNames,
       cliTags: cli.tags,
     }),
@@ -145,6 +148,7 @@ async function prepareVenue(
   },
 ) {
   const venue = cloneVenueDefinition(venueTemplate);
+  if (cli.listingType) venue.listingType = cli.listingType;
   const useGoogle = Boolean(googleApiKey) && !cli.skipImages && !cli.noGoogle;
   const requireGooglePhotos = useGoogle;
   const priorInCity = existingCountForCity(cityResolved.label, existingIndex);
@@ -418,7 +422,7 @@ async function main() {
 
   log(
     "seed",
-    `Starting business_cards seed (${venueCount} venues, count=${cli.count}, dryRun=${cli.dryRun}, skipImages=${cli.skipImages}, city=${cli.city ?? (cli.links?.length ? "from link" : "random")}, source=${cli.links?.length ? `${cli.links.length} Maps link(s)` : cli.names?.join(", ") ?? "random nearby POI"}, type=${categoryType?.displayName ?? "all"}, tags=${cli.tags?.join(", ") ?? "from venues.mjs"}, googlePhotoMax=${googlePhotoCapLabel})`,
+    `Starting business_cards seed (${venueCount} venues, count=${cli.count}, dryRun=${cli.dryRun}, skipImages=${cli.skipImages}, city=${cli.city ?? (cli.links?.length ? "from link" : "random")}, source=${cli.links?.length ? `${cli.links.length} Maps link(s)` : cli.names?.join(", ") ?? "random nearby POI"}, category=${categoryType?.displayName ?? "all"}, listingType=${cli.listingType ?? "from venues.mjs"}, tags=${cli.tags?.join(", ") ?? "from venues.mjs"}, googlePhotoMax=${googlePhotoCapLabel})`,
   );
 
   const prepared = [];
