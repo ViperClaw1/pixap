@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { View, Text, TextInput, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,7 +30,16 @@ import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { ShimmerProvider, PlaceRowSkeletonList } from "@/shared/ui/shimmer";
 import { prefetchBusinessCard } from "@/shared/lib/navigation/prefetchBusinessCard";
 import { useNavigationGuard } from "@/shared/lib/navigation/useNavigationGuard";
-import { searchStaticStyles, searchThemeStyles } from "./searchStyles";
+import { searchStaticStyles, searchThemeStyles, SEARCH_PLACE_THUMB_SIZE } from "./searchStyles";
+import { SearchQuickFilterPills } from "./SearchQuickFilterPills";
+import { SearchEmptyState } from "./SearchEmptyState";
+import { SearchMapView } from "./SearchMapView";
+import {
+  applySearchQuickFilters,
+  type SearchQuickFilterId,
+} from "../model/searchQuickFilters";
+import { loadRecentSearches, saveRecentSearch } from "../lib/recentSearchesStorage";
+import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
 
 type Nav = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
 
@@ -46,7 +55,10 @@ type SearchPlaceRowProps = {
 function SearchPlaceRow({ item, styles, onPressIn, onPress }: SearchPlaceRowProps) {
   const visibleTags = (item.tags ?? []).slice(0, PLACE_CARD_MAX_TAGS);
   const heroRaw = getPrimaryBusinessCardImage(item.images);
-  const heroDisplay = getBusinessCardDisplayUrl(heroRaw, { layoutPx: 168, layoutPxHeight: 168 });
+  const heroDisplay = getBusinessCardDisplayUrl(heroRaw, {
+    layoutPx: SEARCH_PLACE_THUMB_SIZE,
+    layoutPxHeight: SEARCH_PLACE_THUMB_SIZE,
+  });
   const coverBlurhash = getBusinessCardCoverBlurhash(item.blurhashes);
 
   return (
@@ -55,15 +67,18 @@ function SearchPlaceRow({ item, styles, onPressIn, onPress }: SearchPlaceRowProp
       onPressIn={() => onPressIn(item.id)}
       onPress={() => onPress(item.id)}
     >
-      <SmartImage
-        uri={heroDisplay}
-        fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
-        blurhash={coverBlurhash}
-        bundledFallback={PLACE_IMAGE_FALLBACK}
-        recyclingKey={item.id}
-        style={styles.thumb}
-        contentFit="cover"
-      />
+      <View style={styles.thumbWrap}>
+        <SmartImage
+          uri={heroDisplay}
+          fallbackUri={businessCardDisplayFallback(heroDisplay, heroRaw)}
+          blurhash={coverBlurhash}
+          bundledFallback={PLACE_IMAGE_FALLBACK}
+          recyclingKey={item.id}
+          style={styles.thumb}
+          contentFit="cover"
+          showShimmerWhileLoading
+        />
+      </View>
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
           {item.name}
@@ -103,37 +118,69 @@ export default function SearchScreen() {
   const { selectedCity, profileCityFilter, selectCity } = useProfileCityPicker();
   const { data: places = [], isLoading } = useBusinessCards(undefined, selectedCity);
   const [q, setQ] = useState("");
+  const [activeFilters, setActiveFilters] = useState<Set<SearchQuickFilterId>>(() => new Set());
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [inputFocused, setInputFocused] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const saveRecentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { openVibeMatch } = useSubscriptionGatedNavigation(navigation);
   const [visibleCount, setVisibleCount] = useState(PLACE_LIST_BATCH_SIZE);
   const { isLoadingMore, expand: expandVisibleBatch } = useExpandVisibleBatch();
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return places;
-    return places.filter(
-      (p) =>
-        p.name.toLowerCase().includes(s) ||
-        p.tags.some((tag) => tag.toLowerCase().includes(s)) ||
-        (p.description ?? "").toLowerCase().includes(s),
-    );
-  }, [places, q]);
+    const textFiltered = !s
+      ? places
+      : places.filter(
+          (p) =>
+            p.name.toLowerCase().includes(s) ||
+            p.tags.some((tag) => tag.toLowerCase().includes(s)) ||
+            (p.description ?? "").toLowerCase().includes(s),
+        );
+    return applySearchQuickFilters(textFiltered, activeFilters);
+  }, [places, q, activeFilters]);
 
   useEffect(() => {
     setVisibleCount(PLACE_LIST_BATCH_SIZE);
-  }, [places, profileCityFilter]);
+  }, [places, profileCityFilter, activeFilters]);
+
+  const toggleQuickFilter = useCallback((id: SearchQuickFilterId) => {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setVisibleCount(PLACE_LIST_BATCH_SIZE);
+  }, []);
 
   const visibleFiltered = useMemo(
     () => filtered.slice(0, visibleCount),
     [filtered, visibleCount],
   );
   const canShowMore = visibleCount < filtered.length;
-  const showEmptyState = !isLoading && q.trim().length > 0 && filtered.length === 0;
+  const showEmptyState = !isLoading && filtered.length === 0 && (q.trim().length > 0 || activeFilters.size > 0);
+  const showMapToggle = useMemo(
+    () => places.some((p) => typeof p.latitude === "number" && typeof p.longitude === "number"),
+    [places],
+  );
 
   const themed = useThemeStyles(({ colors: c, isDark: dark }) => searchThemeStyles(c, dark));
   const styles = useMemo(() => mergeStaticAndThemed(searchStaticStyles, themed), [themed]);
 
+  useEffect(() => {
+    void loadRecentSearches().then(setRecentSearches);
+  }, []);
+
   const handleQueryChange = useCallback((text: string) => {
     setQ(text);
     setVisibleCount(PLACE_LIST_BATCH_SIZE);
+    if (saveRecentTimerRef.current) clearTimeout(saveRecentTimerRef.current);
+    if (text.trim().length >= 2) {
+      saveRecentTimerRef.current = setTimeout(() => {
+        void saveRecentSearch(text).then(setRecentSearches);
+      }, 800);
+    }
   }, []);
 
   const clearQuery = useCallback(() => {
@@ -188,8 +235,20 @@ export default function SearchScreen() {
         title={t("header.search")}
         leftIcon="arrow-back"
         onLeftPress={() => navigation.goBack()}
-        rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
-        onRightPress={toggleThemeMode}
+        rightIcon={
+          showMapToggle
+            ? viewMode === "list"
+              ? "map-outline"
+              : "list-outline"
+            : mode === "dark"
+              ? "sunny-outline"
+              : "moon-outline"
+        }
+        onRightPress={
+          showMapToggle
+            ? () => setViewMode((prev) => (prev === "list" ? "map" : "list"))
+            : toggleThemeMode
+        }
       />
       <View style={styles.content}>
       <View style={styles.cityRow}>
@@ -205,6 +264,8 @@ export default function SearchScreen() {
           autoCorrect={false}
           autoCapitalize="none"
           returnKeyType="search"
+          onFocus={() => setInputFocused(true)}
+          onBlur={() => setInputFocused(false)}
         />
         {q.length > 0 ? (
           <AppPressable
@@ -219,12 +280,31 @@ export default function SearchScreen() {
         ) : null}
       </View>
 
+      <SearchQuickFilterPills activeFilters={activeFilters} onToggle={toggleQuickFilter} />
+
+      {inputFocused && recentSearches.length > 0 && q.trim().length === 0 ? (
+        <View style={{ marginBottom: 10, gap: 6 }}>
+          {recentSearches.map((term) => (
+            <AppPressable
+              key={term}
+              onPress={() => handleQueryChange(term)}
+              style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }}
+            >
+              <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+              <Text style={{ color: colors.text, fontSize: 14 }}>{term}</Text>
+            </AppPressable>
+          ))}
+        </View>
+      ) : null}
+
       {isLoading ? (
         <ShimmerProvider active>
           <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
             <PlaceRowSkeletonList variant="search" />
           </ScrollView>
         </ShimmerProvider>
+      ) : viewMode === "map" ? (
+        <SearchMapView places={filtered} onMarkerPress={openPlace} />
       ) : (
         <ScrollView
           style={styles.list}
@@ -233,9 +313,7 @@ export default function SearchScreen() {
           showsVerticalScrollIndicator={false}
         >
           {showEmptyState ? (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>{t("search.noMatchingPlaces", "No matching places")}</Text>
-            </View>
+            <SearchEmptyState onTryVibeMatch={() => openVibeMatch()} />
           ) : (
             visibleFiltered.map((item) => (
               <SearchPlaceRow

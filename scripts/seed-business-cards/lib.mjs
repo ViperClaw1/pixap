@@ -322,17 +322,41 @@ export function parseLinksArg(raw) {
   return links;
 }
 
+const LISTING_TYPES = new Set(["featured", "recommended"]);
+
+/**
+ * @param {string} raw
+ * @returns {"featured" | "recommended"}
+ */
+export function parseListingTypeArg(raw) {
+  const value = String(raw ?? "").trim().toLowerCase();
+  if (!LISTING_TYPES.has(value)) {
+    throw new Error(`Invalid --listing-type "${raw}". Valid values: featured, recommended`);
+  }
+  return value;
+}
+
 const CLI_BOOLEAN_FLAGS = new Set(["--dry-run", "--skip-images", "--no-google"]);
 
+/** Windows / copy-paste often turns `--flag` into `-—flag` (hyphen + em dash). */
+const UNICODE_DASH_RE = /[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/g;
+
+/** @param {string} arg */
+export function normalizeCliArg(arg) {
+  if (typeof arg !== "string") return arg;
+  return arg.replace(UNICODE_DASH_RE, "-");
+}
+
 function requireCliValue(flag, args, index) {
-  if (!args[index + 1] || args[index + 1].startsWith("--")) {
+  const next = args[index + 1];
+  if (!next || next.startsWith("--")) {
     throw new Error(`${flag} requires a value (e.g. ${flag} Istanbul)`);
   }
-  return args[index + 1];
+  return next;
 }
 
 export function parseCliArgs(argv) {
-  const args = argv.slice(2);
+  const args = argv.slice(2).map(normalizeCliArg);
   let city = null;
   let cityParsedAsShorthand = false;
   let type = null;
@@ -341,6 +365,7 @@ export function parseCliArgs(argv) {
   let tags = null;
   let names = null;
   let links = null;
+  let listingType = null;
   const handled = new Set();
 
   for (let i = 0; i < args.length; i += 1) {
@@ -403,6 +428,17 @@ export function parseCliArgs(argv) {
       handled.add(i);
       if (!a.startsWith("--link=")) handled.add(i + 1);
       if (!a.startsWith("--link=")) i += 1;
+      continue;
+    }
+    if (a === "--listing-type" || a.startsWith("--listing-type=")) {
+      const raw = a.startsWith("--listing-type=")
+        ? a.slice("--listing-type=".length)
+        : requireCliValue("--listing-type", args, i);
+      listingType = parseListingTypeArg(raw);
+      handled.add(i);
+      if (!a.startsWith("--listing-type=")) handled.add(i + 1);
+      if (!a.startsWith("--listing-type=")) i += 1;
+      continue;
     }
   }
 
@@ -410,8 +446,11 @@ export function parseCliArgs(argv) {
     if (handled.has(i)) continue;
     const a = args[i];
     if (!a.startsWith("--")) {
+      const flagHint = /tags|listing|link|names/i.test(a)
+        ? " Use ASCII double hyphen for flags (e.g. --tags=a,b,c)."
+        : "";
       throw new Error(
-        `Unexpected argument "${a}". To seed one city use: --city "${a}"`,
+        `Unexpected argument "${a}". To seed one city use: --city "${a}"${flagHint}`,
       );
     }
     const shorthand = a.slice(2).trim();
@@ -446,6 +485,8 @@ export function parseCliArgs(argv) {
     names,
     /** When set, venue data is loaded from these Google Maps URLs (`--city` optional). */
     links,
+    /** When set, overrides `business_cards.type` for every row (`featured` | `recommended`). */
+    listingType,
     /** When set, overrides `tags` / `tags_*` on every inserted row (lowercased slugs). */
     tags,
     /** `0` = no byte cap; otherwise max downloaded size per Google Places photo. */

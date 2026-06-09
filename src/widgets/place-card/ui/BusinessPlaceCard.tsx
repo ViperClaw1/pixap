@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo } from "react";
-import { Dimensions, PixelRatio, View, Text } from "react-native";
+import { Dimensions, PixelRatio, View, Text, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
@@ -20,7 +20,11 @@ import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { tagTextColorForTint, tintForTagKey } from "@/shared/lib/tagTint";
-import { businessPlaceCardStaticStyles, businessPlaceCardThemeStyles } from "./businessPlaceCardStyles";
+import {
+  businessPlaceCardStaticStyles,
+  businessPlaceCardThemeStyles,
+  type BusinessPlaceCardThemedStyles,
+} from "./businessPlaceCardStyles";
 
 const PLACE_CARD_IMAGE_TRANSITION_MS = 200;
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -44,6 +48,10 @@ type Props = {
   onOpen?: () => void;
   /** Higher-contrast tag labels; pill background tint is unchanged. */
   enhancedTagContrast?: boolean;
+  /** Compact vertical tile width (e.g. Home Featured). */
+  verticalWidth?: number;
+  /** Compact vertical hero image height (e.g. Home Featured). */
+  verticalImageHeight?: number;
 };
 
 const IMAGE_HORIZONTAL = 96;
@@ -155,6 +163,8 @@ function placeCardPropsEqual(prev: Props, next: Props): boolean {
   if (prev.showHeroLoadingSpinner !== next.showHeroLoadingSpinner) return false;
   if (prev.heroLoadingSpinnerColor !== next.heroLoadingSpinnerColor) return false;
   if (prev.enhancedTagContrast !== next.enhancedTagContrast) return false;
+  if (prev.verticalWidth !== next.verticalWidth) return false;
+  if (prev.verticalImageHeight !== next.verticalImageHeight) return false;
   if (prev.place.id !== next.place.id) return false;
   const prevThumb = prev.place.images?.[0] ?? prev.place.image ?? "";
   const nextThumb = next.place.images?.[0] ?? next.place.image ?? "";
@@ -245,6 +255,8 @@ function BusinessPlaceCardInner({
   heroLoadingSpinnerColor,
   onOpen,
   enhancedTagContrast = false,
+  verticalWidth,
+  verticalImageHeight,
 }: Props) {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { i18n } = useTranslation();
@@ -276,7 +288,9 @@ function BusinessPlaceCardInner({
   const isFavorite = useIsFavorite(place.id);
   const toggleFavorite = useToggleFavorite();
 
-  const themed = useThemeStyles(({ colors: c }) => businessPlaceCardThemeStyles(c));
+  const themed = useThemeStyles<BusinessPlaceCardThemedStyles>(({ colors: c }) =>
+    businessPlaceCardThemeStyles(c),
+  );
   const styles = useMemo(
     () => mergeStaticAndThemed(businessPlaceCardStaticStyles, themed),
     [themed],
@@ -293,28 +307,35 @@ function BusinessPlaceCardInner({
   const tags = place.tags ?? [];
   const displayTags = tags.length > 0 ? tags : [];
   const rating = resolvePlaceRating(place.rating);
-  const verticalCardWidth = isVerticalFill ? (fillWidth ?? SCREEN_WIDTH - 32) : IMAGE_VERTICAL_W;
+  const verticalCardWidth = isVerticalFill
+    ? (fillWidth ?? SCREEN_WIDTH - 32)
+    : (verticalWidth ?? IMAGE_VERTICAL_W);
+  const compactVerticalImageHeight = verticalImageHeight ?? IMAGE_VERTICAL_H;
   const verticalImageThumbHeight = useMemo(() => {
-    if (!isVerticalFill) return IMAGE_VERTICAL_H;
+    if (!isVerticalFill) return compactVerticalImageHeight;
     const metaChrome = 52;
     const reasonsChrome = 72;
     const bodyHeight = (fillHeight ?? SCREEN_HEIGHT * 0.55) - reasonsChrome;
     return Math.max(IMAGE_VERTICAL_H, Math.round(bodyHeight - metaChrome));
-  }, [fillHeight, isVerticalFill]);
+  }, [compactVerticalImageHeight, fillHeight, isVerticalFill]);
+  const compactVerticalStyles = useMemo(() => {
+    if (isVerticalFill || (verticalWidth == null && verticalImageHeight == null)) return null;
+    return {
+      vRoot: { width: verticalCardWidth },
+      vImageBlock: { width: verticalCardWidth, height: compactVerticalImageHeight },
+    };
+  }, [compactVerticalImageHeight, isVerticalFill, verticalCardWidth, verticalImageHeight, verticalWidth]);
   const featuredVisibleTags = useMemo(
     () => pickTagsThatFitSingleRow(displayTags, verticalCardWidth - 4),
     [displayTags, verticalCardWidth],
   );
-  const verticalFillStyles = useMemo(
-    () =>
-      isVerticalFill
-        ? {
-            vRoot: { flex: 1, width: "100%", flexShrink: 0 },
-            vImageBlock: { flex: 1, width: "100%", minHeight: IMAGE_VERTICAL_H },
-          }
-        : null,
-    [isVerticalFill],
-  );
+  const verticalFillStyles = useMemo((): { vRoot: ViewStyle; vImageBlock: ViewStyle } | null => {
+    if (!isVerticalFill) return null;
+    return {
+      vRoot: { flex: 1, width: "100%", flexShrink: 0 },
+      vImageBlock: { flex: 1, width: "100%", minHeight: IMAGE_VERTICAL_H },
+    };
+  }, [isVerticalFill]);
   const horizontalVisibleTags = useMemo(
     () =>
       pickTagsThatFitSingleRow(
@@ -374,15 +395,17 @@ function BusinessPlaceCardInner({
     <AppPressable
       onPressIn={handlePressIn}
       onPress={handleOpen}
-      style={[styles.vRoot, verticalFillStyles?.vRoot]}
+      style={[styles.vRoot, verticalFillStyles?.vRoot, compactVerticalStyles?.vRoot]}
     >
-      <View style={[styles.vImageBlock, verticalFillStyles?.vImageBlock]}>
+      <View style={[styles.vImageBlock, verticalFillStyles?.vImageBlock, compactVerticalStyles?.vImageBlock]}>
         <PlaceHeroImage
           place={place}
           variant="vertical"
           imageStyle={styles.vImage}
-          layoutWidth={isVerticalFill ? verticalCardWidth : undefined}
-          layoutHeight={isVerticalFill ? verticalImageThumbHeight : undefined}
+          layoutWidth={isVerticalFill || verticalWidth != null ? verticalCardWidth : undefined}
+          layoutHeight={
+            isVerticalFill || verticalImageHeight != null ? verticalImageThumbHeight : undefined
+          }
           showLoadingSpinner={showHeroLoadingSpinner}
           loadingSpinnerColor={heroLoadingSpinnerColor}
         />

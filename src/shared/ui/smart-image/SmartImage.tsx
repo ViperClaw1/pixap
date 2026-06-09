@@ -10,6 +10,7 @@ import {
 import { Image, type ImageErrorEventData, type ImageProps, type ImageSource } from "expo-image";
 import { getSupabaseStorageObjectFallbackUrl } from "@/shared/lib/imageUtils";
 import { recordStorageImageRequest } from "@/shared/lib/storageEgressMetrics";
+import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 
 const FALLBACK = require("../../../../assets/web/placeholder.png");
 const PREFETCH_CONCURRENCY = 4;
@@ -26,6 +27,8 @@ export type SmartImageProps = Omit<ImageProps, "source"> & {
   skipBundledPlaceholder?: boolean;
   /** When true, show ActivityIndicator instead of the bundled placeholder while the remote image loads. */
   showLoadingSpinner?: boolean;
+  /** When true, show ShimmerSurface overlay while the remote image loads. */
+  showShimmerWhileLoading?: boolean;
   loadingSpinnerColor?: string;
   /** Fired when remote loading state changes (only when `showLoadingSpinner` is true). */
   onLoadingChange?: (loading: boolean) => void;
@@ -85,6 +88,27 @@ function placeholderLayoutFromStyle(style?: StyleProp<ImageStyle>): { width: num
   };
 }
 
+function hasExplicitLayout(style?: StyleProp<ImageStyle>): boolean {
+  const flat = StyleSheet.flatten(style);
+  return typeof flat?.width === "number" && typeof flat?.height === "number";
+}
+
+function resolveShimmerLayout(
+  style: StyleProp<ImageStyle> | undefined,
+  hostLayout: { width: number; height: number },
+): { width: number; height: number } {
+  if (hasExplicitLayout(style)) {
+    return placeholderLayoutFromStyle(style);
+  }
+  if (hostLayout.width > 0 && hostLayout.height > 0) {
+    return {
+      width: Math.round(hostLayout.width),
+      height: Math.round(hostLayout.height),
+    };
+  }
+  return { width: 0, height: 0 };
+}
+
 function clipRoundedHostStyle(style?: StyleProp<ImageStyle>): ViewStyle | undefined {
   const flat = StyleSheet.flatten(style);
   if (!flat) return undefined;
@@ -111,6 +135,7 @@ export function SmartImage({
   recyclingKey,
   skipBundledPlaceholder,
   showLoadingSpinner = false,
+  showShimmerWhileLoading = false,
   loadingSpinnerColor,
   onLoadingChange,
   retryCount: retryCountProp,
@@ -123,15 +148,21 @@ export function SmartImage({
 }: SmartImageProps) {
   const trimmedBlurhash = blurhash?.trim() || undefined;
   const hasBlurhashPlaceholder = Boolean(trimmedBlurhash);
+  const trackRemoteLoading = showLoadingSpinner || showShimmerWhileLoading;
   const placeholderLayout = useMemo(() => placeholderLayoutFromStyle(style), [style]);
   const transition =
     transitionProp ??
-    (skipBundledPlaceholder || showLoadingSpinner || hasBlurhashPlaceholder ? 0 : 150);
+    (skipBundledPlaceholder || trackRemoteLoading || hasBlurhashPlaceholder ? 0 : 150);
   const chain = useMemo(() => buildUriChain(uri, fallbackUri), [uri, fallbackUri]);
   const chainKey = chain.join("|");
   const retryCount = Math.max(0, retryCountProp ?? 1);
   const [attempt, setAttempt] = useState(0);
-  const [loading, setLoading] = useState(() => showLoadingSpinner && chain.length > 0);
+  const [hostLayout, setHostLayout] = useState({ width: 0, height: 0 });
+  const [loading, setLoading] = useState(() => trackRemoteLoading && chain.length > 0);
+  const shimmerLayout = useMemo(
+    () => resolveShimmerLayout(style, hostLayout),
+    [hostLayout, style],
+  );
 
   const setLoadingState = useCallback(
     (next: boolean) => {
@@ -171,13 +202,13 @@ export function SmartImage({
   );
 
   useEffect(() => {
-    if (!showLoadingSpinner) return;
+    if (!trackRemoteLoading) return;
     if (sourcesExhausted || !activeUri) {
       setLoadingState(false);
       return;
     }
     setLoadingState(true);
-  }, [activeUri, chainKey, showLoadingSpinner, sourcesExhausted, setLoadingState]);
+  }, [activeUri, chainKey, trackRemoteLoading, sourcesExhausted, setLoadingState]);
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
@@ -192,27 +223,52 @@ export function SmartImage({
 
   const handleLoadStart = useCallback(
     (event: Parameters<NonNullable<ImageProps["onLoadStart"]>>[0]) => {
-      if (showLoadingSpinner && activeUri) {
+      if (trackRemoteLoading && activeUri) {
         setLoadingState(true);
       }
       onLoadStart?.(event);
     },
-    [activeUri, onLoadStart, setLoadingState, showLoadingSpinner],
+    [activeUri, onLoadStart, setLoadingState, trackRemoteLoading],
   );
 
   const handleLoad = useCallback(
     (event: Parameters<NonNullable<ImageProps["onLoad"]>>[0]) => {
-      if (showLoadingSpinner) {
+      if (trackRemoteLoading) {
         setLoadingState(false);
       }
       onLoad?.(event);
     },
-    [onLoad, setLoadingState, showLoadingSpinner],
+    [onLoad, setLoadingState, trackRemoteLoading],
+  );
+
+  const handleHostLayout = useCallback(
+    (width: number, height: number) => {
+      setHostLayout((prev) =>
+        prev.width === width && prev.height === height ? prev : { width, height },
+      );
+    },
+    [],
   );
 
   const rk = recyclingKey ?? (chainKey ? `${chainKey}#${attempt}` : "smartimg-fallback");
   const effectiveSkipBundledPlaceholder =
-    skipBundledPlaceholder || showLoadingSpinner || hasBlurhashPlaceholder;
+    skipBundledPlaceholder || trackRemoteLoading || hasBlurhashPlaceholder;
+
+  const shimmerBorderRadius =
+    typeof StyleSheet.flatten(style)?.borderRadius === "number"
+      ? (StyleSheet.flatten(style)!.borderRadius as number)
+      : 0;
+  const shimmerOverlay =
+    showShimmerWhileLoading && loading && activeUri && shimmerLayout.width > 0 && shimmerLayout.height > 0 ? (
+      <ShimmerProvider active>
+        <ShimmerSurface
+          width={shimmerLayout.width}
+          height={shimmerLayout.height}
+          borderRadius={shimmerBorderRadius}
+          style={styles.shimmerOverlay}
+        />
+      </ShimmerProvider>
+    ) : null;
   const shouldShowBundledPlaceholder = !effectiveSkipBundledPlaceholder;
   const bundledAsset = bundledFallback ?? (hasBlurhashPlaceholder ? undefined : FALLBACK);
   const finalSource =
@@ -250,12 +306,22 @@ export function SmartImage({
 
   if (hasBlurhashPlaceholder) {
     const hostStyle = [
-      showLoadingSpinner ? style : (style as StyleProp<ViewStyle>),
+      trackRemoteLoading ? style : (style as StyleProp<ViewStyle>),
       clipRoundedHostStyle(style),
     ];
 
     return (
-      <View style={hostStyle}>
+      <View
+        style={hostStyle}
+        onLayout={
+          trackRemoteLoading
+            ? (event) => {
+                const { width, height } = event.nativeEvent.layout;
+                handleHostLayout(width, height);
+              }
+            : undefined
+        }
+      >
         <Image
           source={blurhashSource}
           style={StyleSheet.absoluteFillObject}
@@ -266,6 +332,7 @@ export function SmartImage({
         {finalSource ? (
           <Image {...remoteImageProps} style={StyleSheet.absoluteFillObject} />
         ) : null}
+        {shimmerOverlay}
         {showLoadingSpinner && loading && activeUri ? (
           <View style={styles.spinnerHost}>
             <ActivityIndicator size="large" color={loadingSpinnerColor} />
@@ -275,7 +342,7 @@ export function SmartImage({
     );
   }
 
-  const imageStyle = showLoadingSpinner ? StyleSheet.absoluteFillObject : style;
+  const imageStyle = trackRemoteLoading ? StyleSheet.absoluteFillObject : style;
 
   const image = (
     <Image
@@ -284,14 +351,25 @@ export function SmartImage({
     />
   );
 
-  if (!showLoadingSpinner) {
+  if (!trackRemoteLoading) {
     return image;
   }
 
   return (
-    <View style={style as StyleProp<ViewStyle>}>
+    <View
+      style={[style as StyleProp<ViewStyle>, clipRoundedHostStyle(style)]}
+      onLayout={
+        trackRemoteLoading
+          ? (event) => {
+              const { width, height } = event.nativeEvent.layout;
+              handleHostLayout(width, height);
+            }
+          : undefined
+      }
+    >
       {image}
-      {loading && activeUri ? (
+      {shimmerOverlay}
+      {showLoadingSpinner && loading && activeUri ? (
         <View style={styles.spinnerHost}>
           <ActivityIndicator size="large" color={loadingSpinnerColor} />
         </View>
@@ -301,6 +379,12 @@ export function SmartImage({
 }
 
 const styles = StyleSheet.create({
+  shimmerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    zIndex: 1,
+  },
   spinnerHost: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
