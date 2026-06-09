@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { env } from "@/shared/lib/env";
+import { getSubscriptionProductIds } from "@/entities/subscription/model/productIds";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { devWarn } from "@/shared/lib/devLog";
@@ -138,10 +138,7 @@ export function useSubscription() {
     };
   }, [session?.access_token, user?.id]);
 
-  const productIds = useMemo(
-    () => [env.pixAiMonthlySubscriptionSku, env.pixAiAnnualSubscriptionSku].filter((sku) => sku.length > 0),
-    [],
-  );
+  const productIds = useMemo(() => getSubscriptionProductIds(), []);
 
   const productsQuery = useQuery({
     queryKey: queryKeys.subscription.products(productIds.join("|"), iapReady),

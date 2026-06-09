@@ -10,7 +10,10 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useSubscription, type SubscriptionErrorCode } from "@/entities/subscription";
 import { useBookingAccess } from "@/features/booking-access";
 import { SubscriptionPurchaseResultModal } from "@/features/subscription-paywall-redirect";
-import { env } from "@/shared/lib/env";
+import {
+  getPixAiAnnualSubscriptionSku,
+  getPixAiMonthlySubscriptionSku,
+} from "@/entities/subscription/model/productIds";
 import { PRIVACY_URL, TERMS_URL } from "@/shared/lib/legalUrls";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
@@ -77,7 +80,7 @@ export default function SubscriptionPaywallScreen() {
     resetVerificationState,
   } = useSubscription();
   const { balance, isIntroActive, introPeriodEndsAt, hasPaidPremium } = useBookingAccess();
-  const [selectedSku, setSelectedSku] = useState(env.pixAiAnnualSubscriptionSku);
+  const [selectedSku, setSelectedSku] = useState(getPixAiAnnualSubscriptionSku);
   const { tourVisible, openTour, closeTour } = usePaywallTourAutoOpen();
 
   const paywallReason = route.params?.reason;
@@ -86,8 +89,8 @@ export default function SubscriptionPaywallScreen() {
   const monthlyFeatures = getMonthlyPlanFeatures(t);
   const annualFeatures = getAnnualPlanFeatures(t);
 
-  const monthlyProduct = products.find((product) => product.id === env.pixAiMonthlySubscriptionSku);
-  const annualProduct = products.find((product) => product.id === env.pixAiAnnualSubscriptionSku);
+  const monthlyProduct = products.find((product) => product.id === getPixAiMonthlySubscriptionSku());
+  const annualProduct = products.find((product) => product.id === getPixAiAnnualSubscriptionSku());
 
   const formatPrice = (product: (typeof products)[number] | undefined, fallback: string) =>
     product?.displayPrice ?? (product?.price != null ? String(product.price) : fallback);
@@ -96,7 +99,7 @@ export default function SubscriptionPaywallScreen() {
   const annualPrice = formatPrice(annualProduct, "");
 
   const purchaseLabel =
-    selectedSku === env.pixAiAnnualSubscriptionSku
+    selectedSku === getPixAiAnnualSubscriptionSku()
       ? annualPrice
         ? t("subscriptionPaywall.ctaAnnual", { price: annualPrice })
         : t("subscriptionPaywall.ctaAnnualFallback")
@@ -174,8 +177,8 @@ export default function SubscriptionPaywallScreen() {
         features={monthlyFeatures}
         price={monthlyPrice || undefined}
         priceSuffix={t("subscriptionPaywall.perMonth")}
-        selected={selectedSku === env.pixAiMonthlySubscriptionSku}
-        onPress={() => setSelectedSku(env.pixAiMonthlySubscriptionSku)}
+        selected={selectedSku === getPixAiMonthlySubscriptionSku()}
+        onPress={() => setSelectedSku(getPixAiMonthlySubscriptionSku())}
         cardStyle={styles.card}
         planStyle={styles.plan}
         subtitleStyle={styles.subtitle}
@@ -187,9 +190,9 @@ export default function SubscriptionPaywallScreen() {
         features={annualFeatures}
         price={annualPrice || undefined}
         priceSuffix={t("subscriptionPaywall.perYear")}
-        selected={selectedSku === env.pixAiAnnualSubscriptionSku}
+        selected={selectedSku === getPixAiAnnualSubscriptionSku()}
         highlighted
-        onPress={() => setSelectedSku(env.pixAiAnnualSubscriptionSku)}
+        onPress={() => setSelectedSku(getPixAiAnnualSubscriptionSku())}
         cardStyle={styles.card}
         planStyle={styles.plan}
         subtitleStyle={styles.subtitle}
