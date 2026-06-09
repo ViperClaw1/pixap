@@ -33,7 +33,6 @@ import { useNavigationGuard } from "@/shared/lib/navigation/useNavigationGuard";
 import { searchStaticStyles, searchThemeStyles, SEARCH_PLACE_THUMB_SIZE } from "./searchStyles";
 import { SearchQuickFilterPills } from "./SearchQuickFilterPills";
 import { SearchEmptyState } from "./SearchEmptyState";
-import { SearchMapView } from "./SearchMapView";
 import {
   applySearchQuickFilters,
   type SearchQuickFilterId,
@@ -119,7 +118,6 @@ export default function SearchScreen() {
   const { data: places = [], isLoading } = useBusinessCards(undefined, selectedCity);
   const [q, setQ] = useState("");
   const [activeFilters, setActiveFilters] = useState<Set<SearchQuickFilterId>>(() => new Set());
-  const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [inputFocused, setInputFocused] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const saveRecentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -160,10 +158,6 @@ export default function SearchScreen() {
   );
   const canShowMore = visibleCount < filtered.length;
   const showEmptyState = !isLoading && filtered.length === 0 && (q.trim().length > 0 || activeFilters.size > 0);
-  const showMapToggle = useMemo(
-    () => places.some((p) => typeof p.latitude === "number" && typeof p.longitude === "number"),
-    [places],
-  );
 
   const themed = useThemeStyles(({ colors: c, isDark: dark }) => searchThemeStyles(c, dark));
   const styles = useMemo(() => mergeStaticAndThemed(searchStaticStyles, themed), [themed]);
@@ -235,20 +229,8 @@ export default function SearchScreen() {
         title={t("header.search")}
         leftIcon="arrow-back"
         onLeftPress={() => navigation.goBack()}
-        rightIcon={
-          showMapToggle
-            ? viewMode === "list"
-              ? "map-outline"
-              : "list-outline"
-            : mode === "dark"
-              ? "sunny-outline"
-              : "moon-outline"
-        }
-        onRightPress={
-          showMapToggle
-            ? () => setViewMode((prev) => (prev === "list" ? "map" : "list"))
-            : toggleThemeMode
-        }
+        rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
+        onRightPress={toggleThemeMode}
       />
       <View style={styles.content}>
       <View style={styles.cityRow}>
@@ -303,8 +285,6 @@ export default function SearchScreen() {
             <PlaceRowSkeletonList variant="search" />
           </ScrollView>
         </ShimmerProvider>
-      ) : viewMode === "map" ? (
-        <SearchMapView places={filtered} onMarkerPress={openPlace} />
       ) : (
         <ScrollView
           style={styles.list}
