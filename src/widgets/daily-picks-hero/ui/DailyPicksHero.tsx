@@ -54,7 +54,7 @@ export function DailyPicksHero({ recommendation, onOpen }: Props) {
 
       <View style={styles.badge}>
         <Text style={styles.badgeText}>
-          {t("dailyRecommendations.todaysPick", { defaultValue: "Today's Pick" })}
+          {t("dailyRecommendations.todaysPick")}
         </Text>
       </View>
 

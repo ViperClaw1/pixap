@@ -11,3 +11,10 @@ export const FEED_CAROUSEL_HEIGHT_BOOST = 100;
 export const FEED_POST_LIST_ITEM_EXTRA_HEIGHT = 240;
 /** Gap between focused post title input and keyboard top when auto-scrolling feed (iOS). */
 export const FEED_TITLE_INPUT_KEYBOARD_GAP = 12;
+/** Stories strip: highlight ring for stories posted within this window. */
+export const FEED_STORY_FRESH_MS = 60 * 60 * 1000;
+
+export function isStoryFresh(createdAt: string): boolean {
+  const createdMs = new Date(createdAt).getTime();
+  return Number.isFinite(createdMs) && Date.now() - createdMs < FEED_STORY_FRESH_MS;
+}
