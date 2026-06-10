@@ -6,8 +6,8 @@ export const PIXAI_PREMIUM_MONTHLY_ANDROID = "pixai_premium_monthly";
 export const PIXAI_PREMIUM_ANNUAL_ANDROID = "pixai_premium_annual";
 
 /** App Store subscription SKUs */
-export const PIXAI_PREMIUM_MONTHLY_IOS = "pixai_monthly";
-export const PIXAI_PREMIUM_ANNUAL_IOS = "pixai_annual";
+export const PIXAI_PREMIUM_MONTHLY_IOS = "pix_monthly";
+export const PIXAI_PREMIUM_ANNUAL_IOS = "pix_annual";
 
 const PREMIUM_MONTHLY_PRODUCT_IDS = [PIXAI_PREMIUM_MONTHLY_ANDROID, PIXAI_PREMIUM_MONTHLY_IOS] as const;
 const PREMIUM_ANNUAL_PRODUCT_IDS = [PIXAI_PREMIUM_ANNUAL_ANDROID, PIXAI_PREMIUM_ANNUAL_IOS] as const;

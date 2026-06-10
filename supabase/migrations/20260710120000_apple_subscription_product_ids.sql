@@ -1,4 +1,4 @@
--- App Store uses pixai_monthly / pixai_annual; Google Play keeps pixai_premium_* SKUs.
+-- App Store uses pix_monthly / pix_annual; Google Play keeps pixai_premium_* SKUs.
 
 create or replace function public.user_has_active_premium_entitlement(p_user_id uuid)
 returns boolean
@@ -15,8 +15,8 @@ as $$
       and se.product_id in (
         'pixai_premium_monthly',
         'pixai_premium_annual',
-        'pixai_monthly',
-        'pixai_annual'
+        'pix_monthly',
+        'pix_annual'
       )
   );
 $$;
@@ -35,14 +35,14 @@ as $$
     and se.product_id in (
       'pixai_premium_monthly',
       'pixai_premium_annual',
-      'pixai_monthly',
-      'pixai_annual'
+      'pix_monthly',
+      'pix_annual'
     )
   order by case se.product_id
     when 'pixai_premium_annual' then 2
-    when 'pixai_annual' then 2
+    when 'pix_annual' then 2
     when 'pixai_premium_monthly' then 1
-    when 'pixai_monthly' then 1
+    when 'pix_monthly' then 1
     else 0
   end desc
   limit 1;
@@ -55,9 +55,9 @@ immutable
 as $$
   select case p_product_id
     when 'pixai_premium_annual' then 100
-    when 'pixai_annual' then 100
+    when 'pix_annual' then 100
     when 'pixai_premium_monthly' then 10
-    when 'pixai_monthly' then 10
+    when 'pix_monthly' then 10
     else 0
   end;
 $$;
@@ -88,7 +88,7 @@ begin
     'intro_period_ends_at', v_wallet.intro_period_ends_at,
     'is_intro_active', now() < v_wallet.intro_period_ends_at,
     'has_paid_premium', v_product_id is not null,
-    'has_premium_plus', v_product_id in ('pixai_premium_annual', 'pixai_annual'),
+    'has_premium_plus', v_product_id in ('pixai_premium_annual', 'pix_annual'),
     'active_product_id', v_product_id
   );
 end;
@@ -112,6 +112,6 @@ as $$
     from public.subscription_entitlements se
     where se.user_id = p_user_id
       and se.status in ('active', 'trialing', 'grace_period', 'billing_retry')
-      and se.product_id in ('pixai_premium_annual', 'pixai_annual')
+      and se.product_id in ('pixai_premium_annual', 'pix_annual')
   );
 $$;
