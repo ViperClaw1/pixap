@@ -18,6 +18,7 @@ import { useNavigation, useRoute, useIsFocused, type NavigationProp, type RouteP
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useStoriesFeed, useStoriesStrip, buildStoryGroupsFromFeedAndStrip } from "@/entities/story";
@@ -52,6 +53,7 @@ import { FeedPostCard } from "@/widgets/feed-post-card";
 import { usePostCommentComposer } from "@/pages/stories-feed/model/usePostCommentComposer";
 import { useFollowOverrides } from "@/pages/stories-feed/model/useFollowOverrides";
 import { useNavigateOnce } from "@/shared/lib/navigation/useNavigateOnce";
+import { ctaGradientColors } from "@/shared/theme/gradients";
 import {
   FEED_APP_HEADER_BODY,
   FEED_CAROUSEL_HEIGHT_BOOST,
@@ -62,6 +64,7 @@ import {
   FEED_STORIES_STRIP_HEIGHT,
   FEED_TAB_BAR_BASE,
   FEED_TITLE_INPUT_KEYBOARD_GAP,
+  isStoryFresh,
 } from "../model/constants";
 
 export default function StoriesFeedScreen() {
@@ -422,24 +425,14 @@ export default function StoriesFeedScreen() {
 
   // ─── renderItem ──────────────────────────────────────────────────────────
   const renderFocusedFeedPost = useCallback<ListRenderItem<FeedPostVm>>(
-    ({ item: vm, index }) => {
+    ({ item: vm }) => {
       const h = feedCardHandlersRef.current;
-      const isEditorial = index % 3 === 0;
-      const cardWidth = isEditorial ? h.width : Math.round((h.width - 16) / 2);
       const venueName = vm.post.business_card?.name ?? vm.post.place_name ?? null;
       return (
-        <View
-          style={{
-            width: isEditorial ? h.width : cardWidth,
-            alignSelf: isEditorial ? "stretch" : index % 3 === 1 ? "flex-start" : "flex-end",
-            paddingHorizontal: isEditorial ? 0 : 4,
-            marginBottom: isEditorial ? 10 : 6,
-          }}
-        >
         <FeedPostCard
           vm={vm}
-          width={cardWidth}
-          sliderHeight={isEditorial ? h.sliderHeight + 40 : h.sliderHeight}
+          width={h.width}
+          sliderHeight={h.sliderHeight}
           venueName={venueName}
           onPressVenue={
             vm.post.place_id
@@ -480,7 +473,6 @@ export default function StoriesFeedScreen() {
             }
           }}
         />
-        </View>
       );
     },
     [
@@ -655,6 +647,7 @@ function StoriesStripHeader({
   onOpenStory: (params: BrowseFlowParamList["FeedStoryViewer"]) => void;
 }) {
   const { t } = useTranslation();
+  const { isDark } = useAppTheme();
   const onStoriesStripScroll = useCallback(
     (offsetX: number, layoutWidth: number, contentWidth: number) => {
       if (layoutWidth + offsetX < contentWidth - 48) return;
@@ -707,6 +700,24 @@ function StoriesStripHeader({
           const reactionsTotal =
             targetGroup?.stories.reduce((sum, item) => sum + (item.reaction_count ?? 0), 0) ?? 0;
           const isTrending = reactionsTotal >= 8;
+          const isFresh = isStoryFresh(story.created_at);
+
+          const avatar = (
+            <UserAvatarImage
+              uri={story.profile?.avatar_url}
+              style={styles.storyBubbleAvatar}
+              contentFit="cover"
+              iconSize={28}
+            />
+          );
+
+          const trendingBadge = isTrending ? (
+            <View style={[styles.storyTrendingBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.storyTrendingBadgeText, { color: colors.onPrimary }]}>
+                {t("feed.trending", { defaultValue: "Trending" })}
+              </Text>
+            </View>
+          ) : null;
 
           return (
             <AppPressable
@@ -727,29 +738,27 @@ function StoriesStripHeader({
                 });
               }}
             >
-              <View style={[styles.storyBubbleRing, { borderColor: colors.primary, borderWidth: 2.5 }]}>
-                <UserAvatarImage
-                  uri={story.profile?.avatar_url}
-                  style={styles.storyBubbleAvatar}
-                  contentFit="cover"
-                  iconSize={28}
-                />
-                {isTrending ? (
-                  <View style={[styles.storyTrendingBadge, { backgroundColor: colors.primary }]}>
-                    <Text style={[styles.storyTrendingBadgeText, { color: colors.onPrimary }]}>
-                      {t("feed.trending", { defaultValue: "Trending" })}
-                    </Text>
+              {isFresh ? (
+                <LinearGradient
+                  colors={[...ctaGradientColors(isDark)]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.storyBubbleRingGradient}
+                >
+                  <View style={[styles.storyBubbleRingInner, { backgroundColor: colors.background }]}>
+                    {avatar}
                   </View>
-                ) : null}
-              </View>
+                  {trendingBadge}
+                </LinearGradient>
+              ) : (
+                <View style={[styles.storyBubbleRing, { borderColor: colors.border }]}>
+                  {avatar}
+                  {trendingBadge}
+                </View>
+              )}
               <Text style={[styles.storyBubbleName, { color: colors.text }]} numberOfLines={1}>
                 {name}
               </Text>
-              {targetGroup?.stories[0]?.place_id ? (
-                <Text style={[styles.storyVenueName, { color: colors.textMuted }]} numberOfLines={1}>
-                  {t("feed.storyVenue", { defaultValue: "Venue story" })}
-                </Text>
-              ) : null}
             </AppPressable>
           );
         })}
@@ -793,10 +802,24 @@ const styles = StyleSheet.create({
   /** Wider label slot — longest copy is `feed.addStory` (e.g. fr «Ajouter une story»). */
   storyBubbleAdd: { width: 112 },
   storyBubbleRing: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  storyBubbleRingGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    padding: 3,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  storyBubbleRingInner: {
+    flex: 1,
+    width: "100%",
+    borderRadius: 29,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   storyBubbleAvatar: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
   storyPlusBadge: { position: "absolute", right: -2, bottom: -2, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   storyBubbleName: { fontSize: 12, textAlign: "center" },
-  storyVenueName: { fontSize: 10, textAlign: "center", marginTop: 2, maxWidth: 72 },
   storyBubbleAddName: { width: "100%" },
   storyTrendingBadge: {
     position: "absolute",
