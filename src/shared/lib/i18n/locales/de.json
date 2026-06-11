@@ -35,6 +35,21 @@
     "bookNow": "Jetzt buchen",
     "bookWithPixAI": "Mit PixAI buchen"
   },
+  "placePhotoGrid": {
+    "addPhoto": "Foto hinzufügen",
+    "addPhotoA11y": "Foto für dieses Lokal hinzufügen",
+    "permissionTitle": "Berechtigung erforderlich",
+    "permissionBody": "Für das Hinzufügen eines Fotos wird Zugriff auf die Fotomediathek benötigt.",
+    "uploadFailedTitle": "Upload fehlgeschlagen",
+    "uploadFailedBody": "Foto konnte nicht hinzugefügt werden. Bitte erneut versuchen.",
+    "deletePhotoA11y": "Foto löschen",
+    "deleteConfirmTitle": "Foto löschen?",
+    "deleteConfirmMessage": "Dieses Foto wird aus der Galerie des Lokals entfernt. Das kann nicht rückgängig gemacht werden.",
+    "deleteCancel": "Abbrechen",
+    "deleteConfirm": "Löschen",
+    "deleteFailedTitle": "Löschen fehlgeschlagen",
+    "deleteFailedBody": "Bitte erneut versuchen."
+  },
   "feed": {
     "addStory": "Story hinzufügen",
     "follow": "Folgen",

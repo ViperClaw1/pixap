@@ -41,8 +41,8 @@ export type MessageThreadRouteParams = {
 export type BrowseFlowParamList = {
   PostDetail: { postId: string };
   PlaceDetail: { id: string; hideBookingActions?: boolean };
-  PlacePhotoGrid: { title: string; images: string[]; rawImages?: string[] };
-  PlaceGallery: { images: string[]; rawImages?: string[]; initialIndex?: number };
+  PlacePhotoGrid: { placeId: string; title: string; images: string[]; rawImages?: string[] };
+  PlaceGallery: { placeId: string; images: string[]; rawImages?: string[]; initialIndex?: number };
   StoryViewer: StoryViewerRouteParams;
   FeedStoryViewer: StoryViewerRouteParams;
   StoryComposer: StoryComposerRouteParams;

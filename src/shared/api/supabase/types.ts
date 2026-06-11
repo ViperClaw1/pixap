@@ -934,6 +934,20 @@ export type Database = {
       }
     }
     Functions: {
+      append_business_card_image: {
+        Args: {
+          p_image_url: string
+          p_venue_id: string
+        }
+        Returns: string[]
+      },
+      remove_business_card_image: {
+        Args: {
+          p_image_url: string
+          p_venue_id: string
+        }
+        Returns: string[]
+      },
       get_business_cards_localized: {
         Args: {
           p_type?: string | null

@@ -97,21 +97,23 @@ export function AIBookingSelectedPlaceDetails({ styles: s, selectedPlace }: Prop
   const openFullscreenGallery = useCallback(
     (initialIndex: number) => {
       navigation.navigate("PlaceGallery", {
+        placeId: place.id,
         images: imageVm.galleryImages,
         rawImages: imageVm.galleryFallbacks,
         initialIndex,
       });
     },
-    [imageVm.galleryFallbacks, imageVm.galleryImages, navigation],
+    [imageVm.galleryFallbacks, imageVm.galleryImages, navigation, place.id],
   );
 
   const openPhotoGrid = useCallback(() => {
     navigation.navigate("PlacePhotoGrid", {
+      placeId: place.id,
       title: place.name,
       images: imageVm.gridThumbImages,
       rawImages: imageVm.galleryFallbacks,
     });
-  }, [imageVm.galleryFallbacks, imageVm.gridThumbImages, navigation, place.name]);
+  }, [imageVm.galleryFallbacks, imageVm.gridThumbImages, navigation, place.id, place.name]);
 
   const handleHeroTap = useCallback(
     (index: number) => {
