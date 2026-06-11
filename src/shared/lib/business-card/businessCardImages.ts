@@ -45,19 +45,65 @@ function isLikelyImageUri(value: string): boolean {
   );
 }
 
-export function normalizeBusinessCardImages(images: unknown): string[] {
-  if (Array.isArray(images)) {
-    return images
-      .map((item) => (typeof item === "string" ? item.trim() : ""))
-      .filter((item): item is string => item.length > 0 && isLikelyImageUri(item));
+function extractBusinessCardImageAddedAtMs(url: string): number | null {
+  const decoded = decodeURIComponent(url);
+
+  const venueStamp = decoded.match(/venue-(\d{13})-/i);
+  if (venueStamp) {
+    const ms = Number(venueStamp[1]);
+    return Number.isFinite(ms) ? ms : null;
   }
-  if (typeof images === "string") {
-    return parseStringImages(images).filter(isLikelyImageUri);
+
+  const seedOrdinal = decoded.match(/\/(\d{2,})\.(?:webp|jpe?g|png|gif|avif)(?:\?|$)/i);
+  if (seedOrdinal) {
+    const ordinal = Number(seedOrdinal[1]);
+    return Number.isFinite(ordinal) ? ordinal : null;
   }
-  return [];
+
+  return null;
 }
 
-/** First image in `business_cards.images` (primary hero / list thumbnail). */
+/** Newest uploads first; falls back to stored array order for undated URLs. */
+export function sortBusinessCardImagesByAddedAt(images: string[]): string[] {
+  return images
+    .map((url, index) => ({ url, index, addedAt: extractBusinessCardImageAddedAtMs(url) }))
+    .sort((a, b) => {
+      if (a.addedAt !== null && b.addedAt !== null) {
+        if (b.addedAt !== a.addedAt) return b.addedAt - a.addedAt;
+        return a.index - b.index;
+      }
+      if (a.addedAt !== null) return -1;
+      if (b.addedAt !== null) return 1;
+      return a.index - b.index;
+    })
+    .map((item) => item.url);
+}
+
+function dedupeImageUrls(images: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const url of images) {
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out;
+}
+
+export function normalizeBusinessCardImages(images: unknown): string[] {
+  let parsed: string[] = [];
+  if (Array.isArray(images)) {
+    parsed = images
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item): item is string => item.length > 0 && isLikelyImageUri(item));
+  } else if (typeof images === "string") {
+    parsed = parseStringImages(images).filter(isLikelyImageUri);
+  }
+
+  return dedupeImageUrls(sortBusinessCardImagesByAddedAt(parsed));
+}
+
+/** Newest image in `business_cards.images` (hero / list thumbnail). */
 export function getPrimaryBusinessCardImage(images: unknown): string | null {
   const normalized = normalizeBusinessCardImages(images);
   return normalized[0] ?? null;

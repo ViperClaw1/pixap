@@ -17,3 +17,8 @@ export { useLocalizedBusinessCard } from "./lib/useLocalizedBusinessCard";
 export * from "./lib/cityCountry";
 export * from "./lib/addressMatch";
 export { uploadBusinessCardImage, BUSINESS_CARDS_BUCKET } from "./lib/uploadBusinessCardImage";
+export { appendBusinessCardImage } from "./api/appendBusinessCardImage";
+export { useAppendBusinessCardImage } from "./api/useAppendBusinessCardImage";
+export { removeBusinessCardImage } from "./api/removeBusinessCardImage";
+export { useRemoveBusinessCardImage } from "./api/useRemoveBusinessCardImage";
+export { deleteBusinessCardImageFromStorage } from "./lib/deleteBusinessCardImageStorage";

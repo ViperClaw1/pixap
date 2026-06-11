@@ -41,6 +41,21 @@
     "storiesLoadError": "Не удалось загрузить сторис",
     "storiesLoadErrorHint": "Проверьте подключение и попробуйте снова."
   },
+  "placePhotoGrid": {
+    "addPhoto": "Добавить фото",
+    "addPhotoA11y": "Добавить фото заведения",
+    "permissionTitle": "Нужно разрешение",
+    "permissionBody": "Для добавления фото нужен доступ к галерее.",
+    "uploadFailedTitle": "Не удалось загрузить",
+    "uploadFailedBody": "Не удалось добавить фото. Попробуйте ещё раз.",
+    "deletePhotoA11y": "Удалить фото",
+    "deleteConfirmTitle": "Удалить фото?",
+    "deleteConfirmMessage": "Фото будет удалено из галереи заведения. Это действие нельзя отменить.",
+    "deleteCancel": "Отмена",
+    "deleteConfirm": "Удалить",
+    "deleteFailedTitle": "Не удалось удалить",
+    "deleteFailedBody": "Попробуйте ещё раз."
+  },
   "feed": {
     "addStory": "Добавить сторис",
     "follow": "Подписаться",

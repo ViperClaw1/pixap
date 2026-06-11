@@ -35,6 +35,21 @@
     "bookNow": "Reservar agora",
     "bookWithPixAI": "Reservar com PixAI"
   },
+  "placePhotoGrid": {
+    "addPhoto": "Adicionar foto",
+    "addPhotoA11y": "Adicionar uma foto do local",
+    "permissionTitle": "Permissão necessária",
+    "permissionBody": "É necessário acesso à galeria para adicionar uma foto do local.",
+    "uploadFailedTitle": "Falha no envio",
+    "uploadFailedBody": "Não foi possível adicionar a foto. Tente novamente.",
+    "deletePhotoA11y": "Eliminar foto",
+    "deleteConfirmTitle": "Eliminar foto?",
+    "deleteConfirmMessage": "Esta foto será removida da galeria do local. Não é possível anular.",
+    "deleteCancel": "Cancelar",
+    "deleteConfirm": "Eliminar",
+    "deleteFailedTitle": "Não foi possível eliminar",
+    "deleteFailedBody": "Tente novamente."
+  },
   "feed": {
     "addStory": "Adicionar story",
     "follow": "Seguir",

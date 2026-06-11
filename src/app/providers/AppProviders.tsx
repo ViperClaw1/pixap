@@ -11,6 +11,7 @@ import { StorageEgressMetricsDev } from "@/app/providers/StorageEgressMetricsDev
 import { RealtimeMetricsDev } from "@/app/providers/RealtimeMetricsDev";
 import { AppErrorBoundary } from "@/shared/ui/error-boundary";
 import { AppPopupProvider } from "@/shared/ui/app-popup";
+import { AppStoreReviewGate } from "@/features/app-store-review";
 import { TermsAcceptanceGate } from "@/features/terms-acceptance";
 import { i18n } from "@/shared/lib/i18n";
 
@@ -49,6 +50,7 @@ export function AppProviders({ children, initialThemeMode = "system" }: AppProvi
                     <AppErrorBoundary>
                       {children}
                       <TermsAcceptanceGate />
+                      <AppStoreReviewGate />
                     </AppErrorBoundary>
                   </AppPopupProvider>
                 </UserPresenceProvider>

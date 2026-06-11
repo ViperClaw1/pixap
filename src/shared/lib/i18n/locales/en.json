@@ -41,6 +41,21 @@
     "storiesLoadError": "Could not load stories",
     "storiesLoadErrorHint": "Check your connection and try again."
   },
+  "placePhotoGrid": {
+    "addPhoto": "Add photo",
+    "addPhotoA11y": "Add a photo for this place",
+    "permissionTitle": "Permission needed",
+    "permissionBody": "Photo library access is required to add a venue photo.",
+    "uploadFailedTitle": "Upload failed",
+    "uploadFailedBody": "Could not add the photo. Please try again.",
+    "deletePhotoA11y": "Delete photo",
+    "deleteConfirmTitle": "Delete photo?",
+    "deleteConfirmMessage": "This photo will be removed from the venue gallery. This cannot be undone.",
+    "deleteCancel": "Cancel",
+    "deleteConfirm": "Delete",
+    "deleteFailedTitle": "Could not delete",
+    "deleteFailedBody": "Please try again."
+  },
   "feed": {
     "addStory": "Add story",
     "follow": "Follow",

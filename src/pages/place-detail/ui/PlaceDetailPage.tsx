@@ -355,17 +355,19 @@ export default function PlaceDetailScreen() {
   const openFullscreenGallery = useCallback(
     (initialIndex: number) => {
       navigation.navigate("PlaceGallery", {
+        placeId: id,
         images: imageVm.galleryImages,
         rawImages: imageVm.galleryFallbacks,
         initialIndex,
       });
     },
-    [imageVm.galleryFallbacks, imageVm.galleryImages, navigation],
+    [id, imageVm.galleryFallbacks, imageVm.galleryImages, navigation],
   );
 
   const openPhotoGrid = useCallback(() => {
     if (!place) return;
     navigation.navigate("PlacePhotoGrid", {
+      placeId: place.id,
       title: place.name,
       images: imageVm.gridThumbImages,
       rawImages: imageVm.galleryFallbacks,
