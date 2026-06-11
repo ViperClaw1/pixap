@@ -8,6 +8,7 @@ import {
   BUSINESS_CARDS_BUCKET,
   PHOTO_POOLS,
   PICSUM_IDS,
+  SEED_IMAGES_MIN,
   SEED_STORAGE_PREFIX,
   STORAGE_CACHE_CONTROL,
   log,
@@ -23,7 +24,7 @@ import { uploadBusinessCardAllPregens } from "./pregen.mjs";
 const UPLOAD_DELAY_MS = 280;
 const PHOTO_RETRY_COOLDOWN_MS = 900;
 const DOWNLOAD_TIMEOUT_MS = 45_000;
-const MIN_IMAGE_COUNT = 3;
+const MIN_IMAGE_COUNT = SEED_IMAGES_MIN;
 
 export class GoogleVenueImagesError extends Error {
   /**

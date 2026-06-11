@@ -202,6 +202,25 @@ function rankPlacesByName(results, queryName) {
     });
 }
 
+async function textSearchPlaceId(query, apiKey, label) {
+  const trimmed = query?.trim();
+  if (!trimmed) return null;
+  const data = await mapsGet("place/textsearch/json", { query: trimmed, key: apiKey }, label);
+  return data.results?.[0]?.place_id ?? null;
+}
+
+function mapsQueryFromExpandedUrl(expandedUrl) {
+  try {
+    return new URL(expandedUrl).searchParams.get("q")?.trim() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function isPlacesApiPlaceId(placeId) {
+  return typeof placeId === "string" && GOOGLE_PLACE_ID_RE.test(placeId.trim());
+}
+
 async function textSearchByPlaceName(placeName, cityLabel, apiKey) {
   const cityShort = cityLabel.split(",")[0]?.trim() ?? cityLabel.trim();
   const query = cityShort ? `${placeName} ${cityShort}` : placeName;
@@ -342,10 +361,24 @@ async function findPlaceIdFromTextInput(input, apiKey, label) {
 
 async function resolvePlaceIdFromMapsUrl(expandedUrl, apiKey) {
   const direct = extractPlaceIdFromMapsUrl(expandedUrl);
-  if (direct) return direct;
+  if (direct && isPlacesApiPlaceId(direct)) return direct;
 
   const fromUrl = await findPlaceIdFromTextInput(expandedUrl, apiKey, "findplace:maps-url");
   if (fromUrl) return fromUrl;
+
+  const mapsQuery = mapsQueryFromExpandedUrl(expandedUrl);
+  if (mapsQuery) {
+    const fromMapsQuery = await textSearchPlaceId(mapsQuery, apiKey, "textsearch:maps-q");
+    if (fromMapsQuery) return fromMapsQuery;
+
+    const queryName = mapsQuery.split(",")[0]?.trim();
+    if (queryName && queryName !== mapsQuery) {
+      const cityHint = mapsQuery.split(",").slice(-2).join(",").trim();
+      const biasedQuery = cityHint ? `${queryName}, ${cityHint}` : queryName;
+      const fromNameBias = await textSearchPlaceId(biasedQuery, apiKey, `textsearch:${queryName}`);
+      if (fromNameBias) return fromNameBias;
+    }
+  }
 
   const placeName = extractPlaceNameFromMapsPath(expandedUrl);
   if (placeName) {
@@ -559,12 +592,12 @@ export async function findPlaceByName(
 
 /**
  * Resolves a Google Maps share URL to a full Places candidate (details + photos).
- * @returns {Promise<{ placeId: string, name: string, formatted_address: string, cityLabel?: string | null, lat: number, lng: number, photoReferences: string[], distanceM: number } | null>}
+ * @returns {Promise<{ place: import('./googleMaps.mjs').GooglePlaceCandidate | null, failure: { reason: string, details?: string, placeName?: string } | null }>}
  */
 export async function findPlaceFromMapsLink(
   mapsLink,
   apiKey,
-  { venue, excludePlaceIds = null, excludeAddresses = null } = {},
+  { venue, excludePlaceIds = null, excludeAddresses = null, allowDuplicate = false } = {},
 ) {
   const trimmedLink = mapsLink?.trim();
   if (!trimmedLink) {
@@ -578,38 +611,64 @@ export async function findPlaceFromMapsLink(
   const placeId = await resolvePlaceIdFromMapsUrl(expandedUrl, apiKey);
   if (!placeId) {
     log("google", `Could not resolve place_id from Maps URL: ${trimmedLink.slice(0, 120)}`);
-    return null;
+    return {
+      place: null,
+      failure: {
+        reason: "unresolved",
+        details: "Google could not map this share link to a Places place_id (try the full maps.google.com URL)",
+      },
+    };
   }
 
   if (excludePlaceIds?.has(placeId)) {
     log("google", `Skip Maps link — place_id already used in this run`);
-    return null;
+    return {
+      place: null,
+      failure: { reason: "used_in_run", details: "same Google place_id already seeded in this command" },
+    };
   }
 
   const detailed = await loadPlaceDetails(placeId, apiKey, "details:maps-link");
   if (!detailed) {
     log("google", `Place Details returned no data for Maps URL (${placeId})`);
-    return null;
+    return {
+      place: null,
+      failure: { reason: "no_details", details: `Place Details empty for ${placeId}` },
+    };
   }
 
   const resolved = await resolvePlaceCandidate(detailed, venue, apiKey, 0, { skipVenueFilter: true });
   if (!resolved) {
     log("google", `Maps URL resolved to "${detailed.name ?? placeId}" but place lacks usable photos`);
-    return null;
+    return {
+      place: null,
+      failure: {
+        reason: "no_photos",
+        placeName: detailed.name ?? null,
+        details: "Google place has no downloadable photos in Places API",
+      },
+    };
   }
 
   const addrKey = normalizeListingAddress(resolved.formatted_address);
-  if (excludeAddresses?.size && addrKey && excludeAddresses.has(addrKey)) {
+  if (!allowDuplicate && excludeAddresses?.size && addrKey && excludeAddresses.has(addrKey)) {
     log("google", `Skip "${resolved.name}" — address already in business_cards`);
     excludePlaceIds?.add(resolved.placeId);
-    return null;
+    return {
+      place: null,
+      failure: {
+        reason: "duplicate",
+        placeName: resolved.name,
+        details: "address already in business_cards (use --allow-duplicate to insert anyway)",
+      },
+    };
   }
 
   log(
     "google",
     `Matched Maps link → "${resolved.name}" @ ${resolved.formatted_address}${resolved.cityLabel ? ` (${resolved.cityLabel})` : ""}`,
   );
-  return { ...resolved, source: "maps-link" };
+  return { place: { ...resolved, source: "maps-link" }, failure: null };
 }
 
 /** @typedef {{ placeId: string, name: string, formatted_address: string, cityLabel?: string | null, lat: number, lng: number, photoReferences: string[], phone?: string | null, distanceM: number, source: string, types?: string[], price_level?: number }} GooglePlaceCandidate */

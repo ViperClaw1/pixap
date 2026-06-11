@@ -1,4 +1,4 @@
-import { LOCALES, SEED_COUNT, log } from "./lib.mjs";
+import { LOCALES, SEED_COUNT, SEED_IMAGES_MAX, SEED_IMAGES_MIN, log } from "./lib.mjs";
 
 const REQUIRED_SCALAR = [
   "name",
@@ -27,8 +27,13 @@ export function validateRow(row) {
 
   if (!Array.isArray(row.images)) {
     errors.push("images must be an array");
-  } else if (row.images.length > 0 && (row.images.length < 3 || row.images.length > 6)) {
-    errors.push(`images must have 0 or 3–6 entries (got ${row.images.length})`);
+  } else if (
+    row.images.length > 0 &&
+    (row.images.length < SEED_IMAGES_MIN || row.images.length > SEED_IMAGES_MAX)
+  ) {
+    errors.push(
+      `images must have 0 or ${SEED_IMAGES_MIN}–${SEED_IMAGES_MAX} entries (got ${row.images.length})`,
+    );
   }
 
   if (!Array.isArray(row.tags) || row.tags.length < 3) {
@@ -113,7 +118,7 @@ export function validatePersistedRows(fetched, prepared, expectedCount = SEED_CO
       errors.push("images missing in DB");
     } else if (
       expected.images.length > 0 &&
-      (row.images.length < 3 || row.images.length !== expected.images.length)
+      (row.images.length < SEED_IMAGES_MIN || row.images.length !== expected.images.length)
     ) {
       errors.push(
         `images mismatch in DB (expected ${expected.images.length}, got ${row.images?.length ?? 0})`,
