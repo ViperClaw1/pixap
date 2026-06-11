@@ -16,7 +16,10 @@
  *   node scripts/seed-business-cards/seed.mjs --link '["https://maps.app.goo.gl/one","https://maps.app.goo.gl/two"]'
  *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc" --listing-type featured
  *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc" --tags=restaurants,dining,luxury --listing-type featured
+ *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc" --allow-duplicate
  *   node scripts/seed-business-cards/seed.mjs --city Paris --count 3 --listing-type recommended
+ *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc" --images 10
+ *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc" --images all
  */
 import { resolveSeedCategoryType, selectVenueDefinitions } from "./categoryTypes.mjs";
 import {
@@ -39,6 +42,10 @@ import { createSeedImageRegistry, uploadVenueImages } from "./images.mjs";
 import { loadExistingImageUrls } from "./seedImageRegistry.mjs";
 import {
   RNG_SEED,
+  SEED_IMAGES_DEFAULT_MAX,
+  SEED_IMAGES_DEFAULT_MIN,
+  SEED_IMAGES_MAX,
+  SEED_IMAGES_MIN,
   cloneVenueDefinition,
   createRng,
   createSupabaseAdmin,
@@ -61,6 +68,18 @@ const venueDefinitions = selectVenueDefinitions(VENUE_DEFINITIONS, categoryType,
 
 function roundRating(value) {
   return Math.round(value * 10) / 10;
+}
+
+function resolveVenueImageCount(rng, venue, cliImages) {
+  if (cliImages === "all") {
+    const available = venue._googlePlace?.photoReferences?.length ?? 0;
+    if (available >= SEED_IMAGES_MIN) {
+      return Math.min(available, SEED_IMAGES_MAX);
+    }
+    return pickInt(rng, SEED_IMAGES_DEFAULT_MIN, SEED_IMAGES_DEFAULT_MAX);
+  }
+  if (typeof cliImages === "number") return cliImages;
+  return pickInt(rng, SEED_IMAGES_DEFAULT_MIN, SEED_IMAGES_DEFAULT_MAX);
 }
 
 function buildInsertRow(venue, rng, images, usedNames) {
@@ -174,13 +193,19 @@ async function prepareVenue(
           : namedLookup
             ? `places:name:${targetPlaceName}@${cityResolved.label}`
             : `places:${venueTemplate.slug}@${cityResolved.label}`,
-        () => {
+        async () => {
           if (linkLookup) {
-            return findPlaceFromMapsLink(targetMapsLink, googleApiKey, {
+            const outcome = await findPlaceFromMapsLink(targetMapsLink, googleApiKey, {
               venue: prepared,
               excludePlaceIds: usedPlaceIds,
               excludeAddresses: existingIndex.addresses,
+              allowDuplicate: cli.allowDuplicate,
             });
+            if (outcome.failure) {
+              outcome.failure._mapsLinkFailure = true;
+              throw outcome.failure;
+            }
+            return outcome.place;
           }
           if (namedLookup) {
             return findPlaceByName(targetPlaceName, cityResolved.label, googleApiKey, {
@@ -197,6 +222,17 @@ async function prepareVenue(
         { attempts: 4, baseDelayMs: 1200 },
       );
     } catch (err) {
+      if (linkLookup && err && typeof err === "object" && err._mapsLinkFailure) {
+        const label = err.placeName ?? targetMapsLink.slice(0, 80);
+        const reasonByCode = {
+          duplicate: "Venue already exists in business_cards",
+          unresolved: "Could not resolve Google Maps link to a place",
+          no_details: "Google Place Details returned no data",
+          no_photos: "Google place has no usable photos",
+          used_in_run: "Same place already seeded in this run",
+        };
+        return skipVenue(label, reasonByCode[err.reason] ?? "Google Maps link lookup failed", err.details);
+      }
       return skipVenue(
         linkLookup
           ? targetMapsLink.slice(0, 80)
@@ -204,13 +240,16 @@ async function prepareVenue(
             ? `${targetPlaceName} (${cityResolved.label})`
             : `${venueTemplate.slug} (${cityResolved.label})`,
         "Google Places lookup failed",
-        err.message,
+        err instanceof Error ? err.message : String(err),
       );
     }
 
     if (!place) break;
 
-    const dupReason = isDuplicateListing(place.name, place.formatted_address, existingIndex);
+    const dupReason =
+      linkLookup && cli.allowDuplicate
+        ? null
+        : isDuplicateListing(place.name, place.formatted_address, existingIndex);
     if (dupReason) {
       usedPlaceIds.add(place.placeId);
       log("dedupe", `"${place.name}" skipped — ${dupReason}`);
@@ -263,7 +302,7 @@ async function prepareVenue(
     }
   }
 
-  const imageCount = pickInt(rng, 3, 6);
+  const imageCount = resolveVenueImageCount(rng, prepared, cli.images);
   const listingLabel = prepared._googlePlace?.name?.trim() ?? prepared.name.en;
   log(
     "venue",
@@ -301,7 +340,8 @@ async function prepareVenue(
   if (prepared._googlePlace) {
     log("copy", `${row.name}: ${row.description.slice(0, 72)}…`);
   }
-  const dupReason = isDuplicateListing(row.name, row.address, existingIndex);
+  const dupReason =
+    linkLookup && cli.allowDuplicate ? null : isDuplicateListing(row.name, row.address, existingIndex);
   if (dupReason) {
     return skipVenue(row.name, dupReason);
   }
@@ -422,7 +462,7 @@ async function main() {
 
   log(
     "seed",
-    `Starting business_cards seed (${venueCount} venues, count=${cli.count}, dryRun=${cli.dryRun}, skipImages=${cli.skipImages}, city=${cli.city ?? (cli.links?.length ? "from link" : "random")}, source=${cli.links?.length ? `${cli.links.length} Maps link(s)` : cli.names?.join(", ") ?? "random nearby POI"}, category=${categoryType?.displayName ?? "all"}, listingType=${cli.listingType ?? "from venues.mjs"}, tags=${cli.tags?.join(", ") ?? "from venues.mjs"}, googlePhotoMax=${googlePhotoCapLabel})`,
+    `Starting business_cards seed (${venueCount} venues, count=${cli.count}, dryRun=${cli.dryRun}, skipImages=${cli.skipImages}, city=${cli.city ?? (cli.links?.length ? "from link" : "random")}, source=${cli.links?.length ? `${cli.links.length} Maps link(s)` : cli.names?.join(", ") ?? "random nearby POI"}, category=${categoryType?.displayName ?? "all"}, listingType=${cli.listingType ?? "from venues.mjs"}, images=${cli.images ?? `random ${SEED_IMAGES_DEFAULT_MIN}-${SEED_IMAGES_DEFAULT_MAX}`}, tags=${cli.tags?.join(", ") ?? "from venues.mjs"}, googlePhotoMax=${googlePhotoCapLabel})`,
   );
 
   const prepared = [];
@@ -479,8 +519,13 @@ async function main() {
   }
 
   if (!prepared.length) {
+    const duplicateOnly =
+      skippedVenues.length > 0 &&
+      skippedVenues.every((s) => s.reason === "Venue already exists in business_cards" || s.reason.includes("already in business_cards"));
     throw new Error(
-      "No new venues ready to insert — catalogue may already cover these cities; try another city, --count, or --type",
+      duplicateOnly
+        ? "All requested venues are already in business_cards — use --allow-duplicate with --link to insert again"
+        : "No new venues ready to insert — catalogue may already cover these cities; try another city, --count, or --type",
     );
   }
 

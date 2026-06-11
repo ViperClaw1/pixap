@@ -13,6 +13,12 @@ export const SEED_STORAGE_PREFIX = "seed/pixap-demo";
 export const SEED_COUNT = 10;
 export const SEED_COUNT_MIN = 1;
 export const SEED_COUNT_MAX = 100;
+/** Per-venue image count when `--images` is omitted (random in this range). */
+export const SEED_IMAGES_DEFAULT_MIN = 3;
+export const SEED_IMAGES_DEFAULT_MAX = 6;
+/** Bounds for `--images` / validation. */
+export const SEED_IMAGES_MIN = 1;
+export const SEED_IMAGES_MAX = 20;
 export const RNG_SEED = 20260522;
 
 /** Matches `public.categories` on project pix (ylcyktbppowabnxuwdrr). */
@@ -183,6 +189,25 @@ function parseCountArg(raw) {
   return n;
 }
 
+/**
+ * @param {string} raw
+ * @returns {number | "all"}
+ */
+export function parseImagesArg(raw) {
+  const trimmed = String(raw ?? "").trim().toLowerCase();
+  if (!trimmed) {
+    throw new Error(`Invalid --images value: empty (use integer ${SEED_IMAGES_MIN}–${SEED_IMAGES_MAX} or "all")`);
+  }
+  if (trimmed === "all" || trimmed === "max") return "all";
+  const n = Number(trimmed);
+  if (!Number.isInteger(n) || n < SEED_IMAGES_MIN || n > SEED_IMAGES_MAX) {
+    throw new Error(
+      `Invalid --images value: ${raw} (use integer ${SEED_IMAGES_MIN}–${SEED_IMAGES_MAX}, or "all" for every Google photo)`,
+    );
+  }
+  return n;
+}
+
 const TAGS_MIN = 3;
 const TAGS_MAX = 12;
 
@@ -336,7 +361,12 @@ export function parseListingTypeArg(raw) {
   return value;
 }
 
-const CLI_BOOLEAN_FLAGS = new Set(["--dry-run", "--skip-images", "--no-google"]);
+const CLI_BOOLEAN_FLAGS = new Set([
+  "--dry-run",
+  "--skip-images",
+  "--no-google",
+  "--allow-duplicate",
+]);
 
 /** Windows / copy-paste often turns `--flag` into `-—flag` (hyphen + em dash). */
 const UNICODE_DASH_RE = /[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/g;
@@ -366,6 +396,7 @@ export function parseCliArgs(argv) {
   let names = null;
   let links = null;
   let listingType = null;
+  let images = null;
   const handled = new Set();
 
   for (let i = 0; i < args.length; i += 1) {
@@ -404,6 +435,14 @@ export function parseCliArgs(argv) {
       handled.add(i);
       if (!a.startsWith("--count=")) handled.add(i + 1);
       if (!a.startsWith("--count=")) i += 1;
+      continue;
+    }
+    if (a === "--images" || a.startsWith("--images=")) {
+      const raw = a.startsWith("--images=") ? a.slice("--images=".length) : requireCliValue("--images", args, i);
+      images = parseImagesArg(raw);
+      handled.add(i);
+      if (!a.startsWith("--images=")) handled.add(i + 1);
+      if (!a.startsWith("--images=")) i += 1;
       continue;
     }
     if (a === "--tags" || a.startsWith("--tags=")) {
@@ -477,6 +516,8 @@ export function parseCliArgs(argv) {
     dryRun: args.includes("--dry-run"),
     skipImages: args.includes("--skip-images"),
     noGoogle: args.includes("--no-google"),
+    /** With `--link`, skip address dedupe and insert even if the POI is already in business_cards. */
+    allowDuplicate: args.includes("--allow-duplicate"),
     city: city?.trim() || null,
     cityParsedAsShorthand,
     type: type?.trim() || null,
@@ -487,6 +528,8 @@ export function parseCliArgs(argv) {
     links,
     /** When set, overrides `business_cards.type` for every row (`featured` | `recommended`). */
     listingType,
+    /** Fixed image count per venue, or `"all"` to use every Google Places photo (up to SEED_IMAGES_MAX). */
+    images,
     /** When set, overrides `tags` / `tags_*` on every inserted row (lowercased slugs). */
     tags,
     /** `0` = no byte cap; otherwise max downloaded size per Google Places photo. */
