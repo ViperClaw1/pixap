@@ -83,6 +83,8 @@ export const queryKeys = {
   bookings: {
     user: (userId: string | undefined | null, language: string) =>
       ["bookings", userId ?? null, language] as const,
+    detail: (userId: string | undefined | null, bookingId: string | undefined | null, language: string) =>
+      ["bookings", "detail", userId ?? null, bookingId ?? null, language] as const,
     prefix: ["bookings"] as const,
   },
   favorites: {

@@ -105,6 +105,11 @@ function BookingsStackNavigator() {
   return (
     <BookingsStack.Navigator initialRouteName="BookingsMain" screenOptions={stackScreenOptions}>
       <BookingsStack.Screen name="BookingsMain" getComponent={() => require("@/pages/bookings").default} />
+      <BookingsStack.Screen
+        name="BookingDetail"
+        getComponent={() => require("@/pages/booking-detail").default}
+        options={fullWidthSwipeBackOptions}
+      />
       {renderBrowseFlowScreens(BookingsStack.Screen as BrowseFlowStackScreen)}
     </BookingsStack.Navigator>
   );

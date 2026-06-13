@@ -577,6 +577,13 @@
     "noPlacesYet": "Пока нет мест",
     "defaultVenueName": "Бронирование"
   },
+  "bookingDetail": {
+    "title": "Детали бронирования",
+    "notFound": "Бронирование не найдено или у вас нет доступа.",
+    "guestName": "Гость: {{name}}",
+    "guestPhone": "Телефон: {{phone}}",
+    "openVenue": "Открыть заведение"
+  },
   "cart": {
     "title": "Корзина",
     "tabServices": "Услуги",

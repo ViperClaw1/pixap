@@ -2,8 +2,6 @@ import { AppPressable } from "@/shared/ui/app-pressable";
 import { memo } from "react";
 import { Alert, Linking, PixelRatio, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import {
@@ -13,7 +11,6 @@ import {
   type Booking,
   type BookingDisplayStatus,
 } from "@/entities/booking";
-import type { BookingsStackParamList } from "@/app/navigation/types";
 import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import {
   businessCardDisplayFallback,
@@ -86,11 +83,11 @@ type Props = {
   item: BookingListItem;
   styles: BookingsScreenStyles;
   isCompact: boolean;
+  onBookingPress: (bookingId: string) => void;
 };
 
-function BookingListCardInner({ item, styles, isCompact }: Props) {
+function BookingListCardInner({ item, styles, isCompact, onBookingPress }: Props) {
   const { t } = useTranslation();
-  const navigation = useNavigation<NativeStackNavigationProp<BookingsStackParamList>>();
   const cancelBooking = useCancelBooking();
 
   const palette = statusPalette(item.displayStatus);
@@ -128,7 +125,7 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
   };
 
   return (
-    <AppPressable style={styles.card} onPress={() => navigation.navigate("PlaceDetail", { id: item.business_card_id })}>
+    <AppPressable style={styles.card} onPress={() => onBookingPress(item.id)}>
       <SmartImage
         uri={thumbUri}
         fallbackUri={thumbFallback}
@@ -148,7 +145,8 @@ function BookingListCardInner({ item, styles, isCompact }: Props) {
           {canCancel ? (
             <AppPressable
               style={styles.cancelBtn}
-              onPress={() => {
+              onPress={(event) => {
+                event.stopPropagation?.();
                 Alert.alert(t("bookings.cancelBookingTitle"), t("bookings.cancelBookingMessage"), [
                   { text: t("bookings.no"), style: "cancel" },
                   {

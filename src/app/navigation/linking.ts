@@ -137,6 +137,31 @@ function stateForRootPath(fullPath: string) {
   return null;
 }
 
+function stateForBookingDetailPath(fullPath: string) {
+  const normalized = normalizePath(fullPath);
+  if (!normalized.startsWith("bookings/")) return null;
+  const raw = normalized.slice("bookings/".length).split("/")[0] ?? "";
+  const bookingId = decodeURIComponent(raw).trim();
+  if (!bookingId) return null;
+
+  const BOOKINGS_TAB_INDEX = 1;
+  return {
+    routes: [
+      {
+        name: "Bookings" as const,
+        state: {
+          routes: [
+            { name: "BookingsMain" as const },
+            { name: "BookingDetail" as const, params: { bookingId } },
+          ],
+          index: 1,
+        },
+      },
+    ],
+    index: BOOKINGS_TAB_INDEX,
+  };
+}
+
 export const linking: LinkingOptions<RootTabParamList> = {
   prefixes,
   config: linkingConfig,
@@ -152,6 +177,10 @@ export const linking: LinkingOptions<RootTabParamList> = {
     const storyViewer = stateForStoryViewerPath(path);
     if (storyViewer) {
       return storyViewer as ReturnType<typeof getStateFromPathInternal>;
+    }
+    const bookingDetail = stateForBookingDetailPath(path);
+    if (bookingDetail) {
+      return bookingDetail as ReturnType<typeof getStateFromPathInternal>;
     }
     const authCallback = stateForSupabaseAuthCallback(path);
     if (authCallback) {

@@ -45,14 +45,17 @@ function safeDecodeURIComponent(value: string): string {
 function entityTitle(entityType: string): string {
   if (entityType === "place") return "Открыть заведение в Pixap";
   if (entityType === "post") return "Открыть пост в Pixap";
+  if (entityType === "booking") return "Открыть бронирование в Pixap";
   return "Открыть историю в Pixap";
 }
 
-function fallbackHtml(entityType: "place" | "post" | "story", entityId: string): string {
+function fallbackHtml(entityType: "place" | "post" | "story" | "booking", entityId: string): string {
   const safeEntityType = escapeHtml(entityType);
   const decodedEntityId = safeDecodeURIComponent(entityId);
   const safeEntityId = escapeHtml(decodedEntityId);
-  const deepLink = `pixap://${entityType}/${encodeURIComponent(decodedEntityId)}`;
+  const deepLink = entityType === "booking"
+    ? `pixap://bookings/${encodeURIComponent(decodedEntityId)}`
+    : `pixap://${entityType}/${encodeURIComponent(decodedEntityId)}`;
   const title = entityTitle(entityType);
 
   return `<!DOCTYPE html>
@@ -150,9 +153,10 @@ Deno.serve((req) => {
     ]);
   }
 
-  const deepLinkMatch = path.match(/^\/(place|post|story)\/([^/]+)$/);
+  const deepLinkMatch = path.match(/^\/(place|post|story|bookings)\/([^/]+)$/);
   if (deepLinkMatch?.[1] && deepLinkMatch[2]) {
-    return new Response(fallbackHtml(deepLinkMatch[1] as "place" | "post" | "story", deepLinkMatch[2]), {
+    const entityType = deepLinkMatch[1] === "bookings" ? "booking" : deepLinkMatch[1];
+    return new Response(fallbackHtml(entityType as "place" | "post" | "story" | "booking", deepLinkMatch[2]), {
       headers: HTML_HEADERS,
     });
   }

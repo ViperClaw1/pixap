@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
   if (!url || !serviceKey) {
     return jsonResponse({ error: "Server misconfigured" }, 500);
   }
-  if (!isServiceAuthorized(req, serviceKey)) {
+  if (!await isServiceAuthorized(req, serviceKey)) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 

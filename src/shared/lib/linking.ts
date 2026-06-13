@@ -61,6 +61,7 @@ export const linkingConfig = {
       path: "bookings",
       screens: {
         BookingsMain: "",
+        BookingDetail: ":bookingId",
         PlaceDetail: "booking-place/:id",
         AIBooking: "pixai",
         VibeMatch: "vibe-match",
