@@ -235,6 +235,203 @@ async function textSearchByPlaceName(placeName, cityLabel, apiKey) {
 const PLACE_DETAILS_FIELDS =
   "place_id,name,formatted_address,address_components,geometry,photos,business_status,types,price_level,formatted_phone_number,international_phone_number,rating,user_ratings_total";
 
+const PLACES_NEW_BASE = "https://places.googleapis.com/v1";
+
+/** Google Places New `primaryType` / `types[]` → searchable cuisine tags (EN + RU). */
+export const GOOGLE_TYPE_TO_CUISINE = {
+  pizza_restaurant: ["pizza", "пицца", "italian", "итальянская"],
+  italian_restaurant: ["italian", "итальянская", "pasta", "паста"],
+  japanese_restaurant: ["japanese", "японская", "sushi", "суши"],
+  sushi_restaurant: ["sushi", "суши", "japanese", "японская"],
+  ramen_restaurant: ["ramen", "рамен", "japanese", "японская"],
+  hamburger_restaurant: ["burger", "бургер", "american", "американская"],
+  american_restaurant: ["american", "американская", "burger", "бургер"],
+  chinese_restaurant: ["chinese", "китайская", "wok", "вок"],
+  thai_restaurant: ["thai", "тайская"],
+  indian_restaurant: ["indian", "индийская", "curry", "карри"],
+  mexican_restaurant: ["mexican", "мексиканская", "tacos", "такос"],
+  french_restaurant: ["french", "французская"],
+  georgian_restaurant: ["georgian", "грузинская", "хинкали", "хачапури"],
+  korean_restaurant: ["korean", "корейская", "bbq"],
+  seafood_restaurant: ["seafood", "морепродукты", "рыба", "fish"],
+  steak_house: ["steak", "стейк", "grill", "гриль", "мясо"],
+  barbecue_restaurant: ["bbq", "шашлык", "гриль", "мангал"],
+  uzbek_restaurant: ["uzbek", "узбекская", "плов", "лагман"],
+  vegetarian_restaurant: ["vegetarian", "вегетарианская", "vegan", "веган"],
+  cafe: ["cafe", "кафе", "coffee", "кофе"],
+  coffee_shop: ["coffee", "кофе", "specialty coffee"],
+  bar: ["bar", "бар", "cocktail", "коктейль"],
+  night_club: ["club", "клуб", "nightlife"],
+  bakery: ["bakery", "выпечка", "хлеб", "bread"],
+};
+
+const PRICE_LEVEL_TO_TIER = {
+  PRICE_LEVEL_FREE: 1,
+  PRICE_LEVEL_INEXPENSIVE: 1,
+  PRICE_LEVEL_MODERATE: 2,
+  PRICE_LEVEL_EXPENSIVE: 3,
+  PRICE_LEVEL_VERY_EXPENSIVE: 3,
+};
+
+const LEGACY_PRICE_LEVEL_TO_TIER = {
+  0: 1,
+  1: 1,
+  2: 2,
+  3: 3,
+  4: 3,
+};
+
+/** Static cuisine tag → typical menu items for FTS (quick start without Gemini). */
+const CUISINE_TO_MENU_ITEMS = {
+  italian: ["carbonara", "fettuccine alfredo", "lasagna", "risotto", "tiramisu", "bruschetta"],
+  итальянская: ["карбонара", "лазанья", "ризотто", "тирамису", "брускетта"],
+  pasta: ["carbonara", "fettuccine alfredo", "lasagna", "bolognese", "pesto pasta"],
+  паста: ["карбонара", "лазанья", "болоньезе", "песто"],
+  pizza: ["pizza margherita", "pizza pepperoni", "quattro formaggi", "calzone"],
+  пицца: ["пицца маргарита", "пицца пепперони", "четыре сыра", "кальцоне"],
+  japanese: ["sushi", "ramen", "udon", "tempura", "miso soup", "edamame"],
+  японская: ["суши", "рамэн", "удон", "темпура", "мисо суп"],
+  sushi: ["salmon nigiri", "tuna roll", "california roll", "maki", "sashimi"],
+  суши: ["нигири", "ролл", "сашими", "маки"],
+  ramen: ["tonkotsu ramen", "shoyu ramen", "miso ramen", "gyoza"],
+  рамен: ["тонкоцу рамен", "сёю рамен", "мисо рамен", "гёдза"],
+  burger: ["cheeseburger", "hamburger", "bacon burger", "fries"],
+  бургер: ["чизбургер", "гамбургер", "бургер с беконом", "картофель фри"],
+  american: ["burger", "ribs", "mac and cheese", "wings"],
+  американская: ["бургер", "рёбрышки", "крылышки"],
+  chinese: ["dim sum", "kung pao chicken", "fried rice", "dumplings"],
+  китайская: ["дим-сам", "курица кунг-пao", "жареный рис", "пельмени"],
+  thai: ["pad thai", "green curry", "tom yum", "spring rolls"],
+  тайская: ["пад тай", "зелёное карри", "том ям", "спринг-роллы"],
+  indian: ["butter chicken", "biryani", "naan", "tikka masala", "samosa"],
+  индийская: ["бutter chicken", "бирьяни", "наан", "тикка масала"],
+  mexican: ["tacos", "burrito", "guacamole", "quesadilla", "nachos"],
+  мексиканская: ["такос", "буррито", "гуакамоле", "кесадилья"],
+  georgian: ["khinkali", "khachapuri", "shashlik", "chakhokhbili", "kharcho"],
+  грузинская: ["хинкали", "хачапури", "шашлык", "чахохбили", "харчо"],
+  korean: ["bibimbap", "bulgogi", "kimchi", "korean bbq"],
+  корейская: ["бибимбап", "bulgogi", "кимчи"],
+  seafood: ["grilled fish", "shrimp", "oysters", "ceviche"],
+  морепродукты: ["рыба на гриле", "креветки", "устрицы"],
+  steak: ["ribeye", "filet mignon", "t-bone", "strip steak"],
+  стейк: ["рибай", "филе миньон", "t-bone"],
+  bbq: ["pulled pork", "brisket", "ribs", "coleslaw"],
+  uzbek: ["plov", "lagman", "samsa", "shashlik"],
+  узбекская: ["плов", "лагман", "самса", "шашлык"],
+  vegetarian: ["veggie bowl", "salad", "falafel", "hummus"],
+  вегетарианская: ["овощной боул", "салат", "фалафель"],
+  coffee: ["espresso", "cappuccino", "latte", "flat white", "croissant"],
+  кофе: ["эспрессо", "капучино", "латте", "круассан"],
+};
+
+const PLACES_NEW_DETAILS_FIELDS = [
+  "id",
+  "types",
+  "primaryType",
+  "primaryTypeDisplayName",
+  "priceLevel",
+  "editorialSummary",
+].join(",");
+
+export function extractCuisineTypes(placeData) {
+  const cuisines = new Set();
+  const primaryType = placeData?.primaryType;
+  if (primaryType && GOOGLE_TYPE_TO_CUISINE[primaryType]) {
+    GOOGLE_TYPE_TO_CUISINE[primaryType].forEach((tag) => cuisines.add(tag));
+  }
+  for (const type of placeData?.types ?? []) {
+    if (GOOGLE_TYPE_TO_CUISINE[type]) {
+      GOOGLE_TYPE_TO_CUISINE[type].forEach((tag) => cuisines.add(tag));
+    }
+  }
+  return [...cuisines];
+}
+
+export function extractPriceTier(placeData, legacyPriceLevel = null) {
+  const fromNew = PRICE_LEVEL_TO_TIER[placeData?.priceLevel];
+  if (fromNew != null) return fromNew;
+  if (typeof legacyPriceLevel === "number") {
+    return LEGACY_PRICE_LEVEL_TO_TIER[legacyPriceLevel] ?? null;
+  }
+  return null;
+}
+
+export function deriveMenuItemsFromCuisineTypes(cuisineTypes) {
+  const items = new Set();
+  for (const tag of cuisineTypes ?? []) {
+    const key = tag.trim().toLowerCase();
+    const mapped = CUISINE_TO_MENU_ITEMS[key];
+    if (mapped) mapped.forEach((item) => items.add(item));
+  }
+  return [...items].slice(0, 12);
+}
+
+export async function loadPlaceDetailsNew(placeId, apiKey) {
+  const encodedId = encodeURIComponent(placeId.trim());
+  const url = `${PLACES_NEW_BASE}/places/${encodedId}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const data = await withRetry(`places-new:${placeId}`, async () => {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": PLACES_NEW_DETAILS_FIELDS,
+        },
+      });
+      const json = await res.json();
+      if (res.status === 429) {
+        const err = new Error("Places New API: RESOURCE_EXHAUSTED");
+        err.status = 429;
+        throw err;
+      }
+      if (!res.ok) {
+        throw new Error(
+          `Places New API: HTTP ${res.status}${json.error?.message ? ` — ${json.error.message}` : ""}`,
+        );
+      }
+      return json;
+    });
+    await sleep(API_DELAY_MS);
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function enrichPlaceWithNewApiData(place, apiKey) {
+  if (!place?.place_id || !apiKey) {
+    return {
+      newApiData: null,
+      cuisine_types: [],
+      price_tier: extractPriceTier(null, place?.price_level),
+      menu_items: [],
+    };
+  }
+
+  try {
+    const newApiData = await loadPlaceDetailsNew(place.place_id, apiKey);
+    const cuisine_types = extractCuisineTypes(newApiData);
+    const price_tier = extractPriceTier(newApiData, place.price_level);
+    const menu_items = deriveMenuItemsFromCuisineTypes(cuisine_types);
+    return { newApiData, cuisine_types, price_tier, menu_items };
+  } catch (err) {
+    log(
+      "google",
+      `Places New API skipped for ${place.place_id}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    const cuisine_types = [];
+    const price_tier = extractPriceTier(null, place.price_level);
+    return {
+      newApiData: null,
+      cuisine_types,
+      price_tier,
+      menu_items: deriveMenuItemsFromCuisineTypes(cuisine_types),
+    };
+  }
+}
+
 async function loadPlaceDetails(placeId, apiKey, label) {
   const details = await mapsGet(
     "place/details/json",
@@ -453,6 +650,8 @@ async function resolvePlaceCandidate(candidate, venue, apiKey, distanceM, { skip
     place.international_phone_number ?? place.formatted_phone_number ?? null,
   );
 
+  const enrichment = await enrichPlaceWithNewApiData(place, apiKey);
+
   return {
     placeId: place.place_id,
     name,
@@ -466,6 +665,7 @@ async function resolvePlaceCandidate(candidate, venue, apiKey, distanceM, { skip
     source: "nearby",
     types: place.types,
     price_level: place.price_level,
+    ...enrichment,
   };
 }
 
@@ -671,7 +871,7 @@ export async function findPlaceFromMapsLink(
   return { place: { ...resolved, source: "maps-link" }, failure: null };
 }
 
-/** @typedef {{ placeId: string, name: string, formatted_address: string, cityLabel?: string | null, lat: number, lng: number, photoReferences: string[], phone?: string | null, distanceM: number, source: string, types?: string[], price_level?: number }} GooglePlaceCandidate */
+/** @typedef {{ placeId: string, name: string, formatted_address: string, cityLabel?: string | null, lat: number, lng: number, photoReferences: string[], phone?: string | null, distanceM: number, source: string, types?: string[], price_level?: number, newApiData?: object | null, cuisine_types?: string[], price_tier?: number | null, menu_items?: string[] }} GooglePlaceCandidate */
 
 /** Tried in order when `maxBytes` is set (Places Photo scales by maxwidth). */
 const PLACE_PHOTO_MAXWIDTH_STEPS = [1200, 960, 800, 640, 520, 420, 340, 280, 220];
