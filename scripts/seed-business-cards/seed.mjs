@@ -106,6 +106,10 @@ function buildInsertRow(venue, rng, images, usedNames) {
       venue.contact_whatsapp,
     rating,
     booking_price,
+    google_place_id: venue._googlePlace?.placeId ?? null,
+    cuisine_types: venue._googlePlace?.cuisine_types ?? [],
+    menu_items: venue._googlePlace?.menu_items ?? [],
+    price_tier: venue._googlePlace?.price_tier ?? null,
     images: images ?? [],
     image: images?.[0] ?? null,
   };
@@ -272,9 +276,11 @@ async function prepareVenue(
       const phoneNote = place.phone ? `, tel ${place.phone}` : "";
       const priceNote =
         typeof place.price_level === "number" ? `, price_level=${place.price_level}` : "";
+      const cuisineNote =
+        place.cuisine_types?.length ? `, cuisine=[${place.cuisine_types.slice(0, 4).join(", ")}]` : "";
       log(
         "google",
-        `Template "${venueTemplate.slug}" → POI "${place.name}" (${place.distanceM}m, ${place.formatted_address}${phoneNote}${priceNote}, ${place.photoReferences.length} photos)`,
+        `Template "${venueTemplate.slug}" → POI "${place.name}" (${place.distanceM}m, ${place.formatted_address}${phoneNote}${priceNote}${cuisineNote}, ${place.photoReferences.length} photos)`,
       );
     } else if (linkLookup) {
       return skipVenue(

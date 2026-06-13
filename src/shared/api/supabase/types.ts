@@ -131,6 +131,7 @@ export type Database = {
           city: string | null
           contact_whatsapp: string | null
           created_at: string
+          cuisine_types: string[] | null
           description: string | null
           description_de: string | null
           description_es: string | null
@@ -138,10 +139,12 @@ export type Database = {
           description_pt: string | null
           description_ru: string | null
           id: string
+          google_place_id: string | null
           images: string[] | null
           latitude: number | null
           location: unknown | null
           longitude: number | null
+          menu_items: string[] | null
           name: string
           name_de: string | null
           name_es: string | null
@@ -149,6 +152,7 @@ export type Database = {
           name_pt: string | null
           name_ru: string | null
           phone: string
+          price_tier: number | null
           rating: number
           tags: string[] | null
           tags_de: string[] | null
@@ -166,6 +170,7 @@ export type Database = {
           city?: string | null
           contact_whatsapp?: string | null
           created_at?: string
+          cuisine_types?: string[] | null
           description?: string | null
           description_de?: string | null
           description_es?: string | null
@@ -173,9 +178,11 @@ export type Database = {
           description_pt?: string | null
           description_ru?: string | null
           id?: string
+          google_place_id?: string | null
           images?: string[] | null
           latitude?: number | null
           longitude?: number | null
+          menu_items?: string[] | null
           name: string
           name_de?: string | null
           name_es?: string | null
@@ -183,6 +190,7 @@ export type Database = {
           name_pt?: string | null
           name_ru?: string | null
           phone?: string
+          price_tier?: number | null
           rating?: number
           tags?: string[] | null
           tags_de?: string[] | null
@@ -199,6 +207,7 @@ export type Database = {
           city?: string | null
           contact_whatsapp?: string | null
           created_at?: string
+          cuisine_types?: string[] | null
           description?: string | null
           description_de?: string | null
           description_es?: string | null
@@ -206,9 +215,11 @@ export type Database = {
           description_pt?: string | null
           description_ru?: string | null
           id?: string
+          google_place_id?: string | null
           images?: string[] | null
           latitude?: number | null
           longitude?: number | null
+          menu_items?: string[] | null
           name?: string
           name_de?: string | null
           name_es?: string | null
@@ -216,6 +227,7 @@ export type Database = {
           name_pt?: string | null
           name_ru?: string | null
           phone?: string
+          price_tier?: number | null
           rating?: number
           tags?: string[] | null
           tags_de?: string[] | null
