@@ -6,7 +6,7 @@ function hasText(value: string | null | undefined): boolean {
   return Boolean(value?.trim());
 }
 
-/** First name, last name, and phone — required to confirm bookings. */
+/** First name, last name, and phone saved in profile (optional; guest form can supply them per booking). */
 export function isPersonalDataComplete(profile: Profile | null | undefined): boolean {
   if (!profile) return false;
   return hasText(profile.first_name) && hasText(profile.last_name) && hasText(profile.phone);

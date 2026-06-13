@@ -1,5 +1,6 @@
 import { supabase } from "@/shared/api/supabase/client";
 import { devWarn } from "@/shared/lib/devLog";
+import { todayLocalYmd } from "@/shared/lib/localDate";
 
 export type BootstrapMyDailyRecommendationsResult = {
   inserted_count: number;
@@ -11,17 +12,13 @@ export type BootstrapMyDailyRecommendationsOptions = {
   force?: boolean;
 };
 
-function todayUtcYmd(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /**
  * Generates daily picks for the signed-in user and enqueues a push notification.
  * Uses the same SQL pipeline as the cron batch, but does not touch
  * `recommendation_generation_runs` (cron schedule/behavior unchanged).
  */
 export async function bootstrapMyDailyRecommendations(
-  dateYmd: string = todayUtcYmd(),
+  dateYmd: string = todayLocalYmd(),
   options?: BootstrapMyDailyRecommendationsOptions,
 ): Promise<BootstrapMyDailyRecommendationsResult | null> {
   const params = options?.force ? { p_date: dateYmd, p_force: true } : { p_date: dateYmd };

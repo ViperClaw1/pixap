@@ -5,6 +5,7 @@ import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { localizeBusinessCard } from "@/entities/business-card";
 import { useProfile } from "@/entities/user";
+import { todayLocalYmd } from "@/shared/lib/localDate";
 import type { DailyRecommendation } from "../model/types";
 
 type RpcRow = {
@@ -25,7 +26,7 @@ export function useDailyRecommendations(targetDate?: string) {
   const { i18n } = useTranslation();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const language = i18n.language;
-  const date = targetDate ?? new Date().toISOString().slice(0, 10);
+  const date = targetDate ?? todayLocalYmd();
   const userCity = profile?.city?.trim() || null;
   const normalizedUserCity = userCity?.toLowerCase() ?? null;
 

@@ -79,6 +79,7 @@ export type Database = {
           id: string
           payment_status: Database["public"]["Enums"]["booking_payment_status"]
           persons: number | null
+          reminder_sent_at: string | null
           status: Database["public"]["Enums"]["booking_status"]
           user_id: string
         }
@@ -94,6 +95,7 @@ export type Database = {
           id?: string
           payment_status?: Database["public"]["Enums"]["booking_payment_status"]
           persons?: number | null
+          reminder_sent_at?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           user_id: string
         }
@@ -109,6 +111,7 @@ export type Database = {
           id?: string
           payment_status?: Database["public"]["Enums"]["booking_payment_status"]
           persons?: number | null
+          reminder_sent_at?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           user_id?: string
         }
@@ -492,6 +495,7 @@ export type Database = {
           last_name: string
           phone: string | null
           promo_codes: string[] | null
+          timezone: string | null
           updated_at: string
           vibe_preferences: Json
         }
@@ -506,6 +510,7 @@ export type Database = {
           last_name?: string
           phone?: string | null
           promo_codes?: string[] | null
+          timezone?: string | null
           updated_at?: string
           vibe_preferences?: Json
         }
@@ -520,6 +525,7 @@ export type Database = {
           last_name?: string
           phone?: string | null
           promo_codes?: string[] | null
+          timezone?: string | null
           updated_at?: string
           vibe_preferences?: Json
         }
@@ -790,6 +796,7 @@ export type Database = {
           id: string
           user_id: string
           generated_for_date: string
+          delivery_slot: string
           notification_sent: boolean
           sent_at: string | null
           delivery_provider: string
@@ -800,6 +807,7 @@ export type Database = {
           id?: string
           user_id: string
           generated_for_date?: string
+          delivery_slot?: string
           notification_sent?: boolean
           sent_at?: string | null
           delivery_provider?: string
@@ -810,6 +818,7 @@ export type Database = {
           id?: string
           user_id?: string
           generated_for_date?: string
+          delivery_slot?: string
           notification_sent?: boolean
           sent_at?: string | null
           delivery_provider?: string
@@ -1000,6 +1009,7 @@ export type Database = {
       bootstrap_my_daily_recommendations: {
         Args: {
           p_date?: string
+          p_force?: boolean
         }
         Returns: Json
       },
@@ -1007,6 +1017,7 @@ export type Database = {
         Args: {
           p_user_id: string
           p_date?: string
+          p_delivery_slot?: string
         }
         Returns: boolean
       },
@@ -1069,6 +1080,13 @@ export type Database = {
         }
         Returns: Json
       },
+      profile_local_date: {
+        Args: {
+          p_user_id: string
+          p_at?: string
+        }
+        Returns: string
+      },
       run_daily_recommendation_batch: {
         Args: {
           p_run_id: string
@@ -1081,6 +1099,12 @@ export type Database = {
           inserted_count: number
           push_enqueued: boolean
         }[]
+      },
+      sync_profile_timezone: {
+        Args: {
+          p_timezone: string
+        }
+        Returns: undefined
       },
       has_role: {
         Args: {

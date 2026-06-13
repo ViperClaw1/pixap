@@ -47,3 +47,11 @@ verify_jwt = false
 [functions.transcribe-audio]
 verify_jwt = false
 
+[functions.send-booking-email]
+# Invoked by pg_net (status trigger) and booking-reminder-cron with service role bearer.
+verify_jwt = false
+
+[functions.booking-reminder-cron]
+# Invoked by pg_cron/pg_net with service role bearer (not a user session JWT).
+verify_jwt = false
+

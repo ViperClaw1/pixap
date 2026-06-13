@@ -1,22 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { isServiceAuthorized, resolveSupabaseSecretKey } from "../_shared/serviceAuth.ts";
 
 type BatchRow = {
   user_id: string;
   inserted_count: number;
   push_enqueued: boolean;
 };
-
-function isServiceAuthorized(req: Request, serviceKey: string): boolean {
-  const cronSecret = Deno.env.get("PUSH_CRON_SECRET");
-  if (cronSecret) {
-    const provided = req.headers.get("x-push-cron-secret") ?? "";
-    if (provided === cronSecret) return true;
-  }
-  const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
-  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
-  return bearer.length > 0 && bearer === serviceKey;
-}
 
 function asUtcDate(input?: string): string {
   const date = input ? new Date(input) : new Date();
@@ -38,7 +28,7 @@ Deno.serve(async (req) => {
   }
 
   const url = Deno.env.get("SUPABASE_URL") ?? "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const serviceKey = resolveSupabaseSecretKey();
   if (!url || !serviceKey) {
     return new Response(JSON.stringify({ error: "Server misconfigured" }), {
       status: 500,
@@ -64,29 +54,6 @@ Deno.serve(async (req) => {
   const batchSize = Math.max(1, Math.min(Number(body.batch_size) || 100, 500));
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-
-  if (!force) {
-    const { data: completedRun } = await admin
-      .from("recommendation_generation_runs")
-      .select("id")
-      .eq("generated_for_date", targetDate)
-      .eq("status", "completed")
-      .order("completed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (completedRun?.id) {
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          skipped: true,
-          reason: "already_completed",
-          generated_for_date: targetDate,
-          run_id: completedRun.id,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-  }
 
   const { data: runRow, error: runInsertError } = await admin
     .from("recommendation_generation_runs")

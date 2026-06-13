@@ -28,7 +28,6 @@ import { bookingFlowThemedStaticStyles, bookingFlowThemedThemeStyles } from "./b
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { BookingFlowPlacePanel } from "@/shared/ui/booking-place-panel";
 import {
-  BookingPersonalDataRequiredModal,
   BookingProfileCompleteTip,
   showGuestFormValidationPopup,
   showMissingAvailableSlotPopup,
@@ -43,10 +42,7 @@ import {
   type PhoneValue,
 } from "@/shared/ui/phone-input";
 import { BookingFlowCustomerForm } from "./BookingFlowCustomerForm";
-import {
-  isPersonalDataComplete,
-  shouldShowBookingPersonalDataNotice,
-} from "@/shared/lib/profileCompletion";
+import { isPersonalDataComplete } from "@/shared/lib/profileCompletion";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { devWarn } from "@/shared/lib/devLog";
@@ -126,7 +122,6 @@ export default function BookingFlowPage() {
   const [comment, setComment] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [celebrationActive, setCelebrationActive] = useState(false);
-  const [personalDataRequiredVisible, setPersonalDataRequiredVisible] = useState(false);
   const totalSteps = BOOKING_FLOW_TOTAL_STEPS + 1;
   const useMonotoneDarkBackground = isDark && (step === 0 || step === 2);
   const selectedDate = useMemo(() => fromYmd(selectedDateYmd), [selectedDateYmd]);
@@ -149,7 +144,6 @@ export default function BookingFlowPage() {
     () => slotsForDate.find((slot) => slot.label === selectedTime && slot.available) ?? null,
     [selectedTime, slotsForDate],
   );
-  const showPersonalDataNotice = shouldShowBookingPersonalDataNotice(user, profile);
   const showProfileCompleteTip = !isPersonalDataComplete(profile);
 
   useEffect(() => {
@@ -225,16 +219,7 @@ export default function BookingFlowPage() {
     }
     const formError = getGuestFormError();
     if (formError) {
-      showGuestFormValidationPopup({
-        error: formError,
-        showPersonalDataNotice,
-        onPersonalDataRequired: () => setPersonalDataRequiredVisible(true),
-        t,
-      });
-      return;
-    }
-    if (!isPersonalDataComplete(profile)) {
-      setPersonalDataRequiredVisible(true);
+      showGuestFormValidationPopup({ error: formError, t });
       return;
     }
     const dateTime = new Date(selectedAvailableSlot.dateTimeIso);
@@ -551,12 +536,7 @@ export default function BookingFlowPage() {
               if (step === 1) {
                 const formError = getGuestFormError();
                 if (formError) {
-                  showGuestFormValidationPopup({
-                    error: formError,
-                    showPersonalDataNotice,
-                    onPersonalDataRequired: () => setPersonalDataRequiredVisible(true),
-                    t,
-                  });
+                  showGuestFormValidationPopup({ error: formError, t });
                   return;
                 }
               }
@@ -581,11 +561,6 @@ export default function BookingFlowPage() {
         )}
       </View>
     </View>
-    <BookingPersonalDataRequiredModal
-      visible={personalDataRequiredVisible}
-      onClose={() => setPersonalDataRequiredVisible(false)}
-      navigation={navigation}
-    />
     </>
   );
 }
