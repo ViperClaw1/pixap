@@ -34,6 +34,17 @@ function normalizeSearchSnapshot(value: BookingSearchSnapshot): BookingSearchSna
     ...value,
     persons: typeof value.persons === "number" ? value.persons : 2,
     searchedAt: typeof value.searchedAt === "number" ? value.searchedAt : Date.now(),
+    searchMeta:
+      value.searchMeta && typeof value.searchMeta === "object"
+        ? {
+            is_fallback: Boolean(value.searchMeta.is_fallback),
+            fts_matched: Boolean(value.searchMeta.fts_matched),
+            original_query:
+              typeof value.searchMeta.original_query === "string"
+                ? value.searchMeta.original_query
+                : null,
+          }
+        : null,
   };
 }
 

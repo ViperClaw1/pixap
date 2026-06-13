@@ -120,8 +120,20 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
         city: p.city,
         rating: p.rating,
         booking_price: p.booking_price,
+        tags: p.tags ?? [],
+        cuisine_types: p.cuisine_types ?? [],
+        menu_items: p.menu_items ?? [],
+        price_tier: p.price_tier ?? null,
+        fts_matched: p.fts_matched ?? null,
       })),
     [places],
+  );
+
+  const searchMeta = useBookingChatStore(
+    useShallow((s) => {
+      const tab = s.tabs.find((t) => t.id === s.activeTabId);
+      return tab?.searchSnapshot?.searchMeta ?? s.lastSearchSnapshot?.searchMeta ?? null;
+    }),
   );
 
   const orderedIds = useMemo(() => places.map((p) => p.id), [places]);
@@ -160,9 +172,10 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
         places: placeLite,
         orderedIds,
         prior,
+        searchMeta,
       });
     },
-    [bookingContext, catalogRevision, orderedIds, placeLite],
+    [bookingContext, catalogRevision, orderedIds, placeLite, searchMeta],
   );
 
   const requestClose = useCallback(() => {

@@ -7,6 +7,7 @@ function toWireBody(input: BookingChatTurnInput) {
     places: input.places,
     messages: input.history,
     user_message: input.userText,
+    meta: input.searchMeta ?? {},
   };
 }
 

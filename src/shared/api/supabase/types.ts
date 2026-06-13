@@ -1089,24 +1089,62 @@ export type Database = {
         }
         Returns: boolean
       },
+      search_business_cards_in_city: {
+        Args: {
+          p_category_id?: string | null
+          p_category_name?: string | null
+          p_city: string
+          p_is_restaurant_table?: boolean
+          p_limit?: number
+          p_query?: string | null
+        }
+        Returns: {
+          address: string | null
+          blurhashes: string[] | null
+          booking_price: number
+          category_id: string | null
+          city: string | null
+          cuisine_types: string[] | null
+          fts_matched: boolean
+          id: string
+          image: string | null
+          images: string[] | null
+          menu_items: string[] | null
+          name: string
+          price_tier: number | null
+          rank: number
+          rating: number
+          tags: string[] | null
+        }[]
+      }
       search_business_cards_nearby: {
         Args: {
           p_category_id?: string | null
+          p_category_name?: string | null
           p_city?: string | null
           p_is_restaurant_table?: boolean
           p_latitude: number
           p_limit?: number
           p_longitude: number
+          p_query?: string | null
           p_radius_miles?: number
         }
         Returns: {
           address: string | null
+          blurhashes: string[] | null
           booking_price: number
           category_id: string | null
           city: string | null
+          cuisine_types: string[] | null
           distance_miles: number
+          fts_matched: boolean
           id: string
+          image: string | null
+          images: string[] | null
+          menu_items: string[] | null
           name: string
+          price_tier: number | null
+          rank: number
           rating: number
           tags: string[] | null
         }[]

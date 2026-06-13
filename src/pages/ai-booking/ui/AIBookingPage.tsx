@@ -529,6 +529,11 @@ function AIBookingPageContent() {
     [activeTabSnapshot?.catalogPlaces, lastSearchSnapshot?.catalogPlaces],
   );
 
+  const searchMeta = useMemo(
+    () => activeTabSnapshot?.searchMeta ?? lastSearchSnapshot?.searchMeta ?? null,
+    [activeTabSnapshot?.searchMeta, lastSearchSnapshot?.searchMeta],
+  );
+
   const recommendationView = useBookingChatStore(
     useShallow((s) => {
       const tab = s.tabs.find((t) => t.id === s.activeTabId);
@@ -855,6 +860,7 @@ function AIBookingPageContent() {
         catalogPlaces,
         persons: Number(form.persons) || Number(AI_BOOKING_DEFAULT_PERSONS),
         searchedAt: Date.now(),
+        searchMeta: result.meta ?? null,
       };
       const resultsLine = buildSearchResultsLineFromFlow(payload, catalogPlaces.length);
       const tabId = useBookingChatStore.getState().activeTabId;
@@ -1187,6 +1193,7 @@ function AIBookingPageContent() {
                 catalogRevision={catalogRevision}
                 bookingContext={bookingChatContext}
                 places={placeOptions}
+                searchMeta={searchMeta}
                 composerInputRef={bookingComposerInputRef}
                 onComposerInputFocus={onBookingComposerInputFocus}
                 onComposerInputBlur={onBookingComposerInputBlur}
@@ -1209,7 +1216,16 @@ function AIBookingPageContent() {
         ) : null}
 
         {currentStep === "assistant" && hasSearched && placeOptions.length > 0 ? (
-          <AIBookingSuggestedPlaces
+          <>
+            {searchMeta?.is_fallback && searchMeta.original_query ? (
+              <View style={[styles.fallbackBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
+                <Text style={[styles.fallbackBannerText, { color: colors.textMuted }]}>
+                  {t("aiBooking.searchFallbackBanner", { query: searchMeta.original_query })}
+                </Text>
+              </View>
+            ) : null}
+            <AIBookingSuggestedPlaces
             styles={styles}
             places={effectivePlaces}
             selectedPlace={selectedPlace}
@@ -1218,6 +1234,7 @@ function AIBookingPageContent() {
             bookingPlaceId={bookingPlaceId}
             onBook={onBookPlace}
           />
+          </>
         ) : null}
 
         {currentStep === "booking" && selectedPlace ? (

@@ -1,5 +1,6 @@
 import { defaultBookingChatProvider } from "../api/geminiBookingChatAdapter";
 import type { BookingChatContext, PlaceLite } from "../model/types";
+import type { PixAISearchMeta } from "@/entities/pixai";
 import { useBookingChatStore } from "../model/bookingChatStore";
 import { buildAssistantReplyText } from "./buildAssistantReplyText";
 import { revealAssistantText } from "./revealAssistantText";
@@ -17,9 +18,10 @@ export async function executeBookingAssistantTurn(input: {
   places: PlaceLite[];
   orderedIds: string[];
   prior: BookingChatTurnHistoryItem[];
+  searchMeta?: PixAISearchMeta | null;
   signal?: AbortSignal;
 }): Promise<void> {
-  const { tabId, userText, catalogRevision, bookingContext, places, orderedIds, prior, signal } = input;
+  const { tabId, userText, catalogRevision, bookingContext, places, orderedIds, prior, searchMeta, signal } = input;
   await ensureAiDataConsentHydrated();
   if (!isAiDataConsentGranted()) {
     useBookingChatStore.getState().setSendState({
@@ -39,6 +41,7 @@ export async function executeBookingAssistantTurn(input: {
       places,
       history: prior,
       userText,
+      searchMeta,
     });
     const safe = sanitizeAiBookingChatResult(raw, orderedIds);
     const fullText = buildAssistantReplyText(safe);

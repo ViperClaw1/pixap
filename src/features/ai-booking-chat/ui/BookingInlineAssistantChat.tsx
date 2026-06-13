@@ -3,7 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import { Keyboard, Pressable, Text, TextInput, View } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { BookingChatContext, BookingChatMessage } from "../model/types";
-import type { PixAIPlace } from "@/entities/pixai";
+import type { PixAIPlace, PixAISearchMeta } from "@/entities/pixai";
 import { useBookingChatStore } from "../model/bookingChatStore";
 import { executeBookingAssistantTurn } from "../lib/executeBookingAssistantTurn";
 import { BookingChatComposer } from "./BookingChatComposer";
@@ -15,6 +15,7 @@ type Props = {
   catalogRevision: number;
   bookingContext: BookingChatContext | null;
   places: PixAIPlace[];
+  searchMeta?: PixAISearchMeta | null;
   composerInputRef?: Ref<TextInput>;
   onComposerInputFocus?: () => void;
   onComposerInputBlur?: () => void;
@@ -33,6 +34,7 @@ export function BookingInlineAssistantChat({
   catalogRevision,
   bookingContext,
   places,
+  searchMeta,
   composerInputRef,
   onComposerInputFocus,
   onComposerInputBlur,
@@ -67,6 +69,11 @@ export function BookingInlineAssistantChat({
         city: p.city,
         rating: p.rating,
         booking_price: p.booking_price,
+        tags: p.tags ?? [],
+        cuisine_types: p.cuisine_types ?? [],
+        menu_items: p.menu_items ?? [],
+        price_tier: p.price_tier ?? null,
+        fts_matched: p.fts_matched ?? null,
       })),
     [places],
   );
@@ -100,9 +107,10 @@ export function BookingInlineAssistantChat({
         places: placeLite,
         orderedIds,
         prior,
+        searchMeta,
       });
     },
-    [bookingContext, catalogRevision, geminiPhase, orderedIds, placeLite],
+    [bookingContext, catalogRevision, geminiPhase, orderedIds, placeLite, searchMeta],
   );
 
   return (

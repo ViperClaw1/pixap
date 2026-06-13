@@ -15,11 +15,20 @@ import {
 } from "@/entities/pixai/lib/bookingAssistantCopy";
 import { buildFlowUserSummary } from "../lib/buildFlowUserSummary";
 import { buildSearchResultsLineFromFlow } from "../lib/buildSearchResultsAssistantLine";
+import { expandQuery } from "../lib/queryExpansion";
+import { buildPixAISearchMeta, type PixAISearchMeta } from "../model/searchMeta";
+
+export type { PixAISearchMeta };
 
 export type PixAIPlace = Pick<
   BusinessCard,
   "id" | "name" | "address" | "city" | "rating" | "booking_price" | "images" | "tags" | "blurhashes"
->;
+> & {
+  cuisine_types?: string[];
+  menu_items?: string[];
+  price_tier?: number | null;
+  fts_matched?: boolean | null;
+};
 
 export type PixAISlot = {
   label: string;
@@ -88,6 +97,7 @@ type OrchestratorResponse = {
   slots?: PixAISlot[];
   draft?: PixAIBookingDraft;
   plan?: unknown;
+  meta?: PixAISearchMeta;
 };
 
 export type FlowRunResult = OrchestratorResponse & { catalogFallback?: boolean };
@@ -184,6 +194,14 @@ function mapRowsToPlaces(rows: unknown, language: string): PixAIPlace[] {
       images: images.length > 0 ? images : normalizeBusinessCardImages(legacyImage),
       blurhashes: normalizeBusinessCardBlurhashes(r.blurhashes),
       tags: localized.tags ?? [],
+      cuisine_types: Array.isArray(r.cuisine_types)
+        ? (r.cuisine_types as unknown[]).filter((x): x is string => typeof x === "string")
+        : [],
+      menu_items: Array.isArray(r.menu_items)
+        ? (r.menu_items as unknown[]).filter((x): x is string => typeof x === "string")
+        : [],
+      price_tier: typeof r.price_tier === "number" ? r.price_tier : null,
+      fts_matched: r.fts_matched === true ? true : r.fts_matched === false ? false : null,
     };
   });
 }
@@ -199,7 +217,7 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload, language
   let places: PixAIPlace[] = [];
   const triedNearby = flow.mode === "nearby" && flow.location != null;
 
-  const query = (flow.comment ?? "").trim() || null;
+  const query = expandQuery((flow.comment ?? "").trim()) || null;
 
   if (triedNearby && flow.location) {
     const nearbyBase: Record<string, unknown> = {
@@ -309,9 +327,14 @@ export function usePixAI() {
       });
       if (!error && data != null) {
         const payload = data as OrchestratorResponse;
+        const places = payload.places != null ? mapRowsToPlaces(payload.places, i18n.language) : undefined;
+        const meta =
+          payload.meta ??
+          buildPixAISearchMeta((flow.comment ?? "").trim() || null, places ?? []);
         return {
           ...payload,
-          places: payload.places != null ? mapRowsToPlaces(payload.places, i18n.language) : undefined,
+          places,
+          meta,
           catalogFallback: false,
         };
       }
@@ -323,6 +346,7 @@ export function usePixAI() {
           assistant: buildAssistantFromFlow(flow, places.length),
           places,
           slots: makeLocalSlots(),
+          meta: buildPixAISearchMeta((flow.comment ?? "").trim() || null, places),
           catalogFallback: true,
         };
       }
@@ -331,7 +355,9 @@ export function usePixAI() {
     onSuccess: (payload, flow) => {
       const placeCount = payload.places?.length ?? 0;
       const assistantContent =
-        placeCount > 0 ? buildSearchResultsLineFromFlow(flow, placeCount) : payload.assistant;
+        payload.catalogFallback && placeCount > 0
+          ? buildSearchResultsLineFromFlow(flow, placeCount)
+          : payload.assistant;
       setMessages((prev) => [
         ...keepWelcomeMessageOnly(prev),
         ...buildFlowSearchTranscript(flow, assistantContent, {

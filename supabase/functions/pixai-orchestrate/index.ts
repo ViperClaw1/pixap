@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { expandQuery } from "./queryExpansion.ts";
 
 type PixaiRpcName = "search_business_cards_in_city" | "search_business_cards_nearby" | "search_by_vibe";
 
@@ -54,6 +55,28 @@ function normalizeCategoryId(flow: Flow): string | null {
   return raw;
 }
 
+const BUSINESS_CARD_SELECT =
+  "id,name,address,city,rating,booking_price,image,images,blurhashes,tags,category_id,cuisine_types,menu_items,price_tier";
+
+function expandedSearchQuery(flow: Flow): string {
+  return expandQuery((flow.comment ?? "").trim());
+}
+
+function placesHaveFtsMatch(places: Array<Record<string, unknown>>): boolean {
+  return places.some((place) => place.fts_matched === true);
+}
+
+function buildSearchMeta(flow: Flow, places: Array<Record<string, unknown>>) {
+  const originalQuery = (flow.comment ?? "").trim() || null;
+  const hasFtsMatch = placesHaveFtsMatch(places);
+  const isFallback = Boolean(originalQuery) && places.length > 0 && !hasFtsMatch;
+  return {
+    is_fallback: isFallback,
+    fts_matched: hasFtsMatch,
+    original_query: originalQuery,
+  };
+}
+
 function normalizeCategoryName(flow: Flow): string | null {
   const raw = (flow.categoryName ?? "").trim();
   if (!raw || flow.isRestaurantTable) return null;
@@ -68,7 +91,7 @@ async function fetchPlacesInCityLegacy(
 ): Promise<Array<Record<string, unknown>>> {
   let query = supabase
     .from("business_cards")
-    .select("id,name,address,city,rating,booking_price,image,images,blurhashes,tags,category_id")
+    .select(BUSINESS_CARD_SELECT)
     .ilike("city", city)
     .order("rating", { ascending: false })
     .limit(limit);
@@ -82,7 +105,10 @@ async function fetchPlacesInCityLegacy(
     console.error("[pixai-orchestrate] legacy city query failed:", error.message ?? error);
     return [];
   }
-  return (data ?? []) as Array<Record<string, unknown>>;
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    ...row,
+    fts_matched: row.fts_matched === true,
+  }));
 }
 
 async function fetchPlacesInCityRpc(
@@ -91,7 +117,7 @@ async function fetchPlacesInCityRpc(
   city: string,
   limit: number,
 ): Promise<Array<Record<string, unknown>>> {
-  const comment = (flow.comment ?? "").trim();
+  const comment = expandedSearchQuery(flow);
   const { data, error } = await pixaiRpc(supabase, "search_business_cards_in_city", {
     p_city: city,
     p_category_id: normalizeCategoryId(flow),
@@ -104,11 +130,23 @@ async function fetchPlacesInCityRpc(
   return fetchPlacesInCityLegacy(supabase, flow, city, limit);
 }
 
-function buildAssistant(flow: Flow, placeCount: number, expandedFromNearby: boolean) {
+function buildAssistant(
+  flow: Flow,
+  placeCount: number,
+  expandedFromNearby: boolean,
+  isFallback = false,
+) {
   if (placeCount === 0) {
     return "I could not find matching places. Try changing city, category, or search scope.";
   }
   const cityLabel = normalizeCity(flow) || "your city";
+  const query = (flow.comment ?? "").trim();
+  if (isFallback && query) {
+    return (
+      `Exact matches for "${query}" aren't available yet — menu data is still being added. ` +
+      `Here are the top-rated venues in ${cityLabel} — the AI assistant can help narrow these down.`
+    );
+  }
   const requestType = flow.isRestaurantTable ? "restaurant tables" : "services";
   if (expandedFromNearby) {
     return `Nothing matched within 5 miles — nearby search only includes businesses with map coordinates. Here are ${placeCount} ${requestType} in ${cityLabel}. Pick one and I will suggest the best available slots.`;
@@ -363,7 +401,7 @@ Deno.serve(async (req) => {
       const triedNearby = flow.mode === "nearby" && flow.location?.lat != null && flow.location?.lng != null;
 
       if (triedNearby) {
-        const nearbyComment = (flow.comment ?? "").trim();
+        const nearbyComment = expandedSearchQuery(flow);
         const nearbyBase = {
           p_latitude: flow.location!.lat,
           p_longitude: flow.location!.lng,
@@ -401,11 +439,14 @@ Deno.serve(async (req) => {
       { label: "13:00", dateTimeIso: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), available: true, isBest: false },
     ];
 
+    const meta = buildSearchMeta(flow, places ?? []);
+
     return new Response(
       JSON.stringify({
-        assistant: buildAssistant(flow, (places ?? []).length, expandedFromNearby),
+        assistant: buildAssistant(flow, (places ?? []).length, expandedFromNearby, meta.is_fallback),
         places,
         slots,
+        meta,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
