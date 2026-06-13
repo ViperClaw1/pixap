@@ -60,16 +60,12 @@ import { normalizeWaInterfaceLocale, startN8nWaBooking } from "@/entities/cart";
 import { i18n, PageI18nProvider } from "@/shared/lib/i18n";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
 import {
-  BookingPersonalDataRequiredModal,
   BookingProfileCompleteTip,
   showGuestFormValidationPopup,
   showMissingBookingSlotPopup,
   type GuestFormFieldError,
 } from "@/features/booking-personal-data-notice";
-import {
-  isPersonalDataComplete,
-  shouldShowBookingPersonalDataNotice,
-} from "@/shared/lib/profileCompletion";
+import { isPersonalDataComplete } from "@/shared/lib/profileCompletion";
 import {
   ALL_CITIES_OPTION,
   useAvailableCities,
@@ -254,7 +250,6 @@ function VibeMatchPageContent() {
   const [customerPhone, setCustomerPhone] = useState<PhoneValue>(DEFAULT_PHONE_VALUE);
   const [customerEmail, setCustomerEmail] = useState("");
   const [comment, setComment] = useState("");
-  const [personalDataRequiredVisible, setPersonalDataRequiredVisible] = useState(false);
   const [lastBookResults, setLastBookResults] = useState<BookRowResult[] | null>(null);
   const [bookingAction, setBookingAction] = useState<VibeBookingAction | null>(null);
   const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>([]);
@@ -492,10 +487,8 @@ function VibeMatchPageContent() {
     [bookableRouteStopByVenueId, selectedVenueIdSet, suggestedPlan],
   );
 
-  const showPersonalDataNotice = shouldShowBookingPersonalDataNotice(user, profile);
   const showProfileCompleteTip = !isPersonalDataComplete(profile);
-  const personalDataBlocksBooking = showPersonalDataNotice && !isPersonalDataComplete(profile);
-  const bookAllEnabled = selectedBookableStops.length > 0 && !personalDataBlocksBooking;
+  const bookAllEnabled = selectedBookableStops.length > 0;
   const showPaywallCta = !exemptFromBookingCredits && !canUseBookingCredits;
   const showCreditsLimitInfo =
     !exemptFromBookingCredits &&
@@ -619,16 +612,7 @@ function VibeMatchPageContent() {
       if (bookingAction !== null) return;
       const formError = getGuestFormError();
       if (formError) {
-        showGuestFormValidationPopup({
-          error: formError,
-          showPersonalDataNotice,
-          onPersonalDataRequired: () => setPersonalDataRequiredVisible(true),
-          t,
-        });
-        return;
-      }
-      if (!isPersonalDataComplete(profile)) {
-        setPersonalDataRequiredVisible(true);
+        showGuestFormValidationPopup({ error: formError, t });
         return;
       }
       if (!exemptFromBookingCredits && balance < stops.length) {
@@ -742,14 +726,12 @@ function VibeMatchPageContent() {
       navigation,
       persons,
       plan,
-      profile,
       balance,
       exemptFromBookingCredits,
       session?.access_token,
       showInsufficientCreditsToast,
       stopAvailability,
       getGuestFormError,
-      showPersonalDataNotice,
       bookingAction,
       t,
     ],
@@ -1218,11 +1200,6 @@ function VibeMatchPageContent() {
           </View>
         ) : null}
       </BottomSheetPickerModal>
-      <BookingPersonalDataRequiredModal
-        visible={personalDataRequiredVisible}
-        onClose={() => setPersonalDataRequiredVisible(false)}
-        navigation={navigation}
-      />
     </Animated.View>
   );
 }

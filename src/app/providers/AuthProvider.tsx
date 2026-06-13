@@ -13,6 +13,7 @@ import {
   resetSignOutNavigationGuard,
 } from "@/shared/lib/auth/navigateAfterSignOut";
 import { consumePendingPushOutbox, registerNativePushToken } from "@/shared/lib/push/pushNotifications";
+import { syncProfileTimezone } from "@/entities/user/api/syncProfileTimezone";
 import { devError, devInfo, devWarn } from "@/shared/lib/devLog";
 import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
 import { clearOnboardingDraft } from "@/features/preference-onboarding";
@@ -191,6 +192,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!user?.id) return;
     const register = () => {
+      void syncProfileTimezone();
       void registerNativePushToken(user.id);
       void consumePendingPushOutbox();
     };

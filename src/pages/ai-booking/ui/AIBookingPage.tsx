@@ -53,14 +53,13 @@ import {
 } from "@/entities/category";
 import { useProfile } from "@/entities/user";
 import {
-  BookingPersonalDataRequiredModal,
   BookingProfileCompleteTip,
   showGuestFormValidationPopup,
   showMissingBookingDatePopup,
   showMissingBookingSlotPopup,
   type GuestFormFieldError,
 } from "@/features/booking-personal-data-notice";
-import { isPersonalDataComplete, shouldShowBookingPersonalDataNotice } from "@/shared/lib/profileCompletion";
+import { isPersonalDataComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
 import { useBookingAccess } from "@/features/booking-access";
@@ -338,7 +337,6 @@ function AIBookingPageContent() {
   const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [resetChatConfirmVisible, setResetChatConfirmVisible] = useState(false);
-  const [personalDataRequiredVisible, setPersonalDataRequiredVisible] = useState(false);
   const [form, setForm] = useState<DraftForm>({
     persons: AI_BOOKING_DEFAULT_PERSONS,
     customer_name: "",
@@ -497,7 +495,6 @@ function AIBookingPageContent() {
     return filterCityGroups(grouped, citySearchQuery);
   }, [concreteCities, citySearchQuery]);
 
-  const showPersonalDataNotice = shouldShowBookingPersonalDataNotice(user, profile);
   const showProfileCompleteTip = !isPersonalDataComplete(profile);
 
   const styles = useAIBookingStyles({ top: insets.top, bottom: insets.bottom });
@@ -1017,12 +1014,7 @@ function AIBookingPageContent() {
     }
     const formError = getGuestFormError();
     if (formError) {
-      showGuestFormValidationPopup({
-        error: formError,
-        showPersonalDataNotice,
-        onPersonalDataRequired: () => setPersonalDataRequiredVisible(true),
-        t,
-      });
+      showGuestFormValidationPopup({ error: formError, t });
       return;
     }
     const persons = Number(form.persons);
@@ -1461,11 +1453,6 @@ function AIBookingPageContent() {
           ]}
         />
       </Modal>
-      <BookingPersonalDataRequiredModal
-        visible={personalDataRequiredVisible}
-        onClose={() => setPersonalDataRequiredVisible(false)}
-        navigation={navigation}
-      />
     </View>
   );
 }

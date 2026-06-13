@@ -48,7 +48,7 @@ where p.id = current_setting('app.smoke_user_id')::uuid;
 -- =============================================================================
 -- 1) Cron plumbing / invoke function check
 -- =============================================================================
--- 1.1 Cron job exists and is scheduled at 12:00 UTC.
+-- 1.1 Cron job exists and runs hourly for timezone-aware noon/evening delivery.
 select
   jobid,
   jobname,
@@ -60,7 +60,7 @@ where jobname = 'generate-daily-recommendations';
 
 -- Expect:
 --  - exactly 1 row
---  - schedule = '0 12 * * *'
+--  - schedule = '0 * * * *'
 --  - command contains: private.invoke_generate_daily_recommendations
 
 -- 1.2 Manual invoke function dry call (checks pg_net/vault wiring).

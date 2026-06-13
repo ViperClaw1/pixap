@@ -11,3 +11,4 @@ export * from "./api/usePublicProfiles";
 export * from "./api/usePublicProfile";
 export * from "./api/useProfileSocialInsights";
 export * from "./api/useDeleteAccount";
+export * from "./api/syncProfileTimezone";

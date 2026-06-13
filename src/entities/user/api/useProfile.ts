@@ -16,6 +16,7 @@ export interface Profile {
   followers: string[] | null;
   phone: string | null;
   city: string | null;
+  timezone: string | null;
   is_verified: boolean;
   account_role: "user" | "admin";
   terms_accepted_at?: string | null;

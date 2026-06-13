@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import { appAlert } from "@/shared/ui/app-popup";
-import { isPersonalDataFormFieldError, type GuestFormFieldError } from "./guestFormValidation";
+import type { GuestFormFieldError } from "./guestFormValidation";
 
 export function getGuestFormErrorCopy(t: TFunction, error: GuestFormFieldError): { title: string; message: string } {
   const titleByError: Record<GuestFormFieldError, string> = {
@@ -20,14 +20,8 @@ export function getGuestFormErrorCopy(t: TFunction, error: GuestFormFieldError):
 
 export function showGuestFormValidationPopup(params: {
   error: GuestFormFieldError;
-  showPersonalDataNotice: boolean;
-  onPersonalDataRequired: () => void;
   t: TFunction;
 }): void {
-  if (params.showPersonalDataNotice && isPersonalDataFormFieldError(params.error)) {
-    params.onPersonalDataRequired();
-    return;
-  }
   const { title, message } = getGuestFormErrorCopy(params.t, params.error);
   appAlert(title, message, undefined, "info");
 }
