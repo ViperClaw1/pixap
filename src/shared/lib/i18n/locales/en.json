@@ -381,6 +381,7 @@
     "searchResultsLine": "I found {{count}} {{requestType}} {{scopeText}}. Pick one and I will suggest the best available slots.",
     "searchNoMatchingPlaces": "Could not find matching places. Try changing city, category, or search scope.",
     "searchOrchestratorFailed": "Something went wrong with the booking assistant and no matching places were found. Check your connection, try again, or adjust city and category.",
+    "searchFallbackBanner": "Exact menu data isn't available for \"{{query}}\" yet — showing top-rated venues in the city.",
     "scopeInCity": "in {{city}}",
     "yourCity": "your city",
     "placesFallback": "places",

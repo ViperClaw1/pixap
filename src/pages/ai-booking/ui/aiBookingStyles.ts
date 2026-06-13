@@ -31,6 +31,20 @@ export const aiBookingStaticStyles = StyleSheet.create({
     padding: 12,
     gap: 10,
   },
+  fallbackBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  fallbackBannerText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   stepTitle: { fontWeight: "700", fontSize: 15 },
   stepTitleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   menuBtn: {

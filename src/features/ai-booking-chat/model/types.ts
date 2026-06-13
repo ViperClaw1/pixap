@@ -1,4 +1,4 @@
-import type { PixAIPlace } from "@/entities/pixai";
+import type { PixAIPlace, PixAISearchMeta } from "@/entities/pixai";
 import type { BookingOnboardingPhase } from "@/features/ai-booking-onboarding/model/types";
 
 export type BookingChatMessageRole = "user" | "assistant" | "system";
@@ -43,7 +43,19 @@ export type BookingChatTab = {
   searchSnapshot?: BookingSearchSnapshot;
 };
 
-export type PlaceLite = Pick<PixAIPlace, "id" | "name" | "city" | "rating" | "booking_price">;
+export type PlaceLite = Pick<
+  PixAIPlace,
+  | "id"
+  | "name"
+  | "city"
+  | "rating"
+  | "booking_price"
+  | "tags"
+  | "cuisine_types"
+  | "menu_items"
+  | "price_tier"
+  | "fts_matched"
+>;
 
 /** Last successful orchestrator search — restores place list after app restart. */
 export type BookingSearchSnapshot = {
@@ -56,4 +68,5 @@ export type BookingSearchSnapshot = {
   catalogPlaces: PixAIPlace[];
   persons: number;
   searchedAt: number;
+  searchMeta?: PixAISearchMeta | null;
 };

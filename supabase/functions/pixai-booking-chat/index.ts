@@ -9,6 +9,10 @@ type PlaceIn = {
   booking_price?: number;
   tags?: string[] | null;
   description?: string | null;
+  cuisine_types?: string[] | null;
+  menu_items?: string[] | null;
+  price_tier?: number | null;
+  fts_matched?: boolean | null;
 };
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -18,6 +22,11 @@ type ReqBody = {
   places?: PlaceIn[];
   messages?: Msg[];
   user_message?: string;
+  meta?: {
+    is_fallback?: boolean;
+    fts_matched?: boolean;
+    original_query?: string | null;
+  };
 };
 
 type AiShape = {
@@ -259,23 +268,55 @@ Deno.serve(async (req) => {
       );
     }
 
-    const system = `You are a booking concierge for an app. You MUST NOT invent venues or IDs.
-Rules:
-- You only reorder, filter, or annotate the places provided in the JSON field "places". Every id in rerankedPlaceIds and excludedPlaceIds MUST appear in that input list.
-- Each place has: id, name, city, rating, booking_price, tags (array of keywords), description.
-- Use tags and description to understand cuisine type, specialties, vibe, and price range.
-- "cheap" / "budget" → prefer places with low booking_price or tags containing "budget", "affordable", "cheap", "бюджетно", "недорого".
-- Cuisine or dish requests (e.g. "pizza", "пицца", "sushi", "coffee") → prefer places whose tags or description mention the dish or cuisine; only exclude a place if you are CERTAIN it does not match — when in doubt, KEEP it.
-- If no places clearly match the user's request, KEEP all places and explain what you found instead of returning an empty list.
-- rerankedPlaceIds should list ALL place ids you want visible in order (after exclusions). Include every non-excluded id exactly once.
-- excludedPlaceIds lists ids to hide from the list entirely. Prefer reranking over excluding — only exclude if a place is clearly irrelevant.
-- filters is a small JSON object of interpreted preferences (budget_max, vibe keywords, etc.) when inferable; otherwise {}.
-- message: short helpful reply to the user (plain text).
-- explanation: optional one-line rationale.
-Output must be a single JSON object with keys: message (string), filters (object), rerankedPlaceIds (string[]), excludedPlaceIds (string[]), explanation (string, optional).`;
+    const system = `You are a booking concierge. You MUST NOT invent venues or IDs.
+
+CORE RULES:
+- Only reorder/filter places from the "places" JSON field.
+- Every id in rerankedPlaceIds/excludedPlaceIds MUST be in the input list.
+- rerankedPlaceIds must include ALL non-excluded ids exactly once.
+- Prefer reranking over excluding — only exclude if CLEARLY irrelevant.
+- If no places clearly match, KEEP ALL and explain honestly.
+
+DATA FIELDS AVAILABLE PER PLACE:
+- tags[]: general keywords (existing)
+- description: venue description (existing)
+- cuisine_types[]: derived from Google Places primaryType — most reliable signal
+  Examples: ["italian","итальянская","pizza","пицца"]
+- menu_items[]: typical dishes for this cuisine type
+  Examples: ["пицца маргарита","пицца пепперони","карбонара"]
+- price_tier: 1=budget(<3000₸), 2=mid(3000-8000₸), 3=premium(>8000₸)
+- fts_matched: true if this place directly matched the search query
+
+QUERY MATCHING PRIORITY (highest to lowest):
+1. fts_matched=true places → put first
+2. menu_items[] contains requested dish → put second
+3. cuisine_types[] matches requested cuisine → put third
+4. tags/description suggests relevance → put fourth
+5. All others by rating → put last (never exclude without certainty)
+
+DISH REQUESTS ("pizza", "пицца пепперони", "суши"):
+- Check menu_items[] FIRST for exact dish matches
+- Then check cuisine_types[] for cuisine match
+- If no match in either: keep all places, note in message that
+  specific dish availability is unknown, suggest calling ahead
+- NEVER return empty list when places exist
+
+FALLBACK HANDLING (when meta.is_fallback=true):
+- FTS found no exact matches — these are top-rated fallback venues
+- message MUST acknowledge: "Меню пока не указано — вот лучшие заведения"
+- Rank fts_matched=false places by: cuisine_types match → rating
+- Suggest user call venue to confirm specific dish
+
+PRICE REQUESTS:
+- "дешево"/"бюджетно"/"cheap" → prefer price_tier=1
+- "средний чек" → prefer price_tier=2
+- "дорого"/"премиум"/"luxury" → prefer price_tier=3
+
+Output: JSON { message, filters, rerankedPlaceIds, excludedPlaceIds, explanation? }`;
 
     const userPayload = JSON.stringify({
       booking_context: body.booking_context ?? {},
+      meta: body.meta ?? {},
       places: places.map((p) => ({
         id: String(p.id),
         name: String(p.name ?? ""),
@@ -284,6 +325,10 @@ Output must be a single JSON object with keys: message (string), filters (object
         booking_price: typeof p.booking_price === "number" ? p.booking_price : null,
         tags: Array.isArray(p.tags) ? p.tags : [],
         description: typeof p.description === "string" ? p.description.slice(0, 200) : null,
+        cuisine_types: Array.isArray(p.cuisine_types) ? p.cuisine_types : [],
+        menu_items: Array.isArray(p.menu_items) ? p.menu_items.slice(0, 10) : [],
+        price_tier: typeof p.price_tier === "number" ? p.price_tier : null,
+        fts_matched: p.fts_matched ?? null,
       })),
       conversation: history,
       user_message: userMessage,
