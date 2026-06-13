@@ -159,9 +159,14 @@ export default function BookingsScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: BookingListItem }) => (
-      <BookingListCard item={item} styles={styles} isCompact={isCompact} />
+      <BookingListCard
+        item={item}
+        styles={styles}
+        isCompact={isCompact}
+        onBookingPress={(bookingId) => navigation.navigate("BookingDetail", { bookingId })}
+      />
     ),
-    [isCompact, styles],
+    [isCompact, navigation, styles],
   );
 
   if (!user && !loading) {

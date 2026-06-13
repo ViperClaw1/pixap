@@ -89,6 +89,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           { scheme: "pixap", pathPrefix: "/place" },
           { scheme: "pixap", pathPrefix: "/post" },
           { scheme: "pixap", pathPrefix: "/story" },
+          { scheme: "pixap", pathPrefix: "/bookings" },
         ],
         category: ["BROWSABLE", "DEFAULT"],
       },

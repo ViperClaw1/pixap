@@ -26,6 +26,27 @@ function parsePlaceIdFromPushUrl(url: string): string | null {
   return decodeURIComponent(match[1]).trim() || null;
 }
 
+function parseBookingIdFromPushUrl(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = Linking.parse(trimmed);
+    const path = parsed.path?.replace(/^\//, "") ?? "";
+    if (path.startsWith("bookings/")) {
+      const raw = path.slice("bookings/".length).split("/")[0] ?? "";
+      const id = decodeURIComponent(raw).trim();
+      return id || null;
+    }
+  } catch {
+    // fall through to regex
+  }
+
+  const match = trimmed.match(/(?:^|[/:])bookings\/([^/?#]+)/i);
+  if (!match?.[1]) return null;
+  return decodeURIComponent(match[1]).trim() || null;
+}
+
 function resolveDailyRecommendationVenueId(data: Record<string, unknown>): string | null {
   return (
     readNonEmptyString(data.top_venue_id) ??
@@ -34,8 +55,31 @@ function resolveDailyRecommendationVenueId(data: Record<string, unknown>): strin
   );
 }
 
+function resolveBookingId(data: Record<string, unknown>): string | null {
+  return (
+    readNonEmptyString(data.booking_id) ??
+    (readNonEmptyString(data.url) ? parseBookingIdFromPushUrl(readNonEmptyString(data.url)!) : null)
+  );
+}
+
+function openBookingDetail(bookingId: string): void {
+  rootNavigationRef.navigate("Bookings", {
+    screen: "BookingDetail",
+    params: { bookingId },
+  });
+}
+
 export function handlePushNotificationOpen(data: Record<string, unknown>): void {
   if (!rootNavigationRef.isReady()) return;
+
+  const bookingKind = data.kind;
+  if (bookingKind === "booking_reminder" || bookingKind === "booking_status") {
+    const bookingId = resolveBookingId(data);
+    if (bookingId) {
+      openBookingDetail(bookingId);
+    }
+    return;
+  }
 
   if (data.kind !== "daily_recommendation") return;
 

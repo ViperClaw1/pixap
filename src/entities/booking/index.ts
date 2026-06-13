@@ -1,4 +1,5 @@
 export * from "./api/useBookings";
+export * from "./api/useBooking";
 export * from "./lib/bookingDisplayStatusTracker";
 export * from "./lib/venueConfirmedPrice";
 export * from "./lib/bookingEntryDisplay";

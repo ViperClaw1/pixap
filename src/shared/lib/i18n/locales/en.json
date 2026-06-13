@@ -577,6 +577,13 @@
     "noPlacesYet": "No places yet",
     "defaultVenueName": "Booking"
   },
+  "bookingDetail": {
+    "title": "Booking details",
+    "notFound": "Booking not found or you do not have access.",
+    "guestName": "Guest: {{name}}",
+    "guestPhone": "Phone: {{phone}}",
+    "openVenue": "View venue"
+  },
   "cart": {
     "title": "Cart",
     "tabServices": "Services",

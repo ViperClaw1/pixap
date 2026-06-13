@@ -99,6 +99,7 @@ export type CartStackParamList = {
 
 export type BookingsStackParamList = {
   BookingsMain: undefined;
+  BookingDetail: { bookingId: string };
 } & BrowseFlowParamList;
 
 export type ProfileStackParamList = {

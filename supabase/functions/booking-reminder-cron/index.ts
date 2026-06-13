@@ -2,15 +2,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { isServiceAuthorized, resolveSupabaseSecretKey } from "../_shared/serviceAuth.ts";
 
-function isReminderCronAuthorized(req: Request, serviceKey: string): boolean {
-  const reminderSecret = Deno.env.get("REMINDER_CRON_SECRET");
-  if (reminderSecret) {
-    const provided = req.headers.get("x-reminder-cron-secret") ?? req.headers.get("x-cron-secret") ?? "";
-    if (provided === reminderSecret) return true;
-  }
-  return isServiceAuthorized(req, serviceKey);
-}
-
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -31,7 +22,7 @@ Deno.serve(async (req) => {
   if (!supabaseUrl || !serviceKey) {
     return jsonResponse({ error: "Server misconfigured" }, 500);
   }
-  if (!isReminderCronAuthorized(req, serviceKey)) {
+  if (!await isServiceAuthorized(req, serviceKey)) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
