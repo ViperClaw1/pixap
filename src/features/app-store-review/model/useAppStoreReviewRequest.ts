@@ -12,8 +12,8 @@ import {
   APP_STORE_REVIEW_MIN_SESSION_MS,
   APP_STORE_REVIEW_POST_NAV_SETTLE_MS,
 } from "../lib/constants";
-import { isProductionAppStoreReviewRuntime } from "../lib/isProductionAppStoreReviewRuntime";
-import { requestAppStoreReview } from "../lib/requestAppStoreReview";
+import { isProductionReviewRuntime } from "../lib/isProductionReviewRuntime";
+import { requestStoreReview } from "../lib/requestAppStoreReview";
 import {
   getAppNavigationReadyAt,
   isAppNavigationReady,
@@ -28,6 +28,10 @@ type Options = {
   /** When true, native review may be requested after the usage threshold is met. */
   enabled: boolean;
 };
+
+function isSupportedPlatform(): boolean {
+  return Platform.OS === "ios" || Platform.OS === "android";
+}
 
 function canPromptForSession(sessionStartedAt: number | null, navigationReadyAt: number | null): boolean {
   if (sessionStartedAt == null || navigationReadyAt == null) return false;
@@ -72,7 +76,7 @@ export function useAppStoreReviewRequest({ enabled }: Options) {
   }, [syncActiveUsage]);
 
   const tryRequestReview = useCallback(async () => {
-    if (Platform.OS !== "ios" || requestingRef.current) return;
+    if (!isSupportedPlatform() || requestingRef.current) return;
 
     const total = await persistUsage();
     if (!enabledRef.current) return;
@@ -83,7 +87,7 @@ export function useAppStoreReviewRequest({ enabled }: Options) {
       return;
     }
 
-    if (!isProductionAppStoreReviewRuntime()) {
+    if (!isProductionReviewRuntime()) {
       const sinceLastAttempt = Date.now() - lastDevRequestAtRef.current;
       if (lastDevRequestAtRef.current > 0 && sinceLastAttempt < APP_STORE_REVIEW_DEV_RETRY_MS) {
         return;
@@ -91,14 +95,14 @@ export function useAppStoreReviewRequest({ enabled }: Options) {
     }
 
     if (__DEV__) {
-      devLog(`[app-store-review] threshold reached (${Math.round(total / 1000)}s foreground), requesting…`);
+      devLog(`[store-review] threshold reached (${Math.round(total / 1000)}s foreground), requesting…`);
     }
 
     requestingRef.current = true;
     lastDevRequestAtRef.current = Date.now();
     try {
-      const requested = await requestAppStoreReview();
-      if (requested && isProductionAppStoreReviewRuntime()) {
+      const requested = await requestStoreReview();
+      if (requested && isProductionReviewRuntime()) {
         reviewStateRef.current = { requestedAt: Date.now() };
         await markReviewRequested();
       }
@@ -108,14 +112,14 @@ export function useAppStoreReviewRequest({ enabled }: Options) {
   }, [navigationReadyAt, persistUsage]);
 
   useEffect(() => {
-    if (Platform.OS !== "ios") return;
+    if (!isSupportedPlatform()) return;
     return onAppNavigationReady(() => {
       setNavigationReadyAt(getAppNavigationReadyAt());
     });
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== "ios") return;
+    if (!isSupportedPlatform()) return;
 
     let cancelled = false;
 
@@ -124,7 +128,7 @@ export function useAppStoreReviewRequest({ enabled }: Options) {
       if (cancelled) return;
 
       usageMsRef.current = usageMs;
-      reviewStateRef.current = isProductionAppStoreReviewRuntime() ? reviewState : {};
+      reviewStateRef.current = isProductionReviewRuntime() ? reviewState : {};
       setHydrated(true);
 
       if (AppState.currentState === "active") {
@@ -132,7 +136,7 @@ export function useAppStoreReviewRequest({ enabled }: Options) {
       }
 
       if (__DEV__) {
-        devLog(`[app-store-review] hydrated, accumulated ${Math.round(usageMs / 1000)}s`);
+        devLog(`[store-review] hydrated, accumulated ${Math.round(usageMs / 1000)}s`);
       }
     })();
 
@@ -142,7 +146,7 @@ export function useAppStoreReviewRequest({ enabled }: Options) {
   }, [markForegroundSessionStart]);
 
   useEffect(() => {
-    if (Platform.OS !== "ios" || !hydrated) return;
+    if (!isSupportedPlatform() || !hydrated) return;
 
     const onAppStateChange = (next: string) => {
       if (next === "active") {

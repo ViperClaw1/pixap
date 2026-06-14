@@ -41,6 +41,8 @@ type AdminAnalyticsRpcRow = {
     purchases_series?: RpcSeriesPoint[];
     mrr_series?: RpcSeriesPoint[];
     mrr_current?: number;
+    revenue_ios?: number;
+    revenue_android?: number;
   };
 };
 
@@ -101,6 +103,8 @@ function parseSubscriptions(row: AdminAnalyticsRpcRow["subscriptions"]): Subscri
     purchasesSeries: parseSeries(row?.purchases_series),
     mrrSeries: parseSeries(row?.mrr_series),
     mrrCurrent: row?.mrr_current ?? 0,
+    revenueIos: row?.revenue_ios ?? 0,
+    revenueAndroid: row?.revenue_android ?? 0,
   };
 }
 

@@ -36,6 +36,9 @@ export type SubscriptionAnalytics = {
   /** Estimated MRR in minor currency units (e.g. cents) — mock until RPC. */
   mrrSeries: TimeSeriesPoint[];
   mrrCurrent: number;
+  /** Estimated revenue in period from production IAP (cents), by platform. */
+  revenueIos: number;
+  revenueAndroid: number;
 };
 
 export type DauAnalytics = {

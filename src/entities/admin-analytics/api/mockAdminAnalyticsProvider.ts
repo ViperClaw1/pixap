@@ -114,6 +114,8 @@ async function fetchMock(period: AnalyticsPeriod): Promise<AdminAnalyticsSnapsho
       purchasesSeries: subSeries,
       mrrSeries,
       mrrCurrent: mrrSeries[mrrSeries.length - 1]?.value ?? 0,
+      revenueIos: Math.round(subTotal * 0.62 * MOCK_MRR_PER_ACTIVE),
+      revenueAndroid: Math.round(subTotal * 0.38 * MOCK_MRR_PER_ACTIVE),
     },
   };
 }

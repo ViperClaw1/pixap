@@ -1001,7 +1001,10 @@
     "subscriptions": {
       "total": "Покупок за период",
       "mrr": "Оценка MRR",
-      "mrrHint": "демо-оценка"
+      "mrrHint": "только production",
+      "revenueIos": "Выручка iOS",
+      "revenueAndroid": "Выручка Android",
+      "revenueHint": "production, за период"
     },
     "charts": {
       "registrationsOverTime": "Регистрации по дням",

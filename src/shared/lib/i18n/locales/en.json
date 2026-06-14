@@ -1012,7 +1012,10 @@
     "subscriptions": {
       "total": "Purchases in period",
       "mrr": "Est. MRR",
-      "mrrHint": "mock estimate from active subs"
+      "mrrHint": "production subs only",
+      "revenueIos": "iOS revenue",
+      "revenueAndroid": "Android revenue",
+      "revenueHint": "production, in period"
     },
     "charts": {
       "registrationsOverTime": "Registrations over time",

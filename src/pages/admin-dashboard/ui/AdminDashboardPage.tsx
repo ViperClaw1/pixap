@@ -176,6 +176,18 @@ function AdminDashboardContent() {
             subtitle={t("adminDashboard.subscriptions.mrrHint")}
           />
         </View>
+        <View style={[styles.metricsRow, { gap: metricRowGap }]}>
+          <MetricCard
+            label={t("adminDashboard.subscriptions.revenueIos")}
+            value={formatMrr(data.subscriptions.revenueIos)}
+            subtitle={t("adminDashboard.subscriptions.revenueHint")}
+          />
+          <MetricCard
+            label={t("adminDashboard.subscriptions.revenueAndroid")}
+            value={formatMrr(data.subscriptions.revenueAndroid)}
+            subtitle={t("adminDashboard.subscriptions.revenueHint")}
+          />
+        </View>
         <AnalyticsLineChart
           title={t("adminDashboard.charts.purchasesOverTime")}
           points={data.subscriptions.purchasesSeries}
