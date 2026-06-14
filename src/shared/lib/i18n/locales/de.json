@@ -314,6 +314,11 @@
     },
     "moodAlertTitle": "Stimmung",
     "timelineLabel": "Zeitplan",
+    "timelineOr": "oder",
+    "customTimeWindowLabel": "Eigenes Zeitfenster",
+    "customTimeRange": "{{start}} — {{end}}",
+    "customWindowStartA11y": "Fensterbeginn {{time}}",
+    "customWindowEndA11y": "Fensterende {{time}}",
     "timeline": {
       "day": "Tag",
       "evening": "Abend",

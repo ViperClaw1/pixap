@@ -17,7 +17,7 @@ import { Ionicons, FontAwesome, FontAwesome6 } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import * as AppleAuthentication from "expo-apple-authentication";
 import Constants from "expo-constants";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/shared/api/supabase/client";
@@ -39,6 +39,7 @@ import { devError, devInfo } from "@/shared/lib/devLog";
 import { appAlert } from "@/shared/ui/app-popup";
 import type { AppPopupVariant } from "@/shared/ui/app-popup";
 import { COMMUNITY_GUIDELINES_URL, TERMS_URL } from "@/shared/lib/legalUrls";
+import { markAppLaunched } from "@/shared/lib/appLaunchStorage";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -89,6 +90,7 @@ function getAuthErrorTranslationKey(code: AuthErrorCode | undefined): string {
 export default function AuthScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<ProfileStackParamList, "Auth">>();
   const insets = useSafeAreaInsets();
   const { colors, mode: themeMode } = useAppTheme();
   const { user, loading: authLoading, signIn, signUp } = useAuth();
@@ -102,7 +104,7 @@ export default function AuthScreen() {
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
-  const [mode, setMode] = useState<Mode>("login");
+  const [mode, setMode] = useState<Mode>(route.params?.initialMode ?? "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -213,6 +215,11 @@ export default function AuthScreen() {
     }
     return "ProfileMain";
   }, []);
+
+  useEffect(() => {
+    if (route.params?.initialMode !== "signup") return;
+    void markAppLaunched();
+  }, [route.params?.initialMode]);
 
   useEffect(() => {
     if (authLoading || !user || !authTransition) return;

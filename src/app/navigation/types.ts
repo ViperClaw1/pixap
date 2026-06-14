@@ -110,7 +110,7 @@ export type ProfileStackParamList = {
       }
     | undefined;
   MyPurchases: undefined;
-  Auth: undefined;
+  Auth: { initialMode?: "login" | "signup" } | undefined;
   AuthEmailSent: { email: string } | undefined;
   AuthEmailCallback: { href?: string } | undefined;
   VerifyEmailOtp:

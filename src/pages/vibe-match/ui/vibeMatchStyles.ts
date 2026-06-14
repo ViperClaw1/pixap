@@ -1,5 +1,6 @@
 import { Platform, StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
+import { VIBE_ROUTE_MAP_BORDER_RADIUS } from "./VibeRouteMapSkeleton";
 
 export const vibeMatchStaticStyles = StyleSheet.create({
   root: { flex: 1 },
@@ -21,6 +22,16 @@ export const vibeMatchStaticStyles = StyleSheet.create({
     padding: 12,
     gap: 10,
   },
+  routeMapSkeletonHost: {
+    marginTop: 16,
+    position: "relative",
+    borderRadius: VIBE_ROUTE_MAP_BORDER_RADIUS,
+    overflow: "hidden",
+  },
+  routeMapSkeletonSlot: {
+    borderRadius: VIBE_ROUTE_MAP_BORDER_RADIUS,
+    overflow: "hidden",
+  },
   label: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
   input: {
     borderWidth: 1,
@@ -38,6 +49,17 @@ export const vibeMatchStaticStyles = StyleSheet.create({
   chipOn: {},
   chipText: { fontSize: 13, fontWeight: "600" },
   timelineRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  timelineOrLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  customWindowLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
   routeTimeline: { gap: 0 },
   routeStop: {
     flexDirection: "row",

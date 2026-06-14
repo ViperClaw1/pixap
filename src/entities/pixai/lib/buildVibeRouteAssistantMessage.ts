@@ -1,8 +1,9 @@
 import type { TFunction } from "i18next";
-import type { PixAIVibeTimeline } from "../api/usePixAI";
+import type { VibeTimeWindowContext } from "../lib/vibeBookingWindow";
+import { formatVibeTimeWindowContextLabel } from "../lib/vibeBookingWindow";
 
 export type VibeRouteAssistantParams = {
-  timeline: PixAIVibeTimeline;
+  timeWindow: VibeTimeWindowContext;
   city: string;
   mood: string;
   stopCount: number;
@@ -12,8 +13,7 @@ export function buildVibeRouteAssistantMessage(params: VibeRouteAssistantParams,
   if (params.stopCount === 0) {
     return t("vibeMatch.routeAssistantEmpty", { city: params.city });
   }
-  const timelineKey = params.timeline === "late_night" ? "lateNight" : params.timeline;
-  const vibe = t(`vibeMatch.timeline.${timelineKey}`);
+  const vibe = formatVibeTimeWindowContextLabel(params.timeWindow, t);
   return t("vibeMatch.routeAssistantMessage", {
     vibe,
     city: params.city,

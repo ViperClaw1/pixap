@@ -59,7 +59,7 @@ import {
 import { buildHomeCategoryList, type HomeCategoryListItem } from "../lib/buildHomeCategoryList";
 import { AnimatedHomeSparklesIcon, AnimatedHomeVibeIcon } from "@/shared/ui/animated-home-header-icons";
 import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
-import { DailyPicksHero, resolveDailyPicksHeroDisplay } from "@/widgets/daily-picks-hero";
+import { DailyPicksHero, DailyPicksHeroSkeleton, isDailyPicksHeroLoading, resolveDailyPicksHeroDisplay } from "@/widgets/daily-picks-hero";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
@@ -106,7 +106,7 @@ export default function HomeScreen() {
   });
   const { data: categories = [], isLoading: lc } = useCategories();
   const homeCategories = useMemo(() => buildHomeCategoryList(categories), [categories]);
-  const { data: dailyRecommendations = [] } = useDailyRecommendations();
+  const { data: dailyRecommendations = [], isFetched: dailyRecsFetched } = useDailyRecommendations();
   const trackRecommendationEvent = useTrackRecommendationEvent();
   const trackRecommendationInteraction = useTrackRecommendationInteraction();
   const unread = useUnreadCount();
@@ -116,7 +116,6 @@ export default function HomeScreen() {
   const recommendedCardWidth = windowWidth - 32;
   const featuredLoading = !isCityReady || lf;
   const recommendedLoading = !isCityReady || lr;
-  const homeQueriesLoading = lc || featuredLoading || recommendedLoading;
 
   useEffect(() => {
     setVisibleRecommendedCount(RECOMMENDED_BATCH_SIZE);
@@ -140,6 +139,15 @@ export default function HomeScreen() {
     () => resolveDailyPicksHeroDisplay(dailyRecommendations, featured.length ? featured : recommended),
     [dailyRecommendations, featured, recommended],
   );
+  const isDailyPicksHeroPending = isDailyPicksHeroLoading({
+    isAuthenticated: Boolean(user),
+    dailyRecsFetched,
+    featuredLoading,
+    recommendedLoading,
+    hasFeatured: featured.length > 0,
+    hasRecommended: recommended.length > 0,
+  });
+  const homeQueriesLoading = lc || featuredLoading || recommendedLoading || isDailyPicksHeroPending;
 
   useEffect(() => {
     if (!featured.length) return;
@@ -407,7 +415,11 @@ export default function HomeScreen() {
           </Text>
         </AppPressable>
 
-        <DailyPicksHero display={dailyPicksHeroDisplay} onOpen={openDailyPicksHero} />
+        {isDailyPicksHeroPending ? (
+          <DailyPicksHeroSkeleton />
+        ) : (
+          <DailyPicksHero display={dailyPicksHeroDisplay} onOpen={openDailyPicksHero} />
+        )}
 
         <Text style={styles.sectionTitle}>{t("home.categories")}</Text>
         {lc ? (
@@ -460,6 +472,7 @@ export default function HomeScreen() {
       homeCategories,
       colors,
       dailyPicksHeroDisplay,
+      isDailyPicksHeroPending,
       featured,
       handleOpenAIBooking,
       handleOpenVibeMatch,

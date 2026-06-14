@@ -1,7 +1,8 @@
-import type { PixAIVibeTimeline, VibePlanStop } from "@/entities/pixai";
+import type { VibePlanStop } from "@/entities/pixai";
 import {
   isTimeSlotBookableNow,
-  isTimeSlotInTimelineWindow,
+  isTimeSlotInWindowContext,
+  type VibeTimeWindowContext,
 } from "@/entities/pixai/lib/vibeBookingWindow";
 
 export type VibeStopSlotMeta = {
@@ -20,16 +21,16 @@ export type BookableVibeRouteStop = {
 export function filterBookableVibePlanStops(
   plan: VibePlanStop[],
   stopAvailability: VibeStopSlotMeta[],
-  timeline: PixAIVibeTimeline,
+  timeWindow: VibeTimeWindowContext,
   nowMs = Date.now(),
 ): BookableVibeRouteStop[] {
   return plan.flatMap((stop, i) => {
     const meta = stopAvailability[i];
     if (!meta || meta.loading) return [];
-    if (!isTimeSlotInTimelineWindow(stop.time_slot, timeline)) return [];
+    if (!isTimeSlotInWindowContext(stop.time_slot, timeWindow)) return [];
 
     const resolvedSlot =
-      meta.dateTime && isTimeSlotInTimelineWindow(meta.dateTime, timeline) ? meta.dateTime : null;
+      meta.dateTime && isTimeSlotInWindowContext(meta.dateTime, timeWindow) ? meta.dateTime : null;
     const displayTime = resolvedSlot ?? stop.time_slot;
     const hasLiveSlot = resolvedSlot != null && isTimeSlotBookableNow(resolvedSlot, nowMs);
 

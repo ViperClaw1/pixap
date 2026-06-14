@@ -1,4 +1,6 @@
+import { useCallback, useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
@@ -16,6 +18,9 @@ import type { DailyPicksHeroDisplay } from "../lib/resolveDailyPicksHeroDisplay"
 
 export const DAILY_PICKS_HERO_HEIGHT = 220;
 
+const HERO_SHELL_FADE_MS = 280;
+const HERO_IMAGE_FADE_MS = 320;
+
 type Props = {
   display: DailyPicksHeroDisplay;
   onOpen: () => void;
@@ -25,12 +30,43 @@ export function DailyPicksHero({ display, onOpen }: Props) {
   const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const { recommendation, source } = display;
+  const shellOpacity = useSharedValue(0);
+  const imageOpacity = useSharedValue(0);
 
   const heroRaw = recommendation ? getPrimaryBusinessCardImage(recommendation.images) : null;
   const heroUri = heroRaw
     ? getBusinessCardDisplayUrl(heroRaw, { size: "hero" })
     : null;
   const showPlaceholder = source === "placeholder";
+  const showHeroImage = !showPlaceholder && Boolean(heroUri);
+
+  useEffect(() => {
+    shellOpacity.value = withTiming(1, { duration: HERO_SHELL_FADE_MS });
+  }, [shellOpacity]);
+
+  useEffect(() => {
+    if (!showHeroImage) {
+      imageOpacity.value = 1;
+      return;
+    }
+    imageOpacity.value = 0;
+  }, [heroUri, imageOpacity, showHeroImage]);
+
+  const handleImageLoadingChange = useCallback(
+    (loading: boolean) => {
+      if (!loading) {
+        imageOpacity.value = withTiming(1, { duration: HERO_IMAGE_FADE_MS });
+      }
+    },
+    [imageOpacity],
+  );
+
+  const shellStyle = useAnimatedStyle(() => ({
+    opacity: shellOpacity.value,
+  }));
+  const imageLayerStyle = useAnimatedStyle(() => ({
+    opacity: imageOpacity.value,
+  }));
 
   const badgeLabel =
     source === "recent"
@@ -60,57 +96,71 @@ export function DailyPicksHero({ display, onOpen }: Props) {
         : t("dailyRecommendations.openExploreHero", { defaultValue: "Explore venues" });
 
   return (
-    <Pressable
-      style={[styles.wrap, { borderColor: colors.border }]}
-      onPress={onOpen}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-    >
-      {showPlaceholder ? (
-        <LinearGradient
-          colors={[...ctaGradientColors(isDark)]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.image}
-        >
-          <View style={styles.placeholderIconWrap} pointerEvents="none">
-            <Ionicons name="sparkles" size={40} color="rgba(255,255,255,0.55)" />
+    <Animated.View style={shellStyle}>
+      <Pressable
+        style={[styles.wrap, { borderColor: colors.border }]}
+        onPress={onOpen}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+      >
+        {showPlaceholder ? (
+          <LinearGradient
+            colors={[...ctaGradientColors(isDark)]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.image}
+          >
+            <View style={styles.placeholderIconWrap} pointerEvents="none">
+              <Ionicons name="sparkles" size={40} color="rgba(255,255,255,0.55)" />
+            </View>
+          </LinearGradient>
+        ) : showHeroImage ? (
+          <View style={styles.imageStage}>
+            <LinearGradient
+              colors={[...ctaGradientColors(isDark)]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Animated.View style={[StyleSheet.absoluteFill, imageLayerStyle]}>
+              <SmartImage
+                uri={heroUri}
+                fallbackUri={businessCardDisplayFallback(heroUri, heroRaw)}
+                bundledFallback={PLACE_IMAGE_FALLBACK}
+                recyclingKey={recommendation?.venue_id ?? "daily-picks-hero"}
+                style={styles.fullImage}
+                contentFit="cover"
+                showShimmerWhileLoading
+                transition={HERO_IMAGE_FADE_MS}
+                onLoadingChange={handleImageLoadingChange}
+              />
+            </Animated.View>
           </View>
-        </LinearGradient>
-      ) : heroUri ? (
-        <SmartImage
-          uri={heroUri}
-          fallbackUri={businessCardDisplayFallback(heroUri, heroRaw)}
-          bundledFallback={PLACE_IMAGE_FALLBACK}
-          recyclingKey={recommendation?.venue_id ?? "daily-picks-hero"}
-          style={styles.image}
-          contentFit="cover"
-          showShimmerWhileLoading
-        />
-      ) : (
-        <LinearGradient
-          colors={[...ctaGradientColors(isDark)]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.image}
-        />
-      )}
+        ) : (
+          <LinearGradient
+            colors={[...ctaGradientColors(isDark)]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.image}
+          />
+        )}
 
-      <LinearGradient colors={[...HERO_OVERLAY_GRADIENT]} style={styles.gradient} pointerEvents="none" />
+        <LinearGradient colors={[...HERO_OVERLAY_GRADIENT]} style={styles.gradient} pointerEvents="none" />
 
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>{badgeLabel}</Text>
-      </View>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{badgeLabel}</Text>
+        </View>
 
-      <View style={styles.content} pointerEvents="none">
-        <Text style={styles.title}>
-          {t("dailyRecommendations.heroTitle", { defaultValue: "Tonight for You" })}
-        </Text>
-        <Text style={styles.subtitle} numberOfLines={2}>
-          {subtitle}
-        </Text>
-      </View>
-    </Pressable>
+        <View style={styles.content} pointerEvents="none">
+          <Text style={styles.title}>
+            {t("dailyRecommendations.heroTitle", { defaultValue: "Tonight for You" })}
+          </Text>
+          <Text style={styles.subtitle} numberOfLines={2}>
+            {subtitle}
+          </Text>
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -124,6 +174,13 @@ const styles = StyleSheet.create({
   },
   image: {
     ...StyleSheet.absoluteFillObject,
+  },
+  imageStage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  fullImage: {
+    width: "100%",
+    height: DAILY_PICKS_HERO_HEIGHT,
   },
   gradient: {
     position: "absolute",

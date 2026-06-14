@@ -6,14 +6,15 @@ import { AppPressable } from "@/shared/ui/app-pressable";
 import type { PixAIVibeTimeline } from "@/entities/pixai";
 import { TIMELINE_GRADIENT } from "@/shared/theme/gradients";
 
-const OPTIONS: PixAIVibeTimeline[] = ["day", "evening", "night", "late_night"];
+const OPTIONS: PixAIVibeTimeline[] = ["day", "evening", "night"];
 
 type Props = {
   value: PixAIVibeTimeline;
   onChange: (value: PixAIVibeTimeline) => void;
+  disabled?: boolean;
 };
 
-export function VibeTimelineSelector({ value, onChange }: Props) {
+export function VibeTimelineSelector({ value, onChange, disabled = false }: Props) {
   const { t } = useTranslation();
   const thumbX = useRef(new Animated.Value(0)).current;
   const thumbInset = useRef(new Animated.Value(3)).current;
@@ -38,7 +39,7 @@ export function VibeTimelineSelector({ value, onChange }: Props) {
   const slotWidth = barWidth > 0 ? barWidth / OPTIONS.length : 0;
 
   return (
-    <View style={styles.wrap} onLayout={onLayout}>
+    <View style={[styles.wrap, disabled && styles.disabled]} onLayout={onLayout}>
       <LinearGradient colors={[...TIMELINE_GRADIENT]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.bar}>
         {slotWidth > 0 ? (
           <Animated.View
@@ -60,7 +61,7 @@ export function VibeTimelineSelector({ value, onChange }: Props) {
             accessibilityState={{ selected: value === timelineKey }}
           >
             <Text style={[styles.slotText, value === timelineKey && styles.slotTextActive]}>
-              {t(`vibeMatch.timeline.${timelineKey === "late_night" ? "lateNight" : timelineKey}`)}
+              {t(`vibeMatch.timeline.${timelineKey}`)}
             </Text>
           </AppPressable>
         ))}
@@ -71,6 +72,7 @@ export function VibeTimelineSelector({ value, onChange }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { marginTop: 4 },
+  disabled: { opacity: 0.45 },
   bar: {
     minHeight: 44,
     borderRadius: 22,

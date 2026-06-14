@@ -15,6 +15,7 @@ import { loadPersistedThemeMode } from "@/app/providers/themeStorage";
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import { subscribeSupabaseAuthDeepLinks } from "@/app/navigation/subscribeSupabaseAuthDeepLinks";
 import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/shared/lib/permissionsStorage";
+import { hasLaunchedAppBefore } from "@/shared/lib/appLaunchStorage";
 import { supabaseConfigError } from "@/shared/api/supabase/client";
 import { logStartupDiagnostics } from "@/shared/lib/startupDiagnostics";
 import { useAppToastConfig } from "@/shared/ui/app-toast/createAppToastConfig";
@@ -57,7 +58,13 @@ if (__DEV__) {
   resetStartupTiming();
 }
 
-function NavigationRoot({ onFirstFrame }: { onFirstFrame: () => void }) {
+function NavigationRoot({
+  onFirstFrame,
+  isFirstAppLaunch,
+}: {
+  onFirstFrame: () => void;
+  isFirstAppLaunch: boolean;
+}) {
   const { colors, isDark } = useAppTheme();
   const { authHydrated } = useAuth();
   const toastConfig = useAppToastConfig(colors);
@@ -116,7 +123,7 @@ function NavigationRoot({ onFirstFrame }: { onFirstFrame: () => void }) {
           void consumeInitialPushNotificationResponse();
         }}
       >
-        <AppNavigator />
+        <AppNavigator isFirstAppLaunch={isFirstAppLaunch} />
         <StatusBar style={isDark ? "light" : "dark"} />
         <Toast config={toastConfig} />
       </NavigationContainer>
@@ -128,6 +135,7 @@ function NavigationRoot({ onFirstFrame }: { onFirstFrame: () => void }) {
 export default function App() {
   const [ready, setReady] = useState(false);
   const [initialThemeMode, setInitialThemeMode] = useState<ThemeMode>("system");
+  const [isFirstAppLaunch, setIsFirstAppLaunch] = useState(false);
   const [showPerms, setShowPerms] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
   const deferredRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
@@ -139,14 +147,16 @@ export default function App() {
     void (async () => {
       try {
         markStartup("boot_effect_start");
-        const [, seen, themeMode] = await Promise.all([
+        const [, seen, themeMode, launchedBefore] = await Promise.all([
           bootstrapI18n(),
           hasSeenPermissionsIntro(),
           loadPersistedThemeMode(),
+          hasLaunchedAppBefore(),
         ]);
         markStartup("i18n_bootstrap_done");
         if (!cancelled) {
           setInitialThemeMode(themeMode);
+          setIsFirstAppLaunch(!launchedBefore);
           setReady(true);
           setShowPerms(!seen);
         }
@@ -194,7 +204,7 @@ export default function App() {
       ) : showPerms ? (
         <PermissionsOnboardingLazy onComplete={() => void onPermsDone()} />
       ) : (
-        <NavigationRoot onFirstFrame={hideSplashOnFirstFrame} />
+        <NavigationRoot onFirstFrame={hideSplashOnFirstFrame} isFirstAppLaunch={isFirstAppLaunch} />
       )}
     </AppProviders>
   );
