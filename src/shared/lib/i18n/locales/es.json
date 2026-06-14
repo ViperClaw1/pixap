@@ -314,6 +314,11 @@
     },
     "moodAlertTitle": "Estado de ánimo",
     "timelineLabel": "Horario",
+    "timelineOr": "o",
+    "customTimeWindowLabel": "Ventana horaria personalizada",
+    "customTimeRange": "{{start}} — {{end}}",
+    "customWindowStartA11y": "Inicio de ventana {{time}}",
+    "customWindowEndA11y": "Fin de ventana {{time}}",
     "timeline": {
       "day": "Día",
       "evening": "Tarde-noche",

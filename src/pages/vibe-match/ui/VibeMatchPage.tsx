@@ -49,12 +49,13 @@ import { buildVibeRouteAssistantMessage } from "@/entities/pixai/lib/buildVibeRo
 import {
   formatVibeSlotTimeLabel,
   isTimeSlotBookableNow,
-  isTimeSlotInTimelineWindow,
-  normalizeVibePlanStops,
-  snapIsoToThirtyMinuteGrid,
+  isTimeSlotInWindowContext,
+  normalizeVibePlanStopsForContext,
+  snapIsoToThirtyMinuteGridForContext,
+  VIBE_BOOKING_SLOT_MATCH_MS,
+  type VibeTimeWindowContext,
 } from "@/entities/pixai/lib/vibeBookingWindow";
 import { fetchAvailableSlotsForDay, useCreateBooking } from "@/entities/booking";
-import { BOOKING_SLOT_STEP_MINUTES } from "@/entities/booking/lib/bookingSlots";
 import { useCreateCartItem } from "@/entities/cart";
 import { normalizeWaInterfaceLocale, startN8nWaBooking } from "@/entities/cart";
 import { i18n, PageI18nProvider } from "@/shared/lib/i18n";
@@ -101,6 +102,8 @@ import { VIBE_OPTIONS, type TaxonomyOption } from "@/entities/user-preferences";
 import { LinearGradient } from "expo-linear-gradient";
 import { VibeMoodCards } from "./VibeMoodCards";
 import { VibeTimelineSelector } from "./VibeTimelineSelector";
+import { VibeCustomTimeWindowSlider } from "./VibeCustomTimeWindowSlider";
+import { inferSearchTimelineFromSelection, buildVibeTimeWindowContext, type VibeAppliedTimeSelection, type VibeTimeSelectionMode } from "../lib/vibeTimeSelection";
 import { ctaGradientColors } from "@/shared/theme/gradients";
 import { devWarn } from "@/shared/lib/devLog";
 import Toast from "react-native-toast-message";
@@ -112,9 +115,10 @@ const VIBE_MATCH_MOOD_OPTIONS: TaxonomyOption[] = VIBE_OPTIONS.map((option) => (
   labelPrefix: "vibeMatch.vibes",
 }));
 
-const SLOT_MATCH_MS = BOOKING_SLOT_STEP_MINUTES * 60_000;
+const SLOT_MATCH_MS = VIBE_BOOKING_SLOT_MATCH_MS;
 const PLAN_THUMB_SIZE = 80;
 const MAX_SUGGESTED_VENUES = 4;
+const DEFAULT_CUSTOM_WINDOW = { startMinutes: 17 * 60, endMinutes: 22 * 60 };
 function formatStopAddress(stop: VibePlanStop): string | null {
   const address = stop.address?.trim();
   const city = stop.city?.trim();
@@ -131,8 +135,8 @@ function resolveStopActivityLabel(
   t: (key: string) => string,
 ): string {
   const hour = new Date(stop.time_slot).getHours();
-  if (index === total - 1 && total > 1) return t("vibeMatch.stopActivity.lateNight");
-  if (hour >= 22) return t("vibeMatch.stopActivity.lateNight");
+  if (index === total - 1 && total > 1) return t("vibeMatch.stopActivity.afterParty");
+  if (hour >= 22 || hour < 2) return t("vibeMatch.stopActivity.afterParty");
   if (hour >= 20 || index > 0) return t("vibeMatch.stopActivity.afterParty");
   return t("vibeMatch.stopActivity.dinner");
 }
@@ -168,14 +172,14 @@ function scheduleN8nWaBookingStart(cartItemId: string, accessToken: string) {
 function resolveBookingDateTime(
   slots: PixAISlot[],
   proposedIso: string,
-  timeline: PixAIVibeTimeline,
+  timeWindow: VibeTimeWindowContext,
 ): string | null {
-  const t = new Date(snapIsoToThirtyMinuteGrid(proposedIso, timeline)).getTime();
+  const t = new Date(snapIsoToThirtyMinuteGridForContext(proposedIso, timeWindow)).getTime();
   let best: PixAISlot | null = null;
   let bestDist = Infinity;
   for (const s of slots) {
     if (!s.available) continue;
-    if (!isTimeSlotInTimelineWindow(s.dateTimeIso, timeline)) continue;
+    if (!isTimeSlotInWindowContext(s.dateTimeIso, timeWindow)) continue;
     const d = Math.abs(new Date(s.dateTimeIso).getTime() - t);
     if (d < bestDist) {
       bestDist = d;
@@ -242,6 +246,9 @@ function VibeMatchPageContent() {
   const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
   const [mood, setMood] = useState("");
   const [timeline, setTimeline] = useState<PixAIVibeTimeline>("evening");
+  const [timeSelectionMode, setTimeSelectionMode] = useState<VibeTimeSelectionMode>("preset");
+  const [customTimeWindow, setCustomTimeWindow] = useState(DEFAULT_CUSTOM_WINDOW);
+  const [appliedTimeSelection, setAppliedTimeSelection] = useState<VibeAppliedTimeSelection | null>(null);
   const [city, setCity] = useState("");
   const [cityPickerVisible, setCityPickerVisible] = useState(false);
   const [citySearchQuery, setCitySearchQuery] = useState("");
@@ -255,7 +262,7 @@ function VibeMatchPageContent() {
   const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>([]);
   const [lastVibeContext, setLastVibeContext] = useState<{
     mood: string;
-    timeline: PixAIVibeTimeline;
+    timeWindow: VibeTimeWindowContext;
     city: string;
   } | null>(null);
   const selectionSeededForPlanRef = useRef("");
@@ -303,9 +310,36 @@ function VibeMatchPageContent() {
     }, []),
   );
 
+  const draftTimeSelection = useMemo<VibeAppliedTimeSelection>(
+    () => ({
+      mode: timeSelectionMode,
+      timeline,
+      customWindow: customTimeWindow,
+    }),
+    [customTimeWindow, timeSelectionMode, timeline],
+  );
+
+  const draftTimeWindowContext = useMemo(
+    () => buildVibeTimeWindowContext(draftTimeSelection),
+    [draftTimeSelection],
+  );
+
+  const appliedTimeWindowContext = useMemo(
+    () =>
+      appliedTimeSelection
+        ? buildVibeTimeWindowContext(appliedTimeSelection)
+        : draftTimeWindowContext,
+    [appliedTimeSelection, draftTimeWindowContext],
+  );
+
+  const searchTimeline = useMemo(
+    () => inferSearchTimelineFromSelection(draftTimeSelection),
+    [draftTimeSelection],
+  );
+
   const plan = useMemo(
-    () => normalizeVibePlanStops(vibeResult?.plan ?? [], timeline),
-    [timeline, vibeResult?.plan],
+    () => normalizeVibePlanStopsForContext(vibeResult?.plan ?? [], appliedTimeWindowContext),
+    [appliedTimeWindowContext, vibeResult?.plan],
   );
   const [routeTravelMode, setRouteTravelMode] = useState<TravelMode>("driving");
   const planSelectionKey = useMemo(
@@ -353,7 +387,7 @@ function VibeMatchPageContent() {
     return plan.map((stop, i) => {
       const q = slotQueries[i];
       const slots = q?.data ?? [];
-      const dateTime = resolveBookingDateTime(slots, stop.time_slot, timeline);
+      const dateTime = resolveBookingDateTime(slots, stop.time_slot, appliedTimeWindowContext);
       return {
         loading: Boolean(q?.isPending),
         error: Boolean(q?.isError),
@@ -362,15 +396,15 @@ function VibeMatchPageContent() {
         slots,
       };
     });
-  }, [plan, slotQueries, timeline]);
+  }, [appliedTimeWindowContext, plan, slotQueries]);
 
   const slotsAvailabilityReady =
     plan.length > 0 && !stopAvailability.some((x) => x.loading);
 
   const bookableRouteStops = useMemo(
     () =>
-      slotsAvailabilityReady ? filterBookableVibePlanStops(plan, stopAvailability, timeline) : [],
-    [plan, stopAvailability, slotsAvailabilityReady, timeline],
+      slotsAvailabilityReady ? filterBookableVibePlanStops(plan, stopAvailability, appliedTimeWindowContext) : [],
+    [appliedTimeWindowContext, plan, stopAvailability, slotsAvailabilityReady],
   );
 
   const bookablePlan = useMemo(
@@ -579,19 +613,21 @@ function VibeMatchPageContent() {
     }
     setLastBookResults(null);
     setSelectedVenueIds([]);
-    setLastVibeContext({ mood: resolveMoodDisplay(), timeline, city: cityTrim });
+    setAppliedTimeSelection(draftTimeSelection);
+    setLastVibeContext({ mood: resolveMoodDisplay(), timeWindow: draftTimeWindowContext, city: cityTrim });
     try {
-      await runVibePlan({ mood: moodSlugs, timeline, city: cityTrim, limit: MAX_SUGGESTED_VENUES });
+      await runVibePlan({ mood: moodSlugs, timeline: searchTimeline, city: cityTrim, limit: MAX_SUGGESTED_VENUES });
       pendingScrollToConciergeRef.current = true;
     } catch {
       pendingScrollToConciergeRef.current = false;
       /* surfaced via vibeError */
     }
-  }, [city, resolveMoodDisplay, resolveMoodSlugs, runVibePlan, t, timeline]);
+  }, [city, draftTimeSelection, draftTimeWindowContext, resolveMoodDisplay, resolveMoodSlugs, runVibePlan, searchTimeline, t]);
 
   const onClearPlan = useCallback(() => {
     resetVibePlan();
     setLastVibeContext(null);
+    setAppliedTimeSelection(null);
   }, [resetVibePlan]);
 
   const onRetryGenerate = useCallback(() => {
@@ -821,7 +857,26 @@ function VibeMatchPageContent() {
             onChangeText={setMood}
           />
           <Text style={styles.label}>{t("vibeMatch.timelineLabel")}</Text>
-          <VibeTimelineSelector value={timeline} onChange={setTimeline} />
+          <VibeTimelineSelector
+            value={timeline}
+            disabled={timeSelectionMode === "custom"}
+            onChange={(nextTimeline) => {
+              setTimeSelectionMode("preset");
+              setTimeline(nextTimeline);
+            }}
+          />
+          <Text style={[styles.timelineOrLabel, { color: colors.textMuted }]}>{t("vibeMatch.timelineOr")}</Text>
+          <Text style={[styles.customWindowLabel, { color: colors.textMuted }]}>
+            {t("vibeMatch.customTimeWindowLabel")}
+          </Text>
+          <VibeCustomTimeWindowSlider
+            value={customTimeWindow}
+            disabled={timeSelectionMode === "preset"}
+            onChange={(nextWindow) => {
+              setTimeSelectionMode("custom");
+              setCustomTimeWindow(nextWindow);
+            }}
+          />
           <AppPressable
             onPress={() => void onGenerate()}
             disabled={isVibeLoading}
@@ -841,7 +896,7 @@ function VibeMatchPageContent() {
             </LinearGradient>
           </AppPressable>
           {isVibeLoading ? (
-            <View style={{ marginTop: 16, position: "relative" }}>
+            <View style={styles.routeMapSkeletonHost}>
               <VibeRouteMapSkeleton />
               <VibeGenerationPulse active />
             </View>
@@ -902,7 +957,9 @@ function VibeMatchPageContent() {
                 usesStraightFallback={routeUsesStraightFallback}
               />
             ) : (
-              <VibeRouteMapSkeleton />
+              <View style={styles.routeMapSkeletonSlot}>
+                <VibeRouteMapSkeleton />
+              </View>
             )}
             <Text style={styles.label}>{t("vibeMatch.yourRoute")}</Text>
             <View style={styles.routeTimeline}>

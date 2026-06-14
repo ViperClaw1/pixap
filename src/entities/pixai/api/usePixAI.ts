@@ -61,7 +61,7 @@ export type PixAIMessage = {
   toolResult?: PixAIToolResult;
 };
 
-export type PixAIVibeTimeline = "day" | "evening" | "night" | "late_night";
+export type PixAIVibeTimeline = "day" | "evening" | "night";
 
 export type PixAIVibePayload = {
   mood: string;

@@ -314,6 +314,11 @@
     },
     "moodAlertTitle": "Humeur",
     "timelineLabel": "Horaire",
+    "timelineOr": "ou",
+    "customTimeWindowLabel": "Créneau horaire personnalisé",
+    "customTimeRange": "{{start}} — {{end}}",
+    "customWindowStartA11y": "Début de créneau {{time}}",
+    "customWindowEndA11y": "Fin de créneau {{time}}",
     "timeline": {
       "day": "Journée",
       "evening": "Soirée",

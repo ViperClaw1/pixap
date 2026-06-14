@@ -4,6 +4,7 @@ import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
 
 export const VIBE_ROUTE_MAP_HEIGHT = 200;
+export const VIBE_ROUTE_MAP_BORDER_RADIUS = 12;
 
 export function VibeRouteMapSkeleton() {
   const { colors } = useAppTheme();
@@ -19,7 +20,11 @@ export function VibeRouteMapSkeleton() {
     >
       {layoutWidth > 0 ? (
         <ShimmerProvider active>
-          <ShimmerSurface width={layoutWidth} height={VIBE_ROUTE_MAP_HEIGHT} borderRadius={12} />
+          <ShimmerSurface
+            width={layoutWidth}
+            height={VIBE_ROUTE_MAP_HEIGHT}
+            borderRadius={VIBE_ROUTE_MAP_BORDER_RADIUS}
+          />
         </ShimmerProvider>
       ) : null}
     </View>
@@ -29,7 +34,7 @@ export function VibeRouteMapSkeleton() {
 const styles = StyleSheet.create({
   wrap: {
     height: VIBE_ROUTE_MAP_HEIGHT,
-    borderRadius: 12,
+    borderRadius: VIBE_ROUTE_MAP_BORDER_RADIUS,
     overflow: "hidden",
     borderWidth: 1,
   },

@@ -314,6 +314,11 @@
     },
     "moodAlertTitle": "Humor",
     "timelineLabel": "Horário",
+    "timelineOr": "ou",
+    "customTimeWindowLabel": "Janela de horário personalizada",
+    "customTimeRange": "{{start}} — {{end}}",
+    "customWindowStartA11y": "Início da janela {{time}}",
+    "customWindowEndA11y": "Fim da janela {{time}}",
     "timeline": {
       "day": "Dia",
       "evening": "Noite",

@@ -445,6 +445,11 @@
     },
     "moodAlertTitle": "Mood",
     "timelineLabel": "Timeline",
+    "timelineOr": "or",
+    "customTimeWindowLabel": "Custom time window",
+    "customTimeRange": "{{start}} — {{end}}",
+    "customWindowStartA11y": "Window start {{time}}",
+    "customWindowEndA11y": "Window end {{time}}",
     "timeline": {
       "day": "Day",
       "evening": "Evening",

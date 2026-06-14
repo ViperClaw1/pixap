@@ -115,12 +115,24 @@ function BookingsStackNavigator() {
   );
 }
 
-function ProfileStackNavigator() {
+function ProfileStackNavigator({ isFirstAppLaunch }: { isFirstAppLaunch: boolean }) {
+  const { user } = useAuth();
+  const isLoggedIn = Boolean(user);
+  const authInitialParams =
+    !isLoggedIn && isFirstAppLaunch ? ({ initialMode: "signup" } as const) : undefined;
+
   return (
-    <ProfileStack.Navigator initialRouteName="ProfileMain" screenOptions={stackScreenOptions}>
+    <ProfileStack.Navigator
+      initialRouteName={isLoggedIn ? "ProfileMain" : "Auth"}
+      screenOptions={stackScreenOptions}
+    >
       <ProfileStack.Screen name="ProfileMain" getComponent={() => require("@/pages/profile").default} />
       <ProfileStack.Screen name="MyPurchases" getComponent={() => require("@/pages/my-purchases").default} />
-      <ProfileStack.Screen name="Auth" getComponent={() => require("@/pages/auth").default} />
+      <ProfileStack.Screen
+        name="Auth"
+        getComponent={() => require("@/pages/auth").default}
+        initialParams={authInitialParams}
+      />
       <ProfileStack.Screen name="AuthEmailSent" getComponent={() => require("@/pages/auth-email-sent").default} />
       <ProfileStack.Screen name="AuthEmailCallback" getComponent={() => require("@/pages/auth-email-callback").default} />
       <ProfileStack.Screen
@@ -174,7 +186,7 @@ function guestTabBarItemStyle(routeName: keyof RootTabParamList, isLoggedIn: boo
  * - Profile: VerifyEmailOtp after tab switch if freeze caused stuck input.
  * - Tabs: `detachInactiveScreens` is explicit; per-tab `lazy` defaults to true in @react-navigation/bottom-tabs (first visit mounts stack).
  */
-export default function AppNavigator() {
+export default function AppNavigator({ isFirstAppLaunch }: { isFirstAppLaunch: boolean }) {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { user } = useAuth();
@@ -220,7 +232,7 @@ export default function AppNavigator() {
 
   return (
     <Tab.Navigator
-      initialRouteName="Home"
+      initialRouteName={isLoggedIn ? "Home" : "Profile"}
       detachInactiveScreens={false}
       screenOptions={tabScreenOptions}
     >
@@ -238,7 +250,11 @@ export default function AppNavigator() {
           },
         })}
       />
-      <Tab.Screen name="Profile" component={ProfileStackNavigator} options={PROFILE_TAB_OPTIONS} />
+      <Tab.Screen
+        name="Profile"
+        children={() => <ProfileStackNavigator isFirstAppLaunch={isFirstAppLaunch} />}
+        options={PROFILE_TAB_OPTIONS}
+      />
     </Tab.Navigator>
   );
 }

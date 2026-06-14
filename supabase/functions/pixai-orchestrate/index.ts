@@ -26,7 +26,7 @@ type Flow = {
   limit?: number;
 };
 
-type VibeTimeline = "day" | "evening" | "night" | "late_night";
+type VibeTimeline = "day" | "evening" | "night";
 
 type VibeInput = {
   mood: string;
@@ -155,36 +155,50 @@ function buildAssistant(
   return `I found ${placeCount} ${requestType} ${scopeText}. Pick one and I will suggest the best available slots.`;
 }
 
-function isVibeTimeline(v: string): v is VibeTimeline {
-  return v === "day" || v === "evening" || v === "night" || v === "late_night";
+function normalizeVibeTimeline(v: string): VibeTimeline | null {
+  if (v === "late_night") return "night";
+  if (v === "day" || v === "evening" || v === "night") return v;
+  return null;
 }
 
-const VIBE_STOP_SPACING_MS = 60 * 60_000;
-const VIBE_SLOT_GRID_MS = 30 * 60_000;
+const VIBE_WINDOW_SLOT_STEP_MINUTES = 120;
+const VIBE_STOP_SPACING_MS = VIBE_WINDOW_SLOT_STEP_MINUTES * 60_000;
+const VIBE_SLOT_GRID_MS = VIBE_WINDOW_SLOT_STEP_MINUTES * 60_000;
 
 type TimelineWindowDef = { startMinutes: number; endMinutes: number };
+type ResolvedTimelineWindowDef = TimelineWindowDef & { wrapsMidnight: boolean };
 
 const VIBE_TIMELINE_WINDOWS: Record<VibeTimeline, TimelineWindowDef> = {
-  day: { startMinutes: 8 * 60, endMinutes: 18 * 60 },
-  evening: { startMinutes: 18 * 60, endMinutes: 21 * 60 },
-  night: { startMinutes: 21 * 60, endMinutes: 24 * 60 },
-  late_night: { startMinutes: 0, endMinutes: 3 * 60 },
+  day: { startMinutes: 6 * 60, endMinutes: 16 * 60 + 31 },
+  evening: { startMinutes: 17 * 60, endMinutes: 21 * 60 + 31 },
+  night: { startMinutes: 22 * 60, endMinutes: 2 * 60 + 1 },
 };
 
-function localDayBounds(year: number, month: number, day: number, def: TimelineWindowDef) {
+function resolveTimelineDef(timeline: VibeTimeline): ResolvedTimelineWindowDef {
+  return {
+    ...VIBE_TIMELINE_WINDOWS[timeline],
+    wrapsMidnight: timeline === "night",
+  };
+}
+
+function localDayBounds(year: number, month: number, day: number, def: ResolvedTimelineWindowDef) {
   const dayStart = new Date(year, month, day, 0, 0, 0, 0);
   const startMs = dayStart.getTime() + def.startMinutes * 60_000;
-  const endMs =
-    def.endMinutes >= 24 * 60
-      ? new Date(year, month, day + 1, 0, 0, 0, 0).getTime()
-      : dayStart.getTime() + def.endMinutes * 60_000;
+  let endMs: number;
+  if (def.wrapsMidnight && def.startMinutes > def.endMinutes) {
+    endMs = new Date(year, month, day + 1, 0, 0, 0, 0).getTime() + def.endMinutes * 60_000;
+  } else if (def.endMinutes >= 24 * 60) {
+    endMs = new Date(year, month, day + 1, 0, 0, 0, 0).getTime();
+  } else {
+    endMs = dayStart.getTime() + def.endMinutes * 60_000;
+  }
   return { startMs, endMs };
 }
 
 const VIBE_BOOKING_WINDOW_MIN_MS = 30 * 60_000;
 
 function nextTimelineWindows(timeline: VibeTimeline, nowMs: number, maxDays = 4) {
-  const def = VIBE_TIMELINE_WINDOWS[timeline];
+  const def = resolveTimelineDef(timeline);
   const anchor = new Date(nowMs);
   const y = anchor.getFullYear();
   const m = anchor.getMonth();
@@ -285,7 +299,8 @@ async function resolveVibeCity(supabase: SupabaseClient, vibe: VibeInput): Promi
 
 async function handleVibe(supabase: SupabaseClient, vibe: VibeInput): Promise<Response> {
   const mood = (vibe.mood ?? "").trim();
-  if (!mood || !isVibeTimeline(vibe.timeline)) {
+  const timeline = normalizeVibeTimeline(vibe.timeline);
+  if (!mood || !timeline) {
     return new Response(JSON.stringify({ error: "Missing vibe.mood or invalid vibe.timeline" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -304,7 +319,7 @@ async function handleVibe(supabase: SupabaseClient, vibe: VibeInput): Promise<Re
   const candidateLimit = Math.min(20, Math.max(stopLimit * 3, stopLimit));
   const { data, error } = await pixaiRpc(supabase, "search_by_vibe", {
     p_mood: mood,
-    p_timeline: vibe.timeline,
+    p_timeline: timeline,
     p_city: city,
     p_limit: candidateLimit,
   });
@@ -323,7 +338,7 @@ async function handleVibe(supabase: SupabaseClient, vibe: VibeInput): Promise<Re
   }
 
   const rows = (Array.isArray(data) ? data : []) as RpcVibeRow[];
-  const plan = buildVibePlanFromRows(rows, vibe.timeline, stopLimit);
+  const plan = buildVibePlanFromRows(rows, timeline, stopLimit);
 
   const ids = plan.map((p) => p.venue_id);
   let cardById = new Map<string, Record<string, unknown>>();
@@ -353,7 +368,7 @@ async function handleVibe(supabase: SupabaseClient, vibe: VibeInput): Promise<Re
   const assistant =
     planEnriched.length === 0
       ? `No venues matched that vibe in ${city} with suggested times in the next 8 hours. Try a different mood or timeline.`
-      : `Here is a ${vibe.timeline.replace("_", " ")} route in ${city} for “${mood}” — ${planEnriched.length} stops with suggested times in the next 8 hours. Check live availability, then book in one tap.`;
+      : `Here is a ${timeline} route in ${city} for “${mood}” — ${planEnriched.length} stops with suggested times in the next 8 hours. Check live availability, then book in one tap.`;
 
   return new Response(
     JSON.stringify({
