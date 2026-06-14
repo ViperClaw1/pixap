@@ -42,9 +42,11 @@ import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import {
   HERO_OVERLAY_ICON_COLOR,
   PLACE_DETAIL_HERO_HEIGHT,
-  PLACE_DETAIL_STICKY_BOOKING_HEIGHT,
   placeDetailStaticStyles,
   placeDetailThemeStyles,
+  resolveHeroSeeAllBadgeMaxWidth,
+  resolveHeroSeeAllPhotosFontSize,
+  resolvePlaceDetailStickyLayout,
 } from "./placeDetailStyles";
 import { ctaGradientColors, HERO_OVERLAY_GRADIENT } from "@/shared/theme/gradients";
 import { StoryProgressBar } from "@/shared/ui/story-progress-bar";
@@ -86,7 +88,7 @@ export default function PlaceDetailScreen() {
     refetch: refetchStories,
   } = useStories(id);
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isFavorite = useIsFavorite(id);
   const toggleFavorite = useToggleFavorite();
   const shareSheet = usePostShareSheet();
@@ -245,9 +247,12 @@ export default function PlaceDetailScreen() {
   }, [isCalling, place]);
 
   const heroTop = Math.max(insets.top, 12);
-  const stickyBookingInset = hideBookingActions ? 0 : PLACE_DETAIL_STICKY_BOOKING_HEIGHT + insets.bottom;
-  const bottomScrollPadding =
-    (Platform.OS === "ios" ? Math.max(insets.bottom, 24) : 20) + stickyBookingInset;
+  const stickyLayout = useMemo(
+    () => resolvePlaceDetailStickyLayout(insets.bottom),
+    [insets.bottom],
+  );
+  const stickyBookingInset = hideBookingActions ? 0 : stickyLayout.barHeight;
+  const bottomScrollPadding = stickyLayout.scrollTailPad + stickyBookingInset;
 
   const parallaxTranslateY = scrollY.interpolate({
     inputRange: [0, 300],
@@ -278,6 +283,19 @@ export default function PlaceDetailScreen() {
       gridThumbImages: getBusinessCardDisplayUrls(galleryRaw, { size: "list" }),
     };
   }, [place]);
+
+  const heroSeeAllPhotos = useMemo(() => {
+    const count = imageVm.heroImages.length;
+    if (count < 2) return null;
+    const label = t("placeDetail.seeAllPhotos", { count });
+    const maxWidth = resolveHeroSeeAllBadgeMaxWidth(windowWidth);
+    return {
+      label,
+      maxWidth,
+      fontSize: resolveHeroSeeAllPhotosFontSize(label, maxWidth),
+      a11yLabel: t("placeDetail.seeAllPhotosA11y", { count }),
+    };
+  }, [i18n.language, imageVm.heroImages.length, t, windowWidth]);
 
   const onShare = useCallback(() => {
     if (!place) return;
@@ -499,17 +517,20 @@ export default function PlaceDetailScreen() {
                 {t("placeDetail.reviews", { defaultValue: "reviews" })})
               </Text>
             </View>
-            {imageVm.heroImages.length >= 2 ? (
+            {heroSeeAllPhotos ? (
               <AppPressable
-                style={styles.heroSeeAllBadge}
+                style={[styles.heroSeeAllBadge, { maxWidth: heroSeeAllPhotos.maxWidth }]}
                 onPress={openPhotoGrid}
                 accessibilityRole="button"
-                accessibilityLabel={t("placeDetail.seeAllPhotosA11y", {
-                  count: imageVm.heroImages.length,
-                })}
+                accessibilityLabel={heroSeeAllPhotos.a11yLabel}
               >
-                <Text style={styles.heroSeeAllBadgeText} numberOfLines={1}>
-                  {t("placeDetail.seeAllPhotos", { count: imageVm.heroImages.length })}
+                <Text
+                  style={[styles.heroSeeAllBadgeText, { fontSize: heroSeeAllPhotos.fontSize }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
+                >
+                  {heroSeeAllPhotos.label}
                 </Text>
               </AppPressable>
             ) : null}
@@ -545,7 +566,7 @@ export default function PlaceDetailScreen() {
         </View>
       </View>
 
-      <View style={styles.card}>
+      <View style={[styles.card, Platform.OS === "android" ? styles.cardAndroid : null]}>
         <StoryBubblesRow
           groups={groupedStories}
           seenStoryIds={seenStoryIds}
@@ -660,7 +681,15 @@ export default function PlaceDetailScreen() {
     </Animated.ScrollView>
 
       {!hideBookingActions ? (
-        <View style={[styles.stickyBookingBar, { height: PLACE_DETAIL_STICKY_BOOKING_HEIGHT + insets.bottom, paddingBottom: insets.bottom }]}>
+        <View
+          style={[
+            styles.stickyBookingBar,
+            {
+              paddingTop: stickyLayout.topPad,
+              paddingBottom: stickyLayout.bottomPad,
+            },
+          ]}
+        >
           <AppPressable style={styles.stickyPrimaryBtn} onPress={() => openBookingFlow({ id: place.id })}>
             <Text style={styles.stickyPrimaryBtnText}>{t("placeDetail.bookNow")}</Text>
           </AppPressable>
