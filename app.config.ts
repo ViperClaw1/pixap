@@ -13,6 +13,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     oauthMobileRedirectUri && !oauthMobileRedirectUri.startsWith("exp://") ? oauthMobileRedirectUri : undefined;
   const appStoreUrl =
     process.env.PIXAP_APP_STORE_URL?.trim() ?? "https://apps.apple.com/app/pixap/id6760616898";
+  const playStoreUrl =
+    process.env.PIXAP_PLAY_STORE_URL?.trim() ??
+    "https://play.google.com/store/apps/details?id=com.pixap.pixap";
   const googleMapsConfig = googleMapsApiKey
     ? {
         googleMaps: {
@@ -65,6 +68,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   },
   android: {
     ...config.android,
+    playStoreUrl,
     allowBackup: true,
     versionCode: Number.isFinite(androidVersionCode) && androidVersionCode > 0 ? androidVersionCode : 12,
     config: {
@@ -192,6 +196,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     pixAiMonthlySubscriptionSku: process.env.EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU ?? "pixai_premium_monthly",
     pixAiAnnualSubscriptionSku: process.env.EXPO_PUBLIC_PIXAI_ANNUAL_SUBSCRIPTION_SKU ?? "pixai_premium_annual",
     appStoreUrl,
+    playStoreUrl,
     /** Pass through for runtime checks; enable transforms in Supabase Dashboard first. */
     supabaseImageTransformEnabled:
       process.env.EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM === "1" ||

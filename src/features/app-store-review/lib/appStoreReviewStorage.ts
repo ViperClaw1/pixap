@@ -1,10 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { APP_STORE_REVIEW_USAGE_THRESHOLD_MS } from "./constants";
-import { isProductionAppStoreReviewRuntime } from "./isProductionAppStoreReviewRuntime";
+import { Platform } from "react-native";
+import {
+  APP_STORE_REVIEW_USAGE_THRESHOLD_MS,
+  STORE_REVIEW_ANDROID_RETRY_MS,
+} from "./constants";
+import { isProductionReviewRuntime } from "./isProductionReviewRuntime";
 import type { AppStoreReviewState } from "../types";
 
-const USAGE_KEY = "@pixapp/foreground_usage_ms_v1";
-const STATE_KEY = "@pixapp/app_store_review_prompt_v1";
+const USAGE_KEY =
+  Platform.OS === "android" ? "@pixapp/foreground_usage_ms_android_v1" : "@pixapp/foreground_usage_ms_v1";
+
+const STATE_KEY =
+  Platform.OS === "android" ? "@pixapp/play_store_review_prompt_v1" : "@pixapp/app_store_review_prompt_v1";
 
 export async function loadForegroundUsageMs(): Promise<number> {
   try {
@@ -36,6 +43,17 @@ export async function markReviewRequested(): Promise<void> {
 }
 
 export function shouldRequestReview(usageMs: number, state: AppStoreReviewState): boolean {
-  if (isProductionAppStoreReviewRuntime() && (state.requestedAt || state.completedAt)) return false;
+  const isProd = isProductionReviewRuntime();
+
+  if (isProd && Platform.OS === "ios" && state.requestedAt) {
+    return false;
+  }
+
+  if (isProd && Platform.OS === "android" && state.requestedAt) {
+    if (Date.now() - state.requestedAt < STORE_REVIEW_ANDROID_RETRY_MS) {
+      return false;
+    }
+  }
+
   return usageMs >= APP_STORE_REVIEW_USAGE_THRESHOLD_MS;
 }

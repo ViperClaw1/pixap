@@ -803,7 +803,14 @@
       },
       "outcomeShort": { "success": "OK", "missing_whatsapp": "Sin WA", "venue_rejection": "Rech.", "other": "Otro" }
     },
-    "subscriptions": { "total": "Compras", "mrr": "MRR est.", "mrrHint": "estimación demo" },
+    "subscriptions": {
+      "total": "Compras",
+      "mrr": "MRR est.",
+      "mrrHint": "solo production",
+      "revenueIos": "Ingresos iOS",
+      "revenueAndroid": "Ingresos Android",
+      "revenueHint": "production, en el período"
+    },
     "charts": {
       "registrationsOverTime": "Registros en el tiempo",
       "dauOverTime": "Tendencia DAU",
