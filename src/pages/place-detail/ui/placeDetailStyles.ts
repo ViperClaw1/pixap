@@ -9,9 +9,45 @@ import {
 } from "@/shared/theme/primaryPressable";
 
 export const PLACE_DETAIL_HERO_HEIGHT = 360;
-export const PLACE_DETAIL_STICKY_BOOKING_HEIGHT = 64;
+/** Call / directions row — slightly below default 56px pressable height. */
+export const PLACE_DETAIL_ACTION_BTN_HEIGHT = 44;
+const PLACE_DETAIL_STICKY_BTN_HEIGHT = 44;
+/** Equal vertical inset inside sticky bar (above tab bar, not safe-area). */
+const PLACE_DETAIL_STICKY_VERTICAL_PAD = 10;
 
-/** Hero controls sit on photos — always light glyphs on a dark frosted pill. */
+export type PlaceDetailStickyLayout = {
+  barHeight: number;
+  bottomPad: number;
+  topPad: number;
+  scrollTailPad: number;
+};
+
+/** Sticky booking bar + scroll tail spacing. */
+export function resolvePlaceDetailStickyLayout(_insetsBottom: number): PlaceDetailStickyLayout {
+  // Tab stacks sit above the tab bar; do not apply full safe-area bottom inset again.
+  const verticalPad = PLACE_DETAIL_STICKY_VERTICAL_PAD;
+  return {
+    barHeight: verticalPad + PLACE_DETAIL_STICKY_BTN_HEIGHT + verticalPad,
+    bottomPad: verticalPad,
+    topPad: verticalPad,
+    scrollTailPad: 4,
+  };
+}
+
+/** Hero footer uses 16px horizontal inset on each side. */
+export function resolveHeroSeeAllBadgeMaxWidth(windowWidth: number): number {
+  const contentWidth = Math.max(320, windowWidth) - 32;
+  return Math.max(104, Math.min(Math.floor(contentWidth * 0.56), contentWidth - 72));
+}
+
+export function resolveHeroSeeAllPhotosFontSize(label: string, badgeMaxWidth: number): number {
+  const innerWidth = Math.max(56, badgeMaxWidth - 20);
+  for (let size = 11; size >= 9; size -= 0.5) {
+    const approxTextWidth = label.length * size * 0.56;
+    if (approxTextWidth <= innerWidth) return size;
+  }
+  return 9;
+}
 export const HERO_OVERLAY_ICON_COLOR = "#ffffff";
 export const HERO_OVERLAY_BTN_BG = "rgba(0,0,0,0.55)";
 export const HERO_OVERLAY_BTN_BORDER = "rgba(255,255,255,0.32)";
@@ -137,17 +173,18 @@ export const placeDetailStaticStyles = StyleSheet.create({
   },
   heroDotActive: {},
   heroSeeAllBadge: {
-    flexShrink: 0,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    flexShrink: 1,
+    minWidth: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     borderRadius: 999,
     backgroundColor: "rgba(0,0,0,0.55)",
-    maxWidth: 128,
   },
   heroSeeAllBadgeText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "600",
     color: "#ffffff",
+    lineHeight: 14,
   },
   card: {
     marginTop: -PLACE_DETAIL_CARD_HERO_OVERLAP,
@@ -155,6 +192,9 @@ export const placeDetailStaticStyles = StyleSheet.create({
     borderTopRightRadius: 20,
     padding: 20,
     borderWidth: 0,
+  },
+  cardAndroid: {
+    paddingBottom: 8,
   },
   title: { fontSize: 22, fontWeight: "800" },
   rating: { marginTop: 6, fontSize: 14 },
@@ -194,10 +234,11 @@ export const placeDetailStaticStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    minHeight: SHARED_PRESSABLE_HEIGHT,
+    minHeight: PLACE_DETAIL_ACTION_BTN_HEIGHT,
     borderRadius: SHARED_PRESSABLE_RADIUS,
     borderWidth: 1.5,
     paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   callBtnText: { fontWeight: "700", fontSize: 14 },
   directionsBtn: {
@@ -206,10 +247,11 @@ export const placeDetailStaticStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    minHeight: SHARED_PRESSABLE_HEIGHT,
+    minHeight: PLACE_DETAIL_ACTION_BTN_HEIGHT,
     borderRadius: SHARED_PRESSABLE_RADIUS,
     borderWidth: 1.5,
     paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   directionsBtnText: { fontWeight: "700", fontSize: 14 },
   primaryBtn: {
@@ -232,9 +274,9 @@ export const placeDetailStaticStyles = StyleSheet.create({
     right: 0,
     bottom: 0,
     flexDirection: "row",
+    alignItems: "center",
     gap: 10,
     paddingHorizontal: 16,
-    paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     zIndex: 20,
     elevation: 8,
@@ -245,13 +287,13 @@ export const placeDetailStaticStyles = StyleSheet.create({
   },
   stickyBtnWrap: {
     flex: 1,
-    minHeight: 44,
+    minHeight: PLACE_DETAIL_STICKY_BTN_HEIGHT,
     borderRadius: SHARED_PRESSABLE_RADIUS,
     overflow: "hidden",
   },
   stickyPrimaryBtn: {
     flex: 1,
-    minHeight: 44,
+    minHeight: PLACE_DETAIL_STICKY_BTN_HEIGHT,
     borderRadius: SHARED_PRESSABLE_RADIUS,
     alignItems: "center",
     justifyContent: "center",
@@ -260,7 +302,7 @@ export const placeDetailStaticStyles = StyleSheet.create({
   stickyPrimaryBtnText: { fontWeight: "700", fontSize: 15 },
   stickyPixAIBtn: {
     flex: 1,
-    minHeight: 44,
+    minHeight: PLACE_DETAIL_STICKY_BTN_HEIGHT,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 36,
