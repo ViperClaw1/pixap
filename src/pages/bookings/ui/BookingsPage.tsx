@@ -22,6 +22,7 @@ import {
   getBookingStatusSnapshot,
   hasHydratedBookingStatuses,
   isBookingStatusNotificationSuppressed,
+  isVenueConfirmationTransition,
   linkCartItemForBooking,
   markBookingStatusesHydrated,
   setBookingStatusSnapshot,
@@ -39,6 +40,7 @@ import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import { useCartItems } from "@/entities/cart";
 import { BOOKING_THUMB_SIZE, BookingListCard, bookingThumbUris, type BookingListItem } from "./BookingListCard";
 import { BookingListSkeleton } from "./BookingListSkeleton";
+import { BookingConfirmedBanner } from "./BookingConfirmedBanner";
 import { ShimmerProvider } from "@/shared/ui/shimmer";
 import { bookingStatusNotificationText, useCreateNotification } from "@/entities/notification";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
@@ -46,6 +48,11 @@ import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSh
 import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
 
 type Nav = NativeStackNavigationProp<BookingsStackParamList, "BookingsMain">;
+
+type VenueConfirmationAlert = {
+  bookingId: string;
+  venueName: string;
+};
 
 const filters: readonly BookingDisplayStatus[] = ["draft", "confirmed", "cancelled", "completed"];
 
@@ -67,6 +74,7 @@ export default function BookingsScreen() {
   });
   const [filter, setFilter] = useState<BookingDisplayStatus>("draft");
   const [placePickerOpen, setPlacePickerOpen] = useState(false);
+  const [venueConfirmationAlerts, setVenueConfirmationAlerts] = useState<VenueConfirmationAlert[]>([]);
   const { data: bookings = [], isPending: bookingsPending } = useBookings();
   const { data: businessCards = [] } = useBusinessCards();
   const { data: cartItems = [], isPending: cartPending } = useCartItems();
@@ -127,6 +135,13 @@ export default function BookingsScreen() {
         continue;
       }
 
+      if (isVenueConfirmationTransition(previousStatus, current.status)) {
+        setVenueConfirmationAlerts((prev) => {
+          if (prev.some((alert) => alert.bookingId === current.id)) return prev;
+          return [...prev, { bookingId: current.id, venueName: current.venueName }];
+        });
+      }
+
       const text = bookingStatusNotificationText(current.venueName, current.status);
       Toast.show({
         type: "success",
@@ -145,6 +160,18 @@ export default function BookingsScreen() {
     );
     markBookingStatusesHydrated(user.id);
   }, [bookingStatuses, createNotification, isBookingDataReady, t, user?.id]);
+
+  const dismissVenueConfirmationAlert = useCallback((bookingId: string) => {
+    setVenueConfirmationAlerts((prev) => prev.filter((alert) => alert.bookingId !== bookingId));
+  }, []);
+
+  const openConfirmedBooking = useCallback(
+    (bookingId: string) => {
+      dismissVenueConfirmationAlert(bookingId);
+      navigation.navigate("BookingDetail", { bookingId });
+    },
+    [dismissVenueConfirmationAlert, navigation],
+  );
 
   const listContentPaddingBottom = 100 + insets.bottom;
   const showEmptyList = !showSkeleton && items.length === 0;
@@ -198,6 +225,14 @@ export default function BookingsScreen() {
           </AppPressable>
         ))}
       </View>
+      {venueConfirmationAlerts.map((alert) => (
+        <BookingConfirmedBanner
+          key={alert.bookingId}
+          venueName={alert.venueName}
+          onOpen={() => openConfirmedBooking(alert.bookingId)}
+          onDismiss={() => dismissVenueConfirmationAlert(alert.bookingId)}
+        />
+      ))}
       {showSkeleton ? (
         <ShimmerProvider active>
           <BookingListSkeleton

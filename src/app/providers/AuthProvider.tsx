@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { env } from "@/shared/lib/env";
 import { isInvalidRefreshTokenError } from "@/shared/lib/supabaseAuth";
+import { queryKeys } from "@/shared/api/queryKeys";
 import { clearSessionCaches } from "@/shared/lib/clearSessionCaches";
 import {
   navigateAfterSignOut,
@@ -70,7 +71,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
-  const hadAuthenticatedUserRef = useRef(false);
 
   const isUserAlreadyExistsError = (message: string) => {
     const normalized = message.toLowerCase();
@@ -176,9 +176,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       if (event === "SIGNED_IN") {
         resetSignOutNavigationGuard();
+        void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.businessCards.listPrefix });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.dailyRecommendations.prefix });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
       }
       if (event === "SIGNED_OUT") {
         navigateAfterSignOut();
+        void clearSessionCaches(queryClient);
+        void resetBookingChatPersistedSession();
+        void clearOnboardingDraft();
       }
       if (event === "INITIAL_SESSION") finishInit();
     });
@@ -205,22 +212,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       sub.remove();
     };
   }, [user?.id]);
-
-  useEffect(() => {
-    if (user?.id) {
-      hadAuthenticatedUserRef.current = true;
-      return;
-    }
-    if (!loading && hadAuthenticatedUserRef.current) {
-      hadAuthenticatedUserRef.current = false;
-      const task = InteractionManager.runAfterInteractions(() => {
-        void clearSessionCaches(queryClient);
-        void resetBookingChatPersistedSession();
-        void clearOnboardingDraft();
-      });
-      return () => task.cancel();
-    }
-  }, [loading, queryClient, user?.id]);
 
   const signUp = useCallback(
     async (email: string, password: string, firstName: string, lastName: string, acceptTerms = false) => {

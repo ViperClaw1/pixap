@@ -580,7 +580,11 @@
     "noTags": "Нет тегов",
     "book": "Забронировать",
     "noPlacesYet": "Пока нет мест",
-    "defaultVenueName": "Бронирование"
+    "defaultVenueName": "Бронирование",
+    "venueConfirmedBannerTitle": "Бронирование подтверждено",
+    "venueConfirmedBannerBody": "{{venueName}} подтвердило ваше бронирование.",
+    "venueConfirmedBannerAction": "Открыть",
+    "venueConfirmedBannerDismissA11y": "Закрыть уведомление"
   },
   "bookingDetail": {
     "title": "Детали бронирования",

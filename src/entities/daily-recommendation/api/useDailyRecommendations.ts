@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/shared/api/supabase/client";
@@ -34,7 +34,7 @@ export function useDailyRecommendations(targetDate?: string) {
     queryKey: queryKeys.dailyRecommendations.today(user?.id, date, language, normalizedUserCity),
     enabled: Boolean(user?.id) && !loading && !profileLoading,
     staleTime: 5 * 60 * 1000,
-    placeholderData: keepPreviousData,
+    placeholderData: (previousData) => (user?.id ? previousData : undefined),
     queryFn: async (): Promise<DailyRecommendation[]> => {
       const { data, error } = await supabase.rpc("get_daily_recommendations", {
         p_date: date,

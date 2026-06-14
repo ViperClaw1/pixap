@@ -11,7 +11,7 @@ import { queryKeys } from "@/shared/api/queryKeys";
 export function useProfileCityPicker() {
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
-  const { data: profile, isPending: profilePending } = useProfile();
+  const { data: profile, isFetched: profileFetched, isError: profileError } = useProfile();
   const updateProfile = useUpdateProfile();
   const queryClient = useQueryClient();
   const [selectedCityOverride, setSelectedCityOverride] = useState<string | null>(null);
@@ -22,7 +22,7 @@ export function useProfileCityPicker() {
 
   const profileCity = profile?.city?.trim();
   const selectedCity = selectedCityOverride ?? (profileCity ? profileCity : ALL_CITIES_OPTION);
-  const isCityReady = !authLoading && (!user || !profilePending);
+  const isCityReady = !authLoading && (!user || profileFetched || profileError);
 
   const profileCityFilter = selectedCity === ALL_CITIES_OPTION ? null : selectedCity.trim() || null;
 

@@ -580,7 +580,11 @@
     "noTags": "No tags",
     "book": "Book",
     "noPlacesYet": "No places yet",
-    "defaultVenueName": "Booking"
+    "defaultVenueName": "Booking",
+    "venueConfirmedBannerTitle": "Booking confirmed",
+    "venueConfirmedBannerBody": "{{venueName}} confirmed your booking.",
+    "venueConfirmedBannerAction": "Open",
+    "venueConfirmedBannerDismissA11y": "Dismiss notification"
   },
   "bookingDetail": {
     "title": "Booking details",

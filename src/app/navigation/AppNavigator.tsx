@@ -51,10 +51,17 @@ const storyOverlayModalOptions = {
   contentStyle: { backgroundColor: "transparent" },
 };
 
+function HomeMainScreen() {
+  const HomeScreen = require("@/pages/home").default;
+  const { user } = useAuth();
+  /** Remount on auth change so frozen tab state + stale React Query observers reset after logout. */
+  return <HomeScreen key={user?.id ?? "guest"} />;
+}
+
 function HomeStackNavigator() {
   return (
     <HomeStack.Navigator initialRouteName="HomeMain" screenOptions={stackScreenOptions}>
-      <HomeStack.Screen name="HomeMain" getComponent={() => require("@/pages/home").default} />
+      <HomeStack.Screen name="HomeMain" component={HomeMainScreen} />
       <HomeStack.Screen name="SearchMain" getComponent={() => require("@/pages/search").default} options={fullWidthSwipeBackOptions} />
       <HomeStack.Screen
         name="DailyRecommendations"

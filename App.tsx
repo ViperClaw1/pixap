@@ -26,6 +26,7 @@ import {
   setPushNotificationOpenHandler,
 } from "@/shared/lib/push/pushNotifications";
 import { handlePushNotificationOpen } from "@/shared/lib/push/handlePushNotificationOpen";
+import { markAppNavigationReady } from "@/shared/lib/appNavigationReady";
 import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
 
@@ -120,6 +121,7 @@ function NavigationRoot({
         onReady={() => {
           onFirstFrame();
           markStartup("navigation_container_ready");
+          markAppNavigationReady();
           void consumeInitialPushNotificationResponse();
         }}
       >
