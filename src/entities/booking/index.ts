@@ -5,4 +5,5 @@ export * from "./lib/venueConfirmedPrice";
 export * from "./lib/bookingEntryDisplay";
 export * from "./lib/linkCartItemForBooking";
 export * from "./lib/bookingSlots";
+export * from "./lib/isVenueConfirmationTransition";
 export * from "./api/useAvailableSlots";

@@ -1,5 +1,6 @@
 type Params = {
   isAuthenticated: boolean;
+  dailyRecsEnabled: boolean;
   dailyRecsFetched: boolean;
   featuredLoading: boolean;
   recommendedLoading: boolean;
@@ -10,13 +11,14 @@ type Params = {
 /** Keep hero skeleton until the final display source is known (avoids placeholder → fallback → recommendation flicker). */
 export function isDailyPicksHeroLoading({
   isAuthenticated,
+  dailyRecsEnabled,
   dailyRecsFetched,
   featuredLoading,
   recommendedLoading,
   hasFeatured,
   hasRecommended,
 }: Params): boolean {
-  if (isAuthenticated) {
+  if (isAuthenticated && dailyRecsEnabled) {
     return !dailyRecsFetched;
   }
 

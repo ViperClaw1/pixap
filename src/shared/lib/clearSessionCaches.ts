@@ -8,7 +8,11 @@ import { clearStoriesFeedRealtimeDebounce } from "@/entities/story/lib/storyFeed
  * и RAM-кэш изображений, чтобы не держать данные предыдущего пользователя и снизить давление на память.
  * Дисковый кэш expo-image не трогаем — очистка диска может быть долгой; при необходимости добавьте `clearDiskCache` точечно.
  */
-export async function clearSessionCaches(queryClient: QueryClient): Promise<void> {
+export async function clearSessionCaches(
+  queryClient: QueryClient,
+  options?: { shouldProceed?: () => boolean },
+): Promise<void> {
+  if (options?.shouldProceed && !options.shouldProceed()) return;
   clearStoriesFeedRealtimeDebounce();
   clearAllBookingStatusTrackers();
   queryClient.clear();

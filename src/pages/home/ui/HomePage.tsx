@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
@@ -11,7 +11,7 @@ import {
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -31,6 +31,9 @@ import type { HomeStackParamList, RootTabParamList } from "@/app/navigation/type
 import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/shared/api/queryKeys";
+import { useProfile } from "@/entities/user";
 import ThemeToggle from "@/shared/ui/theme-toggle/ThemeToggle";
 import BusinessPlaceCard from "@/widgets/place-card";
 import {
@@ -89,19 +92,22 @@ type Nav = CompositeNavigationProp<
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation<Nav>();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { isLoading: profileLoading } = useProfile();
+  const homeAuthUserRef = useRef<string | null>(null);
   const { selectedCity, selectCity, isCityReady } = useProfileCityPicker();
   const [languageOpen, setLanguageOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [visibleRecommendedCount, setVisibleRecommendedCount] = useState(RECOMMENDED_BATCH_SIZE);
   const { isLoadingMore: isLoadingMoreRecommended, expand: expandRecommendedBatch } = useExpandVisibleBatch();
-  const { data: featured = [], isPending: lf } = useBusinessCards("featured", selectedCity, {
+  const { data: featured = [], isLoading: lf } = useBusinessCards("featured", selectedCity, {
     enabled: isCityReady,
   });
-  const { data: recommended = [], isPending: lr } = useBusinessCards("recommended", selectedCity, {
+  const { data: recommended = [], isLoading: lr } = useBusinessCards("recommended", selectedCity, {
     enabled: isCityReady,
   });
   const { data: categories = [], isLoading: lc } = useCategories();
@@ -116,6 +122,21 @@ export default function HomeScreen() {
   const recommendedCardWidth = windowWidth - 32;
   const featuredLoading = !isCityReady || lf;
   const recommendedLoading = !isCityReady || lr;
+  const dailyRecsEnabled = Boolean(user?.id) && !authLoading && !profileLoading;
+
+  useFocusEffect(
+    useCallback(() => {
+      const authUserId = user?.id ?? null;
+      const sessionChanged = homeAuthUserRef.current !== authUserId;
+      homeAuthUserRef.current = authUserId;
+      if (!sessionChanged) return;
+
+      void queryClient.refetchQueries({ queryKey: queryKeys.categories.all });
+      void queryClient.refetchQueries({ queryKey: queryKeys.businessCards.listPrefix });
+      void queryClient.refetchQueries({ queryKey: queryKeys.dailyRecommendations.prefix });
+      void queryClient.refetchQueries({ queryKey: queryKeys.profile.root });
+    }, [queryClient, user?.id]),
+  );
 
   useEffect(() => {
     setVisibleRecommendedCount(RECOMMENDED_BATCH_SIZE);
@@ -141,6 +162,7 @@ export default function HomeScreen() {
   );
   const isDailyPicksHeroPending = isDailyPicksHeroLoading({
     isAuthenticated: Boolean(user),
+    dailyRecsEnabled,
     dailyRecsFetched,
     featuredLoading,
     recommendedLoading,
