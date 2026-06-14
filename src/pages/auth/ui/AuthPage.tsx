@@ -450,6 +450,10 @@ export default function AuthScreen() {
               style={styles.input}
               placeholder={t("auth.placeholderFirstName")}
               placeholderTextColor={ph}
+              autoComplete="given-name"
+              textContentType="givenName"
+              importantForAutofill="yes"
+              autoCapitalize="words"
               value={firstName}
               onChangeText={setFirstName}
               onFocus={() => onInputFocus(firstNameInputRef)}
@@ -462,6 +466,10 @@ export default function AuthScreen() {
               style={styles.input}
               placeholder={t("auth.placeholderLastName")}
               placeholderTextColor={ph}
+              autoComplete="family-name"
+              textContentType="familyName"
+              importantForAutofill="yes"
+              autoCapitalize="words"
               value={lastName}
               onChangeText={setLastName}
               onFocus={() => onInputFocus(lastNameInputRef)}
@@ -477,6 +485,12 @@ export default function AuthScreen() {
           style={styles.input}
           placeholder={t("auth.placeholderEmail")}
           placeholderTextColor={ph}
+          autoComplete="email"
+          textContentType="emailAddress"
+          importantForAutofill="yes"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoCorrect={false}
           value={email}
           onChangeText={setEmail}
           onFocus={() => onInputFocus(emailInputRef)}
@@ -484,8 +498,6 @@ export default function AuthScreen() {
             setEmailTouched(true);
             if (activeInputRef.current === emailInputRef.current) activeInputRef.current = null;
           }}
-          autoCapitalize="none"
-          keyboardType="email-address"
         />
       </View>
       {showEmailRequiredError ? <Text style={styles.inlineError}>{t("auth.inlineEmailRequired")}</Text> : null}
@@ -499,6 +511,9 @@ export default function AuthScreen() {
               style={styles.input}
               placeholder={t("auth.placeholderPassword")}
               placeholderTextColor={ph}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              textContentType={mode === "signup" ? "newPassword" : "password"}
+              importantForAutofill="yes"
               value={password}
               onChangeText={onPasswordChange}
               onFocus={() => onInputFocus(passwordInputRef)}
@@ -566,6 +581,9 @@ export default function AuthScreen() {
                   style={styles.input}
                   placeholder={t("auth.placeholderConfirmPassword")}
                   placeholderTextColor={ph}
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  importantForAutofill="yes"
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   onFocus={() => onInputFocus(confirmPasswordInputRef)}
