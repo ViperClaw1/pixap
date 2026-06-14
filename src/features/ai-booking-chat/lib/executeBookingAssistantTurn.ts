@@ -7,6 +7,7 @@ import { revealAssistantText } from "./revealAssistantText";
 import { sanitizeAiBookingChatResult } from "./sanitizeAiBookingChatResult";
 import { scheduleBookingChatLayoutAnimation } from "./scheduleBookingChatLayoutAnimation";
 import { isAiDataConsentGranted, ensureAiDataConsentHydrated } from "@/features/ai-data-consent/model/aiDataConsentState";
+import { i18n } from "@/shared/lib/i18n";
 
 export type BookingChatTurnHistoryItem = { role: "user" | "assistant"; content: string };
 
@@ -42,6 +43,7 @@ export async function executeBookingAssistantTurn(input: {
       history: prior,
       userText,
       searchMeta,
+      locale: i18n.language,
     });
     const safe = sanitizeAiBookingChatResult(raw, orderedIds);
     const fullText = buildAssistantReplyText(safe);

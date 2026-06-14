@@ -8,6 +8,8 @@ export type BookingChatTurnInput = {
   history: { role: "user" | "assistant"; content: string }[];
   userText: string;
   searchMeta?: PixAISearchMeta | null;
+  /** App UI locale code (en, ru, es, …) — assistant replies in this language */
+  locale?: string;
   signal?: AbortSignal;
 };
 

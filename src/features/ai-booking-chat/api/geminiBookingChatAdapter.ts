@@ -8,6 +8,7 @@ function toWireBody(input: BookingChatTurnInput) {
     messages: input.history,
     user_message: input.userText,
     meta: input.searchMeta ?? {},
+    locale: input.locale ?? "en",
   };
 }
 
