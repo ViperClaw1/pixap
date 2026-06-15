@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import {
+  Dimensions,
   Keyboard,
   Platform,
   type KeyboardEvent,
@@ -10,11 +11,18 @@ import {
 } from "react-native";
 
 const DEFAULT_GAP = Platform.OS === "android" ? 48 : 16;
+const ANDROID_SCROLL_DEDUPE_PX = 4;
+/** Typical Android soft-keyboard height until the first `keyboardDidShow`. */
+const ANDROID_DEFAULT_KEYBOARD_HEIGHT = 280;
 
 type Options = {
   gap?: number;
   /** Share scroll offset with an existing ref (e.g. persisted scroll position). */
   scrollOffsetYRef?: MutableRefObject<number>;
+};
+
+type EnsureVisibleOptions = {
+  animated?: boolean;
 };
 
 /**
@@ -29,30 +37,54 @@ export function useScrollToFocusedInput(
   const scrollOffsetYRef = options?.scrollOffsetYRef ?? internalScrollOffsetYRef;
   const activeInputRef = useRef<TextInput | null>(null);
   const keyboardTopRef = useRef<number | null>(null);
+  const lastKeyboardHeightRef = useRef(ANDROID_DEFAULT_KEYBOARD_HEIGHT);
+  const lastAndroidScrollYRef = useRef<number | null>(null);
+
+  const resolveAndroidKeyboardTop = useCallback((knownTop: number | null): number => {
+    if (knownTop != null) return knownTop;
+    return Dimensions.get("window").height - lastKeyboardHeightRef.current;
+  }, []);
 
   const ensureFocusedInputVisible = useCallback(
-    (keyboardTop: number) => {
+    (keyboardTop: number, ensureOptions?: EnsureVisibleOptions) => {
       const focusedField = activeInputRef.current;
       if (!focusedField || typeof focusedField.measureInWindow !== "function") return;
 
       focusedField.measureInWindow((_x, y, _w, h) => {
         const overlap = Math.max(0, y + h + gap - keyboardTop);
         if (overlap <= 0) return;
+        const targetY = scrollOffsetYRef.current + overlap;
+        const animated = ensureOptions?.animated ?? true;
+        if (
+          Platform.OS === "android" &&
+          lastAndroidScrollYRef.current != null &&
+          Math.abs(lastAndroidScrollYRef.current - targetY) < ANDROID_SCROLL_DEDUPE_PX
+        ) {
+          return;
+        }
+        if (Platform.OS === "android") {
+          lastAndroidScrollYRef.current = targetY;
+        }
         scrollRef.current?.scrollTo({
-          y: scrollOffsetYRef.current + overlap,
-          animated: true,
+          y: targetY,
+          animated,
         });
       });
     },
-    [gap, scrollRef],
+    [gap, scrollRef, scrollOffsetYRef],
   );
 
   const scheduleEnsureVisible = useCallback(
-    (keyboardTop: number) => {
-      ensureFocusedInputVisible(keyboardTop);
+    (keyboardTop: number, ensureOptions?: EnsureVisibleOptions) => {
+      if (Platform.OS === "android") {
+        ensureFocusedInputVisible(keyboardTop, ensureOptions);
+        return;
+      }
+
+      ensureFocusedInputVisible(keyboardTop, ensureOptions);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          ensureFocusedInputVisible(keyboardTop);
+          ensureFocusedInputVisible(keyboardTop, ensureOptions);
         });
       });
     },
@@ -70,11 +102,20 @@ export function useScrollToFocusedInput(
         return;
       }
       keyboardTopRef.current = screenY;
+      lastKeyboardHeightRef.current = height;
+
+      if (Platform.OS === "android") {
+        // Snap to final position once keyboard metrics are known (focus scroll already ran in parallel).
+        scheduleEnsureVisible(screenY, { animated: false });
+        return;
+      }
+
       scheduleEnsureVisible(screenY);
     };
 
     const onHide = () => {
       keyboardTopRef.current = null;
+      lastAndroidScrollYRef.current = null;
     };
 
     const showSub = Keyboard.addListener(showEvent, onShow);
@@ -88,12 +129,20 @@ export function useScrollToFocusedInput(
   const onInputFocus = useCallback(
     (fieldRef: RefObject<TextInput | null>) => {
       activeInputRef.current = fieldRef.current;
+      lastAndroidScrollYRef.current = null;
+
+      if (Platform.OS === "android") {
+        // Start scrolling with the keyboard open animation, before `keyboardDidShow`.
+        scheduleEnsureVisible(resolveAndroidKeyboardTop(keyboardTopRef.current), { animated: true });
+        return;
+      }
+
       const keyboardTop = keyboardTopRef.current;
       if (keyboardTop != null) {
         scheduleEnsureVisible(keyboardTop);
       }
     },
-    [scheduleEnsureVisible],
+    [resolveAndroidKeyboardTop, scheduleEnsureVisible],
   );
 
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {

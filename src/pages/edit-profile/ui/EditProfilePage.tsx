@@ -8,15 +8,14 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
-  Dimensions,
 } from "react-native";
 import { appAlert } from "@/shared/ui/app-popup";
-import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle } from "react-native-reanimated";
-import { useFocusedOverlapKeyboardInset } from "@/shared/lib/keyboard";
+import { useScrollToFocusedInput } from "@/shared/lib/keyboard";
 import { Ionicons } from "@expo/vector-icons";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 import {
   leaveAfterEditProfileSave,
@@ -46,8 +45,6 @@ import {
   StorySourcePickerModal,
   type StorySourceOption,
 } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
-
-const KEYBOARD_GAP = Platform.OS === "android" ? 48 : 16;
 
 const USERNAME_REGEX = /^[a-z0-9._-]+$/;
 const USERNAME_MIN_LENGTH = 3;
@@ -105,6 +102,7 @@ function EditProfileScreenContent() {
     [t],
   );
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList, "EditProfile">>();
+  const insets = useSafeAreaInsets();
   const leaveEditProfile = useCallback(() => leaveEditProfileScreen(navigation), [navigation]);
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
     swipeBackFallback: leaveEditProfile,
@@ -114,78 +112,14 @@ function EditProfileScreenContent() {
   const { data: profile } = useProfile();
   const authAvatarUrl = typeof user?.user_metadata?.avatar_url === "string" ? user.user_metadata.avatar_url : "";
   const authEmail = user?.email;
-  const isIos = Platform.OS === "ios";
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffsetYRef = useRef(0);
-  const activeInputRef = useRef<TextInput | null>(null);
-  const keyboardTopRef = useRef<number | null>(null);
-  const isKeyboardVisibleRef = useRef(false);
+  const { onInputFocus, onScroll } = useScrollToFocusedInput(scrollRef, { scrollOffsetYRef });
   const usernameInputRef = useRef<TextInput>(null);
   const firstInputRef = useRef<TextInput>(null);
   const lastInputRef = useRef<TextInput>(null);
   const phoneInputRef = useRef<TextInput>(null);
   const bioInputRef = useRef<TextInput>(null);
-  const [keyboardOverlapPad, setKeyboardOverlapPad] = useState(0);
-
-  const ensureFocusedInputVisible = useCallback((keyboardTop: number) => {
-    const focusedField = activeInputRef.current;
-    if (!focusedField || typeof focusedField.measureInWindow !== "function") return;
-    focusedField.measureInWindow((_x, y, _w, h) => {
-      const overlap = Math.max(0, y + h + KEYBOARD_GAP - keyboardTop);
-      if (overlap <= 0) return;
-      scrollRef.current?.scrollTo({
-        y: scrollOffsetYRef.current + overlap,
-        animated: true,
-      });
-    });
-  }, []);
-
-  const { extraInset: keyboardExtraInset, recalculate: recalculateKeyboardInset } =
-    useFocusedOverlapKeyboardInset({
-      gap: KEYBOARD_GAP,
-      compensateAppliedLift: isIos,
-      getFocusedInput: () => activeInputRef.current,
-      onKeyboardFrame: (keyboardTop, keyboardHeight) => {
-        const windowHeight = Dimensions.get("window").height;
-        keyboardTopRef.current = keyboardTop < windowHeight ? keyboardTop : null;
-        isKeyboardVisibleRef.current = keyboardHeight > 1;
-      },
-      onKeyboardChange: (keyboardTop, keyboardHeight) => {
-        if (Platform.OS !== "android" || keyboardHeight <= 1) return;
-        ensureFocusedInputVisible(keyboardTop);
-      },
-    });
-
-  const onInputFocus = useCallback(
-    (ref: { current: TextInput | null | undefined }) => {
-      activeInputRef.current = ref.current ?? null;
-      if (Platform.OS === "ios") {
-        recalculateKeyboardInset();
-        return;
-      }
-      const keyboardTop = keyboardTopRef.current;
-      if (!isKeyboardVisibleRef.current || keyboardTop == null || !ref.current) return;
-      recalculateKeyboardInset();
-      ensureFocusedInputVisible(keyboardTop);
-    },
-    [ensureFocusedInputVisible, recalculateKeyboardInset],
-  );
-
-  useAnimatedReaction(
-    () => keyboardExtraInset.value,
-    (value, prev) => {
-      if (Platform.OS !== "android" || value === prev) return;
-      runOnJS(setKeyboardOverlapPad)(value);
-    },
-    [keyboardExtraInset],
-  );
-
-  const keyboardWrapStyle = useAnimatedStyle(() => {
-    if (isIos) {
-      return { transform: [{ translateY: -keyboardExtraInset.value }] };
-    }
-    return {};
-  }, [isIos, keyboardExtraInset]);
 
   const update = useUpdateProfile();
   const uploadProfileAvatar = useUploadProfileAvatar();
@@ -376,6 +310,7 @@ function EditProfileScreenContent() {
     () => mergeStaticAndThemed(editProfileStaticStyles, themed),
     [themed],
   );
+  const displayEmail = (profile?.email ?? user?.email ?? "").trim();
 
   return (
     <View style={styles.root} {...androidSwipeBackPanHandlers}>
@@ -387,19 +322,14 @@ function EditProfileScreenContent() {
         rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
         onRightPress={toggleThemeMode}
       />
-      <Animated.View style={[styles.root, keyboardWrapStyle]}>
+      <View style={styles.root}>
         <ScrollView
           ref={scrollRef}
           style={styles.root}
-          contentContainerStyle={[
-            styles.content,
-            !isIos && keyboardOverlapPad > 0 ? { paddingBottom: 36 + keyboardOverlapPad } : null,
-          ]}
+          contentContainerStyle={[styles.content, { paddingBottom: 120 + insets.bottom }]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          onScroll={(event) => {
-            scrollOffsetYRef.current = event.nativeEvent.contentOffset.y;
-          }}
+          onScroll={onScroll}
           scrollEventThrottle={16}
         >
         <View style={styles.avatarBlock}>
@@ -420,6 +350,11 @@ function EditProfileScreenContent() {
               )}
             </AppPressable>
           </View>
+          {displayEmail ? (
+            <Text style={styles.avatarEmail} numberOfLines={1}>
+              {displayEmail}
+            </Text>
+          ) : null}
         </View>
 
         <Text style={styles.label}>{t("editProfile.usernameLabel")}</Text>
@@ -438,9 +373,6 @@ function EditProfileScreenContent() {
           placeholder={t("editProfile.usernamePlaceholder")}
           placeholderTextColor={colors.textMuted}
           onFocus={() => onInputFocus(usernameInputRef)}
-          onBlur={() => {
-            if (activeInputRef.current === usernameInputRef.current) activeInputRef.current = null;
-          }}
         />
         {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
         <Text style={styles.label}>{t("editProfile.firstNameLabel")}</Text>
@@ -455,9 +387,6 @@ function EditProfileScreenContent() {
           placeholder={t("editProfile.firstNamePlaceholder")}
           placeholderTextColor={colors.textMuted}
           onFocus={() => onInputFocus(firstInputRef)}
-          onBlur={() => {
-            if (activeInputRef.current === firstInputRef.current) activeInputRef.current = null;
-          }}
         />
         {firstError ? <Text style={styles.errorText}>{firstError}</Text> : null}
         <Text style={styles.label}>{t("editProfile.lastNameLabel")}</Text>
@@ -472,19 +401,8 @@ function EditProfileScreenContent() {
           placeholder={t("editProfile.lastNamePlaceholder")}
           placeholderTextColor={colors.textMuted}
           onFocus={() => onInputFocus(lastInputRef)}
-          onBlur={() => {
-            if (activeInputRef.current === lastInputRef.current) activeInputRef.current = null;
-          }}
         />
         {lastError ? <Text style={styles.errorText}>{lastError}</Text> : null}
-        <Text style={styles.label}>{t("editProfile.emailLabel")}</Text>
-        <TextInput
-          style={[styles.input, styles.disabledInput]}
-          value={profile?.email ?? user?.email ?? ""}
-          editable={false}
-          placeholder={t("editProfile.emailPlaceholder")}
-          placeholderTextColor={colors.textMuted}
-        />
         <Text style={styles.label}>{t("editProfile.phoneLabel")}</Text>
         <View style={styles.phoneInputWrap}>
           <PhoneInput
@@ -497,7 +415,6 @@ function EditProfileScreenContent() {
             onBlur={() => {
               setPhoneTouched(true);
               setPhoneError(getPhoneError(phoneValue));
-              if (activeInputRef.current === phoneInputRef.current) activeInputRef.current = null;
             }}
           />
         </View>
@@ -511,16 +428,13 @@ function EditProfileScreenContent() {
           placeholderTextColor={colors.textMuted}
           style={[styles.input, { minHeight: 96, maxHeight: 180 }]}
           onFocus={() => onInputFocus(bioInputRef)}
-          onBlur={() => {
-            if (activeInputRef.current === bioInputRef.current) activeInputRef.current = null;
-          }}
         />
         {avatarError ? <Text style={styles.errorText}>{avatarError}</Text> : null}
         <AppPressable style={styles.btn} onPress={() => void save()} disabled={update.isPending || uploadingAvatar}>
           <Text style={styles.btnText}>{update.isPending ? t("editProfile.saving") : t("editProfile.save")}</Text>
         </AppPressable>
         </ScrollView>
-      </Animated.View>
+      </View>
       <StorySourcePickerModal
         visible={avatarSourcePickerVisible}
         onClose={() => setAvatarSourcePickerVisible(false)}

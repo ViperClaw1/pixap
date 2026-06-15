@@ -108,7 +108,7 @@ export default function BookingDetailPage() {
   const showEntryUi = displayStatus !== "draft";
   const venueConfirmedPrice = venueConfirmedPriceLabel(linkedCartItem?.wa_confirmed_price);
   const listPrice =
-    booking && showEntryUi && !isFreeEntry
+    booking && !isFreeEntry
       ? bookingListPriceParts(Number(booking.cost), venueConfirmedPrice)
       : null;
   const entryPalette = isFreeEntry ? ENTRY_BADGE.free : ENTRY_BADGE.paid;
@@ -202,12 +202,6 @@ export default function BookingDetailPage() {
                   : t("bookings.listPrice", { amount: listPrice.amount, currency: "" }).trimEnd()}
               </Text>
             ) : null}
-            <Text style={styles.meta}>
-              {t("bookings.payment", {
-                state:
-                  booking.payment_status === "paid" ? t("bookings.paymentPaid") : t("bookings.paymentPending"),
-              })}
-            </Text>
             <View style={styles.badgeRow}>
               {showEntryUi ? (
                 <View style={[styles.badge, { backgroundColor: entryPalette.bg }]}>
