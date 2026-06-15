@@ -74,7 +74,7 @@ export function useAndroidFullSwipeBackPanHandlers(
     const preset = SWIPE_BACK_PRESETS[sensitivity];
 
     const panResponder = PanResponder.create({
-      onMoveShouldSetPanResponderCapture: (_e, g) => {
+      onMoveShouldSetPanResponder: (_e, g) => {
         if (enabledRef?.current === false) return false;
         return (
           g.dx > preset.captureDistancePx &&

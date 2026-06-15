@@ -9,8 +9,8 @@ import {
   Alert,
   PixelRatio,
   InteractionManager,
+  ScrollView,
 } from "react-native";
-import { ScrollView } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
@@ -883,7 +883,6 @@ function VibeMatchPageContent() {
           </Text>
           <VibeCustomTimeWindowSlider
             value={customTimeWindow}
-            disabled={timeSelectionMode === "preset"}
             onChange={handleCustomWindowChange}
             onDragActiveChange={setCustomWindowDragActive}
           />
