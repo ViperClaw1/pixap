@@ -219,9 +219,9 @@
     "invalidPhone": "Veuillez entrer un numéro de téléphone valide.",
     "invalidEmail": "Veuillez entrer une adresse e-mail valide.",
     "invalidPartySize": "Taille de groupe invalide.",
-    "draftCreatedTitle": "Brouillon créé",
-    "draftCreatedMessage": "Le brouillon de réservation a été ajouté aux Réservations. La vérification de l'établissement a démarré en arrière-plan.",
-    "couldNotCreateDraft": "Impossible de créer le brouillon de réservation.",
+    "draftCreatedTitle": "Réservation créée",
+    "draftCreatedMessage": "Votre réservation a été ajoutée aux Réservations. Nous attendons la réponse de l'établissement.",
+    "couldNotCreateDraft": "Impossible de créer la réservation.",
     "cityNotSet": "Ville non renseignée",
     "noAddress": "Adresse non renseignée",
     "previousMonth": "Mois précédent",
@@ -270,7 +270,7 @@
     "invalidPhoneTitle": "Téléphone invalide",
     "invalidEmailTitle": "E-mail invalide",
     "bookingDetails": "Détails de la réservation",
-    "createDraftBooking": "Créer un brouillon de réservation",
+    "createDraftBooking": "Créer une réservation",
     "confirmBooking": "Confirmer la réservation",
     "calendarHint": "Choisissez une date pour {{name}}, puis une heure.",
     "selectDateForSlots": "Sélectionnez une date pour charger les créneaux.",
@@ -398,7 +398,7 @@
   },
   "bookings": {
     "filter": {
-      "draft": "brouillon",
+      "draft": "en attente",
       "confirmed": "confirmée",
       "cancelled": "annulée",
       "completed": "terminée",
@@ -427,7 +427,10 @@
     "noTags": "Aucun tag",
     "book": "Réserver",
     "noPlacesYet": "Pas encore de lieux",
-    "defaultVenueName": "Réservation"
+    "defaultVenueName": "Réservation",
+    "statusNotification": {
+      "draft": "{{venueName}} : Nouvelle réservation créée. Nous attendons la réponse de l'établissement."
+    }
   },
   "cart": {
     "title": "Panier",

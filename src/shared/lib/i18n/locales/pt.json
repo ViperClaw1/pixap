@@ -219,9 +219,9 @@
     "invalidPhone": "Introduz um número de telefone válido.",
     "invalidEmail": "Introduz um e-mail válido.",
     "invalidPartySize": "Tamanho de grupo inválido.",
-    "draftCreatedTitle": "Rascunho criado",
-    "draftCreatedMessage": "O rascunho de reserva foi adicionado a Reservas. A verificação do local começou em segundo plano.",
-    "couldNotCreateDraft": "Não foi possível criar o rascunho de reserva.",
+    "draftCreatedTitle": "Reserva criada",
+    "draftCreatedMessage": "A sua reserva foi adicionada a Reservas. Estamos à espera da resposta do local.",
+    "couldNotCreateDraft": "Não foi possível criar a reserva.",
     "cityNotSet": "Cidade não definida",
     "noAddress": "Sem morada",
     "previousMonth": "Mês anterior",
@@ -270,7 +270,7 @@
     "invalidPhoneTitle": "Telefone inválido",
     "invalidEmailTitle": "E-mail inválido",
     "bookingDetails": "Detalhes da reserva",
-    "createDraftBooking": "Criar rascunho de reserva",
+    "createDraftBooking": "Criar reserva",
     "confirmBooking": "Confirmar reserva",
     "calendarHint": "Escolhe uma data para {{name}} e depois uma hora.",
     "selectDateForSlots": "Seleciona uma data para carregar horários.",
@@ -398,7 +398,7 @@
   },
   "bookings": {
     "filter": {
-      "draft": "rascunho",
+      "draft": "pendente",
       "confirmed": "confirmada",
       "cancelled": "cancelada",
       "completed": "concluída",
@@ -427,7 +427,10 @@
     "noTags": "Sem etiquetas",
     "book": "Reservar",
     "noPlacesYet": "Ainda sem locais",
-    "defaultVenueName": "Reserva"
+    "defaultVenueName": "Reserva",
+    "statusNotification": {
+      "draft": "{{venueName}}: Nova reserva criada. Estamos à espera da resposta do local."
+    }
   },
   "cart": {
     "title": "Carrinho",
