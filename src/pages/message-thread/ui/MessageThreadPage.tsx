@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -7,6 +7,7 @@ import {
   Keyboard,
   Modal,
   Platform,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -63,11 +64,11 @@ import {
   MESSAGE_THREAD_LIST_BOTTOM_GAP,
   setCachedAndroidMessageFooterHeight,
 } from "@/shared/lib/messageThreadLayout";
-import { useMessageThreadAndroidFooterLift } from "../model/useMessageThreadAndroidFooterLift";
 import { COMMENT_STICKERS } from "@/shared/constants/commentStickers";
 import { peerFullName } from "../model/format";
 import { resolvePeerPresenceStatus } from "../model/peerPresenceStatus";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
+import { useMessageThreadAndroidFooterSync } from "../model/useMessageThreadAndroidFooterSync";
 import type { MessageThreadListRow } from "../model/types";
 import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
@@ -121,12 +122,9 @@ export default function MessageThreadPage() {
   const voiceStopRef = useRef<(() => void) | null>(null);
   const isAtBottomRef = useRef(true);
   const scrollAfterSendRef = useRef(false);
-  const restoreScrollAppliedRef = useRef(false);
-  const listScrollReadyRef = useRef(false);
   const canPersistScrollRef = useRef(false);
   const scrollFabVisible = useSharedValue(0);
   const [showScrollFab, setShowScrollFab] = useState(false);
-  const [listScrollReady, setListScrollReady] = useState(false);
   const [footerMeasured, setFooterMeasured] = useState(false);
   const { colors, mode } = useAppTheme();
   const [draft, setDraft] = useState(params.initialDraft ?? "");
@@ -183,18 +181,9 @@ export default function MessageThreadPage() {
     setEditingMessage(null);
     if (!threadId || !hasMessageThreadSessionVisit(threadId)) {
       setFooterMeasured(false);
-    }
-    restoreScrollAppliedRef.current = false;
-    const isSessionRevisit = threadId ? hasMessageThreadSessionVisit(threadId) : false;
-    if (isSessionRevisit) {
-      listScrollReadyRef.current = true;
-      setListScrollReady(true);
-      canPersistScrollRef.current = true;
-      restoreScrollAppliedRef.current = true;
-    } else {
-      listScrollReadyRef.current = false;
-      setListScrollReady(false);
       canPersistScrollRef.current = false;
+    } else {
+      canPersistScrollRef.current = true;
     }
   }, [threadId]);
 
@@ -311,20 +300,8 @@ export default function MessageThreadPage() {
   const rows = useMessageThreadListRows(messages);
   const isSessionRevisit = threadId ? hasMessageThreadSessionVisit(threadId) : false;
   const openAtBottom = useMemo(() => shouldOpenMessageThreadAtBottom(threadId), [threadId]);
-  const restoreScrollOffset = useMemo(() => {
-    if (!threadId || openAtBottom) return null;
-    return getMessageThreadScrollSnapshot(threadId)?.offsetY ?? null;
-  }, [openAtBottom, threadId]);
-  const initialScrollIndex =
-    openAtBottom && rows.length > 0 ? rows.length - 1 : undefined;
-  const restoreContentOffset = useMemo(() => {
-    if (!isSessionRevisit || !threadId || openAtBottom || restoreScrollOffset == null) {
-      return undefined;
-    }
-    return { x: 0, y: restoreScrollOffset };
-  }, [isSessionRevisit, openAtBottom, restoreScrollOffset, threadId]);
   const isAndroid = Platform.OS === "android";
-  const listContentBottomInset = isAndroid
+  const listContentComposerInset = isAndroid
     ? MESSAGE_THREAD_LIST_BOTTOM_GAP
     : footerHeight + MESSAGE_THREAD_LIST_BOTTOM_GAP;
   const androidContentFooterReserve = isAndroid ? footerHeight : 0;
@@ -332,7 +309,7 @@ export default function MessageThreadPage() {
   const handleListScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-      const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+      const distanceFromBottom = contentOffset.y;
       const wasAtBottom = distanceFromBottom <= SCROLL_AT_BOTTOM_THRESHOLD_PX;
       isAtBottomRef.current = wasAtBottom;
       const shouldShowFab = distanceFromBottom > SCROLL_TO_BOTTOM_SHOW_THRESHOLD_PX;
@@ -348,7 +325,8 @@ export default function MessageThreadPage() {
         });
       }
 
-      if (contentOffset.y < LOAD_OLDER_SCROLL_THRESHOLD_PX && hasMoreOlder && !isLoadingOlder) {
+      const distanceFromTop = contentSize.height - layoutMeasurement.height - contentOffset.y;
+      if (distanceFromTop < LOAD_OLDER_SCROLL_THRESHOLD_PX && hasMoreOlder && !isLoadingOlder) {
         void loadOlderMessages();
       }
     },
@@ -356,7 +334,7 @@ export default function MessageThreadPage() {
   );
 
   const scrollToBottom = useCallback((animated = true) => {
-    listRef.current?.scrollToEnd({ animated });
+    listRef.current?.scrollToOffset({ offset: 0, animated });
     isAtBottomRef.current = true;
     scrollFabVisible.value = 0;
     setShowScrollFab(false);
@@ -390,48 +368,36 @@ export default function MessageThreadPage() {
     flushScrollAfterSend();
   }, [rows, flushScrollAfterSend]);
 
-  const markListScrollReady = useCallback(() => {
-    if (listScrollReadyRef.current) return;
-    listScrollReadyRef.current = true;
-    setListScrollReady(true);
-    canPersistScrollRef.current = true;
-    if (threadId) {
-      markMessageThreadSessionVisit(threadId);
-    }
-  }, [threadId]);
+  const awaitingInitialMessages =
+    !isSessionRevisit &&
+    (isResolvingThread || (threadReady && isLoading && rows.length === 0));
+  const showLoadingSkeleton =
+    awaitingInitialMessages ||
+    (isAndroid ? !footerMeasured : !isSessionRevisit && !footerMeasured);
 
-  const handleListLoad = useCallback(() => {
-    if (openAtBottom && !isSessionRevisit) {
-      markListScrollReady();
+  useEffect(() => {
+    if (!showLoadingSkeleton) {
+      canPersistScrollRef.current = true;
     }
-  }, [isSessionRevisit, markListScrollReady, openAtBottom]);
+  }, [showLoadingSkeleton]);
+
+  useLayoutEffect(() => {
+    if (!threadId || openAtBottom || rows.length === 0 || !isSessionRevisit) return;
+    const snapshot = getMessageThreadScrollSnapshot(threadId);
+    if (!snapshot || snapshot.wasAtBottom) return;
+    listRef.current?.scrollToOffset({ offset: snapshot.offsetY, animated: false });
+    isAtBottomRef.current = snapshot.wasAtBottom;
+    scrollFabVisible.value = snapshot.showScrollFab ? 1 : 0;
+    setShowScrollFab(snapshot.showScrollFab);
+  }, [isSessionRevisit, openAtBottom, rows.length, scrollFabVisible, threadId]);
 
   const handleListContentSizeChange = useCallback(() => {
-    if (
-      restoreScrollOffset != null &&
-      !restoreScrollAppliedRef.current &&
-      threadId
-    ) {
-      listRef.current?.scrollToOffset({ offset: restoreScrollOffset, animated: false });
-      restoreScrollAppliedRef.current = true;
-      const snapshot = getMessageThreadScrollSnapshot(threadId);
-      if (snapshot) {
-        isAtBottomRef.current = snapshot.wasAtBottom;
-        scrollFabVisible.value = snapshot.showScrollFab ? 1 : 0;
-        setShowScrollFab(snapshot.showScrollFab);
-      }
-      markListScrollReady();
-      return;
-    }
     if (!scrollAfterSendRef.current) return;
     flushScrollAfterSend();
-  }, [
-    flushScrollAfterSend,
-    markListScrollReady,
-    restoreScrollOffset,
-    scrollFabVisible,
-    threadId,
-  ]);
+  }, [flushScrollAfterSend]);
+
+  const keyExtractor = useCallback((row: MessageThreadListRow) => row.key, []);
+  const getItemType = useCallback((row: MessageThreadListRow) => row.kind, []);
 
   const dismissDeleteMessagePopup = useCallback(() => {
     setDeleteMessageTargetId(null);
@@ -495,8 +461,8 @@ export default function MessageThreadPage() {
     [stableBottomInset, tabBarHeight],
   );
   const keyboardInset = useKeyboardInset(keyboardInsetOptions);
-  const { footerDockStyle: androidFooterDockStyle, footerLift: androidFooterLift } =
-    useMessageThreadAndroidFooterLift(footerMeasureRef);
+  const { footerDockStyle: androidFooterDockStyle, footerOffset: androidFooterOffset, requestFooterSync } =
+    useMessageThreadAndroidFooterSync(footerMeasureRef);
 
   const refocusComposerInput = useCallback(() => {
     composerInputRef.current?.focus();
@@ -549,30 +515,49 @@ export default function MessageThreadPage() {
       });
   }, [cancelEditingMessage, draft, editMessage, editingMessage, stopTyping, threadId, threadReady]);
 
-  const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
-    const nextHeight = event.nativeEvent.layout.height;
-    setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-    if (Platform.OS === "android") {
-      setCachedAndroidMessageFooterHeight(nextHeight);
-    }
-    setFooterMeasured(true);
-  }, []);
+  const handleFooterLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const nextHeight = event.nativeEvent.layout.height;
+      setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+      if (Platform.OS === "android") {
+        setCachedAndroidMessageFooterHeight(nextHeight);
+        requestFooterSync();
+      }
+      setFooterMeasured(true);
+    },
+    [requestFooterSync],
+  );
 
-  // Android pan + translateY dock lift — list spacer not needed (would double-scroll).
   const listKeyboardSpacerStyle = useAnimatedStyle(
     () => ({
-      height: Platform.OS === "android" ? 0 : keyboardInset.value,
+      height: isAndroid ? Math.max(0, -androidFooterOffset.value) : keyboardInset.value,
     }),
-    [keyboardInset],
+    [androidFooterOffset, isAndroid, keyboardInset],
   );
 
   const scrollFabPositionStyle = useAnimatedStyle(
     () => ({
-      bottom: isAndroid
-        ? 12 + keyboardInset.value + androidFooterLift.value
-        : 12 + footerHeight + keyboardInset.value + androidFooterLift.value,
+      bottom:
+        12 +
+        footerHeight +
+        (isAndroid ? Math.max(0, -androidFooterOffset.value) : keyboardInset.value),
     }),
-    [androidFooterLift, footerHeight, isAndroid, keyboardInset],
+    [androidFooterOffset, footerHeight, isAndroid, keyboardInset],
+  );
+
+  const listHeader = useCallback(
+    () => <Animated.View style={listKeyboardSpacerStyle} />,
+    [listKeyboardSpacerStyle],
+  );
+
+  const listFooter = useCallback(
+    () =>
+      isLoadingOlder ? (
+        <View style={{ paddingVertical: 8, alignItems: "center" }}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      ) : null,
+    [colors.primary, isLoadingOlder],
   );
 
   const mergeDrafts = useCallback((prev: MessageAttachmentDraft[], next: MessageAttachmentDraft[]) => {
@@ -686,56 +671,35 @@ export default function MessageThreadPage() {
     [reactToMessage, threadId],
   );
 
-  const awaitingInitialMessages =
-    !isSessionRevisit &&
-    (isResolvingThread || (threadReady && isLoading && rows.length === 0));
-  const showListPositioningSkeleton =
-    !isSessionRevisit &&
-    footerMeasured &&
-    rows.length > 0 &&
-    !listScrollReady &&
-    (openAtBottom || restoreScrollOffset != null);
-  const showLoadingSkeleton =
-    awaitingInitialMessages ||
-    (isAndroid ? !footerMeasured : !isSessionRevisit && !footerMeasured);
-  const keyExtractor = useCallback((row: MessageThreadListRow) => row.key, []);
-  const getItemType = useCallback((row: MessageThreadListRow) => row.kind, []);
-
-  const listKeyboardSpacer = useCallback(
-    () => <Animated.View style={listKeyboardSpacerStyle} />,
-    [listKeyboardSpacerStyle],
+  const listInvertedStyle = useMemo(
+    () => StyleSheet.flatten([styles.list, styles.invertedList]),
+    [styles.invertedList, styles.list],
   );
-
-  useEffect(() => {
-    if (isSessionRevisit || !openAtBottom || rows.length === 0 || listScrollReady) return;
-    const timer = setTimeout(() => {
-      markListScrollReady();
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [isSessionRevisit, listScrollReady, markListScrollReady, openAtBottom, rows.length, threadId]);
 
   const renderRow = useCallback(
     ({ item }: { item: MessageThreadListRow }) => (
-      <MessageThreadRow
-        item={item}
-        styles={styles}
-        colors={colors}
-        mode={mode}
-        peerLastReadAt={peerLastReadAt}
-        reactionPickerMessageId={reactionPickerMessageId}
-        onToggleReactionPicker={onToggleReactionPicker}
-        onOpenReactionPicker={onOpenReactionPicker}
-        onOpenDelete={openDeleteOptions}
-        onOpenEdit={startEditingMessage}
-        onReact={onReact}
-        onCloseReactionPicker={onCloseReactionPicker}
-        onOpenSharedPlace={openSharedPlace}
-        onOpenSharedStory={openSharedStory}
-        openingStoryId={openingStoryId}
-        onOpenAttachment={(uri) => openAttachmentViewer(uri, null)}
-        peerUserId={isSupport ? null : (peer?.id ?? params.peerId ?? null)}
-        reportLabels={reportLabels}
-      />
+      <View style={styles.invertedListItem}>
+        <MessageThreadRow
+          item={item}
+          styles={styles}
+          colors={colors}
+          mode={mode}
+          peerLastReadAt={peerLastReadAt}
+          reactionPickerMessageId={reactionPickerMessageId}
+          onToggleReactionPicker={onToggleReactionPicker}
+          onOpenReactionPicker={onOpenReactionPicker}
+          onOpenDelete={openDeleteOptions}
+          onOpenEdit={startEditingMessage}
+          onReact={onReact}
+          onCloseReactionPicker={onCloseReactionPicker}
+          onOpenSharedPlace={openSharedPlace}
+          onOpenSharedStory={openSharedStory}
+          openingStoryId={openingStoryId}
+          onOpenAttachment={(uri) => openAttachmentViewer(uri, null)}
+          peerUserId={isSupport ? null : (peer?.id ?? params.peerId ?? null)}
+          reportLabels={reportLabels}
+        />
+      </View>
     ),
     [
       colors,
@@ -762,7 +726,7 @@ export default function MessageThreadPage() {
 
   const composerFooter = (
     <View ref={footerMeasureRef} onLayout={handleFooterLayout}>
-      <View style={[styles.footer, Platform.OS === "android" && styles.footerAndroid]}>
+      <View style={styles.footer}>
         {peerIsTyping ? (
           <View style={styles.typingRow} accessibilityLiveRegion="polite">
             <Text style={styles.typingText}>{t("messages.thread.peerTyping")}</Text>
@@ -973,57 +937,42 @@ export default function MessageThreadPage() {
           <MessageThreadSkeleton
             styles={styles}
             backgroundColor={colors.background}
-            bottomInset={listContentBottomInset}
+            bottomInset={listContentComposerInset}
           />
         ) : (
           <View style={styles.listWrap}>
-            {isLoadingOlder ? (
-              <View style={{ paddingVertical: 8, alignItems: "center" }}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : null}
             <FlashList
               ref={listRef}
               key={threadId}
-              style={styles.list}
+              style={listInvertedStyle}
               data={rows}
               keyExtractor={keyExtractor}
               getItemType={getItemType}
               estimatedItemSize={FLASH_LIST_ESTIMATED_SIZE.messageBubble}
-              initialScrollIndex={initialScrollIndex}
-              contentOffset={restoreContentOffset}
               contentContainerStyle={[
                 styles.listContent,
-                { paddingBottom: listContentBottomInset },
+                { paddingTop: listContentComposerInset },
                 rows.length === 0 && styles.listContentEmpty,
               ]}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
               onScroll={handleListScroll}
               onContentSizeChange={rows.length > 0 ? handleListContentSizeChange : undefined}
-              onLoad={rows.length > 0 && !isSessionRevisit ? handleListLoad : undefined}
               scrollEventThrottle={32}
               renderItem={renderRow}
               removeClippedSubviews
-              initialNumToRender={12}
+              initialNumToRender={20}
               maxToRenderPerBatch={10}
               windowSize={7}
               updateCellsBatchingPeriod={50}
-              ListFooterComponent={listKeyboardSpacer}
+              ListHeaderComponent={listHeader}
+              ListFooterComponent={listFooter}
               ListEmptyComponent={
                 <View style={styles.emptyWrap}>
                   <Text style={styles.emptyText}>No messages yet.</Text>
                 </View>
               }
             />
-            {showListPositioningSkeleton ? (
-              <MessageThreadSkeleton
-                styles={styles}
-                backgroundColor={colors.background}
-                bottomInset={listContentBottomInset}
-                overlay
-              />
-            ) : null}
             <Animated.View
               style={[styles.scrollToBottomBtn, scrollFabPositionStyle, scrollFabAnimatedStyle]}
               pointerEvents={showScrollFab ? "auto" : "none"}
@@ -1044,13 +993,7 @@ export default function MessageThreadPage() {
       {Platform.OS === "ios" ? (
         <KeyboardStickyView {...keyboardInsetOptions}>{composerFooter}</KeyboardStickyView>
       ) : (
-        <Animated.View
-          style={[
-            styles.androidFooterDock,
-            styles.footerDockAndroid,
-            androidFooterDockStyle,
-          ]}
-        >
+        <Animated.View style={[styles.androidFooterDock, androidFooterDockStyle]}>
           {composerFooter}
         </Animated.View>
       )}

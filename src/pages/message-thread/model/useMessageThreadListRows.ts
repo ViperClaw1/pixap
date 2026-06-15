@@ -28,6 +28,15 @@ export function useMessageThreadListRows(messages: MessageBubble[]): MessageThre
       });
       prevMine = message.mine;
     });
-    return data;
+    const reversed = data.reverse();
+    for (let i = 0; i < reversed.length; i++) {
+      const row = reversed[i];
+      if (row.kind !== "message") continue;
+      const older = reversed[i + 1];
+      const groupedWithPrevious =
+        older?.kind === "message" && older.message.mine === row.message.mine;
+      reversed[i] = { ...row, groupedWithPrevious };
+    }
+    return reversed;
   }, [messages]);
 }
