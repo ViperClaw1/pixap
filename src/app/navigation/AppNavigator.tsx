@@ -22,7 +22,7 @@ import { browseFlowSwipeBackOptions } from "./stackGestureOptions";
 import { renderBrowseFlowScreens, type BrowseFlowStackScreen } from "./BrowseFlowScreens";
 import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
 import { BOOKINGS_TAB_OPTIONS, CART_TAB_OPTIONS, PROFILE_TAB_OPTIONS } from "./tabBarButtons";
-import { resetCartStackToMain } from "./navigationHelpers";
+import { handleCartTabPress } from "./navigationHelpers";
 
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const FeedStack = createNativeStackNavigator<FeedStackParamList>();
@@ -251,9 +251,9 @@ export default function AppNavigator({ isFirstAppLaunch }: { isFirstAppLaunch: b
         component={CartStackNavigator}
         options={CART_TAB_OPTIONS}
         listeners={({ navigation }) => ({
-          tabPress: () => {
+          tabPress: (e) => {
             ensureMessagesScreensReady();
-            resetCartStackToMain(navigation);
+            handleCartTabPress(e, navigation);
           },
         })}
       />

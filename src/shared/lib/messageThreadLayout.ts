@@ -6,8 +6,6 @@ export const COMPOSER_ICON_HIT_SLOP = 6;
 export const COMPOSER_ROW_GAP = 8;
 export const COMPOSER_TRAILING_GAP = 6;
 export const FOOTER_VERTICAL_PADDING = 10;
-/** Android adjustResize: trim footer lift so composer is not over-shifted. */
-export const MESSAGE_THREAD_ANDROID_KEYBOARD_TRIM_PX = 48;
 /** Extra lift above the keyboard for composer + list scroll room (iOS). */
 export const MESSAGE_THREAD_KEYBOARD_GAP = 32;
 

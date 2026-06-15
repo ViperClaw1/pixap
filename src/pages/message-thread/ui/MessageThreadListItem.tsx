@@ -369,6 +369,7 @@ function MessageThreadListItemComponent({
   const isReadByPeer =
     isMine && !!peerLastReadAt && new Date(message.created_at).getTime() <= new Date(peerLastReadAt).getTime();
   const mineReadIndicatorColor = isReadByPeer ? mineBubbleTextColor : mineBubbleMetaColor;
+  const readIndicatorName = isReadByPeer ? "checkmark-done" : "checkmark";
 
   const bareMediaOnly = message.attachments.length > 0 && !messageHasVisibleText(message.content);
   const readIndicatorColor = bareMediaOnly
@@ -510,7 +511,7 @@ function MessageThreadListItemComponent({
               {isMine ? (
                 <Ionicons
                   style={s.readIndicator}
-                  name="checkmark-done"
+                  name={readIndicatorName}
                   size={14}
                   color={readIndicatorColor}
                 />
@@ -572,7 +573,7 @@ function MessageThreadListItemComponent({
                   {isMine ? (
                     <Ionicons
                       style={s.readIndicator}
-                      name="checkmark-done"
+                      name={readIndicatorName}
                       size={14}
                       color={readIndicatorColor}
                     />
@@ -630,7 +631,7 @@ function MessageThreadListItemComponent({
                 {isMine ? (
                   <Ionicons
                     style={s.readIndicator}
-                    name="checkmark-done"
+                    name={readIndicatorName}
                     size={14}
                     color={readIndicatorColor}
                   />
