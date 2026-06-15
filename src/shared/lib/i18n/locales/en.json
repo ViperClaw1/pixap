@@ -454,6 +454,7 @@
     "timelineLabel": "Timeline",
     "timelineOr": "or",
     "customTimeWindowLabel": "Custom time window",
+    "customTimeWindowUnavailable": "Custom time window is unavailable — not enough time left tonight. Try a preset timeline.",
     "customTimeRange": "{{start}} — {{end}}",
     "customWindowStartA11y": "Window start {{time}}",
     "customWindowEndA11y": "Window end {{time}}",
