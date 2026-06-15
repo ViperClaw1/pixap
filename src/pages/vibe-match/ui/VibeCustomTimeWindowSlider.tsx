@@ -22,7 +22,6 @@ type Props = {
   value: VibeCustomTimeWindow;
   onChange: (value: VibeCustomTimeWindow) => void;
   disabled?: boolean;
-  onDragActiveChange?: (active: boolean) => void;
 };
 
 type DragPreview = {
@@ -34,7 +33,6 @@ export function VibeCustomTimeWindowSlider({
   value,
   onChange,
   disabled = false,
-  onDragActiveChange,
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -48,7 +46,6 @@ export function VibeCustomTimeWindowSlider({
   const panAxisRef = useRef<CustomTimeWindowAxis>(axis);
   const axisRef = useRef(axis);
   const onChangeRef = useRef(onChange);
-  const onDragActiveChangeRef = useRef(onDragActiveChange);
   const lastEmittedRef = useRef<VibeCustomTimeWindow | null>(null);
   const displayWindowRef = useRef(displayWindow);
   const prevMinStepRef = useRef(axis.minStep);
@@ -56,10 +53,6 @@ export function VibeCustomTimeWindowSlider({
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
-
-  useEffect(() => {
-    onDragActiveChangeRef.current = onDragActiveChange;
-  }, [onDragActiveChange]);
 
   useEffect(() => {
     axisRef.current = axis;
@@ -100,10 +93,6 @@ export function VibeCustomTimeWindowSlider({
 
   const usableWidth = Math.max(0, trackWidth - THUMB_SIZE);
 
-  const setDragActive = useCallback((active: boolean) => {
-    onDragActiveChangeRef.current?.(active);
-  }, []);
-
   const commitWindow = useCallback((nextWindow: VibeCustomTimeWindow) => {
     const normalized = panAxisRef.current.normalizeCustomTimeWindow(nextWindow);
     setDragPreview(null);
@@ -115,7 +104,6 @@ export function VibeCustomTimeWindowSlider({
 
   const beginThumbPan = useCallback((_thumb: "start" | "end") => {
     isDraggingRef.current = true;
-    setDragActive(true);
     panAxisRef.current = axisRef.current;
     const currentAxis = panAxisRef.current;
     const base = displayWindowRef.current;
@@ -123,7 +111,7 @@ export function VibeCustomTimeWindowSlider({
       start: currentAxis.minutesToSliderStep(base.startMinutes),
       end: currentAxis.minutesToSliderStep(base.endMinutes),
     };
-  }, [setDragActive]);
+  }, []);
 
   const updateThumbPan = useCallback(
     (thumb: "start" | "end", translationX: number) => {
@@ -142,7 +130,6 @@ export function VibeCustomTimeWindowSlider({
   const finishThumbPan = useCallback(
     (thumb: "start" | "end", translationX: number) => {
       isDraggingRef.current = false;
-      setDragActive(false);
       if (usableWidth <= 0) {
         setDragPreview(null);
         return;
@@ -171,7 +158,7 @@ export function VibeCustomTimeWindowSlider({
 
       commitWindow(nextWindow);
     },
-    [MIN_STEP_GAP, commitWindow, setDragActive, usableWidth],
+    [MIN_STEP_GAP, commitWindow, usableWidth],
   );
 
   const handleTrackTap = useCallback(
