@@ -63,6 +63,8 @@ export const messageThreadStaticStyles = StyleSheet.create({
     justifyContent: "center",
   },
   list: { flex: 1 },
+  invertedList: { transform: [{ scaleY: -1 as const }] },
+  invertedListItem: { transform: [{ scaleY: -1 as const }] },
   listHiddenWhilePositioning: { opacity: 0 },
   listWrap: { flex: 1 },
   /** Android-only sticky footer dock (MessageThreadPage). */
@@ -289,13 +291,6 @@ export const messageThreadStaticStyles = StyleSheet.create({
     alignItems: "stretch",
     gap: 8,
   },
-  /** Message thread Android: hide pan gap — footer blends with chat behind the keyboard. */
-  footerAndroid: {
-    backgroundColor: "transparent",
-  },
-  footerDockAndroid: {
-    backgroundColor: "transparent",
-  },
   stickerPanel: {
     borderWidth: 1,
     borderRadius: 14,
@@ -486,6 +481,9 @@ export function messageThreadThemeStyles(
     },
     footer: {
       borderTopColor: colors.border,
+      backgroundColor: colors.card,
+    },
+    androidFooterDock: {
       backgroundColor: colors.card,
     },
     stickerPanel: {
