@@ -6,7 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { PixAIPlace, PixAISlot } from "@/entities/pixai";
 import { chunkCells, WEEKDAY_LABELS, type CalendarCell } from "@/shared/lib/bookingCalendar";
-import { BOOKING_SLOT_GRID_COLUMNS } from "@/entities/booking/lib/bookingSlots";
+import { findBookingSlotForTime, minutesFromDate } from "@/entities/booking/lib/bookingSlots";
+import { BookingTimePicker } from "@/shared/ui/booking-time-picker";
 import type { AIBookingStyles } from "./aiBookingStyles";
 
 type Props = {
@@ -20,13 +21,13 @@ type Props = {
   todayYmd: string;
   bookingDateYmd: string | null;
   setBookingDateYmd: (ymd: string | null) => void;
-  setSelectedSlot: (slot: PixAISlot | null) => void;
+  selectedBookingTime: Date | null;
+  onSelectedBookingTimeChange: (date: Date) => void;
   slotsForDate: PixAISlot[];
   slotsFetching: boolean;
   slotsError: boolean;
   refetchSlots: () => void;
   cartReservedSlotTimes: Set<number>;
-  selectedSlot: PixAISlot | null;
 };
 
 export function AIBookingSlotPicker({
@@ -40,16 +41,26 @@ export function AIBookingSlotPicker({
   todayYmd,
   bookingDateYmd,
   setBookingDateYmd,
-  setSelectedSlot,
+  selectedBookingTime,
+  onSelectedBookingTimeChange,
   slotsForDate,
   slotsFetching,
   slotsError,
   refetchSlots,
   cartReservedSlotTimes,
-  selectedSlot,
 }: Props) {
   const { t, i18n } = useTranslation();
   const { colors } = useAppTheme();
+
+  const resolvedSlot =
+    selectedBookingTime && bookingDateYmd
+      ? findBookingSlotForTime(slotsForDate, minutesFromDate(selectedBookingTime))
+      : null;
+  const inCart =
+    resolvedSlot != null && cartReservedSlotTimes.has(new Date(resolvedSlot.dateTimeIso).getTime());
+  const timeUnavailable =
+    selectedBookingTime != null &&
+    (!resolvedSlot || !resolvedSlot.available || inCart);
 
   return (
     <View style={s.semanticSection}>
@@ -118,7 +129,6 @@ export function AIBookingSlotPicker({
                     disabled={isPast}
                     onPress={() => {
                       setBookingDateYmd(ymd);
-                      setSelectedSlot(null);
                     }}
                     style={[
                       s.calendarCellDayInner,
@@ -150,30 +160,13 @@ export function AIBookingSlotPicker({
       ) : slotsForDate.length === 0 ? (
         <Text style={s.calendarHint}>{t("aiBooking.noTimeSlotsForDate")}</Text>
       ) : (
-        <View style={[s.slotGrid, { marginTop: 10 }]}>
-          {chunkCells(slotsForDate, BOOKING_SLOT_GRID_COLUMNS).map((row, rowIdx) => (
-            <View key={`slot-row-${rowIdx}`} style={s.slotGridRow}>
-              {row.map((slot) => {
-                const inCart = cartReservedSlotTimes.has(new Date(slot.dateTimeIso).getTime());
-                const disabled = !slot.available || inCart;
-                return (
-                  <AppPressable
-                    disabled={disabled}
-                    key={slot.dateTimeIso}
-                    onPress={() => setSelectedSlot(slot)}
-                    style={[
-                      s.slotChip,
-                      selectedSlot?.dateTimeIso === slot.dateTimeIso && s.slotChipSelected,
-                      disabled && s.slotChipUnavailable,
-                    ]}
-                  >
-                    <Text style={s.slotText}>{slot.label}</Text>
-                  </AppPressable>
-                );
-              })}
-            </View>
-          ))}
-        </View>
+        <BookingTimePicker
+          dateYmd={bookingDateYmd}
+          value={selectedBookingTime}
+          onChange={onSelectedBookingTimeChange}
+          unavailable={timeUnavailable}
+          style={{ marginTop: 16 }}
+        />
       )}
     </View>
   );

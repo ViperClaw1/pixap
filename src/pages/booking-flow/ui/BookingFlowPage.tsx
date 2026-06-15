@@ -6,7 +6,6 @@ import { showErrorToast, showSuccessToast } from "@/shared/ui/app-toast/showToas
 import { BookingStepIndicator } from "./BookingStepIndicator";
 import { BookingConfetti } from "./BookingConfetti";
 import { BookingWhatsAppBanner } from "./BookingWhatsAppBanner";
-import { isPopularBookingSlot } from "../lib/isPopularBookingSlot";
 import { useTranslation } from "react-i18next";
 import { CommonActions, useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -15,6 +14,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useBusinessCard } from "@/entities/business-card";
 import { useCreateCartItem, useStartN8nWaBooking } from "@/entities/cart";
 import { useAvailableSlots, useCreateBooking } from "@/entities/booking";
+import {
+  findBookingSlotForTime,
+  formatBookingTimeLabel,
+  minutesFromDate,
+} from "@/entities/booking/lib/bookingSlots";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useProfile } from "@/entities/user";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
@@ -58,7 +62,7 @@ import {
   BOOKING_FLOW_MIN_GUESTS,
   BOOKING_FLOW_TOTAL_STEPS,
 } from "../model/constants";
-import { BOOKING_SLOT_GRID_COLUMNS } from "@/entities/booking/lib/bookingSlots";
+import { BookingTimePicker } from "@/shared/ui/booking-time-picker";
 
 import {
   CALENDAR_MONTHS_AHEAD,
@@ -114,7 +118,7 @@ export default function BookingFlowPage() {
   const [step, setStep] = useState(0);
   const [selectedDateYmd, setSelectedDateYmd] = useState(() => toYmd(new Date()));
   const [visibleCalendarMonth, setVisibleCalendarMonth] = useState<Date>(() => firstOfMonthContaining(new Date()));
-  const [selectedTime, setSelectedTime] = useState("");
+  const [selectedBookingTime, setSelectedBookingTime] = useState<Date | null>(null);
   const [guests, setGuests] = useState(BOOKING_FLOW_DEFAULT_GUESTS);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState<PhoneValue>(DEFAULT_PHONE_VALUE);
@@ -140,11 +144,21 @@ export default function BookingFlowPage() {
     isError: slotsError,
     refetch: refetchSlots,
   } = useAvailableSlots(id, selectedDateYmd);
-  const selectedAvailableSlot = useMemo(
-    () => slotsForDate.find((slot) => slot.label === selectedTime && slot.available) ?? null,
-    [selectedTime, slotsForDate],
-  );
+  const selectedAvailableSlot = useMemo(() => {
+    if (!selectedBookingTime) return null;
+    return findBookingSlotForTime(slotsForDate, minutesFromDate(selectedBookingTime));
+  }, [selectedBookingTime, slotsForDate]);
+  const selectedTimeLabel = selectedBookingTime
+    ? formatBookingTimeLabel(minutesFromDate(selectedBookingTime))
+    : "";
+  const timeSelectionUnavailable =
+    selectedBookingTime != null &&
+    (!selectedAvailableSlot || !selectedAvailableSlot.available);
   const showProfileCompleteTip = !isPersonalDataComplete(profile);
+
+  useEffect(() => {
+    setSelectedBookingTime(null);
+  }, [selectedDateYmd]);
 
   useEffect(() => {
     if (!profile) return;
@@ -209,7 +223,7 @@ export default function BookingFlowPage() {
       showErrorToast(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
       return;
     }
-    if (!selectedTime) {
+    if (!selectedBookingTime) {
       showMissingBookingSlotPopup(t);
       return;
     }
@@ -375,7 +389,6 @@ export default function BookingFlowPage() {
                           disabled={isPast}
                           onPress={() => {
                             setSelectedDateYmd(ymd);
-                            setSelectedTime("");
                           }}
                           style={[
                             styles.calendarCellDayInner,
@@ -410,40 +423,13 @@ export default function BookingFlowPage() {
             ) : slotsForDate.length === 0 ? (
               <Text style={[styles.slotsEmptyText, themedStyles.headerStep]}>No time slots for this date.</Text>
             ) : (
-              <View style={styles.timeGrid}>
-                {chunkCells(slotsForDate, BOOKING_SLOT_GRID_COLUMNS).map((row, rowIdx) => (
-                  <View key={`time-row-${rowIdx}`} style={styles.timeGridRow}>
-                    {row.map((slot) => {
-                      const isSelected = selectedTime === slot.label && slot.available;
-                      const isPopular = slot.available && isPopularBookingSlot(slot.dateTimeIso);
-                      return (
-                        <AppPressable
-                          key={slot.dateTimeIso}
-                          disabled={!slot.available}
-                          style={[
-                            styles.timeCell,
-                            themedStyles.timeCell,
-                            isSelected && styles.timeCellSel,
-                            isSelected && themedStyles.timeCellSel,
-                            isPopular && !isSelected && { borderColor: colors.primary },
-                            !slot.available && themedStyles.timeCellUnavailable,
-                          ]}
-                          onPress={() => setSelectedTime(slot.label)}
-                        >
-                          <Text style={[themedStyles.timeCellText, isSelected && styles.timeCellTextSel, isSelected && themedStyles.timeCellTextSel]}>
-                            {slot.label}
-                          </Text>
-                          {isPopular ? (
-                            <Text style={{ fontSize: 9, fontWeight: "700", color: "#f59e0b", marginTop: 2 }}>
-                              {t("bookingFlow.popular", { defaultValue: "Popular" })}
-                            </Text>
-                          ) : null}
-                        </AppPressable>
-                      );
-                    })}
-                  </View>
-                ))}
-              </View>
+              <BookingTimePicker
+                dateYmd={selectedDateYmd}
+                value={selectedBookingTime}
+                onChange={setSelectedBookingTime}
+                unavailable={timeSelectionUnavailable}
+                style={styles.timePicker}
+              />
             )}
             <BookingFlowCustomerForm
               customerName={customerName}
@@ -512,7 +498,7 @@ export default function BookingFlowPage() {
               <Text style={[styles.section, themedStyles.sectionText]}>Confirm</Text>
               <Text style={[themedStyles.confirmText, { fontSize: 18, fontWeight: "700" }]}>{place.name}</Text>
               <Text style={themedStyles.confirmText}>
-                {guests} guests · {selectedDate.toDateString()} {selectedTime}
+                {guests} guests · {selectedDate.toDateString()} {selectedTimeLabel}
               </Text>
               <BookingWhatsAppBanner />
             </BookingFlowPlacePanel>
@@ -525,11 +511,11 @@ export default function BookingFlowPage() {
           <AppPressable
             style={styles.primary}
             onPress={() => {
-              if (step === 1 && !selectedTime) {
+              if (step === 1 && !selectedBookingTime) {
                 showMissingBookingSlotPopup(t);
                 return;
               }
-              if (step === 1 && !selectedAvailableSlot) {
+              if (step === 1 && timeSelectionUnavailable) {
                 showMissingAvailableSlotPopup(t);
                 return;
               }
@@ -624,17 +610,7 @@ const styles = StyleSheet.create({
   calendarCellToday: { borderStyle: "dashed", borderColor: "#d1d5db" },
   calendarCellSelected: { borderColor: "#111", backgroundColor: "#f3f4f6" },
   calendarCellPast: { opacity: 0.38 },
-  timeGrid: { marginTop: 16, gap: 8, width: "100%", alignSelf: "stretch" },
-  timeGridRow: { flexDirection: "row", gap: 8, width: "100%" },
-  timeCell: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: "#f5f5f5",
-    alignItems: "center",
-  },
-  timeCellSel: { backgroundColor: "#111" },
-  timeCellTextSel: { color: "#fff", fontWeight: "600" },
+  timePicker: { marginTop: 16 },
   slotsLoading: { marginTop: 16 },
   slotsError: { marginTop: 16, gap: 8 },
   retrySlotsBtn: { alignSelf: "flex-start", paddingVertical: 8 },

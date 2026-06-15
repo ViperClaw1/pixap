@@ -152,6 +152,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     ],
     "expo-localization",
+    "@react-native-community/datetimepicker",
     "expo-apple-authentication",
     "expo-asset",
     "expo-web-browser",
