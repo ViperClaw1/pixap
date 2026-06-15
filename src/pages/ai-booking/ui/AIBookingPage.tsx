@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useCartItems, useCreateCartItem, useStartN8nWaBooking } from "@/entities/cart";
 import { useCreateBooking } from "@/entities/booking";
-import { useAvailableSlots, findBookingSlotForTime, minutesFromDate } from "@/entities/booking";
+import { useAvailableSlots, findBookingSlotForTime, minutesFromDate, defaultBookingDateTime } from "@/entities/booking";
 import {
   usePixAI,
   type PixAIFlowPayload,
@@ -67,6 +67,7 @@ import { useBookingAccess } from "@/features/booking-access";
 import { useTranslation } from "react-i18next";
 import { PageI18nProvider } from "@/shared/lib/i18n";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
+import { useScrollToFocusedInput } from "@/shared/lib/keyboard";
 import {
   DEFAULT_PHONE_VALUE,
   parseStoredPhone,
@@ -172,6 +173,10 @@ function AIBookingPageContent() {
   const initialStepRef = useRef<FlowStep>(initialScrollState?.step ?? "assistant");
   const currentStepRef = useRef<FlowStep>(initialStepRef.current);
   const bookingScrollYRef = useRef(initialScrollState?.bookingY ?? 0);
+  const { onInputFocus: onBookingFormInputFocus, onScroll: onBookingFormScroll } = useScrollToFocusedInput(
+    bookingScrollRef,
+    { scrollOffsetYRef: bookingScrollYRef },
+  );
   /** Scroll offset on step 1 saved when opening booking — restored on return. */
   const assistantScrollYRef = useRef(initialScrollState?.assistantY ?? 0);
   const initialScrollOffsetRef = useRef({
@@ -573,7 +578,11 @@ function AIBookingPageContent() {
   }, [cartItems, selectedPlace]);
 
   useEffect(() => {
-    setSelectedBookingTime(null);
+    if (!bookingDateYmd) {
+      setSelectedBookingTime(null);
+      return;
+    }
+    setSelectedBookingTime(defaultBookingDateTime(bookingDateYmd));
   }, [bookingDateYmd]);
 
   const selectedSlot = useMemo((): PixAISlot | null => {
@@ -1145,6 +1154,7 @@ function AIBookingPageContent() {
           contentOffset={initialScrollOffsetRef.current}
           scrollEventThrottle={16}
           onScroll={(e) => {
+            onBookingFormScroll(e);
             const y = e.nativeEvent.contentOffset.y;
             bookingScrollYRef.current = y;
             if (currentStepRef.current === "assistant") {
@@ -1281,11 +1291,12 @@ function AIBookingPageContent() {
             selectedPlace={selectedPlace}
             onCreateDraft={onCreateDraft}
             submitting={confirmingBooking}
+            onInputFocus={onBookingFormInputFocus}
             profileCompleteTip={
               <BookingProfileCompleteTip
                 visible={showProfileCompleteTip}
                 navigation={navigation}
-                style={{ marginTop: 4 }}
+                style={{ marginTop: 16 }}
               />
             }
           />

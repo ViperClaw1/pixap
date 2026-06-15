@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import * as Haptics from "expo-haptics";
 import { showErrorToast, showSuccessToast } from "@/shared/ui/app-toast/showToast";
@@ -17,7 +17,9 @@ import { useAvailableSlots, useCreateBooking } from "@/entities/booking";
 import {
   findBookingSlotForTime,
   formatBookingTimeLabel,
+  defaultBookingDateTime,
   minutesFromDate,
+  resolveBookingTimeUnavailableReason,
 } from "@/entities/booking/lib/bookingSlots";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useProfile } from "@/entities/user";
@@ -63,6 +65,7 @@ import {
   BOOKING_FLOW_TOTAL_STEPS,
 } from "../model/constants";
 import { BookingTimePicker } from "@/shared/ui/booking-time-picker";
+import { useScrollToFocusedInput } from "@/shared/lib/keyboard";
 
 import {
   CALENDAR_MONTHS_AHEAD,
@@ -126,6 +129,8 @@ export default function BookingFlowPage() {
   const [comment, setComment] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [celebrationActive, setCelebrationActive] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const { onInputFocus, onScroll } = useScrollToFocusedInput(scrollRef);
   const totalSteps = BOOKING_FLOW_TOTAL_STEPS + 1;
   const useMonotoneDarkBackground = isDark && (step === 0 || step === 2);
   const selectedDate = useMemo(() => fromYmd(selectedDateYmd), [selectedDateYmd]);
@@ -151,13 +156,19 @@ export default function BookingFlowPage() {
   const selectedTimeLabel = selectedBookingTime
     ? formatBookingTimeLabel(minutesFromDate(selectedBookingTime))
     : "";
-  const timeSelectionUnavailable =
-    selectedBookingTime != null &&
-    (!selectedAvailableSlot || !selectedAvailableSlot.available);
+  const timeUnavailableReason = useMemo(() => {
+    if (!selectedBookingTime) return null;
+    return resolveBookingTimeUnavailableReason({
+      slot: selectedAvailableSlot,
+      dateYmd: selectedDateYmd,
+      totalMinutes: minutesFromDate(selectedBookingTime),
+    });
+  }, [selectedAvailableSlot, selectedBookingTime, selectedDateYmd]);
+  const timeSelectionUnavailable = timeUnavailableReason != null;
   const showProfileCompleteTip = !isPersonalDataComplete(profile);
 
   useEffect(() => {
-    setSelectedBookingTime(null);
+    setSelectedBookingTime(defaultBookingDateTime(selectedDateYmd));
   }, [selectedDateYmd]);
 
   useEffect(() => {
@@ -325,7 +336,13 @@ export default function BookingFlowPage() {
       ) : null}
 
       {step === 1 ? (
-        <ScrollView contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
+        <ScrollView
+          ref={scrollRef}
+          keyboardShouldPersistTaps="handled"
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
+        >
           <View style={styles.stepContent}>
             <Text style={[styles.section, themedStyles.sectionText]}>Select date & time</Text>
             <View style={[styles.calendarPanel, themedStyles.calendarPanel]}>
@@ -427,7 +444,7 @@ export default function BookingFlowPage() {
                 dateYmd={selectedDateYmd}
                 value={selectedBookingTime}
                 onChange={setSelectedBookingTime}
-                unavailable={timeSelectionUnavailable}
+                unavailableReason={timeUnavailableReason}
                 style={styles.timePicker}
               />
             )}
@@ -440,11 +457,12 @@ export default function BookingFlowPage() {
               onCustomerEmailChange={setCustomerEmail}
               comment={comment}
               onCommentChange={setComment}
+              onInputFocus={onInputFocus}
             />
             <BookingProfileCompleteTip
               visible={showProfileCompleteTip}
               navigation={navigation}
-              style={{ marginTop: 4 }}
+              style={{ marginTop: 16 }}
             />
           </View>
         </ScrollView>

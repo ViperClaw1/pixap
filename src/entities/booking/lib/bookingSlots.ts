@@ -95,9 +95,52 @@ export function defaultBookingDateTime(dateYmd: string): Date {
   return bookingDateTimeFromYmd(dateYmd, BOOKING_DEFAULT_TIME_MINUTES);
 }
 
+export function getAllowedBookingHours(): number[] {
+  const hours = new Set<number>();
+  for (const label of BOOKING_SLOT_TIME_LABELS) {
+    hours.add(Number(label.split(":")[0]));
+  }
+  return [...hours].sort((a, b) => a - b);
+}
+
+export function getAllowedBookingMinutesForHour(hour: number): number[] {
+  const minutes: number[] = [];
+  for (const label of BOOKING_SLOT_TIME_LABELS) {
+    const [h, m] = label.split(":").map(Number);
+    if (h === hour) minutes.push(m);
+  }
+  return minutes.sort((a, b) => a - b);
+}
+
+export function splitAllowedBookingTime(totalMinutes: number): { hour: number; minute: number } {
+  const snapped = snapToNearestAllowedBookingMinutes(totalMinutes);
+  return { hour: Math.floor(snapped / 60), minute: snapped % 60 };
+}
+
 export function findBookingSlotForTime(slots: PixAISlot[], totalMinutes: number): PixAISlot | null {
   const label = formatBookingTimeLabel(snapToNearestAllowedBookingMinutes(totalMinutes));
   return slots.find((slot) => slot.label === label) ?? null;
+}
+
+export type BookingTimeUnavailableReason = "past" | "busy";
+
+export function isBookingDateTimeInPast(dateYmd: string, totalMinutes: number): boolean {
+  const dt = bookingDateTimeFromYmd(dateYmd, snapToNearestAllowedBookingMinutes(totalMinutes));
+  return dt.getTime() < Date.now() + BOOKING_MIN_LEAD_MS;
+}
+
+export function resolveBookingTimeUnavailableReason(params: {
+  slot: PixAISlot | null;
+  dateYmd: string;
+  totalMinutes: number;
+  reservedInCart?: boolean;
+}): BookingTimeUnavailableReason | null {
+  const { slot, dateYmd, totalMinutes, reservedInCart = false } = params;
+  if (!slot) return "busy";
+  if (reservedInCart) return "busy";
+  if (isBookingDateTimeInPast(dateYmd, totalMinutes)) return "past";
+  if (!slot.available) return "busy";
+  return null;
 }
 
 function snapIsoToSlotMs(iso: string): number {

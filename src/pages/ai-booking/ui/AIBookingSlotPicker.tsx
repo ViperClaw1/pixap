@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { PixAIPlace, PixAISlot } from "@/entities/pixai";
 import { chunkCells, WEEKDAY_LABELS, type CalendarCell } from "@/shared/lib/bookingCalendar";
-import { findBookingSlotForTime, minutesFromDate } from "@/entities/booking/lib/bookingSlots";
+import { findBookingSlotForTime, minutesFromDate, resolveBookingTimeUnavailableReason } from "@/entities/booking/lib/bookingSlots";
 import { BookingTimePicker } from "@/shared/ui/booking-time-picker";
 import type { AIBookingStyles } from "./aiBookingStyles";
 
@@ -58,9 +58,15 @@ export function AIBookingSlotPicker({
       : null;
   const inCart =
     resolvedSlot != null && cartReservedSlotTimes.has(new Date(resolvedSlot.dateTimeIso).getTime());
-  const timeUnavailable =
-    selectedBookingTime != null &&
-    (!resolvedSlot || !resolvedSlot.available || inCart);
+  const timeUnavailableReason =
+    selectedBookingTime && bookingDateYmd
+      ? resolveBookingTimeUnavailableReason({
+          slot: resolvedSlot,
+          dateYmd: bookingDateYmd,
+          totalMinutes: minutesFromDate(selectedBookingTime),
+          reservedInCart: inCart,
+        })
+      : null;
 
   return (
     <View style={s.semanticSection}>
@@ -164,7 +170,7 @@ export function AIBookingSlotPicker({
           dateYmd={bookingDateYmd}
           value={selectedBookingTime}
           onChange={onSelectedBookingTimeChange}
-          unavailable={timeUnavailable}
+          unavailableReason={timeUnavailableReason}
           style={{ marginTop: 16 }}
         />
       )}

@@ -17,17 +17,30 @@ import {
   defaultBookingDateTime,
   formatBookingTimeLabel,
   minutesFromDate,
+  type BookingTimeUnavailableReason,
 } from "@/entities/booking/lib/bookingSlots";
+import { BookingAndroidInlineTimePicker } from "./BookingAndroidInlineTimePicker";
 
 type Props = {
   dateYmd: string;
   value: Date | null;
   onChange: (date: Date) => void;
-  unavailable?: boolean;
+  unavailableReason?: BookingTimeUnavailableReason | null;
   style?: StyleProp<ViewStyle>;
 };
 
-export function BookingTimePicker({ dateYmd, value, onChange, unavailable = false, style }: Props) {
+const UNAVAILABLE_MESSAGE_KEYS: Record<BookingTimeUnavailableReason, string> = {
+  past: "bookingCommon.selectedTimeInPast",
+  busy: "bookingCommon.selectedTimeSlotTaken",
+};
+
+export function BookingTimePicker({
+  dateYmd,
+  value,
+  onChange,
+  unavailableReason = null,
+  style,
+}: Props) {
   const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const [pickerWidth, setPickerWidth] = useState(0);
@@ -36,14 +49,9 @@ export function BookingTimePicker({ dateYmd, value, onChange, unavailable = fals
   const displayLabel = formatBookingTimeLabel(minutesFromDate(pickerValue));
 
   useEffect(() => {
-    if (value != null) return;
+    if (Platform.OS !== "ios" || value != null) return;
     onChange(defaultBookingDateTime(dateYmd));
   }, [dateYmd, value, onChange]);
-
-  const onPickerChange = (_event: DateTimePickerEvent, selected?: Date) => {
-    if (!selected) return;
-    onChange(clampBookingPickerDate(dateYmd, selected));
-  };
 
   const onPickerShellLayout = (event: LayoutChangeEvent) => {
     const nextWidth = Math.floor(event.nativeEvent.layout.width);
@@ -52,26 +60,33 @@ export function BookingTimePicker({ dateYmd, value, onChange, unavailable = fals
     }
   };
 
+  const onIosPickerChange = (_event: DateTimePickerEvent, selected?: Date) => {
+    if (!selected) return;
+    onChange(clampBookingPickerDate(dateYmd, selected));
+  };
+
   return (
     <View style={[styles.root, style]}>
       <Text style={[styles.title, { color: colors.text }]}>{t("bookingCommon.selectBookingTime")}</Text>
       <Text style={[styles.hint, { color: colors.textMuted }]}>{t("bookingCommon.bookingTimeWindowHint")}</Text>
       <View
-        onLayout={onPickerShellLayout}
+        onLayout={Platform.OS === "ios" ? onPickerShellLayout : undefined}
         style={[
           styles.pickerShell,
           {
-            borderColor: unavailable ? colors.danger : colors.border,
+            borderColor: unavailableReason ? colors.danger : colors.border,
             backgroundColor: colors.card,
           },
         ]}
       >
-        {pickerWidth > 0 ? (
+        {Platform.OS === "android" ? (
+          <BookingAndroidInlineTimePicker dateYmd={dateYmd} value={value} onChange={onChange} />
+        ) : pickerWidth > 0 ? (
           <DateTimePicker
             mode="time"
             display="spinner"
             value={pickerValue}
-            onChange={onPickerChange}
+            onChange={onIosPickerChange}
             minuteInterval={BOOKING_SLOT_STEP_MINUTES}
             themeVariant={isDark ? "dark" : "light"}
             style={[
@@ -87,9 +102,9 @@ export function BookingTimePicker({ dateYmd, value, onChange, unavailable = fals
       <Text style={[styles.selectedLabel, { color: colors.text }]}>
         {t("bookingCommon.selectedBookingTime", { time: displayLabel })}
       </Text>
-      {unavailable ? (
+      {unavailableReason ? (
         <Text style={[styles.unavailable, { color: colors.danger }]}>
-          {t("bookingCommon.selectedTimeUnavailable")}
+          {t(UNAVAILABLE_MESSAGE_KEYS[unavailableReason])}
         </Text>
       ) : null}
     </View>
@@ -119,7 +134,7 @@ const styles = StyleSheet.create({
   },
   picker: {
     alignSelf: "center",
-    ...(Platform.OS === "ios" ? { height: 216 } : {}),
+    height: 216,
   },
   selectedLabel: {
     fontSize: 15,
