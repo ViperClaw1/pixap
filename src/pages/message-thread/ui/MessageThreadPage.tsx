@@ -68,7 +68,6 @@ import { COMMENT_STICKERS } from "@/shared/constants/commentStickers";
 import { peerFullName } from "../model/format";
 import { resolvePeerPresenceStatus } from "../model/peerPresenceStatus";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
-import { useMessageThreadAndroidFooterPadding } from "../model/useMessageThreadAndroidFooterPadding";
 import type { MessageThreadListRow } from "../model/types";
 import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
@@ -453,12 +452,6 @@ export default function MessageThreadPage() {
     [stableBottomInset, tabBarHeight],
   );
   const keyboardInset = useKeyboardInset(keyboardInsetOptions);
-  const {
-    footerAnimatedStyle: androidFooterAnimatedStyle,
-    paddingBottom: androidFooterPaddingBottom,
-    keyboardOpenRef: androidKeyboardOpenRef,
-    onComposerFocus: onAndroidComposerFocus,
-  } = useMessageThreadAndroidFooterPadding();
 
   const refocusComposerInput = useCallback(() => {
     composerInputRef.current?.focus();
@@ -511,21 +504,13 @@ export default function MessageThreadPage() {
       });
   }, [cancelEditingMessage, draft, editMessage, editingMessage, stopTyping, threadId, threadReady]);
 
-  const handleFooterLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      // Android pan + animated footer padding: ignore layout churn while the keyboard is open
-      // (list already reserves FOOTER_VERTICAL_PADDING for the open-state padding).
-      if (isAndroid && androidKeyboardOpenRef.current) {
-        return;
-      }
-      const nextHeight = event.nativeEvent.layout.height;
-      setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-      if (Platform.OS === "android") {
-        setCachedAndroidMessageFooterHeight(nextHeight);
-      }
-    },
-    [androidKeyboardOpenRef, isAndroid],
-  );
+  const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = event.nativeEvent.layout.height;
+    setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    if (Platform.OS === "android") {
+      setCachedAndroidMessageFooterHeight(nextHeight);
+    }
+  }, []);
 
   // Android `pan` lifts the whole window — no extra list spacer (would double-shift content).
   const listKeyboardSpacerStyle = useAnimatedStyle(
@@ -537,14 +522,9 @@ export default function MessageThreadPage() {
 
   const scrollFabPositionStyle = useAnimatedStyle(
     () => ({
-      bottom:
-        12 +
-        footerHeight +
-        (isAndroid
-          ? Math.max(0, androidFooterPaddingBottom.value - FOOTER_VERTICAL_PADDING)
-          : keyboardInset.value),
+      bottom: 12 + footerHeight + (isAndroid ? 0 : keyboardInset.value),
     }),
-    [androidFooterPaddingBottom, footerHeight, isAndroid, keyboardInset],
+    [footerHeight, isAndroid, keyboardInset],
   );
 
   const listHeader = useCallback(
@@ -726,11 +706,9 @@ export default function MessageThreadPage() {
     ],
   );
 
-  const FooterShell = isAndroid ? Animated.View : View;
-
   const composerFooter = (
     <View onLayout={handleFooterLayout}>
-      <FooterShell style={[styles.footer, isAndroid ? androidFooterAnimatedStyle : null]}>
+      <View style={styles.footer}>
           {peerIsTyping ? (
             <View style={styles.typingRow} accessibilityLiveRegion="polite">
               <Text style={styles.typingText}>{t("messages.thread.peerTyping")}</Text>
@@ -836,7 +814,6 @@ export default function MessageThreadPage() {
                 textAlignVertical="center"
                 onFocus={() => {
                   bindStopOnManualEdit(() => voiceStopRef.current?.());
-                  if (isAndroid) onAndroidComposerFocus();
                 }}
               />
               {editingMessage ? (
@@ -913,7 +890,7 @@ export default function MessageThreadPage() {
               </View>
             ) : null}
           </View>
-      </FooterShell>
+      </View>
     </View>
   );
 

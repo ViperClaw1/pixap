@@ -72,7 +72,7 @@ export const messageThreadStaticStyles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: Platform.OS === "android" ? FOOTER_VERTICAL_PADDING : 0,
     zIndex: 9,
   },
   scrollToBottomBtn: {
