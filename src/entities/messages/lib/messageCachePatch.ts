@@ -223,6 +223,31 @@ export function patchInboxThreadUnread(
   });
 }
 
+/** Updates peer read cursor in inbox cache (read receipts on outgoing last message). */
+export function patchInboxThreadPeerLastRead(
+  queryClient: QueryClient,
+  userId: string | null,
+  threadId: string,
+  readerUserId: string,
+  viewerId: string,
+  lastReadAt: string,
+) {
+  if (!userId || readerUserId === viewerId) return;
+  queryClient.setQueryData<MessageThreadItem[]>(queryKeys.messages.inbox(userId), (prev) => {
+    if (!prev?.length) return prev;
+    let changed = false;
+    const next = prev.map((thread) => {
+      if (thread.thread_id !== threadId) return thread;
+      const prevAt = thread.peer_last_read_at ? new Date(thread.peer_last_read_at).getTime() : 0;
+      const nextAt = new Date(lastReadAt).getTime();
+      if (nextAt <= prevAt) return thread;
+      changed = true;
+      return { ...thread, peer_last_read_at: lastReadAt };
+    });
+    return changed ? next : prev;
+  });
+}
+
 export function threadCacheHasMessageId(
   queryClient: QueryClient,
   threadId: string,

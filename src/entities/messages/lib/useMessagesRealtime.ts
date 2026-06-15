@@ -7,6 +7,7 @@ import { recordMessagingInvalidate } from "@/shared/lib/messagingPerf";
 import { useRealtimeChannel } from "@/shared/realtime/useRealtimeChannel";
 import {
   appendThreadMessage,
+  patchInboxThreadPeerLastRead,
   patchThreadLastRead,
   removeThreadMessage,
   threadCacheHasMessageId,
@@ -175,6 +176,7 @@ export function useMessageThreadRealtime(threadId: string | undefined | null, us
           );
           if (!row?.user_id || !row.last_read_message_at) return;
           patchThreadLastRead(queryClient, tid, uid, row.user_id, row.last_read_message_at);
+          patchInboxThreadPeerLastRead(queryClient, uid, tid, row.user_id, uid, row.last_read_message_at);
         },
       )
       .on(

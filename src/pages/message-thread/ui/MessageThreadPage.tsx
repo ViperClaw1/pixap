@@ -57,8 +57,8 @@ import {
   COMPOSER_HEIGHT,
   COMPOSER_ICON_HIT_SLOP,
   COMPOSER_ICON_SIZE,
-  FOOTER_VERTICAL_PADDING,
   defaultMessageFooterHeight,
+  FOOTER_VERTICAL_PADDING,
   getCachedAndroidMessageFooterHeight,
   MESSAGE_THREAD_KEYBOARD_GAP,
   MESSAGE_THREAD_LIST_BOTTOM_GAP,
@@ -68,7 +68,7 @@ import { COMMENT_STICKERS } from "@/shared/constants/commentStickers";
 import { peerFullName } from "../model/format";
 import { resolvePeerPresenceStatus } from "../model/peerPresenceStatus";
 import { useMessageThreadListRows } from "../model/useMessageThreadListRows";
-import { useMessageThreadAndroidFooterSync } from "../model/useMessageThreadAndroidFooterSync";
+import { useMessageThreadAndroidFooterPadding } from "../model/useMessageThreadAndroidFooterPadding";
 import type { MessageThreadListRow } from "../model/types";
 import { useMessageThreadStyles } from "@/shared/theme/messageThreadStyles";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
@@ -118,14 +118,12 @@ export default function MessageThreadPage() {
   const stableBottomInset = stableBottomInsetRef.current;
   const listRef = useRef<FlashListRef<MessageThreadListRow>>(null);
   const composerInputRef = useRef<TextInput>(null);
-  const footerMeasureRef = useRef<View>(null);
   const voiceStopRef = useRef<(() => void) | null>(null);
   const isAtBottomRef = useRef(true);
   const scrollAfterSendRef = useRef(false);
   const canPersistScrollRef = useRef(false);
   const scrollFabVisible = useSharedValue(0);
   const [showScrollFab, setShowScrollFab] = useState(false);
-  const [footerMeasured, setFooterMeasured] = useState(false);
   const { colors, mode } = useAppTheme();
   const [draft, setDraft] = useState(params.initialDraft ?? "");
   const { handleListeningChange, handleTranscriptChange, bindStopOnManualEdit } =
@@ -180,7 +178,6 @@ export default function MessageThreadPage() {
     markMessagingPerfStart("thread_open");
     setEditingMessage(null);
     if (!threadId || !hasMessageThreadSessionVisit(threadId)) {
-      setFooterMeasured(false);
       canPersistScrollRef.current = false;
     } else {
       canPersistScrollRef.current = true;
@@ -301,10 +298,8 @@ export default function MessageThreadPage() {
   const isSessionRevisit = threadId ? hasMessageThreadSessionVisit(threadId) : false;
   const openAtBottom = useMemo(() => shouldOpenMessageThreadAtBottom(threadId), [threadId]);
   const isAndroid = Platform.OS === "android";
-  const listContentComposerInset = isAndroid
-    ? MESSAGE_THREAD_LIST_BOTTOM_GAP
-    : footerHeight + MESSAGE_THREAD_LIST_BOTTOM_GAP;
-  const androidContentFooterReserve = isAndroid ? footerHeight : 0;
+  const listContentComposerInset =
+    footerHeight + MESSAGE_THREAD_LIST_BOTTOM_GAP + (isAndroid ? FOOTER_VERTICAL_PADDING : 0);
 
   const handleListScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -368,12 +363,9 @@ export default function MessageThreadPage() {
     flushScrollAfterSend();
   }, [rows, flushScrollAfterSend]);
 
-  const awaitingInitialMessages =
+  const showLoadingSkeleton =
     !isSessionRevisit &&
     (isResolvingThread || (threadReady && isLoading && rows.length === 0));
-  const showLoadingSkeleton =
-    awaitingInitialMessages ||
-    (isAndroid ? !footerMeasured : !isSessionRevisit && !footerMeasured);
 
   useEffect(() => {
     if (!showLoadingSkeleton) {
@@ -461,8 +453,12 @@ export default function MessageThreadPage() {
     [stableBottomInset, tabBarHeight],
   );
   const keyboardInset = useKeyboardInset(keyboardInsetOptions);
-  const { footerDockStyle: androidFooterDockStyle, footerOffset: androidFooterOffset, requestFooterSync } =
-    useMessageThreadAndroidFooterSync(footerMeasureRef);
+  const {
+    footerAnimatedStyle: androidFooterAnimatedStyle,
+    paddingBottom: androidFooterPaddingBottom,
+    keyboardOpenRef: androidKeyboardOpenRef,
+    onComposerFocus: onAndroidComposerFocus,
+  } = useMessageThreadAndroidFooterPadding();
 
   const refocusComposerInput = useCallback(() => {
     composerInputRef.current?.focus();
@@ -517,22 +513,26 @@ export default function MessageThreadPage() {
 
   const handleFooterLayout = useCallback(
     (event: LayoutChangeEvent) => {
+      // Android pan + animated footer padding: ignore layout churn while the keyboard is open
+      // (list already reserves FOOTER_VERTICAL_PADDING for the open-state padding).
+      if (isAndroid && androidKeyboardOpenRef.current) {
+        return;
+      }
       const nextHeight = event.nativeEvent.layout.height;
       setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
       if (Platform.OS === "android") {
         setCachedAndroidMessageFooterHeight(nextHeight);
-        requestFooterSync();
       }
-      setFooterMeasured(true);
     },
-    [requestFooterSync],
+    [androidKeyboardOpenRef, isAndroid],
   );
 
+  // Android `pan` lifts the whole window — no extra list spacer (would double-shift content).
   const listKeyboardSpacerStyle = useAnimatedStyle(
     () => ({
-      height: isAndroid ? Math.max(0, -androidFooterOffset.value) : keyboardInset.value,
+      height: isAndroid ? 0 : keyboardInset.value,
     }),
-    [androidFooterOffset, isAndroid, keyboardInset],
+    [isAndroid, keyboardInset],
   );
 
   const scrollFabPositionStyle = useAnimatedStyle(
@@ -540,9 +540,11 @@ export default function MessageThreadPage() {
       bottom:
         12 +
         footerHeight +
-        (isAndroid ? Math.max(0, -androidFooterOffset.value) : keyboardInset.value),
+        (isAndroid
+          ? Math.max(0, androidFooterPaddingBottom.value - FOOTER_VERTICAL_PADDING)
+          : keyboardInset.value),
     }),
-    [androidFooterOffset, footerHeight, isAndroid, keyboardInset],
+    [androidFooterPaddingBottom, footerHeight, isAndroid, keyboardInset],
   );
 
   const listHeader = useCallback(
@@ -724,191 +726,194 @@ export default function MessageThreadPage() {
     ],
   );
 
+  const FooterShell = isAndroid ? Animated.View : View;
+
   const composerFooter = (
-    <View ref={footerMeasureRef} onLayout={handleFooterLayout}>
-      <View style={styles.footer}>
-        {peerIsTyping ? (
-          <View style={styles.typingRow} accessibilityLiveRegion="polite">
-            <Text style={styles.typingText}>{t("messages.thread.peerTyping")}</Text>
-          </View>
-        ) : null}
-        {editingMessage ? (
-          <View style={styles.editingBar}>
-            <Text style={styles.editingBarText}>Editing message</Text>
-            <AppPressable
-              accessibilityRole="button"
-              accessibilityLabel="Cancel editing"
-              hitSlop={8}
-              onPress={cancelEditingMessage}
-            >
-              <Ionicons name="close" size={18} color={colors.textMuted} />
-            </AppPressable>
-          </View>
-        ) : null}
-        {isStickerPanelOpen && !editingMessage ? (
-          <View style={styles.stickerPanel}>
-            {COMMENT_STICKERS.map((sticker) => (
-              <AppPressable
-                key={sticker.id}
-                style={styles.stickerChip}
-                accessibilityLabel={sticker.emoji}
-                onPress={() => appendStickerToDraft(sticker.emoji)}
-              >
-                <SmartImage uri={sticker.imageUrl} style={styles.stickerImage} contentFit="contain" />
-              </AppPressable>
-            ))}
-          </View>
-        ) : null}
-        {attachments.length && !editingMessage ? (
-          <View style={styles.attachmentStrip}>
-            {attachments.map((a) => {
-              const k = detectAttachmentKind(a.uri, a.mimeType);
-              return (
-                <View key={a.uri} style={styles.attachmentThumbWrap}>
-                  <AppPressable onPress={() => openAttachmentViewer(a.uri, a)}>
-                    {k === "image" ? (
-                      <SmartImage uri={a.uri} style={styles.attachmentThumb} contentFit="cover" />
-                    ) : (
-                      <View style={[styles.attachmentThumb, styles.attachmentThumbPlaceholder]}>
-                        <Ionicons
-                          name={k === "video" ? "videocam-outline" : "document-text-outline"}
-                          size={22}
-                          color={colors.textMuted}
-                        />
-                      </View>
-                    )}
-                  </AppPressable>
-                  <AppPressable
-                    style={styles.attachmentRemove}
-                    onPress={() => setAttachments((prev) => prev.filter((item) => item.uri !== a.uri))}
-                  >
-                    <Ionicons name="close" size={12} color={colors.textMuted} />
-                  </AppPressable>
-                </View>
-              );
-            })}
-          </View>
-        ) : null}
-        <View style={styles.composerRow}>
-          {!editingMessage ? (
-            <AppPressable
-              accessibilityHint="Long press to attach a file"
-              style={styles.composerIconBtn}
-              hitSlop={COMPOSER_ICON_HIT_SLOP}
-              onPress={handleAttachPress}
-              onLongPress={handleAttachLongPress}
-            >
-              <Ionicons name="attach" size={COMPOSER_ICON_SIZE} color={colors.textMuted} />
-            </AppPressable>
+    <View onLayout={handleFooterLayout}>
+      <FooterShell style={[styles.footer, isAndroid ? androidFooterAnimatedStyle : null]}>
+          {peerIsTyping ? (
+            <View style={styles.typingRow} accessibilityLiveRegion="polite">
+              <Text style={styles.typingText}>{t("messages.thread.peerTyping")}</Text>
+            </View>
           ) : null}
-          {!editingMessage ? (
-            <VoiceInputButton
-              disabled={!threadReady || sendMessage.isPending}
-              stopRef={voiceStopRef}
-              style={styles.composerIconBtn}
-              iconSize={COMPOSER_ICON_SIZE}
-              iconName="mic"
-              bare
-              onTranscriptChange={handleTranscriptChange}
-              onListeningChange={(listening) => {
-                if (listening) Keyboard.dismiss();
-                handleListeningChange(listening);
-              }}
-            />
-          ) : null}
-          <View style={editingMessage ? styles.composerInputShell : styles.inputWrap}>
-            <TextInput
-              ref={composerInputRef}
-              value={draft}
-              onChangeText={(value) => {
-                bindStopOnManualEdit(() => voiceStopRef.current?.());
-                setDraft(value);
-              }}
-              placeholder={editingMessage ? "Edit message..." : "Write a message..."}
-              placeholderTextColor={colors.textMuted}
-              style={[styles.input, editingMessage ? styles.inputEditing : null]}
-              editable={!editMessage.isPending}
-              multiline
-              textAlignVertical="center"
-              onFocus={() => {
-                bindStopOnManualEdit(() => voiceStopRef.current?.());
-              }}
-            />
-            {editingMessage ? (
+          {editingMessage ? (
+            <View style={styles.editingBar}>
+              <Text style={styles.editingBarText}>Editing message</Text>
               <AppPressable
                 accessibilityRole="button"
-                accessibilityLabel="Save edited message"
-                style={[
-                  styles.composerSaveBtn,
-                  (!draft.trim() || editMessage.isPending) && styles.composerSaveBtnDisabled,
-                ]}
-                disabled={!draft.trim() || editMessage.isPending}
-                onPress={saveEditedMessage}
+                accessibilityLabel="Cancel editing"
+                hitSlop={8}
+                onPress={cancelEditingMessage}
               >
-                {editMessage.isPending ? (
-                  <ActivityIndicator size="small" color={colors.onPrimary} />
-                ) : (
-                  <Ionicons name="checkmark" size={18} color={colors.onPrimary} />
-                )}
-              </AppPressable>
-            ) : null}
-          </View>
-          {!editingMessage ? (
-            <View style={styles.composerTrailingGroup}>
-              <AppPressable
-                style={styles.composerIconBtn}
-                hitSlop={COMPOSER_ICON_HIT_SLOP}
-                onPress={handleStickerPress}
-              >
-                <Ionicons name="happy" size={COMPOSER_ICON_SIZE} color={colors.textMuted} />
-              </AppPressable>
-              <AppPressable
-                style={styles.sendBtn}
-                hitSlop={COMPOSER_ICON_HIT_SLOP}
-                disabled={
-                  !threadReady || (!draft.trim().length && !attachments.length) || sendMessage.isPending
-                }
-                onPress={() => {
-                  if (!threadReady) return;
-                  stopTyping();
-                  Keyboard.dismiss();
-                  if (!isAtBottomRef.current) {
-                    scrollAfterSendRef.current = true;
-                  }
-                  void sendMessage
-                    .mutateAsync({
-                      threadId,
-                      content: draft,
-                      attachments: attachments.map((x) => ({
-                        uri: x.uri,
-                        mimeType: x.mimeType,
-                        name: x.name,
-                      })),
-                    })
-                    .then(() => {
-                      setDraft("");
-                      setAttachments([]);
-                      setStickerPanelOpen(false);
-                    })
-                    .catch(() => {
-                      scrollAfterSendRef.current = false;
-                    });
-                }}
-              >
-                {sendMessage.isPending ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Ionicons
-                    name="send"
-                    size={COMPOSER_ICON_SIZE}
-                    color={draft.trim().length || attachments.length ? colors.primary : colors.textMuted}
-                  />
-                )}
+                <Ionicons name="close" size={18} color={colors.textMuted} />
               </AppPressable>
             </View>
           ) : null}
-        </View>
-      </View>
+          {isStickerPanelOpen && !editingMessage ? (
+            <View style={styles.stickerPanel}>
+              {COMMENT_STICKERS.map((sticker) => (
+                <AppPressable
+                  key={sticker.id}
+                  style={styles.stickerChip}
+                  accessibilityLabel={sticker.emoji}
+                  onPress={() => appendStickerToDraft(sticker.emoji)}
+                >
+                  <SmartImage uri={sticker.imageUrl} style={styles.stickerImage} contentFit="contain" />
+                </AppPressable>
+              ))}
+            </View>
+          ) : null}
+          {attachments.length && !editingMessage ? (
+            <View style={styles.attachmentStrip}>
+              {attachments.map((a) => {
+                const k = detectAttachmentKind(a.uri, a.mimeType);
+                return (
+                  <View key={a.uri} style={styles.attachmentThumbWrap}>
+                    <AppPressable onPress={() => openAttachmentViewer(a.uri, a)}>
+                      {k === "image" ? (
+                        <SmartImage uri={a.uri} style={styles.attachmentThumb} contentFit="cover" />
+                      ) : (
+                        <View style={[styles.attachmentThumb, styles.attachmentThumbPlaceholder]}>
+                          <Ionicons
+                            name={k === "video" ? "videocam-outline" : "document-text-outline"}
+                            size={22}
+                            color={colors.textMuted}
+                          />
+                        </View>
+                      )}
+                    </AppPressable>
+                    <AppPressable
+                      style={styles.attachmentRemove}
+                      onPress={() => setAttachments((prev) => prev.filter((item) => item.uri !== a.uri))}
+                    >
+                      <Ionicons name="close" size={12} color={colors.textMuted} />
+                    </AppPressable>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+          <View style={styles.composerRow}>
+            {!editingMessage ? (
+              <AppPressable
+                accessibilityHint="Long press to attach a file"
+                style={styles.composerIconBtn}
+                hitSlop={COMPOSER_ICON_HIT_SLOP}
+                onPress={handleAttachPress}
+                onLongPress={handleAttachLongPress}
+              >
+                <Ionicons name="attach" size={COMPOSER_ICON_SIZE} color={colors.textMuted} />
+              </AppPressable>
+            ) : null}
+            {!editingMessage ? (
+              <VoiceInputButton
+                disabled={!threadReady || sendMessage.isPending}
+                stopRef={voiceStopRef}
+                style={styles.composerIconBtn}
+                iconSize={COMPOSER_ICON_SIZE}
+                iconName="mic"
+                bare
+                onTranscriptChange={handleTranscriptChange}
+                onListeningChange={(listening) => {
+                  if (listening) Keyboard.dismiss();
+                  handleListeningChange(listening);
+                }}
+              />
+            ) : null}
+            <View style={editingMessage ? styles.composerInputShell : styles.inputWrap}>
+              <TextInput
+                ref={composerInputRef}
+                value={draft}
+                onChangeText={(value) => {
+                  bindStopOnManualEdit(() => voiceStopRef.current?.());
+                  setDraft(value);
+                }}
+                placeholder={editingMessage ? "Edit message..." : "Write a message..."}
+                placeholderTextColor={colors.textMuted}
+                style={[styles.input, editingMessage ? styles.inputEditing : null]}
+                editable={!editMessage.isPending}
+                multiline
+                textAlignVertical="center"
+                onFocus={() => {
+                  bindStopOnManualEdit(() => voiceStopRef.current?.());
+                  if (isAndroid) onAndroidComposerFocus();
+                }}
+              />
+              {editingMessage ? (
+                <AppPressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Save edited message"
+                  style={[
+                    styles.composerSaveBtn,
+                    (!draft.trim() || editMessage.isPending) && styles.composerSaveBtnDisabled,
+                  ]}
+                  disabled={!draft.trim() || editMessage.isPending}
+                  onPress={saveEditedMessage}
+                >
+                  {editMessage.isPending ? (
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  ) : (
+                    <Ionicons name="checkmark" size={18} color={colors.onPrimary} />
+                  )}
+                </AppPressable>
+              ) : null}
+            </View>
+            {!editingMessage ? (
+              <View style={styles.composerTrailingGroup}>
+                <AppPressable
+                  style={styles.composerIconBtn}
+                  hitSlop={COMPOSER_ICON_HIT_SLOP}
+                  onPress={handleStickerPress}
+                >
+                  <Ionicons name="happy" size={COMPOSER_ICON_SIZE} color={colors.textMuted} />
+                </AppPressable>
+                <AppPressable
+                  style={styles.sendBtn}
+                  hitSlop={COMPOSER_ICON_HIT_SLOP}
+                  disabled={
+                    !threadReady || (!draft.trim().length && !attachments.length) || sendMessage.isPending
+                  }
+                  onPress={() => {
+                    if (!threadReady) return;
+                    stopTyping();
+                    Keyboard.dismiss();
+                    if (!isAtBottomRef.current) {
+                      scrollAfterSendRef.current = true;
+                    }
+                    void sendMessage
+                      .mutateAsync({
+                        threadId,
+                        content: draft,
+                        attachments: attachments.map((x) => ({
+                          uri: x.uri,
+                          mimeType: x.mimeType,
+                          name: x.name,
+                        })),
+                      })
+                      .then(() => {
+                        setDraft("");
+                        setAttachments([]);
+                        setStickerPanelOpen(false);
+                      })
+                      .catch(() => {
+                        scrollAfterSendRef.current = false;
+                      });
+                  }}
+                >
+                  {sendMessage.isPending ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Ionicons
+                      name="send"
+                      size={COMPOSER_ICON_SIZE}
+                      color={draft.trim().length || attachments.length ? colors.primary : colors.textMuted}
+                    />
+                  )}
+                </AppPressable>
+              </View>
+            ) : null}
+          </View>
+      </FooterShell>
     </View>
   );
 
@@ -926,13 +931,7 @@ export default function MessageThreadPage() {
         onBack={leaveThread}
       />
 
-      <View
-        style={[
-          styles.content,
-          styles.contentBelowHeader,
-          androidContentFooterReserve > 0 ? { paddingBottom: androidContentFooterReserve } : null,
-        ]}
-      >
+      <View style={[styles.content, styles.contentBelowHeader]}>
         {showLoadingSkeleton ? (
           <MessageThreadSkeleton
             styles={styles}
@@ -968,8 +967,10 @@ export default function MessageThreadPage() {
               ListHeaderComponent={listHeader}
               ListFooterComponent={listFooter}
               ListEmptyComponent={
-                <View style={styles.emptyWrap}>
-                  <Text style={styles.emptyText}>No messages yet.</Text>
+                <View style={styles.invertedListItem}>
+                  <View style={styles.emptyWrap}>
+                    <Text style={styles.emptyText}>No messages yet.</Text>
+                  </View>
                 </View>
               }
             />
@@ -993,9 +994,7 @@ export default function MessageThreadPage() {
       {Platform.OS === "ios" ? (
         <KeyboardStickyView {...keyboardInsetOptions}>{composerFooter}</KeyboardStickyView>
       ) : (
-        <Animated.View style={[styles.androidFooterDock, androidFooterDockStyle]}>
-          {composerFooter}
-        </Animated.View>
+        <View style={styles.androidFooterDock}>{composerFooter}</View>
       )}
 
       <AttachmentViewerModal

@@ -411,39 +411,65 @@ export default function MessagesPage() {
             ) : null}
             {item.key === "section-chats" && showSectionsSkeleton ? (
               <ShimmerProvider active>
-                <View style={styles.skeletonWrap}>
-                  {SKELETON_IDS.map((id) => (
-                    <View key={`inbox-skeleton-${id}`} style={styles.skeletonCard}>
-                      <ShimmerSurface width={48} height={48} borderRadius={24} />
-                      <View style={styles.skeletonMain}>
-                        <ShimmerSurface width={160} height={12} borderRadius={10} />
-                        <ShimmerSurface width={110} height={10} borderRadius={10} />
-                      </View>
+                {SKELETON_IDS.map((id) => (
+                  <View key={`inbox-skeleton-${id}`} style={[styles.card, isCompact ? styles.cardCompact : null]}>
+                    <ShimmerSurface
+                      width={isCompact ? 40 : 48}
+                      height={isCompact ? 40 : 48}
+                      borderRadius={isCompact ? 20 : 24}
+                    />
+                    <View style={styles.cardMain}>
+                      <ShimmerSurface width={isCompact ? 132 : 160} height={15} borderRadius={8} />
+                      <ShimmerSurface
+                        width={isCompact ? 96 : 112}
+                        height={13}
+                        borderRadius={8}
+                        style={styles.skeletonSubtitleLine}
+                      />
                     </View>
-                  ))}
-                </View>
+                    <View style={styles.threadActionsWrap}>
+                      <ShimmerSurface width={36} height={12} borderRadius={6} />
+                      <ShimmerSurface width={16} height={16} borderRadius={8} />
+                    </View>
+                  </View>
+                ))}
               </ShimmerProvider>
             ) : null}
             {item.key === "section-people" && showSectionsSkeleton ? (
               <ShimmerProvider active>
-                <View style={styles.skeletonWrap}>
-                  {SKELETON_IDS.map((id) => (
-                    <View
-                      key={`people-skeleton-${id}`}
-                      style={[styles.skeletonCard, isCompact ? styles.skeletonCardCompact : null]}
-                    >
+                {SKELETON_IDS.map((id) => (
+                  <View
+                    key={`people-skeleton-${id}`}
+                    style={[styles.card, isCompact ? styles.cardCompact : null]}
+                  >
+                    <ShimmerSurface
+                      width={isCompact ? 40 : 48}
+                      height={isCompact ? 40 : 48}
+                      borderRadius={isCompact ? 20 : 24}
+                    />
+                    <View style={styles.cardMain}>
+                      <ShimmerSurface width={isCompact ? 132 : 160} height={15} borderRadius={8} />
                       <ShimmerSurface
-                        width={isCompact ? 40 : 48}
-                        height={isCompact ? 40 : 48}
-                        borderRadius={isCompact ? 20 : 24}
+                        width={isCompact ? 88 : 104}
+                        height={12}
+                        borderRadius={8}
+                        style={styles.skeletonUsernameLine}
                       />
-                      <View style={styles.skeletonMain}>
-                        <ShimmerSurface width={160} height={12} borderRadius={10} />
-                        <ShimmerSurface width={110} height={10} borderRadius={10} />
-                      </View>
                     </View>
-                  ))}
-                </View>
+                    <View style={[styles.actionsWrap, isCompact ? styles.actionsWrapCompact : null]}>
+                      <ShimmerSurface
+                        width={isCompact ? 36 : 44}
+                        height={isCompact ? 36 : 44}
+                        borderRadius={isCompact ? 18 : 22}
+                      />
+                      <ShimmerSurface
+                        width={isCompact ? 36 : 44}
+                        height={isCompact ? 36 : 44}
+                        borderRadius={isCompact ? 18 : 22}
+                      />
+                    </View>
+                  </View>
+                ))}
               </ShimmerProvider>
             ) : null}
             {item.key === "section-people" && !sectionsPending && !people.length ? (
@@ -457,6 +483,7 @@ export default function MessagesPage() {
         return (
           <MessagesThreadRow
             thread={item.thread}
+            viewerId={user?.id ?? ""}
             styles={styles}
             colors={colors}
             isCompact={isCompact}
@@ -511,6 +538,7 @@ export default function MessagesPage() {
       t,
       typingThreadIds,
       unknownLabel,
+      user?.id,
       visibleThreads.length,
     ],
   );

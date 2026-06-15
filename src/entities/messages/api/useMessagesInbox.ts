@@ -21,6 +21,7 @@ type InboxSummaryRow = {
   is_support: boolean;
   support_user_id: string | null;
   participants: unknown;
+  peer_last_read_at?: string | null;
 };
 
 function fullName(profile?: Partial<MessageParticipantProfile> | null) {
@@ -124,6 +125,7 @@ export function useMessagesInbox(search: string) {
           last_sender_name: resolveLastSenderName(row, participants, viewerIsSupportStaff, viewerId),
           last_sender_avatar_url: lastSenderProfile?.avatar_url ?? null,
           unread_count: Number(row.unread_count) || 0,
+          peer_last_read_at: row.peer_last_read_at ?? null,
           participants,
           is_support: row.is_support,
           support_user_id: row.support_user_id,

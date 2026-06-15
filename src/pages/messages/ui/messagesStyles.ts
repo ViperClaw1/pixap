@@ -110,6 +110,14 @@ export const messagesStaticStyles = StyleSheet.create({
           lineHeight: 16,
         },
 
+        skeletonSubtitleLine: {
+          marginTop: 4,
+        },
+
+        skeletonUsernameLine: {
+          marginTop: 2,
+        },
+
         subtitleTyping: {
           fontStyle: "italic",
         },

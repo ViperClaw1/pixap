@@ -13,6 +13,7 @@ type MessagesStyles = ReturnType<typeof useMessagesStyles>;
 
 type Props = {
   thread: MessageThreadItem;
+  viewerId: string;
   styles: MessagesStyles;
   colors: ThemeColors;
   isCompact: boolean;
@@ -31,6 +32,7 @@ type ThreadRowContentProps = Omit<Props, "onDelete" | "onSwipeableOpen" | "onSwi
 
 function ThreadRowContent({
   thread,
+  viewerId,
   styles,
   colors,
   isCompact,
@@ -40,6 +42,12 @@ function ThreadRowContent({
   onPressIn,
   onLongPress,
 }: ThreadRowContentProps) {
+  const isLastMessageMine = thread.last_sender_id === viewerId;
+  const isReadByPeer =
+    isLastMessageMine &&
+    !!thread.peer_last_read_at &&
+    new Date(thread.last_message_at).getTime() <= new Date(thread.peer_last_read_at).getTime();
+
   return (
     <AppPressable
       style={[styles.card, isCompact ? styles.cardCompact : null]}
@@ -70,11 +78,13 @@ function ThreadRowContent({
       <View style={styles.threadActionsWrap}>
         <Text style={styles.time}>{formatRelativeTime(thread.last_message_at, { style: "compact" })}</Text>
         <View style={styles.threadReadIndicator}>
-          <Ionicons
-            name={thread.unread_count > 0 ? "checkmark" : "checkmark-done"}
-            size={16}
-            color={thread.unread_count > 0 ? colors.textMuted : colors.primary}
-          />
+          {isLastMessageMine ? (
+            <Ionicons
+              name={isReadByPeer ? "checkmark-done" : "checkmark"}
+              size={16}
+              color={isReadByPeer ? colors.primary : colors.textMuted}
+            />
+          ) : null}
         </View>
       </View>
     </AppPressable>

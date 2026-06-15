@@ -15,6 +15,8 @@ export interface MessageThreadItem {
   last_sender_name: string;
   last_sender_avatar_url: string | null;
   unread_count: number;
+  /** Latest `last_read_message_at` among participants other than the viewer. */
+  peer_last_read_at?: string | null;
   participants: MessageParticipantProfile[];
   is_support?: boolean;
   /** End-user owner for `kind = support` threads (from inbox RPC). */

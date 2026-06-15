@@ -1,4 +1,4 @@
-import { CommonActions, type NavigationProp, type ParamListBase } from "@react-navigation/native";
+import { CommonActions, StackActions, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import type { MutableRefObject } from "react";
 import type {
   MessageThreadRouteParams,
@@ -205,15 +205,8 @@ export function navigateToCartMain(nav: NavigationProp<ParamListBase>) {
 export function resetCartStackToMain(nav: NavigationProp<ParamListBase>) {
   const cartStackNav = findCartStackNavigator(nav);
   if (cartStackNav) {
-    const stackState = cartStackNav.getState();
-    const atInbox = stackState.routes.length === 1 && stackState.routes[0]?.name === "CartMain";
-    if (!atInbox) {
-      cartStackNav.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: "CartMain" }],
-        }),
-      );
+    if (cartStackNav.getState().index > 0) {
+      cartStackNav.dispatch(StackActions.popToTop());
     }
     return;
   }
@@ -221,6 +214,23 @@ export function resetCartStackToMain(nav: NavigationProp<ParamListBase>) {
   const tabNav = findTabNavigator(nav);
   if (!tabNav) return;
   resetNestedTabStack(tabNav, "Cart", "CartMain");
+}
+
+/** Prevent default tab `POP_TO_TOP` when Cart is already focused and stack is nested. */
+export function handleCartTabPress(
+  e: { preventDefault: () => void },
+  nav: NavigationProp<ParamListBase>,
+) {
+  const tabNav = findTabNavigator(nav);
+  if (!tabNav || tabNav.getState().routes[tabNav.getState().index]?.name !== "Cart") {
+    return;
+  }
+  const cartStackNav = findCartStackNavigator(nav);
+  if (!cartStackNav || cartStackNav.getState().index <= 0) {
+    return;
+  }
+  e.preventDefault();
+  cartStackNav.dispatch(StackActions.popToTop());
 }
 
 /** Cross-tab back from MessageThread opened on Feed PublicProfile. */
