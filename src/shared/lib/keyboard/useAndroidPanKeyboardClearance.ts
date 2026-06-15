@@ -7,6 +7,8 @@ import { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withTiming }
 export const ANDROID_PAN_KEYBOARD_CLEARANCE = 22;
 
 const ANDROID_KEYBOARD_ANIM_MS = 280;
+/** Pan resize below this is treated as keyboard closed (status bar / minor layout noise). */
+const ANDROID_PAN_KEYBOARD_SHRINK_THRESHOLD_PX = 48;
 
 type MeasurableView = Pick<View, "measureInWindow">;
 
@@ -109,15 +111,31 @@ export function useAndroidPanKeyboardClearance(
     if (Platform.OS !== "android") return;
 
     if (instantOnFocus) {
+      let fullWindowHeight = Dimensions.get("window").height;
+
+      const dimSub = Dimensions.addEventListener("change", ({ window }) => {
+        if (!isActiveRef.current) return;
+        const shrunkBy = fullWindowHeight - window.height;
+        if (shrunkBy > ANDROID_PAN_KEYBOARD_SHRINK_THRESHOLD_PX) {
+          applyInstantClearance();
+        } else {
+          fullWindowHeight = window.height;
+        }
+      });
+
+      const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+        resetInstantClearance();
+        fullWindowHeight = Dimensions.get("window").height;
+      });
+
       const showSub = Keyboard.addListener("keyboardDidShow", () => {
         applyInstantClearance();
       });
-      const hideSub = Keyboard.addListener("keyboardDidHide", () => {
-        resetInstantClearance();
-      });
+
       return () => {
-        showSub.remove();
+        dimSub.remove();
         hideSub.remove();
+        showSub.remove();
       };
     }
 

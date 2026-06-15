@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
-  Keyboard,
   Modal,
   Platform,
   StyleSheet,
@@ -464,6 +463,10 @@ export default function MessageThreadPage() {
     composerInputRef.current?.focus();
   }, []);
 
+  const blurComposerInput = useCallback(() => {
+    composerInputRef.current?.blur();
+  }, []);
+
   const cancelEditingMessage = useCallback(() => {
     setEditingMessage(null);
     setDraft("");
@@ -562,7 +565,7 @@ export default function MessageThreadPage() {
   }, []);
 
   const pickMedia = async () => {
-    Keyboard.dismiss();
+    blurComposerInput();
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert("Permission required", "Allow photo access to add attachments.");
@@ -588,7 +591,7 @@ export default function MessageThreadPage() {
   };
 
   const pickDocument = async () => {
-    Keyboard.dismiss();
+    blurComposerInput();
     const result = await DocumentPicker.getDocumentAsync({
       copyToCacheDirectory: true,
       multiple: true,
@@ -800,7 +803,7 @@ export default function MessageThreadPage() {
                 bare
                 onTranscriptChange={handleTranscriptChange}
                 onListeningChange={(listening) => {
-                  if (listening) Keyboard.dismiss();
+                  if (listening) blurComposerInput();
                   handleListeningChange(listening);
                 }}
               />
@@ -864,7 +867,7 @@ export default function MessageThreadPage() {
                   onPress={() => {
                     if (!threadReady) return;
                     stopTyping();
-                    Keyboard.dismiss();
+                    blurComposerInput();
                     if (!isAtBottomRef.current) {
                       scrollAfterSendRef.current = true;
                     }
