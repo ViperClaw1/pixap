@@ -50,12 +50,12 @@ export function bookingDetailThemeStyles(colors: ThemeColors) {
   return {
     section: { backgroundColor: colors.card, borderColor: colors.border },
     venueName: { color: colors.text },
-    meta: { color: colors.textSecondary },
+    meta: { color: colors.textMuted },
     price: { color: colors.text },
     secondaryBtn: { borderColor: colors.border, backgroundColor: colors.card },
     secondaryBtnText: { color: colors.text },
     linkBtnText: { color: colors.primary },
-    emptyText: { color: colors.textSecondary },
+    emptyText: { color: colors.textMuted },
     primaryBtn: { backgroundColor: colors.primary },
   };
 }

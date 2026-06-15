@@ -7,6 +7,11 @@ export const editProfileStaticStyles = StyleSheet.create({
   root: { flex: 1 },
   content: { paddingTop: 12, paddingBottom: 36, paddingHorizontal: 12 },
   avatarBlock: { alignItems: "center", marginBottom: 12 },
+  avatarEmail: {
+    marginTop: 10,
+    fontSize: 14,
+    textAlign: "center",
+  },
   avatarFrame: {
     position: "relative",
     width: 96,
@@ -32,7 +37,6 @@ export const editProfileStaticStyles = StyleSheet.create({
     marginTop: 6,
     fontSize: 14,
   },
-  disabledInput: {},
   inputError: {},
   errorText: { marginTop: 6, fontSize: 12 },
   phoneInputWrap: { marginTop: 6 },
@@ -61,12 +65,12 @@ export function editProfileThemeStyles(colors: ThemeColors, _mode: ThemeMode) {
       borderColor: colors.border,
     },
     label: { color: colors.textMuted },
+    avatarEmail: { color: colors.textMuted },
     input: {
       borderColor: colors.border,
       color: colors.text,
       backgroundColor: colors.card,
     },
-    disabledInput: { backgroundColor: colors.surface, color: colors.textMuted },
     inputError: { borderColor: colors.danger },
     errorText: { color: colors.danger },
     phonePlaceholder: {
