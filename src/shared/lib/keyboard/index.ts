@@ -16,3 +16,4 @@ export {
   useAndroidPanKeyboardClearance,
   ANDROID_PAN_KEYBOARD_CLEARANCE,
 } from "./useAndroidPanKeyboardClearance";
+export { useScrollToFocusedInput } from "./useScrollToFocusedInput";

@@ -321,6 +321,8 @@
     "bookingTimeWindowHint": "Available hours: 00:00–01:00 and 06:00–23:30.",
     "selectedBookingTime": "Selected: {{time}}",
     "selectedTimeUnavailable": "This time is not available. Choose another.",
+    "selectedTimeInPast": "Chosen time must be later than the current time.",
+    "selectedTimeSlotTaken": "This time slot is already taken. Choose another.",
     "selectCity": "Select city",
     "chooseCity": "Choose city",
     "chooseCityMessage": "Select your city before searching.",
