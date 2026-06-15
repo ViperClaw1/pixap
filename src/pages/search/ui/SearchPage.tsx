@@ -117,7 +117,7 @@ export default function SearchScreen() {
   const { selectedCity, profileCityFilter, selectCity } = useProfileCityPicker();
   const { data: places = [], isLoading } = useBusinessCards(undefined, selectedCity);
   const [q, setQ] = useState("");
-  const [activeFilters, setActiveFilters] = useState<Set<SearchQuickFilterId>>(() => new Set());
+  const [activeFilter, setActiveFilter] = useState<SearchQuickFilterId>("all");
   const [inputFocused, setInputFocused] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const saveRecentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,20 +135,15 @@ export default function SearchScreen() {
             p.tags.some((tag) => tag.toLowerCase().includes(s)) ||
             (p.description ?? "").toLowerCase().includes(s),
         );
-    return applySearchQuickFilters(textFiltered, activeFilters);
-  }, [places, q, activeFilters]);
+    return applySearchQuickFilters(textFiltered, activeFilter);
+  }, [places, q, activeFilter]);
 
   useEffect(() => {
     setVisibleCount(PLACE_LIST_BATCH_SIZE);
-  }, [places, profileCityFilter, activeFilters]);
+  }, [places, profileCityFilter, activeFilter]);
 
-  const toggleQuickFilter = useCallback((id: SearchQuickFilterId) => {
-    setActiveFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const selectQuickFilter = useCallback((id: SearchQuickFilterId) => {
+    setActiveFilter(id);
     setVisibleCount(PLACE_LIST_BATCH_SIZE);
   }, []);
 
@@ -157,7 +152,7 @@ export default function SearchScreen() {
     [filtered, visibleCount],
   );
   const canShowMore = visibleCount < filtered.length;
-  const showEmptyState = !isLoading && filtered.length === 0 && (q.trim().length > 0 || activeFilters.size > 0);
+  const showEmptyState = !isLoading && filtered.length === 0 && (q.trim().length > 0 || activeFilter !== "all");
 
   const themed = useThemeStyles(({ colors: c, isDark: dark }) => searchThemeStyles(c, dark));
   const styles = useMemo(() => mergeStaticAndThemed(searchStaticStyles, themed), [themed]);
@@ -262,7 +257,7 @@ export default function SearchScreen() {
         ) : null}
       </View>
 
-      <SearchQuickFilterPills activeFilters={activeFilters} onToggle={toggleQuickFilter} />
+      <SearchQuickFilterPills activeFilter={activeFilter} onSelect={selectQuickFilter} />
 
       {inputFocused && recentSearches.length > 0 && q.trim().length === 0 ? (
         <View style={{ marginBottom: 10, gap: 6 }}>
