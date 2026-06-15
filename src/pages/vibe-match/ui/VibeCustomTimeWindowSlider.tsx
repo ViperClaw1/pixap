@@ -204,7 +204,6 @@ export function VibeCustomTimeWindowSlider({
   const makeThumbGesture = useCallback(
     (thumb: "start" | "end") =>
       Gesture.Pan()
-        .activeOffsetX([-8, 8])
         .onBegin(() => {
           runOnJS(beginThumbPan)(thumb);
         })
