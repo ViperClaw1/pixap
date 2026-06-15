@@ -3,9 +3,11 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 type Req = { business_id: string; date?: string };
 
-const BOOKING_SLOT_START_MINUTES = 0;
-const BOOKING_SLOT_END_MINUTES = 23 * 60 + 30;
-const BOOKING_SLOT_STEP_MINUTES = 30;
+const BOOKING_TIME_WINDOWS = [
+  { startMinutes: 0, endMinutes: 60 },
+  { startMinutes: 6 * 60, endMinutes: 23 * 60 + 30 },
+] as const;
+const BOOKING_SLOT_STEP_MINUTES = 5;
 const BOOKING_MIN_LEAD_MS = 30 * 60_000;
 
 function formatSlotLabel(totalMinutes: number): string {
@@ -16,12 +18,14 @@ function formatSlotLabel(totalMinutes: number): string {
 
 function buildSlotTimeLabels(): string[] {
   const labels: string[] = [];
-  for (
-    let totalMinutes = BOOKING_SLOT_START_MINUTES;
-    totalMinutes <= BOOKING_SLOT_END_MINUTES;
-    totalMinutes += BOOKING_SLOT_STEP_MINUTES
-  ) {
-    labels.push(formatSlotLabel(totalMinutes));
+  for (const window of BOOKING_TIME_WINDOWS) {
+    for (
+      let totalMinutes = window.startMinutes;
+      totalMinutes <= window.endMinutes;
+      totalMinutes += BOOKING_SLOT_STEP_MINUTES
+    ) {
+      labels.push(formatSlotLabel(totalMinutes));
+    }
   }
   return labels;
 }

@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useCartItems, useCreateCartItem, useStartN8nWaBooking } from "@/entities/cart";
 import { useCreateBooking } from "@/entities/booking";
-import { useAvailableSlots } from "@/entities/booking";
+import { useAvailableSlots, findBookingSlotForTime, minutesFromDate } from "@/entities/booking";
 import {
   usePixAI,
   type PixAIFlowPayload,
@@ -55,6 +55,7 @@ import { useProfile } from "@/entities/user";
 import {
   BookingProfileCompleteTip,
   showGuestFormValidationPopup,
+  showMissingAvailableSlotPopup,
   showMissingBookingDatePopup,
   showMissingBookingSlotPopup,
   type GuestFormFieldError,
@@ -329,7 +330,7 @@ function AIBookingPageContent() {
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<PixAIPlace | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<PixAISlot | null>(null);
+  const [selectedBookingTime, setSelectedBookingTime] = useState<Date | null>(null);
   const [bookingDateYmd, setBookingDateYmd] = useState<string | null>(null);
   const [visibleCalendarMonth, setVisibleCalendarMonth] = useState<Date>(() => firstOfMonthContaining(new Date()));
   const [cityPickerVisible, setCityPickerVisible] = useState(false);
@@ -550,7 +551,7 @@ function AIBookingPageContent() {
     Alert.alert(t("aiBooking.listUpdatedTitle"), t("aiBooking.listUpdatedMessage"));
     setSelectedPlace(null);
     setBookingDateYmd(null);
-    setSelectedSlot(null);
+    setSelectedBookingTime(null);
     goToAssistantStep();
   }, [effectivePlaces, goToAssistantStep, placeOptions.length, selectedPlace, t]);
 
@@ -570,6 +571,19 @@ function AIBookingPageContent() {
     }
     return s;
   }, [cartItems, selectedPlace]);
+
+  useEffect(() => {
+    setSelectedBookingTime(null);
+  }, [bookingDateYmd]);
+
+  const selectedSlot = useMemo((): PixAISlot | null => {
+    if (!selectedBookingTime || !bookingDateYmd) return null;
+    const slot = findBookingSlotForTime(slotsForDate, minutesFromDate(selectedBookingTime));
+    if (!slot) return null;
+    const inCart = cartReservedSlotTimes.has(new Date(slot.dateTimeIso).getTime());
+    if (inCart) return { ...slot, available: false };
+    return slot;
+  }, [selectedBookingTime, bookingDateYmd, slotsForDate, cartReservedSlotTimes]);
 
   const todayYmd = toYmd(startOfLocalDay(new Date()));
   const earliestBookableMonth = firstOfMonthContaining(new Date());
@@ -810,7 +824,7 @@ function AIBookingPageContent() {
     setIsSearchingPlaces(true);
     resetFlowSearchTranscript();
     setSelectedPlace(null);
-    setSelectedSlot(null);
+    setSelectedBookingTime(null);
     setBookingDateYmd(null);
 
     let coords = locationCoords;
@@ -888,7 +902,7 @@ function AIBookingPageContent() {
       setBookingPlaceId(place.id);
       setSelectedPlace(place);
       setBookingDateYmd(null);
-      setSelectedSlot(null);
+      setSelectedBookingTime(null);
       setVisibleCalendarMonth(firstOfMonthContaining(new Date()));
       requestAnimationFrame(() => {
         goToBookingStep();
@@ -942,7 +956,7 @@ function AIBookingPageContent() {
       const tab = useBookingChatStore.getState().tabs.find((t) => t.id === tabId);
       if (tab?.searchSnapshot) applySearchSnapshot(tab.searchSnapshot);
       setSelectedPlace(null);
-      setSelectedSlot(null);
+      setSelectedBookingTime(null);
       setBookingDateYmd(null);
       goToAssistantStep();
     },
@@ -957,7 +971,7 @@ function AIBookingPageContent() {
     setRequestComment("");
     setHasSearched(false);
     setSelectedPlace(null);
-    setSelectedSlot(null);
+    setSelectedBookingTime(null);
     setBookingDateYmd(null);
     setLocationCoords(null);
     resetFlowSearchTranscript();
@@ -1010,6 +1024,10 @@ function AIBookingPageContent() {
     }
     if (!selectedSlot) {
       showMissingBookingSlotPopup(t);
+      return;
+    }
+    if (!selectedSlot.available) {
+      showMissingAvailableSlotPopup(t);
       return;
     }
     const formError = getGuestFormError();
@@ -1243,13 +1261,13 @@ function AIBookingPageContent() {
               todayYmd={todayYmd}
               bookingDateYmd={bookingDateYmd}
               setBookingDateYmd={setBookingDateYmd}
-              setSelectedSlot={setSelectedSlot}
+              selectedBookingTime={selectedBookingTime}
+              onSelectedBookingTimeChange={setSelectedBookingTime}
               slotsForDate={slotsForDate}
               slotsFetching={slotsFetching}
               slotsError={slotsError}
               refetchSlots={refetchSlots}
               cartReservedSlotTimes={cartReservedSlotTimes}
-              selectedSlot={selectedSlot}
             />
           </>
         ) : null}
