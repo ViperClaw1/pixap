@@ -5,12 +5,12 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
   ActivityIndicator,
   Alert,
   PixelRatio,
   InteractionManager,
 } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useKeyboardInset } from "@/shared/lib/keyboard";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
@@ -103,7 +103,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { VibeMoodCards } from "./VibeMoodCards";
 import { VibeTimelineSelector } from "./VibeTimelineSelector";
 import { VibeCustomTimeWindowSlider } from "./VibeCustomTimeWindowSlider";
-import { inferSearchTimelineFromSelection, buildVibeTimeWindowContext, type VibeAppliedTimeSelection, type VibeTimeSelectionMode } from "../lib/vibeTimeSelection";
+import { inferSearchTimelineFromSelection, buildVibeTimeWindowContext, type VibeAppliedTimeSelection, type VibeCustomTimeWindow, type VibeTimeSelectionMode } from "../lib/vibeTimeSelection";
+import { createCustomTimeWindowAxis } from "../lib/customTimeWindowAxis";
 import { ctaGradientColors } from "@/shared/theme/gradients";
 import { devWarn } from "@/shared/lib/devLog";
 import Toast from "react-native-toast-message";
@@ -247,7 +248,10 @@ function VibeMatchPageContent() {
   const [mood, setMood] = useState("");
   const [timeline, setTimeline] = useState<PixAIVibeTimeline>("evening");
   const [timeSelectionMode, setTimeSelectionMode] = useState<VibeTimeSelectionMode>("preset");
-  const [customTimeWindow, setCustomTimeWindow] = useState(DEFAULT_CUSTOM_WINDOW);
+  const [customTimeWindow, setCustomTimeWindow] = useState(() =>
+    createCustomTimeWindowAxis().normalizeCustomTimeWindow(DEFAULT_CUSTOM_WINDOW),
+  );
+  const [customWindowDragActive, setCustomWindowDragActive] = useState(false);
   const [appliedTimeSelection, setAppliedTimeSelection] = useState<VibeAppliedTimeSelection | null>(null);
   const [city, setCity] = useState("");
   const [cityPickerVisible, setCityPickerVisible] = useState(false);
@@ -581,6 +585,16 @@ function VibeMatchPageContent() {
   );
   const styles = useMemo(() => mergeStaticAndThemed(vibeMatchStaticStyles, themed), [themed]);
 
+  const handleCustomWindowChange = useCallback((nextWindow: VibeCustomTimeWindow) => {
+    setTimeSelectionMode("custom");
+    setCustomTimeWindow(nextWindow);
+  }, []);
+
+  const handleTimelineChange = useCallback((nextTimeline: PixAIVibeTimeline) => {
+    setTimeSelectionMode("preset");
+    setTimeline(nextTimeline);
+  }, []);
+
   const toggleMood = useCallback((id: string) => {
     setSelectedMoods((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }, []);
@@ -815,6 +829,7 @@ function VibeMatchPageContent() {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
+        scrollEnabled={!customWindowDragActive}
         onScroll={(event) => {
           scrollYRef.current = event.nativeEvent.contentOffset.y;
         }}
@@ -860,10 +875,7 @@ function VibeMatchPageContent() {
           <VibeTimelineSelector
             value={timeline}
             disabled={timeSelectionMode === "custom"}
-            onChange={(nextTimeline) => {
-              setTimeSelectionMode("preset");
-              setTimeline(nextTimeline);
-            }}
+            onChange={handleTimelineChange}
           />
           <Text style={[styles.timelineOrLabel, { color: colors.textMuted }]}>{t("vibeMatch.timelineOr")}</Text>
           <Text style={[styles.customWindowLabel, { color: colors.textMuted }]}>
@@ -872,10 +884,8 @@ function VibeMatchPageContent() {
           <VibeCustomTimeWindowSlider
             value={customTimeWindow}
             disabled={timeSelectionMode === "preset"}
-            onChange={(nextWindow) => {
-              setTimeSelectionMode("custom");
-              setCustomTimeWindow(nextWindow);
-            }}
+            onChange={handleCustomWindowChange}
+            onDragActiveChange={setCustomWindowDragActive}
           />
           <AppPressable
             onPress={() => void onGenerate()}

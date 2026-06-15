@@ -388,9 +388,9 @@ export default function MessageThreadPage() {
   const keyExtractor = useCallback((row: MessageThreadListRow) => row.key, []);
   const getItemType = useCallback((row: MessageThreadListRow) => row.kind, []);
 
-  const dismissDeleteMessagePopup = useCallback(() => {
+  const dismissDeleteMessagePopup = () => {
     setDeleteMessageTargetId(null);
-  }, []);
+  };
 
   const runDeleteMessage = useCallback(
     (messageId: string, mode: "me" | "everyone") => {
@@ -514,13 +514,13 @@ export default function MessageThreadPage() {
       });
   }, [cancelEditingMessage, draft, editMessage, editingMessage, stopTyping, threadId, threadReady]);
 
-  const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
+  const handleFooterLayout = (event: LayoutChangeEvent) => {
     const nextHeight = event.nativeEvent.layout.height;
     setFooterHeight((prev) => (prev === nextHeight ? prev : nextHeight));
     if (Platform.OS === "android") {
       setCachedAndroidMessageFooterHeight(nextHeight);
     }
-  }, []);
+  };
 
   // Android `pan` lifts the whole window — no extra list spacer (would double-shift content).
   const listKeyboardSpacerStyle = useAnimatedStyle(
@@ -552,7 +552,7 @@ export default function MessageThreadPage() {
     [colors.primary, isLoadingOlder],
   );
 
-  const mergeDrafts = useCallback((prev: MessageAttachmentDraft[], next: MessageAttachmentDraft[]) => {
+  const mergeDrafts = (prev: MessageAttachmentDraft[], next: MessageAttachmentDraft[]) => {
     const seen = new Set(prev.map((p) => p.uri));
     const merged = [...prev];
     for (const d of next) {
@@ -562,7 +562,7 @@ export default function MessageThreadPage() {
       if (merged.length >= 8) break;
     }
     return merged;
-  }, []);
+  };
 
   const pickMedia = async () => {
     blurComposerInput();
@@ -605,33 +605,33 @@ export default function MessageThreadPage() {
     setAttachments((prev) => mergeDrafts(prev, next));
   };
 
-  const appendStickerToDraft = useCallback((emoji: string) => {
+  const appendStickerToDraft = (emoji: string) => {
     setDraft((prev) => `${prev}${emoji}`);
     refocusComposerInput();
-  }, [refocusComposerInput]);
+  };
 
-  const toggleStickerPanel = useCallback(() => {
+  const toggleStickerPanel = () => {
     setStickerPanelOpen((prev) => !prev);
-  }, []);
+  };
 
-  const handleStickerPress = useCallback(() => {
+  const handleStickerPress = () => {
     toggleStickerPanel();
     refocusComposerInput();
-  }, [refocusComposerInput, toggleStickerPanel]);
+  };
 
-  const handleAttachPress = useCallback(() => {
+  const handleAttachPress = () => {
     void (async () => {
       await pickMedia();
       refocusComposerInput();
     })();
-  }, [pickMedia, refocusComposerInput]);
+  };
 
-  const handleAttachLongPress = useCallback(() => {
+  const handleAttachLongPress = () => {
     void (async () => {
       await pickDocument();
       refocusComposerInput();
     })();
-  }, [pickDocument, refocusComposerInput]);
+  };
 
   const openAttachmentViewer = useCallback((uri: string, draftAttachment?: MessageAttachmentDraft | null) => {
     if (draftAttachment?.uri === uri) {

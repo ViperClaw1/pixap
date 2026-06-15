@@ -169,6 +169,7 @@ function AdminModerationContent() {
 
   return (
     <FlashList
+      removeClippedSubviews
       data={reports}
       renderItem={renderItem}
       keyExtractor={keyExtractor}

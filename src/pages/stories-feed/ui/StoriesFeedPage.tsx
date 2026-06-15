@@ -326,6 +326,12 @@ export default function StoriesFeedScreen() {
 
   const feedViewabilityConfig = useMemo(() => ({ itemVisiblePercentThreshold: 45 }), []);
 
+  const preloadTaskRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
+
+  useEffect(() => {
+    return () => preloadTaskRef.current?.cancel();
+  }, []);
+
   const onFeedViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken<FeedPostVm>[] }) => {
       const vms = focusedPostVmsRef.current;
@@ -341,7 +347,10 @@ export default function StoriesFeedScreen() {
         const first = vm?.postImages[0];
         if (first) uris.push(first);
       }
-      InteractionManager.runAfterInteractions(() => { void preloadSmartImages(uris); });
+      preloadTaskRef.current?.cancel();
+      preloadTaskRef.current = InteractionManager.runAfterInteractions(() => {
+        void preloadSmartImages(uris);
+      });
     },
     [],
   );

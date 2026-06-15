@@ -166,5 +166,5 @@ export function useCustomTimeWindowAxis(): CustomTimeWindowAxis {
     };
   }, []);
 
-  return useMemo(() => createCustomTimeWindowAxis(new Date(epoch * SLIDER_EPOCH_MS)), [epoch]);
+  return useMemo(() => createCustomTimeWindowAxis(new Date()), [epoch]);
 }

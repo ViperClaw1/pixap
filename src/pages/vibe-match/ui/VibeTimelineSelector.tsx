@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 import { AppPressable } from "@/shared/ui/app-pressable";
@@ -7,6 +8,7 @@ import type { PixAIVibeTimeline } from "@/entities/pixai";
 import { TIMELINE_GRADIENT } from "@/shared/theme/gradients";
 
 const OPTIONS: PixAIVibeTimeline[] = ["day", "evening", "night"];
+const THUMB_INSET = 3;
 
 type Props = {
   value: PixAIVibeTimeline;
@@ -16,42 +18,37 @@ type Props = {
 
 export function VibeTimelineSelector({ value, onChange, disabled = false }: Props) {
   const { t } = useTranslation();
-  const thumbX = useRef(new Animated.Value(0)).current;
-  const thumbInset = useRef(new Animated.Value(3)).current;
+  const thumbX = useSharedValue(0);
   const [barWidth, setBarWidth] = useState(0);
   const activeIndex = Math.max(0, OPTIONS.indexOf(value));
+  const slotWidth = barWidth > 0 ? barWidth / OPTIONS.length : 0;
 
   useEffect(() => {
     if (!barWidth) return;
-    const slotWidth = barWidth / OPTIONS.length;
-    Animated.timing(thumbX, {
-      toValue: activeIndex * slotWidth,
+    const nextSlotWidth = barWidth / OPTIONS.length;
+    cancelAnimation(thumbX);
+    thumbX.value = withTiming(activeIndex * nextSlotWidth, {
       duration: 300,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
+    });
   }, [activeIndex, barWidth, thumbX]);
+
+  const thumbStyle = useAnimatedStyle(
+    () => ({
+      width: slotWidth > 0 ? slotWidth - 6 : 0,
+      transform: [{ translateX: thumbX.value + THUMB_INSET }],
+    }),
+    [slotWidth],
+  );
 
   const onLayout = (event: LayoutChangeEvent) => {
     setBarWidth(event.nativeEvent.layout.width);
   };
 
-  const slotWidth = barWidth > 0 ? barWidth / OPTIONS.length : 0;
-
   return (
     <View style={[styles.wrap, disabled && styles.disabled]} onLayout={onLayout}>
       <LinearGradient colors={[...TIMELINE_GRADIENT]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.bar}>
-        {slotWidth > 0 ? (
-          <Animated.View
-            style={[
-              styles.thumb,
-              {
-                width: slotWidth - 6,
-                transform: [{ translateX: Animated.add(thumbX, thumbInset) }],
-              },
-            ]}
-          />
-        ) : null}
+        {slotWidth > 0 ? <Animated.View style={[styles.thumb, thumbStyle]} /> : null}
         {OPTIONS.map((timelineKey) => (
           <AppPressable
             key={timelineKey}
