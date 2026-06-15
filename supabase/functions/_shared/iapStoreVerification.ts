@@ -22,6 +22,7 @@ export type NormalizedEntitlement = {
   original_transaction_id: string | null;
   purchase_token: string | null;
   store_environment: "production" | "sandbox" | null;
+  price_cents: number | null;
 };
 
 function normalizeStoreEnvironment(value: string | undefined): "production" | "sandbox" | null {
@@ -255,6 +256,7 @@ export function normalizeAppleSignedTransaction(
     revocationDate?: number;
     offerType?: number;
     environment?: string;
+    price?: number;
   }>(signedTransactionInfo);
 
   const now = Date.now();
@@ -276,6 +278,10 @@ export function normalizeAppleSignedTransaction(
       original_transaction_id: transactionInfo.originalTransactionId ?? payload.originalTransactionId ?? null,
       purchase_token: null,
       store_environment: normalizeStoreEnvironment(transactionInfo.environment),
+      price_cents:
+        typeof transactionInfo.price === "number" && transactionInfo.price > 0
+          ? Math.round(transactionInfo.price / 10)
+          : null,
     },
     raw: { signedTransactionInfo },
   };
@@ -349,6 +355,7 @@ export async function verifyAndroidPurchase(payload: VerifyPurchaseRequest): Pro
       original_transaction_id: null,
       purchase_token: purchaseToken,
       store_environment: body.testPurchase ? "sandbox" : "production",
+      price_cents: null,
     },
     raw: body,
   };
