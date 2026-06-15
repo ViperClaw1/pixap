@@ -144,7 +144,8 @@ function stateForBookingDetailPath(fullPath: string) {
   const bookingId = decodeURIComponent(raw).trim();
   if (!bookingId) return null;
 
-  const BOOKINGS_TAB_INDEX = 1;
+  // Partial tab state: root `index` is the position inside `routes` (always 0 here),
+  // not the Bookings tab order in Tab.Navigator — wrong index opens the first tab (Feed).
   return {
     routes: [
       {
@@ -158,7 +159,7 @@ function stateForBookingDetailPath(fullPath: string) {
         },
       },
     ],
-    index: BOOKINGS_TAB_INDEX,
+    index: 0,
   };
 }
 

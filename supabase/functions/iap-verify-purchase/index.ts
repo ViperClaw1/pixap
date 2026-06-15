@@ -134,6 +134,8 @@ Deno.serve(async (req) => {
         expires_at: verification.entitlement.expires_at,
         status: verification.entitlement.status === "active" ? "purchased" : verification.entitlement.status,
         is_trial: verification.entitlement.is_trial,
+        store_environment: verification.entitlement.store_environment,
+        price_cents: verification.entitlement.price_cents,
         raw_payload: verification.raw,
         raw_payload_hash: payloadHash,
       });
