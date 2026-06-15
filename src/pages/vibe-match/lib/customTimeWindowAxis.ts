@@ -10,13 +10,26 @@ import type { VibeCustomTimeWindow } from "./vibeTimeSelection";
 export const VIBE_CUSTOM_WINDOW_MIN_MINUTES = 6 * 60;
 
 /** Next-day upper bound (clock minutes on the following calendar day). */
-export const VIBE_CUSTOM_WINDOW_MAX_MINUTES = 2 * 60;
+export const VIBE_CUSTOM_WINDOW_MAX_MINUTES = 6 * 60;
 
 const SLIDER_STEP_MINUTES = BOOKING_SLOT_STEP_MINUTES;
 const MAX_EXTENDED = 24 * 60 + VIBE_CUSTOM_WINDOW_MAX_MINUTES;
 const MAX_STEP = MAX_EXTENDED / SLIDER_STEP_MINUTES;
-const MIN_STEP_GAP = VIBE_WINDOW_SLOT_STEP_MINUTES / SLIDER_STEP_MINUTES;
+const PREFERRED_MIN_STEP_GAP = VIBE_WINDOW_SLOT_STEP_MINUTES / SLIDER_STEP_MINUTES;
+/** Minimum thumb gap when the axis is tighter than the preferred booking window. */
+const TIGHT_AXIS_MIN_STEP_GAP = 30 / SLIDER_STEP_MINUTES;
 const SLIDER_EPOCH_MS = SLIDER_STEP_MINUTES * 60_000;
+
+function resolveMinStepGap(minStep: number, maxStep: number): number {
+  const range = maxStep - minStep;
+  if (range <= TIGHT_AXIS_MIN_STEP_GAP) {
+    return Math.max(1, range - 1);
+  }
+  if (range <= PREFERRED_MIN_STEP_GAP) {
+    return TIGHT_AXIS_MIN_STEP_GAP;
+  }
+  return PREFERRED_MIN_STEP_GAP;
+}
 
 /** Early-morning clock times belong to the next day on the slider axis. */
 export function clockToExtended(minutes: number): number {
@@ -57,6 +70,7 @@ export type CustomTimeWindowAxis = {
   minStep: number;
   maxStep: number;
   minStepGap: number;
+  isDraggable: boolean;
   minutesToSliderStep: (minutes: number) => number;
   sliderStepToMinutes: (step: number) => number;
   xToSliderStep: (x: number, usableWidth: number) => number;
@@ -68,6 +82,8 @@ export function createCustomTimeWindowAxis(now = new Date()): CustomTimeWindowAx
   const minExtended = resolveMinExtended(now);
   const minStep = minExtended / SLIDER_STEP_MINUTES;
   const minMinutes = extendedToClock(minExtended);
+  const minStepGap = resolveMinStepGap(minStep, MAX_STEP);
+  const isDraggable = MAX_STEP - minStep > TIGHT_AXIS_MIN_STEP_GAP;
 
   const clampExtended = (extended: number) => Math.max(minExtended, Math.min(MAX_EXTENDED, extended));
 
@@ -94,7 +110,10 @@ export function createCustomTimeWindowAxis(now = new Date()): CustomTimeWindowAx
     let startStep = minutesToSliderStep(window.startMinutes);
     let endStep = minutesToSliderStep(window.endMinutes);
     if (endStep <= startStep) {
-      endStep = Math.min(MAX_STEP, startStep + MIN_STEP_GAP);
+      endStep = Math.min(MAX_STEP, startStep + minStepGap);
+    }
+    if (endStep - startStep < minStepGap) {
+      endStep = Math.min(MAX_STEP, startStep + minStepGap);
     }
     return {
       startMinutes: sliderStepToMinutes(startStep),
@@ -107,7 +126,8 @@ export function createCustomTimeWindowAxis(now = new Date()): CustomTimeWindowAx
     maxMinutes: VIBE_CUSTOM_WINDOW_MAX_MINUTES,
     minStep,
     maxStep: MAX_STEP,
-    minStepGap: MIN_STEP_GAP,
+    minStepGap,
+    isDraggable,
     minutesToSliderStep,
     sliderStepToMinutes,
     xToSliderStep,

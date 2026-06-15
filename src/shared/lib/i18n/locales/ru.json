@@ -454,6 +454,7 @@
     "timelineLabel": "Время",
     "timelineOr": "или",
     "customTimeWindowLabel": "Своё временное окно",
+    "customTimeWindowUnavailable": "Своё окно недоступно — сегодня уже не осталось достаточно времени. Выберите готовый вариант времени.",
     "customTimeRange": "{{start}} — {{end}}",
     "customWindowStartA11y": "Начало окна {{time}}",
     "customWindowEndA11y": "Конец окна {{time}}",

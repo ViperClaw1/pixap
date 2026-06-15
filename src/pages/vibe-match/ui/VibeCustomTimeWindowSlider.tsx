@@ -92,6 +92,7 @@ export function VibeCustomTimeWindowSlider({
   }, []);
 
   const usableWidth = Math.max(0, trackWidth - THUMB_SIZE);
+  const isInteractive = axis.isDraggable && !disabled;
 
   const commitWindow = useCallback((nextWindow: VibeCustomTimeWindow) => {
     const normalized = panAxisRef.current.normalizeCustomTimeWindow(nextWindow);
@@ -135,6 +136,7 @@ export function VibeCustomTimeWindowSlider({
         return;
       }
       const currentAxis = panAxisRef.current;
+      const minGap = currentAxis.minStepGap;
       const base = displayWindowRef.current;
       const { start: anchorStart, end: anchorEnd } = panAnchorStepsRef.current;
       const anchorX = currentAxis.sliderStepToX(
@@ -148,17 +150,17 @@ export function VibeCustomTimeWindowSlider({
       const nextWindow =
         thumb === "start"
           ? {
-              startMinutes: currentAxis.sliderStepToMinutes(Math.min(nextStep, currentEnd - MIN_STEP_GAP)),
+              startMinutes: currentAxis.sliderStepToMinutes(Math.min(nextStep, currentEnd - minGap)),
               endMinutes: base.endMinutes,
             }
           : {
               startMinutes: base.startMinutes,
-              endMinutes: currentAxis.sliderStepToMinutes(Math.max(nextStep, currentStart + MIN_STEP_GAP)),
+              endMinutes: currentAxis.sliderStepToMinutes(Math.max(nextStep, currentStart + minGap)),
             };
 
       commitWindow(nextWindow);
     },
-    [MIN_STEP_GAP, commitWindow, usableWidth],
+    [commitWindow, usableWidth],
   );
 
   const handleTrackTap = useCallback(
@@ -166,6 +168,7 @@ export function VibeCustomTimeWindowSlider({
       if (usableWidth <= 0) return;
       panAxisRef.current = axisRef.current;
       const currentAxis = panAxisRef.current;
+      const minGap = currentAxis.minStepGap;
       const base = displayWindowRef.current;
       const currentStart = currentAxis.minutesToSliderStep(base.startMinutes);
       const currentEnd = currentAxis.minutesToSliderStep(base.endMinutes);
@@ -175,22 +178,23 @@ export function VibeCustomTimeWindowSlider({
       const nextWindow =
         distToStart <= distToEnd
           ? {
-              startMinutes: currentAxis.sliderStepToMinutes(Math.min(tappedStep, currentEnd - MIN_STEP_GAP)),
+              startMinutes: currentAxis.sliderStepToMinutes(Math.min(tappedStep, currentEnd - minGap)),
               endMinutes: currentAxis.sliderStepToMinutes(currentEnd),
             }
           : {
               startMinutes: currentAxis.sliderStepToMinutes(currentStart),
-              endMinutes: currentAxis.sliderStepToMinutes(Math.max(tappedStep, currentStart + MIN_STEP_GAP)),
+              endMinutes: currentAxis.sliderStepToMinutes(Math.max(tappedStep, currentStart + minGap)),
             };
 
       commitWindow(nextWindow);
     },
-    [MIN_STEP_GAP, commitWindow, usableWidth],
+    [commitWindow, usableWidth],
   );
 
   const makeThumbGesture = useCallback(
     (thumb: "start" | "end") =>
       Gesture.Pan()
+        .enabled(isInteractive)
         .onBegin(() => {
           runOnJS(beginThumbPan)(thumb);
         })
@@ -200,7 +204,7 @@ export function VibeCustomTimeWindowSlider({
         .onFinalize((event) => {
           runOnJS(finishThumbPan)(thumb, event.translationX);
         }),
-    [beginThumbPan, finishThumbPan, updateThumbPan],
+    [beginThumbPan, finishThumbPan, isInteractive, updateThumbPan],
   );
 
   const startGesture = useMemo(() => makeThumbGesture("start"), [makeThumbGesture]);
@@ -208,10 +212,12 @@ export function VibeCustomTimeWindowSlider({
 
   const trackGesture = useMemo(
     () =>
-      Gesture.Tap().onEnd((event) => {
-        runOnJS(handleTrackTap)(event.x - THUMB_SIZE / 2);
-      }),
-    [handleTrackTap],
+      Gesture.Tap()
+        .enabled(isInteractive)
+        .onEnd((event) => {
+          runOnJS(handleTrackTap)(event.x - THUMB_SIZE / 2);
+        }),
+    [handleTrackTap, isInteractive],
   );
 
   const startStep = axis.minutesToSliderStep(displayWindow.startMinutes);
@@ -236,6 +242,16 @@ export function VibeCustomTimeWindowSlider({
   );
   const rangeLeft = startX + THUMB_SIZE / 2;
   const rangeWidth = Math.max(0, endX - startX);
+
+  if (!axis.isDraggable) {
+    return (
+      <View style={styles.wrap}>
+        <Text style={[styles.unavailableLabel, { color: colors.textMuted }]}>
+          {t("vibeMatch.customTimeWindowUnavailable")}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.wrap, disabled && styles.disabled]}>
@@ -308,6 +324,7 @@ export function VibeCustomTimeWindowSlider({
 const styles = StyleSheet.create({
   wrap: { gap: 8, marginTop: 4 },
   disabled: { opacity: 0.45 },
+  unavailableLabel: { fontSize: 13, fontWeight: "600", textAlign: "center" },
   rangeLabel: { fontSize: 14, fontWeight: "700", textAlign: "center" },
   trackWrap: {
     height: THUMB_SIZE,
