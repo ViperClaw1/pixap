@@ -9,6 +9,7 @@ import { BOOKINGS_SELECT, localizeBusinessCard } from "@/entities/business-card"
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { normalizeBusinessCardBlurhashes } from "@/shared/lib/business-card/businessCardBlurhash";
 import { suppressBookingStatusNotification } from "../lib/bookingDisplayStatusTracker";
+import { isWaVenueUnavailable } from "../lib/waVenueStatus";
 
 export interface Booking {
   id: string;
@@ -42,24 +43,7 @@ export function bookingScheduleLabel(dateTimeIso: string): "upcoming" | "complet
 
 export type BookingDisplayStatus = "draft" | "confirmed" | "cancelled" | "completed" | "payment awaiting";
 
-function waVenueStatusText(linkedCartItem?: CartItem | null): string {
-  return (Array.isArray(linkedCartItem?.wa_status_lines) ? linkedCartItem.wa_status_lines : [])
-    .filter((x): x is string => typeof x === "string")
-    .join(" ")
-    .toLowerCase();
-}
-
-function isWaVenueUnavailable(linkedCartItem?: CartItem | null): boolean {
-  const text = waVenueStatusText(linkedCartItem);
-  return (
-    text.includes("not available") ||
-    text.includes("unavailable") ||
-    text.includes("slot is not available") ||
-    text.includes("declin") ||
-    text.includes("недоступен") ||
-    text.includes("отклон")
-  );
-}
+export { isWaVenueUnavailable } from "../lib/waVenueStatus";
 
 function deriveWaLinkedDisplayStatus(linkedCartItem: CartItem): BookingDisplayStatus {
   if ((linkedCartItem.wa_payment_link?.trim()?.length ?? 0) > 0) {

@@ -18,6 +18,7 @@ import {
   bookingListPriceParts,
   deriveBookingDisplayStatus,
   isFreeBookingEntry,
+  isWaVenueUnavailable,
   linkCartItemForBooking,
   useBooking,
   useCancelBooking,
@@ -99,6 +100,7 @@ export default function BookingDetailPage() {
 
   const linkedCartItem = booking ? linkCartItemForBooking(booking, cartItems) : null;
   const displayStatus = booking ? deriveBookingDisplayStatus(booking, linkedCartItem) : null;
+  const venueDeclined = Boolean(linkedCartItem && isWaVenueUnavailable(linkedCartItem));
   const palette = displayStatus ? statusPalette(displayStatus) : STATUS_BADGE.warning;
   const isFreeEntry = booking
     ? isFreeBookingEntry(Number(booking.cost), venueConfirmedPriceLabel(linkedCartItem?.wa_confirmed_price))
@@ -224,6 +226,9 @@ export default function BookingDetailPage() {
             </View>
             {displayStatus === "draft" ? (
               <Text style={styles.meta}>{t("bookings.waitingForVenue")}</Text>
+            ) : null}
+            {displayStatus === "cancelled" && venueDeclined ? (
+              <Text style={styles.meta}>{t("bookings.venueDeclinedHint")}</Text>
             ) : null}
           </View>
 

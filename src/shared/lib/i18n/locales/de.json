@@ -219,9 +219,9 @@
     "invalidPhone": "Bitte geben Sie eine gültige Telefonnummer ein.",
     "invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
     "invalidPartySize": "Ungültige Gruppengröße.",
-    "draftCreatedTitle": "Entwurf erstellt",
-    "draftCreatedMessage": "Buchungsentwurf wurde zu Buchungen hinzugefügt. Die Prüfung beim Anbieter läuft im Hintergrund.",
-    "couldNotCreateDraft": "Buchungsentwurf konnte nicht erstellt werden.",
+    "draftCreatedTitle": "Buchung erstellt",
+    "draftCreatedMessage": "Ihre Buchung wurde zu Buchungen hinzugefügt. Wir warten auf die Antwort des Lokals.",
+    "couldNotCreateDraft": "Buchung konnte nicht erstellt werden.",
     "cityNotSet": "Stadt nicht angegeben",
     "noAddress": "Keine Adresse",
     "previousMonth": "Vorheriger Monat",
@@ -270,7 +270,7 @@
     "invalidPhoneTitle": "Ungültige Telefonnummer",
     "invalidEmailTitle": "Ungültige E-Mail",
     "bookingDetails": "Buchungsdetails",
-    "createDraftBooking": "Buchungsentwurf erstellen",
+    "createDraftBooking": "Buchung erstellen",
     "confirmBooking": "Buchung bestätigen",
     "calendarHint": "Wählen Sie ein Datum für {{name}}, dann eine Uhrzeit.",
     "selectDateForSlots": "Wählen Sie ein Datum, um Zeitslots zu laden.",
@@ -398,7 +398,7 @@
   },
   "bookings": {
     "filter": {
-      "draft": "Entwurf",
+      "draft": "ausstehend",
       "confirmed": "bestätigt",
       "cancelled": "storniert",
       "completed": "abgeschlossen",
@@ -427,7 +427,10 @@
     "noTags": "Keine Tags",
     "book": "Buchen",
     "noPlacesYet": "Noch keine Orte",
-    "defaultVenueName": "Buchung"
+    "defaultVenueName": "Buchung",
+    "statusNotification": {
+      "draft": "{{venueName}}: Neue Buchung erstellt. Wir warten auf die Antwort des Lokals."
+    }
   },
   "cart": {
     "title": "Warenkorb",

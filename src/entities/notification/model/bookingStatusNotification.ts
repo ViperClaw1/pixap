@@ -1,25 +1,31 @@
+import type { TFunction } from "i18next";
 import type { BookingDisplayStatus } from "@/entities/booking";
 
-export enum BookingStatusNotificationTemplate {
-  Draft = "Your booking is in draft state.",
-  Confirmed = "Your booking is confirmed.",
-  Cancelled = "Your booking was cancelled.",
-  Completed = "Your booking is completed.",
-  PaymentAwaiting = "Your booking awaits payment.",
-}
+export type BookingStatusNotificationOptions = {
+  venueDeclined?: boolean;
+};
 
-export function bookingStatusNotificationText(venueName: string, status: BookingDisplayStatus) {
+export function bookingStatusNotificationText(
+  t: TFunction,
+  venueName: string,
+  status: BookingDisplayStatus,
+  options?: BookingStatusNotificationOptions,
+): string {
+  if (status === "cancelled" && options?.venueDeclined) {
+    return t("bookings.statusNotification.venueSlotUnavailable", { venueName });
+  }
+
   switch (status) {
     case "confirmed":
-      return `${venueName}: ${BookingStatusNotificationTemplate.Confirmed}`;
+      return t("bookings.statusNotification.confirmed", { venueName });
     case "cancelled":
-      return `${venueName}: ${BookingStatusNotificationTemplate.Cancelled}`;
+      return t("bookings.statusNotification.cancelled", { venueName });
     case "completed":
-      return `${venueName}: ${BookingStatusNotificationTemplate.Completed}`;
+      return t("bookings.statusNotification.completed", { venueName });
     case "payment awaiting":
-      return `${venueName}: ${BookingStatusNotificationTemplate.PaymentAwaiting}`;
+      return t("bookings.statusNotification.paymentAwaiting", { venueName });
     case "draft":
     default:
-      return `${venueName}: ${BookingStatusNotificationTemplate.Draft}`;
+      return t("bookings.statusNotification.draft", { venueName });
   }
 }

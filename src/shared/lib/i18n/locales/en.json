@@ -353,9 +353,9 @@
     "invalidPhone": "Please enter a valid phone number.",
     "invalidEmail": "Please enter a valid email address.",
     "invalidPartySize": "Invalid party size.",
-    "draftCreatedTitle": "Draft created",
-    "draftCreatedMessage": "Draft booking was added to Bookings. Venue check is started in background.",
-    "couldNotCreateDraft": "Could not create booking draft.",
+    "draftCreatedTitle": "Booking created",
+    "draftCreatedMessage": "Your booking was added to Bookings. We're waiting for the venue to respond.",
+    "couldNotCreateDraft": "Could not create booking.",
     "cityNotSet": "City not set",
     "noAddress": "No address",
     "previousMonth": "Previous month",
@@ -405,7 +405,7 @@
     "invalidPhoneTitle": "Invalid phone",
     "invalidEmailTitle": "Invalid email",
     "bookingDetails": "Booking details",
-    "createDraftBooking": "Create draft booking",
+    "createDraftBooking": "Create booking",
     "confirmBooking": "Confirm booking",
     "calendarHint": "Pick a date for {{name}}, then choose a time.",
     "selectDateForSlots": "Select a date to load time slots.",
@@ -555,7 +555,7 @@
   },
   "bookings": {
     "filter": {
-      "draft": "draft",
+      "draft": "awaiting",
       "confirmed": "confirmed",
       "cancelled": "cancelled",
       "completed": "completed",
@@ -591,7 +591,16 @@
     "venueConfirmedBannerTitle": "Booking confirmed",
     "venueConfirmedBannerBody": "{{venueName}} confirmed your booking.",
     "venueConfirmedBannerAction": "Open",
-    "venueConfirmedBannerDismissA11y": "Dismiss notification"
+    "venueConfirmedBannerDismissA11y": "Dismiss notification",
+    "statusNotification": {
+      "draft": "{{venueName}}: New booking created. Waiting for the venue to respond.",
+      "confirmed": "{{venueName}}: Your booking is confirmed.",
+      "cancelled": "{{venueName}}: Your booking was cancelled.",
+      "venueSlotUnavailable": "{{venueName}}: The venue could not confirm your booking — this time slot is not available. Please choose another date or time.",
+      "completed": "{{venueName}}: Your booking is completed.",
+      "paymentAwaiting": "{{venueName}}: Your booking awaits payment."
+    },
+    "venueDeclinedHint": "The venue declined this time slot. Please choose another date or time."
   },
   "bookingDetail": {
     "title": "Booking details",

@@ -23,6 +23,7 @@ import {
   hasHydratedBookingStatuses,
   isBookingStatusNotificationSuppressed,
   isVenueConfirmationTransition,
+  isWaVenueUnavailable,
   linkCartItemForBooking,
   markBookingStatusesHydrated,
   setBookingStatusSnapshot,
@@ -111,6 +112,7 @@ export default function BookingsScreen() {
         venueName: booking.business_card?.name ?? t("bookings.defaultVenueName"),
         businessCardId: booking.business_card_id,
         status: deriveBookingDisplayStatus(booking, linkedCartItem),
+        venueDeclined: isWaVenueUnavailable(linkedCartItem),
       };
     });
   }, [bookings, cartItems, t]);
@@ -142,7 +144,9 @@ export default function BookingsScreen() {
         });
       }
 
-      const text = bookingStatusNotificationText(current.venueName, current.status);
+      const text = bookingStatusNotificationText(t, current.venueName, current.status, {
+        venueDeclined: current.venueDeclined,
+      });
       Toast.show({
         type: "success",
         text1: t("bookings.toastStatusUpdated"),
