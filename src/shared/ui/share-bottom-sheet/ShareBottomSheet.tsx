@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { AppPopupModal } from "@/shared/ui/app-popup";
@@ -60,6 +69,9 @@ const USER_AVATAR_BORDER = 1.5;
 const COPY_LINK_FEEDBACK_MS = 4000;
 const COPIED_COLOR = "#22c55e";
 const SHARE_SHEET_HEIGHT_FRACTION = 0.72;
+/** Caps iOS keyboard lift so the sheet header stays on screen (see PhoneInput picker). */
+const IOS_KEYBOARD_TOP_GAP = 8;
+const isIOS = Platform.OS === "ios";
 const ACTION_COLORS = {
   story: { background: "#ec6544", icon: "#ffffff" },
   whatsapp: { background: "#25D366", icon: "#ffffff" },
@@ -177,7 +189,13 @@ export function ShareBottomSheet({
 
   const shareFooter =
     shareTargetActive ? (
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
+      <View
+        style={[
+          styles.footer,
+          { borderTopColor: colors.border },
+          isIOS && { backgroundColor: colors.card },
+        ]}
+      >
         {sharePlaceName ? (
           <Text style={[styles.shareContext, { color: colors.textMuted }]}>
             {t("shareSheet.sharing", { name: sharePlaceName })}
@@ -291,9 +309,10 @@ export function ShareBottomSheet({
       minHeightFraction={SHARE_SHEET_HEIGHT_FRACTION}
       fitContent
       bodyScrollEnabled={false}
+      keyboardTopGap={isIOS ? IOS_KEYBOARD_TOP_GAP : undefined}
       footer={shareFooter}
     >
-      <View style={styles.body}>
+      <View style={[styles.body, isIOS && styles.bodyIOS]}>
         <View style={[styles.searchWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
           <Ionicons name="search-outline" size={18} color={colors.textMuted} />
           <TextInput
@@ -312,7 +331,7 @@ export function ShareBottomSheet({
           </View>
         ) : (
           <ScrollView
-            style={styles.usersScroll}
+            style={[styles.usersScroll, isIOS && styles.usersScrollIOS]}
             contentContainerStyle={styles.gridContent}
             nestedScrollEnabled
             keyboardShouldPersistTaps="handled"
@@ -410,6 +429,9 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 4,
   },
+  bodyIOS: {
+    overflow: "hidden",
+  },
   searchWrap: {
     minHeight: 44,
     borderWidth: 1,
@@ -439,6 +461,9 @@ const styles = StyleSheet.create({
   usersScroll: {
     flex: 1,
     marginTop: 12,
+  },
+  usersScrollIOS: {
+    overflow: "hidden",
   },
   gridContent: {
     paddingBottom: 8,
