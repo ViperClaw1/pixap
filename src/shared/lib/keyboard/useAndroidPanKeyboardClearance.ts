@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { ElementRef } from "react";
 import { Dimensions, Keyboard, Platform, TextInput, type View } from "react-native";
-import { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 /** Extra lift on Android when `softwareKeyboardLayoutMode: pan` leaves input slightly under the keyboard. */
 export const ANDROID_PAN_KEYBOARD_CLEARANCE = 22;
 
 const ANDROID_KEYBOARD_ANIM_MS = 280;
+/** Pan resize below this is treated as keyboard closed (status bar / minor layout noise). */
+const ANDROID_PAN_KEYBOARD_SHRINK_THRESHOLD_PX = 48;
 
 type MeasurableView = Pick<View, "measureInWindow">;
 
@@ -61,6 +63,21 @@ export function useAndroidPanKeyboardClearance(
   const getMeasureTargetRef = useRef(options.getMeasureTarget);
   getMeasureTargetRef.current = options.getMeasureTarget;
   const snapMeasureAfterPan = options.snapMeasureAfterPan ?? false;
+  const instantOnFocus = options.instantOnFocus ?? false;
+  const isActiveRef = useRef(isActive);
+  isActiveRef.current = isActive;
+
+  const applyInstantClearance = useCallback(() => {
+    if (!isActiveRef.current || Platform.OS !== "android") return;
+    cancelAnimation(extraLift);
+    extraLift.value = clearance;
+  }, [clearance, extraLift]);
+
+  const resetInstantClearance = useCallback(() => {
+    if (Platform.OS !== "android") return;
+    cancelAnimation(extraLift);
+    extraLift.value = 0;
+  }, [extraLift]);
 
   const animateLift = useCallback(
     (toValue: number, duration?: number) => {
@@ -75,68 +92,107 @@ export function useAndroidPanKeyboardClearance(
 
   const onComposerFocus = useCallback(() => {
     if (!isActive || Platform.OS !== "android") return;
-    if (options.instantOnFocus) {
-      extraLift.value = clearance;
+    if (instantOnFocus) {
+      applyInstantClearance();
       return;
     }
     animateLift(clearance);
-  }, [animateLift, clearance, extraLift, isActive, options.instantOnFocus]);
+  }, [animateLift, applyInstantClearance, clearance, instantOnFocus, isActive]);
 
   const onComposerBlur = useCallback(() => {
+    if (instantOnFocus) {
+      resetInstantClearance();
+      return;
+    }
     animateLift(0);
-  }, [animateLift]);
+  }, [animateLift, instantOnFocus, resetInstantClearance]);
 
   useEffect(() => {
     if (Platform.OS !== "android") return;
+
+    if (instantOnFocus) {
+      let baselineWindowHeight = Dimensions.get("window").height;
+
+      const syncLiftFromWindowHeight = (windowHeight: number) => {
+        if (!isActiveRef.current) return;
+        const shrunkBy = baselineWindowHeight - windowHeight;
+        if (shrunkBy > ANDROID_PAN_KEYBOARD_SHRINK_THRESHOLD_PX) {
+          applyInstantClearance();
+          return;
+        }
+        resetInstantClearance();
+        baselineWindowHeight = windowHeight;
+      };
+
+      const dimSub = Dimensions.addEventListener("change", ({ window }) => {
+        syncLiftFromWindowHeight(window.height);
+      });
+
+      const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+        resetInstantClearance();
+        baselineWindowHeight = Dimensions.get("window").height;
+      });
+
+      const showSub = Keyboard.addListener("keyboardDidShow", () => {
+        applyInstantClearance();
+      });
+
+      return () => {
+        dimSub.remove();
+        hideSub.remove();
+        showSub.remove();
+      };
+    }
 
     const hideSub = Keyboard.addListener("keyboardDidHide", (event) => {
       animateLift(0, resolveKeyboardAnimationDuration(event.duration));
     });
 
-    const showSub = options.measureAfterPan
-      ? Keyboard.addListener("keyboardDidShow", (event) => {
-          const keyboardTop =
-            event.endCoordinates.screenY ??
-            Dimensions.get("window").height - event.endCoordinates.height;
-          const duration = resolveKeyboardAnimationDuration(event.duration);
-          const footerPad = options.footerPaddingBelowInput ?? 0;
+    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
+      if (!options.measureAfterPan) return;
 
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              const measureTarget =
-                getMeasureTargetRef.current?.() ?? getFocusedInputRef.current?.();
-              if (!measureTarget || typeof measureTarget.measureInWindow !== "function") return;
+      const keyboardTop =
+        event.endCoordinates.screenY ??
+        Dimensions.get("window").height - event.endCoordinates.height;
+      const duration = resolveKeyboardAnimationDuration(event.duration);
+      const footerPad = options.footerPaddingBelowInput ?? 0;
 
-              measureTarget.measureInWindow((_x, y, _w, h) => {
-                const footerBottom =
-                  getMeasureTargetRef.current?.() != null ? y + h : y + h + footerPad;
-                const overlap = footerBottom - keyboardTop;
-                const targetLift =
-                  overlap > 0.5
-                    ? Math.min(MAX_MEASURED_LIFT_PX, overlap + clearance)
-                    : 0;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const measureTarget =
+            getMeasureTargetRef.current?.() ?? getFocusedInputRef.current?.();
+          if (!measureTarget || typeof measureTarget.measureInWindow !== "function") return;
 
-                if (snapMeasureAfterPan) {
-                  extraLift.value = targetLift;
-                  return;
-                }
-                animateLift(targetLift, duration);
-              });
-            });
+          measureTarget.measureInWindow((_x, y, _w, h) => {
+            const footerBottom =
+              getMeasureTargetRef.current?.() != null ? y + h : y + h + footerPad;
+            const overlap = footerBottom - keyboardTop;
+            const targetLift =
+              overlap > 0.5 ? Math.min(MAX_MEASURED_LIFT_PX, overlap + clearance) : 0;
+
+            if (snapMeasureAfterPan) {
+              extraLift.value = targetLift;
+              return;
+            }
+            animateLift(targetLift, duration);
           });
-        })
-      : null;
+        });
+      });
+    });
 
     return () => {
       hideSub.remove();
-      showSub?.remove();
+      showSub.remove();
     };
   }, [
     animateLift,
+    applyInstantClearance,
     clearance,
     extraLift,
+    instantOnFocus,
     options.footerPaddingBelowInput,
     options.measureAfterPan,
+    resetInstantClearance,
     snapMeasureAfterPan,
   ]);
 
