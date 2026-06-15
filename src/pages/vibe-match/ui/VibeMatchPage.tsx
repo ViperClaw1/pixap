@@ -251,7 +251,6 @@ function VibeMatchPageContent() {
   const [customTimeWindow, setCustomTimeWindow] = useState(() =>
     createCustomTimeWindowAxis().normalizeCustomTimeWindow(DEFAULT_CUSTOM_WINDOW),
   );
-  const [customWindowDragActive, setCustomWindowDragActive] = useState(false);
   const [appliedTimeSelection, setAppliedTimeSelection] = useState<VibeAppliedTimeSelection | null>(null);
   const [city, setCity] = useState("");
   const [cityPickerVisible, setCityPickerVisible] = useState(false);
@@ -829,7 +828,6 @@ function VibeMatchPageContent() {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
-        scrollEnabled={!customWindowDragActive}
         onScroll={(event) => {
           scrollYRef.current = event.nativeEvent.contentOffset.y;
         }}
@@ -884,7 +882,6 @@ function VibeMatchPageContent() {
           <VibeCustomTimeWindowSlider
             value={customTimeWindow}
             onChange={handleCustomWindowChange}
-            onDragActiveChange={setCustomWindowDragActive}
           />
           <AppPressable
             onPress={() => void onGenerate()}
