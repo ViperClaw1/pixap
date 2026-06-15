@@ -1,18 +1,21 @@
 import type { BusinessCard } from "@/entities/business-card";
 
-export type SearchQuickFilterId = "restaurants" | "bars" | "clubs" | "open_now";
+export type SearchQuickFilterId = "all" | "restaurants" | "bars" | "clubs";
 
 export const SEARCH_QUICK_FILTERS: Array<{
   id: SearchQuickFilterId;
-  emoji: string;
+  emoji?: string;
   labelKey: string;
   defaultLabel: string;
 }> = [
+  { id: "all", labelKey: "search.filters.all", defaultLabel: "All" },
   { id: "restaurants", emoji: "🍽", labelKey: "search.filters.restaurants", defaultLabel: "Restaurants" },
   { id: "bars", emoji: "🍸", labelKey: "search.filters.bars", defaultLabel: "Bars" },
   { id: "clubs", emoji: "🎵", labelKey: "search.filters.clubs", defaultLabel: "Clubs" },
-  { id: "open_now", emoji: "🌙", labelKey: "search.filters.openNow", defaultLabel: "Open now" },
 ];
+
+// Hidden until venue opening hours are available:
+// { id: "open_now", emoji: "🌙", labelKey: "search.filters.openNow", defaultLabel: "Open now" },
 
 function haystack(place: BusinessCard): string {
   const category = place.category?.name?.toLowerCase() ?? "";
@@ -27,14 +30,14 @@ function matchesAny(place: BusinessCard, needles: string[]): boolean {
 
 export function matchesSearchQuickFilter(place: BusinessCard, filter: SearchQuickFilterId): boolean {
   switch (filter) {
+    case "all":
+      return true;
     case "restaurants":
       return matchesAny(place, ["restaurant", "food", "dining", "cafe", "bistro"]);
     case "bars":
       return matchesAny(place, ["bar", "pub", "lounge", "cocktail"]);
     case "clubs":
       return matchesAny(place, ["club", "nightlife", "disco", "dance"]);
-    case "open_now":
-      return true;
     default:
       return true;
   }
@@ -42,10 +45,8 @@ export function matchesSearchQuickFilter(place: BusinessCard, filter: SearchQuic
 
 export function applySearchQuickFilters(
   places: BusinessCard[],
-  activeFilters: ReadonlySet<SearchQuickFilterId>,
+  activeFilter: SearchQuickFilterId,
 ): BusinessCard[] {
-  if (activeFilters.size === 0) return places;
-  return places.filter((place) =>
-    Array.from(activeFilters).every((filter) => matchesSearchQuickFilter(place, filter)),
-  );
+  if (activeFilter === "all") return places;
+  return places.filter((place) => matchesSearchQuickFilter(place, activeFilter));
 }

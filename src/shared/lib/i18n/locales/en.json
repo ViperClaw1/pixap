@@ -283,6 +283,7 @@
     "placeholder": "Search…",
     "noMatchingPlaces": "No matching places",
     "filters": {
+      "all": "All",
       "restaurants": "Restaurants",
       "bars": "Bars",
       "clubs": "Clubs",

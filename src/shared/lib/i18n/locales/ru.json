@@ -283,6 +283,7 @@
     "placeholder": "Поиск…",
     "noMatchingPlaces": "Нет подходящих мест",
     "filters": {
+      "all": "Все",
       "restaurants": "Рестораны",
       "bars": "Бары",
       "clubs": "Клубы",

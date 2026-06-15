@@ -11,11 +11,11 @@ import {
 export const SEARCH_QUICK_FILTER_STRIP_HEIGHT = 40;
 
 type Props = {
-  activeFilters: ReadonlySet<SearchQuickFilterId>;
-  onToggle: (id: SearchQuickFilterId) => void;
+  activeFilter: SearchQuickFilterId;
+  onSelect: (id: SearchQuickFilterId) => void;
 };
 
-export function SearchQuickFilterPills({ activeFilters, onToggle }: Props) {
+export function SearchQuickFilterPills({ activeFilter, onSelect }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
 
@@ -28,11 +28,11 @@ export function SearchQuickFilterPills({ activeFilters, onToggle }: Props) {
         contentContainerStyle={styles.scrollContent}
       >
         {SEARCH_QUICK_FILTERS.map((filter) => {
-          const active = activeFilters.has(filter.id);
+          const active = activeFilter === filter.id;
           return (
             <AppPressable
               key={filter.id}
-              onPress={() => onToggle(filter.id)}
+              onPress={() => onSelect(filter.id)}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
               style={[
@@ -43,7 +43,7 @@ export function SearchQuickFilterPills({ activeFilters, onToggle }: Props) {
                 },
               ]}
             >
-              <Text style={styles.emoji}>{filter.emoji}</Text>
+              {filter.emoji ? <Text style={styles.emoji}>{filter.emoji}</Text> : null}
               <Text
                 style={{
                   fontSize: 13,
