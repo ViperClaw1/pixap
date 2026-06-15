@@ -49,9 +49,82 @@ import { useNavigateOnce } from "@/shared/lib/navigation/useNavigateOnce";
 const SKELETON_IDS = ["1", "2", "3"] as const;
 
 type MessagesListRow =
+  | { kind: "sections-loading"; key: string }
   | { kind: "section"; key: string; title: string }
   | { kind: "thread"; key: string; thread: MessageThreadItem }
   | { kind: "person"; key: string; person: FollowSuggestion };
+
+type MessagesSectionsSkeletonProps = {
+  styles: ReturnType<typeof useMessagesStyles>;
+  isCompact: boolean;
+  chatsTitle: string;
+  peopleTitle: string;
+};
+
+function MessagesSectionsSkeleton({ styles, isCompact, chatsTitle, peopleTitle }: MessagesSectionsSkeletonProps) {
+  return (
+    <ShimmerProvider active>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{chatsTitle}</Text>
+      </View>
+      {SKELETON_IDS.map((id) => (
+        <View key={`inbox-skeleton-${id}`} style={[styles.card, isCompact ? styles.cardCompact : null]}>
+          <ShimmerSurface
+            width={isCompact ? 40 : 48}
+            height={isCompact ? 40 : 48}
+            borderRadius={isCompact ? 20 : 24}
+          />
+          <View style={styles.cardMain}>
+            <ShimmerSurface width={isCompact ? 132 : 160} height={15} borderRadius={8} />
+            <ShimmerSurface
+              width={isCompact ? 96 : 112}
+              height={13}
+              borderRadius={8}
+              style={styles.skeletonSubtitleLine}
+            />
+          </View>
+          <View style={styles.threadActionsWrap}>
+            <ShimmerSurface width={36} height={12} borderRadius={6} />
+            <ShimmerSurface width={16} height={16} borderRadius={8} />
+          </View>
+        </View>
+      ))}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{peopleTitle}</Text>
+      </View>
+      {SKELETON_IDS.map((id) => (
+        <View key={`people-skeleton-${id}`} style={[styles.card, isCompact ? styles.cardCompact : null]}>
+          <ShimmerSurface
+            width={isCompact ? 40 : 48}
+            height={isCompact ? 40 : 48}
+            borderRadius={isCompact ? 20 : 24}
+          />
+          <View style={styles.cardMain}>
+            <ShimmerSurface width={isCompact ? 132 : 160} height={15} borderRadius={8} />
+            <ShimmerSurface
+              width={isCompact ? 88 : 104}
+              height={12}
+              borderRadius={8}
+              style={styles.skeletonUsernameLine}
+            />
+          </View>
+          <View style={[styles.actionsWrap, isCompact ? styles.actionsWrapCompact : null]}>
+            <ShimmerSurface
+              width={isCompact ? 36 : 44}
+              height={isCompact ? 36 : 44}
+              borderRadius={isCompact ? 18 : 22}
+            />
+            <ShimmerSurface
+              width={isCompact ? 36 : 44}
+              height={isCompact ? 36 : 44}
+              borderRadius={isCompact ? 18 : 22}
+            />
+          </View>
+        </View>
+      ))}
+    </ShimmerProvider>
+  );
+}
 
 export default function MessagesPage() {
   const { t } = useTranslation();
@@ -76,7 +149,8 @@ export default function MessagesPage() {
   const [deletedThreadIds, setDeletedThreadIds] = useState<Set<string>>(new Set());
   const { threads, isPending: inboxPending } = useMessagesInbox(search);
   const { people, isPending: peoplePending } = usePeopleToFollow(search, { enabled: inboxEffectsReady });
-  const sectionsPending = inboxPending || (inboxEffectsReady && peoplePending);
+  const peoplePendingEffective = !inboxEffectsReady || peoplePending;
+  const sectionsPending = inboxPending || peoplePendingEffective;
   const { data: publicProfiles = [], isLoading: publicProfilesLoading } = usePublicProfiles(
     startChatSearch,
     startChatModalOpen,
@@ -240,25 +314,23 @@ export default function MessagesPage() {
   );
   const peerTypingLabel = t("messages.thread.peerTyping");
 
+  const chatsSectionTitle = t("messages.myChats");
+  const peopleSectionTitle = t("messages.peopleToFollow");
+
   const listRows = useMemo((): MessagesListRow[] => {
-    const rows: MessagesListRow[] = [
-      { kind: "section", key: "section-chats", title: t("messages.myChats") },
-    ];
-    if (!sectionsPending) {
-      for (const thread of visibleThreads) {
-        rows.push({ kind: "thread", key: thread.thread_id, thread });
-      }
+    if (sectionsPending) {
+      return [{ kind: "sections-loading", key: "sections-loading" }];
     }
-    if (inboxEffectsReady) {
-      rows.push({ kind: "section", key: "section-people", title: t("messages.peopleToFollow") });
-      if (!sectionsPending) {
-        for (const person of people) {
-          rows.push({ kind: "person", key: person.id, person });
-        }
-      }
+    const rows: MessagesListRow[] = [{ kind: "section", key: "section-chats", title: chatsSectionTitle }];
+    for (const thread of visibleThreads) {
+      rows.push({ kind: "thread", key: thread.thread_id, thread });
+    }
+    rows.push({ kind: "section", key: "section-people", title: peopleSectionTitle });
+    for (const person of people) {
+      rows.push({ kind: "person", key: person.id, person });
     }
     return rows;
-  }, [inboxEffectsReady, people, sectionsPending, t, visibleThreads]);
+  }, [chatsSectionTitle, people, peopleSectionTitle, sectionsPending, visibleThreads]);
 
   const onDeleteThread = useCallback(
     (threadId: string, title: string) => {
@@ -399,80 +471,27 @@ export default function MessagesPage() {
 
   const renderItem = useCallback(
     ({ item }: { item: MessagesListRow }) => {
+      if (item.kind === "sections-loading") {
+        return (
+          <MessagesSectionsSkeleton
+            styles={styles}
+            isCompact={isCompact}
+            chatsTitle={chatsSectionTitle}
+            peopleTitle={peopleSectionTitle}
+          />
+        );
+      }
+
       if (item.kind === "section") {
-        const showSectionsSkeleton = sectionsPending;
         return (
           <View>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{item.title}</Text>
             </View>
-            {item.key === "section-chats" && !sectionsPending && !visibleThreads.length ? (
+            {item.key === "section-chats" && !visibleThreads.length ? (
               <Text style={styles.empty}>{t("messages.noChatsFound")}</Text>
             ) : null}
-            {item.key === "section-chats" && showSectionsSkeleton ? (
-              <ShimmerProvider active>
-                {SKELETON_IDS.map((id) => (
-                  <View key={`inbox-skeleton-${id}`} style={[styles.card, isCompact ? styles.cardCompact : null]}>
-                    <ShimmerSurface
-                      width={isCompact ? 40 : 48}
-                      height={isCompact ? 40 : 48}
-                      borderRadius={isCompact ? 20 : 24}
-                    />
-                    <View style={styles.cardMain}>
-                      <ShimmerSurface width={isCompact ? 132 : 160} height={15} borderRadius={8} />
-                      <ShimmerSurface
-                        width={isCompact ? 96 : 112}
-                        height={13}
-                        borderRadius={8}
-                        style={styles.skeletonSubtitleLine}
-                      />
-                    </View>
-                    <View style={styles.threadActionsWrap}>
-                      <ShimmerSurface width={36} height={12} borderRadius={6} />
-                      <ShimmerSurface width={16} height={16} borderRadius={8} />
-                    </View>
-                  </View>
-                ))}
-              </ShimmerProvider>
-            ) : null}
-            {item.key === "section-people" && showSectionsSkeleton ? (
-              <ShimmerProvider active>
-                {SKELETON_IDS.map((id) => (
-                  <View
-                    key={`people-skeleton-${id}`}
-                    style={[styles.card, isCompact ? styles.cardCompact : null]}
-                  >
-                    <ShimmerSurface
-                      width={isCompact ? 40 : 48}
-                      height={isCompact ? 40 : 48}
-                      borderRadius={isCompact ? 20 : 24}
-                    />
-                    <View style={styles.cardMain}>
-                      <ShimmerSurface width={isCompact ? 132 : 160} height={15} borderRadius={8} />
-                      <ShimmerSurface
-                        width={isCompact ? 88 : 104}
-                        height={12}
-                        borderRadius={8}
-                        style={styles.skeletonUsernameLine}
-                      />
-                    </View>
-                    <View style={[styles.actionsWrap, isCompact ? styles.actionsWrapCompact : null]}>
-                      <ShimmerSurface
-                        width={isCompact ? 36 : 44}
-                        height={isCompact ? 36 : 44}
-                        borderRadius={isCompact ? 18 : 22}
-                      />
-                      <ShimmerSurface
-                        width={isCompact ? 36 : 44}
-                        height={isCompact ? 36 : 44}
-                        borderRadius={isCompact ? 18 : 22}
-                      />
-                    </View>
-                  </View>
-                ))}
-              </ShimmerProvider>
-            ) : null}
-            {item.key === "section-people" && !sectionsPending && !people.length ? (
+            {item.key === "section-people" && !people.length ? (
               <Text style={styles.empty}>{t("messages.noUsersFound")}</Text>
             ) : null}
           </View>
@@ -531,9 +550,11 @@ export default function MessagesPage() {
       handleSwipeableClose,
       handleSwipeableOpen,
       openThread,
-      sectionsPending,
       peerTypingLabel,
+      people.length,
       prefetchThread,
+      chatsSectionTitle,
+      peopleSectionTitle,
       styles,
       t,
       typingThreadIds,

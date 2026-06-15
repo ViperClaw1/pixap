@@ -6,6 +6,8 @@ export const COMPOSER_ICON_HIT_SLOP = 6;
 export const COMPOSER_ROW_GAP = 8;
 export const COMPOSER_TRAILING_GAP = 6;
 export const FOOTER_VERTICAL_PADDING = 10;
+/** Android pan: extra dock lift so footer bottom padding stays visible above the keyboard. */
+export const MESSAGE_THREAD_ANDROID_KEYBOARD_CLEARANCE = 14;
 /** Extra lift above the keyboard for composer + list scroll room (iOS). */
 export const MESSAGE_THREAD_KEYBOARD_GAP = 32;
 

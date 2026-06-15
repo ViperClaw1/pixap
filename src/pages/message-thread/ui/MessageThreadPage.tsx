@@ -52,14 +52,14 @@ import { useAndroidHardwareBack } from "@/shared/lib/useAndroidHardwareBack";
 import { useInterceptNativeStackBack } from "@/shared/lib/useInterceptNativeStackBack";
 import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
-import { KeyboardStickyView, useKeyboardInset } from "@/shared/lib/keyboard";
+import { KeyboardStickyView, useAndroidPanKeyboardClearance, useKeyboardInset } from "@/shared/lib/keyboard";
 import {
   COMPOSER_HEIGHT,
   COMPOSER_ICON_HIT_SLOP,
   COMPOSER_ICON_SIZE,
   defaultMessageFooterHeight,
-  FOOTER_VERTICAL_PADDING,
   getCachedAndroidMessageFooterHeight,
+  MESSAGE_THREAD_ANDROID_KEYBOARD_CLEARANCE,
   MESSAGE_THREAD_KEYBOARD_GAP,
   MESSAGE_THREAD_LIST_BOTTOM_GAP,
   setCachedAndroidMessageFooterHeight,
@@ -297,8 +297,7 @@ export default function MessageThreadPage() {
   const isSessionRevisit = threadId ? hasMessageThreadSessionVisit(threadId) : false;
   const openAtBottom = useMemo(() => shouldOpenMessageThreadAtBottom(threadId), [threadId]);
   const isAndroid = Platform.OS === "android";
-  const listContentComposerInset =
-    footerHeight + MESSAGE_THREAD_LIST_BOTTOM_GAP + (isAndroid ? FOOTER_VERTICAL_PADDING : 0);
+  const listContentComposerInset = footerHeight + MESSAGE_THREAD_LIST_BOTTOM_GAP;
 
   const handleListScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -452,6 +451,14 @@ export default function MessageThreadPage() {
     [stableBottomInset, tabBarHeight],
   );
   const keyboardInset = useKeyboardInset(keyboardInsetOptions);
+  const {
+    androidLiftStyle: androidFooterLiftStyle,
+    onComposerFocus: onAndroidComposerFocus,
+    onComposerBlur: onAndroidComposerBlur,
+  } = useAndroidPanKeyboardClearance(isAndroid, {
+      clearance: MESSAGE_THREAD_ANDROID_KEYBOARD_CLEARANCE,
+      instantOnFocus: true,
+    });
 
   const refocusComposerInput = useCallback(() => {
     composerInputRef.current?.focus();
@@ -814,6 +821,10 @@ export default function MessageThreadPage() {
                 textAlignVertical="center"
                 onFocus={() => {
                   bindStopOnManualEdit(() => voiceStopRef.current?.());
+                  if (isAndroid) onAndroidComposerFocus();
+                }}
+                onBlur={() => {
+                  if (isAndroid) onAndroidComposerBlur();
                 }}
               />
               {editingMessage ? (
@@ -971,7 +982,9 @@ export default function MessageThreadPage() {
       {Platform.OS === "ios" ? (
         <KeyboardStickyView {...keyboardInsetOptions}>{composerFooter}</KeyboardStickyView>
       ) : (
-        <View style={styles.androidFooterDock}>{composerFooter}</View>
+        <Animated.View style={[styles.androidFooterDock, androidFooterLiftStyle]}>
+          {composerFooter}
+        </Animated.View>
       )}
 
       <AttachmentViewerModal
