@@ -354,10 +354,28 @@ function MessageThreadListItemComponent({
     }
     return (s.storyShareButtonSpinnerPeer as { color?: string }).color ?? colors.onPrimary;
   }, [colors.onPrimary, isMine, s.storyShareButtonSpinnerMine, s.storyShareButtonSpinnerPeer]);
+  const mineBubbleTextColor = useMemo(
+    () => (s.bubbleTextMine as TextStyle).color ?? colors.onPrimary,
+    [colors.onPrimary, s.bubbleTextMine],
+  );
+  const mineBubbleMetaColor = useMemo(
+    () => (s.bubbleMetaMine as TextStyle).color ?? colors.messageMetaOnAccent,
+    [colors.messageMetaOnAccent, s.bubbleMetaMine],
+  );
+  const bareMediaMetaColor = useMemo(
+    () => (s.bubbleMetaBare as TextStyle).color ?? colors.textMuted,
+    [colors.textMuted, s.bubbleMetaBare],
+  );
   const isReadByPeer =
     isMine && !!peerLastReadAt && new Date(message.created_at).getTime() <= new Date(peerLastReadAt).getTime();
+  const mineReadIndicatorColor = isReadByPeer ? mineBubbleTextColor : mineBubbleMetaColor;
 
   const bareMediaOnly = message.attachments.length > 0 && !messageHasVisibleText(message.content);
+  const readIndicatorColor = bareMediaOnly
+    ? isReadByPeer
+      ? colors.text
+      : bareMediaMetaColor
+    : mineReadIndicatorColor;
   const hasMediaPlusText =
     message.attachments.length > 0 && messageHasVisibleText(message.content);
   const bubblePlainText =
@@ -494,13 +512,7 @@ function MessageThreadListItemComponent({
                   style={s.readIndicator}
                   name="checkmark-done"
                   size={14}
-                  color={
-                    isReadByPeer
-                      ? mode === "dark"
-                        ? colors.primary
-                        : "#53bdeb"
-                      : colors.textMuted
-                  }
+                  color={readIndicatorColor}
                 />
               ) : null}
             </View>
@@ -562,15 +574,7 @@ function MessageThreadListItemComponent({
                       style={s.readIndicator}
                       name="checkmark-done"
                       size={14}
-                      color={
-                        isReadByPeer
-                          ? mode === "dark"
-                            ? "#111827"
-                            : "#53bdeb"
-                          : mode === "dark"
-                            ? "#374151"
-                            : "rgba(255,255,255,0.62)"
-                      }
+                      color={readIndicatorColor}
                     />
                   ) : null}
                 </View>
@@ -628,15 +632,7 @@ function MessageThreadListItemComponent({
                     style={s.readIndicator}
                     name="checkmark-done"
                     size={14}
-                    color={
-                      isReadByPeer
-                        ? mode === "dark"
-                          ? "#111827"
-                          : "#53bdeb"
-                        : mode === "dark"
-                          ? "#374151"
-                          : "rgba(255,255,255,0.62)"
-                    }
+                    color={readIndicatorColor}
                   />
                 ) : null}
               </View>

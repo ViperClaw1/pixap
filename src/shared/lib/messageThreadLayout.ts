@@ -17,3 +17,20 @@ export const MESSAGE_THREAD_HEADER_BODY_PX = 62;
 export function messageThreadHeaderHeight(insetsTop: number): number {
   return Math.max(insetsTop, 10) + MESSAGE_THREAD_HEADER_BODY_PX;
 }
+
+export function defaultMessageFooterHeight(): number {
+  return COMPOSER_HEIGHT + FOOTER_VERTICAL_PADDING * 2 + 1;
+}
+
+let cachedAndroidMessageFooterHeight: number | null = null;
+
+export function getCachedAndroidMessageFooterHeight(): number | null {
+  return cachedAndroidMessageFooterHeight;
+}
+
+export function setCachedAndroidMessageFooterHeight(height: number) {
+  cachedAndroidMessageFooterHeight = height;
+}
+
+/** Gap between the last message and the composer when the footer is reserved in layout (Android). */
+export const MESSAGE_THREAD_LIST_BOTTOM_GAP = 12;

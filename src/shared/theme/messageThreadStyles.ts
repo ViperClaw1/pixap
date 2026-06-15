@@ -63,6 +63,7 @@ export const messageThreadStaticStyles = StyleSheet.create({
     justifyContent: "center",
   },
   list: { flex: 1 },
+  listHiddenWhilePositioning: { opacity: 0 },
   listWrap: { flex: 1 },
   /** Android-only sticky footer dock (MessageThreadPage). */
   androidFooterDock: {
