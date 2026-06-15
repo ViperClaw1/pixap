@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, InteractionManager, Platform, Text, TextInput, useWindowDimensions, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
@@ -357,6 +357,12 @@ export default function MessagesPage() {
     [t],
   );
 
+  const markReadTaskRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
+
+  useEffect(() => {
+    return () => markReadTaskRef.current?.cancel();
+  }, []);
+
   const openThread = useCallback(
     (thread: MessageThreadItem) => {
       const customerId = thread.support_user_id;
@@ -372,7 +378,8 @@ export default function MessagesPage() {
         avatar_url: peer?.avatar_url ?? thread.last_sender_avatar_url,
       });
       if (thread.unread_count && !markThreadRead.isPending) {
-        InteractionManager.runAfterInteractions(() => {
+        markReadTaskRef.current?.cancel();
+        markReadTaskRef.current = InteractionManager.runAfterInteractions(() => {
           void markThreadRead.mutateAsync(thread.thread_id);
         });
       }

@@ -90,7 +90,7 @@ function DailyRecommendationsPageContent() {
   useEffect(() => {
     if (isLoading || openedOnceRef.current) return;
     openedOnceRef.current = true;
-    InteractionManager.runAfterInteractions(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
       if (recommendations.length === 0) {
         trackRecommendationEvent.mutate({
           event_name: "daily_recommendations_empty",
@@ -103,6 +103,7 @@ function DailyRecommendationsPageContent() {
         payload: { source: "daily_screen", date: targetDate ?? null, count: recommendations.length },
       });
     });
+    return () => task.cancel();
   }, [isLoading, recommendations.length, targetDate, trackRecommendationEvent]);
 
   useEffect(() => {
@@ -115,18 +116,26 @@ function DailyRecommendationsPageContent() {
     }
     const activeItem = visibleRecommendations[safeIndex];
     if (activeItem) {
-      InteractionManager.runAfterInteractions(() => {
+      const task = InteractionManager.runAfterInteractions(() => {
         trackImpression(activeItem);
       });
+      return () => task.cancel();
     }
   }, [index, trackImpression, visibleRecommendations]);
+
+  const impressionTaskRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
+
+  useEffect(() => {
+    return () => impressionTaskRef.current?.cancel();
+  }, []);
 
   const handleSnapToItem = useCallback(
     (nextIndex: number) => {
       setIndex(nextIndex);
       const item = visibleRecommendations[nextIndex];
       if (!item) return;
-      InteractionManager.runAfterInteractions(() => {
+      impressionTaskRef.current?.cancel();
+      impressionTaskRef.current = InteractionManager.runAfterInteractions(() => {
         trackOpen(item);
       });
     },

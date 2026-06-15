@@ -1,5 +1,16 @@
-import { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { useEffect } from "react";
+import { StyleSheet, View } from "react-native";
+import Animated, {
+  cancelAnimation,
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 
 const DOT_COUNT = 3;
 
@@ -7,59 +18,44 @@ type Props = {
   active: boolean;
 };
 
-export function VibeGenerationPulse({ active }: Props) {
-  const anims = useRef(Array.from({ length: DOT_COUNT }, () => new Animated.Value(0.3))).current;
+function PulseDot({ index, active }: { index: number; active: boolean }) {
+  const opacity = useSharedValue(0.3);
 
   useEffect(() => {
     if (!active) {
-      anims.forEach((anim) => anim.setValue(0.3));
+      cancelAnimation(opacity);
+      opacity.value = 0.3;
       return;
     }
-    const loops = anims.map((anim, index) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(index * 300),
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: 500,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(anim, {
-            toValue: 0.3,
-            duration: 500,
-            easing: Easing.in(Easing.cubic),
-            useNativeDriver: true,
-          }),
-        ]),
+    opacity.value = withDelay(
+      index * 300,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }),
+          withTiming(0.3, { duration: 500, easing: Easing.in(Easing.cubic) }),
+        ),
+        -1,
+        false,
       ),
     );
-    loops.forEach((loop) => loop.start());
-    return () => loops.forEach((loop) => loop.stop());
-  }, [active, anims]);
+    return () => cancelAnimation(opacity);
+  }, [active, index, opacity]);
 
+  const dotStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: interpolate(opacity.value, [0.3, 1], [0.85, 1.2]) }],
+  }));
+
+  return <Animated.View style={[styles.dot, dotStyle]} />;
+}
+
+export function VibeGenerationPulse({ active }: Props) {
   if (!active) return null;
 
   return (
     <View style={styles.wrap} pointerEvents="none">
-      {anims.map((anim, index) => (
-        <Animated.View
-          key={`pulse-dot-${index}`}
-          style={[
-            styles.dot,
-            {
-              opacity: anim,
-              transform: [
-                {
-                  scale: anim.interpolate({
-                    inputRange: [0.3, 1],
-                    outputRange: [0.85, 1.2],
-                  }),
-                },
-              ],
-            },
-          ]}
-        />
+      {Array.from({ length: DOT_COUNT }, (_, index) => (
+        <PulseDot key={`pulse-dot-${index}`} index={index} active={active} />
       ))}
     </View>
   );

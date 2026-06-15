@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -125,7 +125,7 @@ function clipRoundedHostStyle(style?: StyleProp<ImageStyle>): ViewStyle | undefi
  * Remote/local image with one bundled fallback asset.
  * Handles null/undefined/empty/invalid strings; steps through fallbackUri on load error.
  */
-export function SmartImage({
+function SmartImageInner({
   uri,
   fallbackUri,
   bundledFallback,
@@ -377,6 +377,8 @@ export function SmartImage({
     </View>
   );
 }
+
+export const SmartImage = memo(SmartImageInner);
 
 const styles = StyleSheet.create({
   shimmerOverlay: {

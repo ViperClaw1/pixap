@@ -444,6 +444,7 @@ export default function StoryViewerScreen() {
       >
         <FlashList
           ref={flatListRef}
+          removeClippedSubviews
           horizontal
           pagingEnabled
           data={activeMediaSlides}

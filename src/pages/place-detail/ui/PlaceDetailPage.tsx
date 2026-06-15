@@ -3,7 +3,6 @@ import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  Animated,
   InteractionManager,
   Platform,
   View,
@@ -60,7 +59,16 @@ import { appAlert } from "@/shared/ui/app-popup";
 import { useTranslation } from "react-i18next";
 import { ShareBottomSheet } from "@/shared/ui/share-bottom-sheet/ShareBottomSheet";
 import { profileAvatarDisplay } from "@/pages/stories-feed/lib/feedPostHelpers";
-import { Easing, cancelAnimation, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  Extrapolation,
+  cancelAnimation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 type R = RouteProp<BrowseFlowParamList, "PlaceDetail">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "PlaceDetail">;
@@ -104,7 +112,19 @@ export default function PlaceDetailScreen() {
   const [checkInRippleToken, setCheckInRippleToken] = useState(0);
   const progress = useSharedValue(0);
   const lastTapRef = useRef<{ at: number; index: number } | null>(null);
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+  const heroParallaxStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(scrollY.value, [0, 300], [0, -60], Extrapolation.CLAMP),
+      },
+    ],
+  }));
 
   const crowdCheckin = usePlaceCrowdCheckin({
     venueId: id,
@@ -254,11 +274,7 @@ export default function PlaceDetailScreen() {
   const stickyBookingInset = hideBookingActions ? 0 : stickyLayout.barHeight;
   const bottomScrollPadding = stickyLayout.scrollTailPad + stickyBookingInset;
 
-  const parallaxTranslateY = scrollY.interpolate({
-    inputRange: [0, 300],
-    outputRange: [0, -60],
-    extrapolate: "clamp",
-  });
+  const parallaxTranslateY = heroParallaxStyle;
 
   const storiesThisWeek = useMemo(() => {
     const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -311,15 +327,22 @@ export default function PlaceDetailScreen() {
     });
   }, [imageVm.heroImagesRaw, navigation, place, shareSheet, user]);
 
-  const onShareAddToStory = useCallback(() => {
+  const shareStoryTaskRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
+
+  useEffect(() => {
+    return () => shareStoryTaskRef.current?.cancel();
+  }, []);
+
+  const onShareAddToStory = useCallback(async () => {
     if (shareSheet.shareOnlyPlaceId && !shareSheet.sharePostId) {
       shareSheet.resetShareState();
-      InteractionManager.runAfterInteractions(() => {
+      shareStoryTaskRef.current?.cancel();
+      shareStoryTaskRef.current = InteractionManager.runAfterInteractions(() => {
         setShareStorySourceModalVisible(true);
       });
       return;
     }
-    void shareSheet.handleShareToStory(navigation);
+    await shareSheet.handleShareToStory(navigation);
   }, [navigation, shareSheet]);
 
   const onShareStorySourceChoose = useCallback(
@@ -442,15 +465,11 @@ export default function PlaceDetailScreen() {
     <Animated.ScrollView
       style={styles.root}
       contentContainerStyle={{ paddingBottom: bottomScrollPadding }}
-      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-        useNativeDriver: true,
-      })}
+      onScroll={scrollHandler}
       scrollEventThrottle={16}
     >
       <View style={[styles.heroWrap, { backgroundColor: colors.card }]}>
-        <Animated.View
-          style={[styles.heroMediaLayer, { transform: [{ translateY: parallaxTranslateY }] }]}
-        >
+        <Animated.View style={[styles.heroMediaLayer, parallaxTranslateY]}>
           {imageVm.heroImages.length > 1 ? (
             <>
               <Carousel

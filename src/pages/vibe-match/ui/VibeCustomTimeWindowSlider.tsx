@@ -10,6 +10,7 @@ import {
   customWindowsEqual,
   formatCustomWindowEdgeLabel,
   useCustomTimeWindowAxis,
+  type CustomTimeWindowAxis,
 } from "../lib/customTimeWindowAxis";
 
 export type { VibeCustomTimeWindow };
@@ -21,6 +22,7 @@ type Props = {
   value: VibeCustomTimeWindow;
   onChange: (value: VibeCustomTimeWindow) => void;
   disabled?: boolean;
+  onDragActiveChange?: (active: boolean) => void;
 };
 
 type DragPreview = {
@@ -28,19 +30,69 @@ type DragPreview = {
   x: number;
 };
 
-export function VibeCustomTimeWindowSlider({ value, onChange, disabled = false }: Props) {
+export function VibeCustomTimeWindowSlider({
+  value,
+  onChange,
+  disabled = false,
+  onDragActiveChange,
+}: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const axis = useCustomTimeWindowAxis();
-  const { minStep: MIN_STEP, maxStep: MAX_STEP, minStepGap: MIN_STEP_GAP } = axis;
+  const { minStepGap: MIN_STEP_GAP } = axis;
   const [trackWidth, setTrackWidth] = useState(0);
-  const normalizedValue = useMemo(() => axis.normalizeCustomTimeWindow(value), [axis, value]);
-  const [localWindow, setLocalWindow] = useState(normalizedValue);
+  const [displayWindow, setDisplayWindow] = useState(() => axis.normalizeCustomTimeWindow(value));
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
   const isDraggingRef = useRef(false);
-  const localWindowRef = useRef(normalizedValue);
-  const panAnchorStepsRef = useRef({ start: MIN_STEP, end: MAX_STEP });
+  const panAnchorStepsRef = useRef({ start: axis.minStep, end: axis.maxStep });
+  const panAxisRef = useRef<CustomTimeWindowAxis>(axis);
   const axisRef = useRef(axis);
+  const onChangeRef = useRef(onChange);
+  const onDragActiveChangeRef = useRef(onDragActiveChange);
+  const lastEmittedRef = useRef<VibeCustomTimeWindow | null>(null);
+  const displayWindowRef = useRef(displayWindow);
+  const prevMinStepRef = useRef(axis.minStep);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    onDragActiveChangeRef.current = onDragActiveChange;
+  }, [onDragActiveChange]);
+
+  useEffect(() => {
+    axisRef.current = axis;
+  }, [axis]);
+
+  useEffect(() => {
+    displayWindowRef.current = displayWindow;
+  }, [displayWindow]);
+
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+    if (lastEmittedRef.current && customWindowsEqual(value, lastEmittedRef.current)) {
+      lastEmittedRef.current = null;
+      return;
+    }
+    const next = axis.normalizeCustomTimeWindow(value);
+    setDisplayWindow(next);
+    displayWindowRef.current = next;
+  }, [axis, value]);
+
+  useEffect(() => {
+    if (axis.minStep === prevMinStepRef.current) return;
+    prevMinStepRef.current = axis.minStep;
+    if (disabled || isDraggingRef.current) return;
+    setDisplayWindow((current) => {
+      const normalized = axis.normalizeCustomTimeWindow(current);
+      if (customWindowsEqual(normalized, current)) return current;
+      lastEmittedRef.current = normalized;
+      onChangeRef.current(normalized);
+      displayWindowRef.current = normalized;
+      return normalized;
+    });
+  }, [axis, disabled]);
 
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     setTrackWidth(event.nativeEvent.layout.width);
@@ -48,50 +100,34 @@ export function VibeCustomTimeWindowSlider({ value, onChange, disabled = false }
 
   const usableWidth = Math.max(0, trackWidth - THUMB_SIZE);
 
-  useEffect(() => {
-    axisRef.current = axis;
-  }, [axis]);
+  const setDragActive = useCallback((active: boolean) => {
+    onDragActiveChangeRef.current?.(active);
+  }, []);
 
-  useEffect(() => {
-    localWindowRef.current = localWindow;
-  }, [localWindow]);
-
-  useEffect(() => {
-    if (isDraggingRef.current) return;
-    const next = axis.normalizeCustomTimeWindow(value);
-    setLocalWindow(next);
-    localWindowRef.current = next;
-    if (!disabled && !customWindowsEqual(next, value)) {
-      onChange(next);
-    }
-  }, [axis, disabled, onChange, value]);
-
-  const commitLocalWindow = useCallback(
-    (nextWindow: VibeCustomTimeWindow) => {
-      const normalized = axisRef.current.normalizeCustomTimeWindow(nextWindow);
-      isDraggingRef.current = false;
-      setDragPreview(null);
-      setLocalWindow(normalized);
-      localWindowRef.current = normalized;
-      if (!customWindowsEqual(normalized, value)) {
-        onChange(normalized);
-      }
-    },
-    [onChange, value],
-  );
+  const commitWindow = useCallback((nextWindow: VibeCustomTimeWindow) => {
+    const normalized = panAxisRef.current.normalizeCustomTimeWindow(nextWindow);
+    setDragPreview(null);
+    setDisplayWindow(normalized);
+    displayWindowRef.current = normalized;
+    lastEmittedRef.current = normalized;
+    onChangeRef.current(normalized);
+  }, []);
 
   const beginThumbPan = useCallback((_thumb: "start" | "end") => {
     isDraggingRef.current = true;
-    const currentAxis = axisRef.current;
+    setDragActive(true);
+    panAxisRef.current = axisRef.current;
+    const currentAxis = panAxisRef.current;
+    const base = displayWindowRef.current;
     panAnchorStepsRef.current = {
-      start: currentAxis.minutesToSliderStep(localWindowRef.current.startMinutes),
-      end: currentAxis.minutesToSliderStep(localWindowRef.current.endMinutes),
+      start: currentAxis.minutesToSliderStep(base.startMinutes),
+      end: currentAxis.minutesToSliderStep(base.endMinutes),
     };
-  }, []);
+  }, [setDragActive]);
 
   const updateThumbPan = useCallback(
     (thumb: "start" | "end", translationX: number) => {
-      const currentAxis = axisRef.current;
+      const currentAxis = panAxisRef.current;
       const { start: anchorStart, end: anchorEnd } = panAnchorStepsRef.current;
       const anchorX = currentAxis.sliderStepToX(
         thumb === "start" ? anchorStart : anchorEnd,
@@ -105,38 +141,47 @@ export function VibeCustomTimeWindowSlider({ value, onChange, disabled = false }
 
   const finishThumbPan = useCallback(
     (thumb: "start" | "end", translationX: number) => {
-      const currentAxis = axisRef.current;
+      isDraggingRef.current = false;
+      setDragActive(false);
+      if (usableWidth <= 0) {
+        setDragPreview(null);
+        return;
+      }
+      const currentAxis = panAxisRef.current;
+      const base = displayWindowRef.current;
       const { start: anchorStart, end: anchorEnd } = panAnchorStepsRef.current;
       const anchorX = currentAxis.sliderStepToX(
         thumb === "start" ? anchorStart : anchorEnd,
         usableWidth,
       );
       const nextStep = currentAxis.xToSliderStep(anchorX + translationX, usableWidth);
-      const current = localWindowRef.current;
-      const currentStart = currentAxis.minutesToSliderStep(current.startMinutes);
-      const currentEnd = currentAxis.minutesToSliderStep(current.endMinutes);
+      const currentStart = currentAxis.minutesToSliderStep(base.startMinutes);
+      const currentEnd = currentAxis.minutesToSliderStep(base.endMinutes);
 
       const nextWindow =
         thumb === "start"
           ? {
               startMinutes: currentAxis.sliderStepToMinutes(Math.min(nextStep, currentEnd - MIN_STEP_GAP)),
-              endMinutes: current.endMinutes,
+              endMinutes: base.endMinutes,
             }
           : {
-              startMinutes: current.startMinutes,
+              startMinutes: base.startMinutes,
               endMinutes: currentAxis.sliderStepToMinutes(Math.max(nextStep, currentStart + MIN_STEP_GAP)),
             };
 
-      commitLocalWindow(nextWindow);
+      commitWindow(nextWindow);
     },
-    [MIN_STEP_GAP, commitLocalWindow, usableWidth],
+    [MIN_STEP_GAP, commitWindow, setDragActive, usableWidth],
   );
 
   const handleTrackTap = useCallback(
     (x: number) => {
-      const currentAxis = axisRef.current;
-      const currentStart = currentAxis.minutesToSliderStep(localWindowRef.current.startMinutes);
-      const currentEnd = currentAxis.minutesToSliderStep(localWindowRef.current.endMinutes);
+      if (usableWidth <= 0) return;
+      panAxisRef.current = axisRef.current;
+      const currentAxis = panAxisRef.current;
+      const base = displayWindowRef.current;
+      const currentStart = currentAxis.minutesToSliderStep(base.startMinutes);
+      const currentEnd = currentAxis.minutesToSliderStep(base.endMinutes);
       const tappedStep = currentAxis.xToSliderStep(x, usableWidth);
       const distToStart = Math.abs(tappedStep - currentStart);
       const distToEnd = Math.abs(tappedStep - currentEnd);
@@ -151,19 +196,15 @@ export function VibeCustomTimeWindowSlider({ value, onChange, disabled = false }
               endMinutes: currentAxis.sliderStepToMinutes(Math.max(tappedStep, currentStart + MIN_STEP_GAP)),
             };
 
-      const normalized = currentAxis.normalizeCustomTimeWindow(nextWindow);
-      setLocalWindow(normalized);
-      localWindowRef.current = normalized;
-      if (!customWindowsEqual(normalized, value)) {
-        onChange(normalized);
-      }
+      commitWindow(nextWindow);
     },
-    [MIN_STEP_GAP, onChange, usableWidth, value],
+    [MIN_STEP_GAP, commitWindow, usableWidth],
   );
 
   const makeThumbGesture = useCallback(
     (thumb: "start" | "end") =>
       Gesture.Pan()
+        .activeOffsetX([-8, 8])
         .onBegin(() => {
           runOnJS(beginThumbPan)(thumb);
         })
@@ -187,11 +228,12 @@ export function VibeCustomTimeWindowSlider({ value, onChange, disabled = false }
     [handleTrackTap],
   );
 
-  const startStep = axis.minutesToSliderStep(localWindow.startMinutes);
-  const endStep = axis.minutesToSliderStep(localWindow.endMinutes);
+  const startStep = axis.minutesToSliderStep(displayWindow.startMinutes);
+  const endStep = axis.minutesToSliderStep(displayWindow.endMinutes);
   const startX =
     dragPreview?.thumb === "start" ? dragPreview.x : axis.sliderStepToX(startStep, usableWidth);
-  const endX = dragPreview?.thumb === "end" ? dragPreview.x : axis.sliderStepToX(endStep, usableWidth);
+  const endX =
+    dragPreview?.thumb === "end" ? dragPreview.x : axis.sliderStepToX(endStep, usableWidth);
   const previewStartStep =
     dragPreview?.thumb === "start" ? axis.xToSliderStep(dragPreview.x, usableWidth) : startStep;
   const previewEndStep =

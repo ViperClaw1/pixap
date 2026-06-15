@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import {
   View,
   Text,
@@ -144,6 +144,39 @@ const DEFAULT_RADIUS_MILES = 5;
 type FlowStep = "assistant" | "booking";
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "AIBooking">;
 type AIBookingRoute = RouteProp<BrowseFlowParamList, "AIBooking">;
+
+type AIBookingSearchForm = {
+  city: string;
+  categoryId: string;
+  categoryName: string;
+  scope: "nearby" | "city";
+  comment: string;
+  locationCoords: { lat: number; lng: number } | null;
+};
+
+type AIBookingSelection = {
+  hasSearched: boolean;
+  place: PixAIPlace | null;
+  bookingTime: Date | null;
+  bookingDateYmd: string | null;
+  bookingPlaceId: string | null;
+  visibleCalendarMonth: Date;
+};
+
+type AIBookingUiState = {
+  cityPickerVisible: boolean;
+  citySearchQuery: string;
+  categoryPickerVisible: boolean;
+  historyOpen: boolean;
+  resetChatConfirmVisible: boolean;
+  confirmingBooking: boolean;
+  isSearchingPlaces: boolean;
+};
+
+type AIBookingFlowState = {
+  step: FlowStep;
+  direction: 1 | -1;
+};
 type AIBookingScrollState = {
   assistantY: number;
   bookingY: number;
@@ -192,6 +225,80 @@ function AIBookingPageContent() {
   const greetingBootstrappedRef = useRef(new Set<string>());
   const manualCitySelectionRef = useRef(false);
   const [openingTypewriterEpoch, setOpeningTypewriterEpoch] = useState(0);
+  const [flow, setFlow] = useState<AIBookingFlowState>(() => ({
+    step: initialStepRef.current,
+    direction: 1,
+  }));
+  const currentStep = flow.step;
+  const stepDirection = flow.direction;
+  const [searchForm, setSearchForm] = useState<AIBookingSearchForm>({
+    city: "",
+    categoryId: "",
+    categoryName: "",
+    scope: "city",
+    comment: "",
+    locationCoords: null,
+  });
+  const selectedCity = searchForm.city;
+  const selectedCategoryId = searchForm.categoryId;
+  const selectedCategoryName = searchForm.categoryName;
+  const scope = searchForm.scope;
+  const requestComment = searchForm.comment;
+  const locationCoords = searchForm.locationCoords;
+  const [selection, setSelection] = useState<AIBookingSelection>(() => ({
+    hasSearched: false,
+    place: null,
+    bookingTime: null,
+    bookingDateYmd: null,
+    bookingPlaceId: null,
+    visibleCalendarMonth: firstOfMonthContaining(new Date()),
+  }));
+  const hasSearched = selection.hasSearched;
+  const selectedPlace = selection.place;
+  const selectedBookingTime = selection.bookingTime;
+  const bookingDateYmd = selection.bookingDateYmd;
+  const bookingPlaceId = selection.bookingPlaceId;
+  const visibleCalendarMonth = selection.visibleCalendarMonth;
+  const [uiState, setUiState] = useState<AIBookingUiState>({
+    cityPickerVisible: false,
+    citySearchQuery: "",
+    categoryPickerVisible: false,
+    historyOpen: false,
+    resetChatConfirmVisible: false,
+    confirmingBooking: false,
+    isSearchingPlaces: false,
+  });
+  const cityPickerVisible = uiState.cityPickerVisible;
+  const citySearchQuery = uiState.citySearchQuery;
+  const categoryPickerVisible = uiState.categoryPickerVisible;
+  const historyOpen = uiState.historyOpen;
+  const resetChatConfirmVisible = uiState.resetChatConfirmVisible;
+  const confirmingBooking = uiState.confirmingBooking;
+  const isSearchingPlaces = uiState.isSearchingPlaces;
+  const [form, setForm] = useState<DraftForm>({
+    persons: AI_BOOKING_DEFAULT_PERSONS,
+    customer_name: "",
+    customer_phone: DEFAULT_PHONE_VALUE,
+    customer_email: "",
+    comment: "",
+  });
+  const [catalogRevision, setCatalogRevision] = useState(0);
+
+  const setVisibleCalendarMonth = useCallback((action: SetStateAction<Date>) => {
+    setSelection((prev) => ({
+      ...prev,
+      visibleCalendarMonth:
+        typeof action === "function" ? action(prev.visibleCalendarMonth) : action,
+    }));
+  }, []);
+
+  const setBookingDateYmd = useCallback((ymd: string | null) => {
+    setSelection((prev) => ({ ...prev, bookingDateYmd: ymd }));
+  }, []);
+
+  const setSelectedBookingTime = useCallback((time: Date | null) => {
+    setSelection((prev) => ({ ...prev, bookingTime: time }));
+  }, []);
 
   const persistScrollState = useCallback(() => {
     const step = currentStepRef.current;
@@ -324,52 +431,21 @@ function AIBookingPageContent() {
   const createBooking = useCreateBooking();
   const startN8nWaBooking = useStartN8nWaBooking();
   const { data: cartItems = [] } = useCartItems();
-  const [currentStep, setCurrentStep] = useState<FlowStep>(initialStepRef.current);
   useDisableGestureDuringTransition({ restoreGestureEnabled: currentStep === "assistant" });
-  const [stepDirection, setStepDirection] = useState<1 | -1>(1);
-  const [selectedCity, setSelectedCity] = useState<string>("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
-  const [selectedCategoryName, setSelectedCategoryName] = useState<string>("");
-  const [scope, setScope] = useState<"nearby" | "city">("city");
-  const [requestComment, setRequestComment] = useState("");
-  const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [selectedPlace, setSelectedPlace] = useState<PixAIPlace | null>(null);
-  const [selectedBookingTime, setSelectedBookingTime] = useState<Date | null>(null);
-  const [bookingDateYmd, setBookingDateYmd] = useState<string | null>(null);
-  const [visibleCalendarMonth, setVisibleCalendarMonth] = useState<Date>(() => firstOfMonthContaining(new Date()));
-  const [cityPickerVisible, setCityPickerVisible] = useState(false);
-  const [citySearchQuery, setCitySearchQuery] = useState("");
-  const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [resetChatConfirmVisible, setResetChatConfirmVisible] = useState(false);
-  const [form, setForm] = useState<DraftForm>({
-    persons: AI_BOOKING_DEFAULT_PERSONS,
-    customer_name: "",
-    customer_phone: DEFAULT_PHONE_VALUE,
-    customer_email: "",
-    comment: "",
-  });
-  const [catalogRevision, setCatalogRevision] = useState(0);
-  const [confirmingBooking, setConfirmingBooking] = useState(false);
-  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
-  const [bookingPlaceId, setBookingPlaceId] = useState<string | null>(null);
 
   const goToAssistantStep = useCallback(() => {
-    setStepDirection(-1);
-    setCurrentStep("assistant");
+    setFlow((prev) => ({ ...prev, step: "assistant", direction: -1 }));
   }, []);
 
   const goToBookingStep = useCallback(() => {
     assistantScrollYRef.current = bookingScrollYRef.current;
-    setStepDirection(1);
-    setCurrentStep("booking");
+    setFlow((prev) => ({ ...prev, step: "booking", direction: 1 }));
   }, []);
 
   useLayoutEffect(() => {
     currentStepRef.current = currentStep;
     if (currentStep !== "booking") return;
-    setBookingPlaceId(null);
+    setSelection((prev) => ({ ...prev, bookingPlaceId: null }));
     bookingScrollRef.current?.scrollTo({ y: 0, animated: false });
     bookingScrollYRef.current = 0;
   }, [currentStep]);
@@ -472,23 +548,29 @@ function AIBookingPageContent() {
   useEffect(() => {
     if (persistedTabsCount === 0 && !lastSearchSnapshot) return;
     if (aiConsentStatus === "loading" || needsAiConsentPrompt) return;
-    setHasSearched(true);
-    setCurrentStep("assistant");
+    setSelection((prev) => ({ ...prev, hasSearched: true }));
+    setFlow((prev) => ({ ...prev, step: "assistant" }));
   }, [aiConsentStatus, needsAiConsentPrompt, persistedTabsCount, lastSearchSnapshot]);
 
   useEffect(() => {
     const snap = lastSearchSnapshot;
     if (!snap) return;
-    setSelectedCity((prev) => (prev.trim() ? prev : snap.city));
-    if (snap.isRestaurantTable) {
-      setSelectedCategoryId((prev) => (prev.trim() ? prev : RESTAURANT_TABLE_KEY));
-      setSelectedCategoryName((prev) => (prev.trim() ? prev : restaurantTableLabel));
-    } else {
-      setSelectedCategoryId((prev) => (prev.trim() ? prev : snap.categoryId));
-      setSelectedCategoryName((prev) => (prev.trim() ? prev : snap.categoryName));
-    }
-    setScope(snap.scope);
-    setRequestComment((prev) => (prev.trim() ? prev : snap.requestComment));
+    setSearchForm((prev) => ({
+      ...prev,
+      city: prev.city.trim() ? prev.city : snap.city,
+      categoryId: prev.categoryId.trim()
+        ? prev.categoryId
+        : snap.isRestaurantTable
+          ? RESTAURANT_TABLE_KEY
+          : snap.categoryId,
+      categoryName: prev.categoryName.trim()
+        ? prev.categoryName
+        : snap.isRestaurantTable
+          ? restaurantTableLabel
+          : snap.categoryName,
+      scope: snap.scope,
+      comment: prev.comment.trim() ? prev.comment : snap.requestComment,
+    }));
   }, [lastSearchSnapshot, restaurantTableLabel]);
 
   const concreteCities = useMemo(
@@ -509,7 +591,7 @@ function AIBookingPageContent() {
     const city = profile?.city?.trim();
     if (!city) return;
     if (aiConsentStatus === "loading" || needsAiConsentPrompt) return;
-    setSelectedCity((prev) => (prev.trim() ? prev : city));
+    setSearchForm((prev) => (prev.city.trim() ? prev : { ...prev, city }));
   }, [profile?.city, aiConsentStatus, needsAiConsentPrompt]);
 
   useEffect(() => {
@@ -554,9 +636,12 @@ function AIBookingPageContent() {
     if (placeOptions.length === 0) return;
     if (effectivePlaces.some((p) => p.id === selectedPlace.id)) return;
     Alert.alert(t("aiBooking.listUpdatedTitle"), t("aiBooking.listUpdatedMessage"));
-    setSelectedPlace(null);
-    setBookingDateYmd(null);
-    setSelectedBookingTime(null);
+    setSelection((prev) => ({
+      ...prev,
+      place: null,
+      bookingDateYmd: null,
+      bookingTime: null,
+    }));
     goToAssistantStep();
   }, [effectivePlaces, goToAssistantStep, placeOptions.length, selectedPlace, t]);
 
@@ -659,17 +744,15 @@ function AIBookingPageContent() {
     .join("\n");
   const applySearchSnapshot = useCallback(
     (snap: BookingSearchSnapshot) => {
-      setSelectedCity(snap.city);
-      if (snap.isRestaurantTable) {
-        setSelectedCategoryId(RESTAURANT_TABLE_KEY);
-        setSelectedCategoryName(restaurantTableLabel);
-      } else {
-        setSelectedCategoryId(snap.categoryId);
-        setSelectedCategoryName(snap.categoryName);
-      }
-      setScope(snap.scope);
-      setRequestComment(snap.requestComment);
-      setHasSearched(true);
+      setSearchForm((prev) => ({
+        ...prev,
+        city: snap.city,
+        categoryId: snap.isRestaurantTable ? RESTAURANT_TABLE_KEY : snap.categoryId,
+        categoryName: snap.isRestaurantTable ? restaurantTableLabel : snap.categoryName,
+        scope: snap.scope,
+        comment: snap.requestComment,
+      }));
+      setSelection((prev) => ({ ...prev, hasSearched: true }));
     },
     [restaurantTableLabel],
   );
@@ -814,7 +897,7 @@ function AIBookingPageContent() {
     }
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
     const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    setLocationCoords(coords);
+    setSearchForm((prev) => ({ ...prev, locationCoords: coords }));
     return coords;
   };
 
@@ -830,17 +913,20 @@ function AIBookingPageContent() {
       return;
     }
 
-    setIsSearchingPlaces(true);
+    setUiState((prev) => ({ ...prev, isSearchingPlaces: true }));
     resetFlowSearchTranscript();
-    setSelectedPlace(null);
-    setSelectedBookingTime(null);
-    setBookingDateYmd(null);
+    setSelection((prev) => ({
+      ...prev,
+      place: null,
+      bookingTime: null,
+      bookingDateYmd: null,
+    }));
 
     let coords = locationCoords;
     if (searchScope === "nearby" && !coords) {
       coords = await onRequestNearbyPermission();
       if (!coords) {
-        setIsSearchingPlaces(false);
+        setUiState((prev) => ({ ...prev, isSearchingPlaces: false }));
         const tabId = useBookingChatStore.getState().activeTabId;
         if (tabId) useBookingChatStore.getState().setTabOnboardingPhase(tabId, "await_scope");
         return;
@@ -863,8 +949,8 @@ function AIBookingPageContent() {
       const result = await runFlow(payload);
       const catalogPlaces = result.places ?? [];
 
-      setHasSearched(true);
-      setCurrentStep("assistant");
+      setSelection((prev) => ({ ...prev, hasSearched: true }));
+      setFlow((prev) => ({ ...prev, step: "assistant" }));
       let nextRev = 0;
       setCatalogRevision((prev) => {
         nextRev = prev + 1;
@@ -899,7 +985,7 @@ function AIBookingPageContent() {
       const tabId = useBookingChatStore.getState().activeTabId;
       if (tabId) useBookingChatStore.getState().setTabOnboardingPhase(tabId, "await_scope");
     } finally {
-      setIsSearchingPlaces(false);
+      setUiState((prev) => ({ ...prev, isSearchingPlaces: false }));
     }
   };
 
@@ -908,11 +994,14 @@ function AIBookingPageContent() {
   const onBookPlace = useCallback(
     (place: PixAIPlace) => {
       if (bookingPlaceId) return;
-      setBookingPlaceId(place.id);
-      setSelectedPlace(place);
-      setBookingDateYmd(null);
-      setSelectedBookingTime(null);
-      setVisibleCalendarMonth(firstOfMonthContaining(new Date()));
+      setSelection((prev) => ({
+        ...prev,
+        bookingPlaceId: place.id,
+        place,
+        bookingDateYmd: null,
+        bookingTime: null,
+        visibleCalendarMonth: firstOfMonthContaining(new Date()),
+      }));
       requestAnimationFrame(() => {
         goToBookingStep();
       });
@@ -945,7 +1034,7 @@ function AIBookingPageContent() {
 
   const onScopeSelected = useCallback(
     (selectedScope: "nearby" | "city") => {
-      setScope(selectedScope);
+      setSearchForm((prev) => ({ ...prev, scope: selectedScope }));
       const label = selectedScope === "nearby" ? nearMeLabel : allPlacesInMyCityLabel;
       const tabId = useBookingChatStore.getState().activeTabId;
       if (tabId) {
@@ -964,25 +1053,33 @@ function AIBookingPageContent() {
       useBookingChatStore.getState().setActiveTab(tabId);
       const tab = useBookingChatStore.getState().tabs.find((t) => t.id === tabId);
       if (tab?.searchSnapshot) applySearchSnapshot(tab.searchSnapshot);
-      setSelectedPlace(null);
-      setSelectedBookingTime(null);
-      setBookingDateYmd(null);
+      setSelection((prev) => ({
+        ...prev,
+        place: null,
+        bookingTime: null,
+        bookingDateYmd: null,
+      }));
       goToAssistantStep();
     },
     [applySearchSnapshot, goToAssistantStep],
   );
 
   const resetAssistantSessionState = useCallback(() => {
-    setSelectedCity(profile?.city?.trim() ?? "");
-    setSelectedCategoryId("");
-    setSelectedCategoryName("");
-    setScope("city");
-    setRequestComment("");
-    setHasSearched(false);
-    setSelectedPlace(null);
-    setSelectedBookingTime(null);
-    setBookingDateYmd(null);
-    setLocationCoords(null);
+    setSearchForm({
+      city: profile?.city?.trim() ?? "",
+      categoryId: "",
+      categoryName: "",
+      scope: "city",
+      comment: "",
+      locationCoords: null,
+    });
+    setSelection((prev) => ({
+      ...prev,
+      hasSearched: false,
+      place: null,
+      bookingTime: null,
+      bookingDateYmd: null,
+    }));
     resetFlowSearchTranscript();
   }, [profile?.city, resetFlowSearchTranscript]);
 
@@ -990,7 +1087,7 @@ function AIBookingPageContent() {
     resetAssistantSessionState();
     const tabId = useBookingChatStore.getState().addTab(catalogRevision);
     greetingBootstrappedRef.current.delete(tabId);
-    setCurrentStep("assistant");
+    setFlow((prev) => ({ ...prev, step: "assistant" }));
   }, [catalogRevision, resetAssistantSessionState]);
 
   const confirmResetChat = useCallback(() => {
@@ -1003,7 +1100,7 @@ function AIBookingPageContent() {
   }, [resetAssistantSessionState, resetFlowSearchTranscript]);
 
   const onResetChat = useCallback(() => {
-    setResetChatConfirmVisible(true);
+    setUiState((prev) => ({ ...prev, resetChatConfirmVisible: true }));
   }, []);
 
   const personsCount = Number(form.persons) || Number(AI_BOOKING_DEFAULT_PERSONS);
@@ -1046,7 +1143,7 @@ function AIBookingPageContent() {
     }
     const persons = Number(form.persons);
 
-    setConfirmingBooking(true);
+    setUiState((prev) => ({ ...prev, confirmingBooking: true }));
     try {
       const price = Number(selectedPlace.booking_price ?? 0);
       const phoneToSave = serializePhone(form.customer_phone);
@@ -1104,7 +1201,7 @@ function AIBookingPageContent() {
       }
       Alert.alert(t("bookingCommon.failed"), t("bookingCommon.couldNotCreateDraft"));
     } finally {
-      setConfirmingBooking(false);
+      setUiState((prev) => ({ ...prev, confirmingBooking: false }));
     }
   };
 
@@ -1191,7 +1288,7 @@ function AIBookingPageContent() {
                 style={styles.menuBtn}
                 accessibilityRole="button"
                 accessibilityLabel={t("aiBooking.openHistoryA11y")}
-                onPress={() => setHistoryOpen(true)}
+                onPress={() => setUiState((prev) => ({ ...prev, historyOpen: true }))}
               >
                 <Ionicons name="menu" size={20} color={colors.text} />
               </AppPressable>
@@ -1224,10 +1321,9 @@ function AIBookingPageContent() {
                 nearMeLabel={nearMeLabel}
                 allPlacesInMyCityLabel={allPlacesInMyCityLabel}
                 onOpenCityPicker={() => {
-                  setCitySearchQuery("");
-                  setCityPickerVisible(true);
+                  setUiState((prev) => ({ ...prev, citySearchQuery: "", cityPickerVisible: true }));
                 }}
-                onOpenCategoryPicker={() => setCategoryPickerVisible(true)}
+                onOpenCategoryPicker={() => setUiState((prev) => ({ ...prev, categoryPickerVisible: true }))}
                 onScopeSelected={onScopeSelected}
               />
               </AiBookingAssistantGate>
@@ -1328,7 +1424,7 @@ function AIBookingPageContent() {
         visible={historyOpen}
         items={historyItems}
         activeTabId={activeTabId}
-        onClose={() => setHistoryOpen(false)}
+        onClose={() => setUiState((prev) => ({ ...prev, historyOpen: false }))}
         onSelectTab={onSelectHistoryTab}
         onNewRequest={onNewRequest}
       />
@@ -1336,8 +1432,7 @@ function AIBookingPageContent() {
       <BottomSheetPickerModal
         visible={cityPickerVisible}
         onClose={() => {
-          setCitySearchQuery("");
-          setCityPickerVisible(false);
+          setUiState((prev) => ({ ...prev, citySearchQuery: "", cityPickerVisible: false }));
         }}
         title={t("bookingCommon.chooseCity")}
         maxHeightFraction={0.58}
@@ -1348,7 +1443,7 @@ function AIBookingPageContent() {
           <Ionicons name="search-outline" size={20} color={colors.textMuted} />
           <TextInput
             value={citySearchQuery}
-            onChangeText={setCitySearchQuery}
+            onChangeText={(query) => setUiState((prev) => ({ ...prev, citySearchQuery: query }))}
             placeholder={t("bookingCommon.searchCityOrCountry")}
             placeholderTextColor={colors.textMuted}
             style={styles.citySearchInput}
@@ -1369,9 +1464,8 @@ function AIBookingPageContent() {
                 style={styles.pickerRow}
                 onPress={() => {
                   manualCitySelectionRef.current = true;
-                  setSelectedCity(city);
-                  setCitySearchQuery("");
-                  setCityPickerVisible(false);
+                  setSearchForm((prev) => ({ ...prev, city }));
+                  setUiState((prev) => ({ ...prev, citySearchQuery: "", cityPickerVisible: false }));
                   const tabId = useBookingChatStore.getState().activeTabId;
                   if (tabId) {
                     useBookingChatStore.getState().appendUserMessage(tabId, city);
@@ -1396,7 +1490,7 @@ function AIBookingPageContent() {
 
       <BottomSheetPickerModal
         visible={categoryPickerVisible}
-        onClose={() => setCategoryPickerVisible(false)}
+        onClose={() => setUiState((prev) => ({ ...prev, categoryPickerVisible: false }))}
         title={t("bookingCommon.chooseServiceOrTable")}
       >
         {bookingCategoryOptions.map((category) => {
@@ -1421,15 +1515,21 @@ function AIBookingPageContent() {
                 if (!isSelectable) return;
                 let categoryLabel: string;
                 if (isRestaurantCategoryName(category.name)) {
-                  setSelectedCategoryId(RESTAURANT_TABLE_KEY);
-                  setSelectedCategoryName(restaurantTableLabel);
+                  setSearchForm((prev) => ({
+                    ...prev,
+                    categoryId: RESTAURANT_TABLE_KEY,
+                    categoryName: restaurantTableLabel,
+                  }));
                   categoryLabel = restaurantTableLabel;
                 } else {
-                  setSelectedCategoryId(category.id);
-                  setSelectedCategoryName(category.name);
+                  setSearchForm((prev) => ({
+                    ...prev,
+                    categoryId: category.id,
+                    categoryName: category.name,
+                  }));
                   categoryLabel = localizeCategoryName(category.name, t);
                 }
-                setCategoryPickerVisible(false);
+                setUiState((prev) => ({ ...prev, categoryPickerVisible: false }));
                 const tabId = useBookingChatStore.getState().activeTabId;
                 if (tabId) {
                   useBookingChatStore.getState().appendUserMessage(tabId, categoryLabel);
@@ -1463,7 +1563,7 @@ function AIBookingPageContent() {
         visible={resetChatConfirmVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setResetChatConfirmVisible(false)}
+        onRequestClose={() => setUiState((prev) => ({ ...prev, resetChatConfirmVisible: false }))}
       >
         <AppPopupModal
           embedded
@@ -1471,7 +1571,7 @@ function AIBookingPageContent() {
           variant="alert"
           title={t("aiBooking.resetChatTitle")}
           message={t("aiBooking.resetChatMessage")}
-          onClose={() => setResetChatConfirmVisible(false)}
+          onClose={() => setUiState((prev) => ({ ...prev, resetChatConfirmVisible: false }))}
           buttons={[
             { text: t("common.cancel"), style: "cancel" },
             {
