@@ -998,7 +998,7 @@ export default function MessageThreadPage() {
   );
 
   return (
-    <View style={styles.root} {...androidSwipeBackPanHandlers}>
+    <View style={styles.root}>
       <ThreadHeader
         styles={styles}
         colors={colors}
@@ -1105,6 +1105,10 @@ export default function MessageThreadPage() {
           buttons={deleteMessagePopupButtons}
         />
       </Modal>
+
+      {Platform.OS === "android" ? (
+        <View style={styles.androidBackSwipeEdge} {...androidSwipeBackPanHandlers} />
+      ) : null}
     </View>
   );
 }

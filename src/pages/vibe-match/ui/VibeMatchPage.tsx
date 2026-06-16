@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
@@ -10,9 +10,9 @@ import {
   PixelRatio,
   InteractionManager,
   ScrollView,
+  Platform,
 } from "react-native";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
-import { useKeyboardInset } from "@/shared/lib/keyboard";
+import { useScrollToFocusedInput } from "@/shared/lib/keyboard";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommonActions, useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -200,11 +200,6 @@ type Nav = NativeStackNavigationProp<BrowseFlowParamList, "VibeMatch">;
 function VibeMatchPageContent() {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
-  const keyboardInset = useKeyboardInset({ bottomInset: insets.bottom });
-  const keyboardRootStyle = useAnimatedStyle(
-    () => ({ paddingBottom: keyboardInset.value }),
-    [keyboardInset],
-  );
   const { colors, isDark } = useAppTheme();
   const navigation = useNavigation<Nav>();
   useDisableGestureDuringTransition();
@@ -271,6 +266,20 @@ function VibeMatchPageContent() {
   const selectionSeededForPlanRef = useRef("");
   const scrollRef = useRef<ScrollView>(null);
   const scrollYRef = useRef(0);
+  const { onInputFocus, onScroll: onKeyboardScroll } = useScrollToFocusedInput(scrollRef, {
+    scrollOffsetYRef: scrollYRef,
+  });
+  const personsInputRef = useRef<TextInput>(null);
+  const customerNameInputRef = useRef<TextInput>(null);
+  const phoneInputRef = useRef<TextInput>(null);
+  const customerEmailInputRef = useRef<TextInput>(null);
+  const commentInputRef = useRef<TextInput>(null);
+  const handleGuestInputFocus = useCallback(
+    (fieldRef: RefObject<TextInput | null>) => {
+      onInputFocus(fieldRef);
+    },
+    [onInputFocus],
+  );
   const conciergeScrollYRef = useRef(0);
   const pendingScrollToConciergeRef = useRef(false);
   const bookingBusy = bookingAction !== null;
@@ -822,14 +831,16 @@ function VibeMatchPageContent() {
   }
 
   return (
-    <Animated.View style={[styles.root, keyboardRootStyle]} {...androidSwipeBackPanHandlers}>
+    <View style={styles.root} {...androidSwipeBackPanHandlers}>
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 120 + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         nestedScrollEnabled
         onScroll={(event) => {
           scrollYRef.current = event.nativeEvent.contentOffset.y;
+          onKeyboardScroll(event);
         }}
         scrollEventThrottle={16}
       >
@@ -882,6 +893,7 @@ function VibeMatchPageContent() {
           <VibeCustomTimeWindowSlider
             value={customTimeWindow}
             onChange={handleCustomWindowChange}
+            inactive={timeSelectionMode === "preset"}
           />
           <AppPressable
             onPress={() => void onGenerate()}
@@ -1115,26 +1127,33 @@ function VibeMatchPageContent() {
           <View style={styles.section}>
             <Text style={styles.label}>{t("vibeMatch.guestDetails")}</Text>
             <TextInput
+              ref={personsInputRef}
               style={styles.input}
               placeholder={t("bookingCommon.partySize")}
               placeholderTextColor={colors.textMuted}
               keyboardType="number-pad"
               value={persons}
               onChangeText={setPersons}
+              onFocus={() => handleGuestInputFocus(personsInputRef)}
             />
             <TextInput
+              ref={customerNameInputRef}
               style={styles.input}
               placeholder={t("bookingCommon.fullName")}
               placeholderTextColor={colors.textMuted}
               value={customerName}
               onChangeText={setCustomerName}
+              onFocus={() => handleGuestInputFocus(customerNameInputRef)}
             />
             <PhoneInput
+              inputRef={phoneInputRef}
               value={customerPhone}
               onChange={setCustomerPhone}
               containerStyle={{ backgroundColor: colors.background }}
+              onFocus={() => handleGuestInputFocus(phoneInputRef)}
             />
             <TextInput
+              ref={customerEmailInputRef}
               style={styles.input}
               placeholder={t("bookingCommon.email")}
               placeholderTextColor={colors.textMuted}
@@ -1142,14 +1161,17 @@ function VibeMatchPageContent() {
               autoCapitalize="none"
               value={customerEmail}
               onChangeText={setCustomerEmail}
+              onFocus={() => handleGuestInputFocus(customerEmailInputRef)}
             />
             <TextInput
+              ref={commentInputRef}
               style={[styles.input, { minHeight: 72 }]}
               placeholder={t("bookingCommon.commentOptional")}
               placeholderTextColor={colors.textMuted}
               multiline
               value={comment}
               onChangeText={setComment}
+              onFocus={() => handleGuestInputFocus(commentInputRef)}
             />
             <BookingProfileCompleteTip
               visible={showProfileCompleteTip}
@@ -1263,7 +1285,7 @@ function VibeMatchPageContent() {
           </View>
         ) : null}
       </BottomSheetPickerModal>
-    </Animated.View>
+    </View>
   );
 }
 

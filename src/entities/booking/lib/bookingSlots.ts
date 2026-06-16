@@ -2,9 +2,15 @@ import type { PixAISlot } from "@/entities/pixai";
 
 /** Allowed local-time windows per calendar day (5-minute steps). */
 export const BOOKING_TIME_WINDOWS = [
-  { startMinutes: 0, endMinutes: 60 },
+  { startMinutes: 0, endMinutes: 2 * 60 },
   { startMinutes: 6 * 60, endMinutes: 23 * 60 + 30 },
 ] as const;
+
+/** Unbookable overnight gap shown as an inline picker warning (5-minute steps). */
+export const BOOKING_RESTRICTED_TIME_WINDOW = {
+  startMinutes: 2 * 60 + 30,
+  endMinutes: 5 * 60 + 30,
+} as const;
 
 export const BOOKING_SLOT_STEP_MINUTES = 5;
 export const BOOKING_SLOT_GRID_COLUMNS = 4;
@@ -38,6 +44,14 @@ export function isBookingTimeMinutesAllowed(totalMinutes: number): boolean {
   const snapped = snapToBookingTimeGrid(totalMinutes);
   return BOOKING_TIME_WINDOWS.some(
     (window) => snapped >= window.startMinutes && snapped <= window.endMinutes,
+  );
+}
+
+export function isBookingTimeInRestrictedWindow(totalMinutes: number): boolean {
+  const snapped = snapToBookingTimeGrid(totalMinutes);
+  return (
+    snapped >= BOOKING_RESTRICTED_TIME_WINDOW.startMinutes &&
+    snapped <= BOOKING_RESTRICTED_TIME_WINDOW.endMinutes
   );
 }
 
@@ -122,7 +136,7 @@ export function findBookingSlotForTime(slots: PixAISlot[], totalMinutes: number)
   return slots.find((slot) => slot.label === label) ?? null;
 }
 
-export type BookingTimeUnavailableReason = "past" | "busy";
+export type BookingTimeUnavailableReason = "past" | "busy" | "restricted";
 
 export function isBookingDateTimeInPast(dateYmd: string, totalMinutes: number): boolean {
   const dt = bookingDateTimeFromYmd(dateYmd, snapToNearestAllowedBookingMinutes(totalMinutes));
@@ -136,6 +150,9 @@ export function resolveBookingTimeUnavailableReason(params: {
   reservedInCart?: boolean;
 }): BookingTimeUnavailableReason | null {
   const { slot, dateYmd, totalMinutes, reservedInCart = false } = params;
+  const snapped = snapToBookingTimeGrid(totalMinutes);
+  if (isBookingTimeInRestrictedWindow(snapped)) return "restricted";
+  if (!isBookingTimeMinutesAllowed(snapped)) return "busy";
   if (!slot) return "busy";
   if (reservedInCart) return "busy";
   if (isBookingDateTimeInPast(dateYmd, totalMinutes)) return "past";

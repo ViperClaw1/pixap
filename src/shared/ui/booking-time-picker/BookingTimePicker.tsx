@@ -13,10 +13,13 @@ import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import {
   BOOKING_SLOT_STEP_MINUTES,
+  bookingDateTimeFromYmd,
   clampBookingPickerDate,
   defaultBookingDateTime,
   formatBookingTimeLabel,
+  isBookingTimeInRestrictedWindow,
   minutesFromDate,
+  snapToBookingTimeGrid,
   type BookingTimeUnavailableReason,
 } from "@/entities/booking/lib/bookingSlots";
 import { BookingAndroidInlineTimePicker } from "./BookingAndroidInlineTimePicker";
@@ -32,6 +35,7 @@ type Props = {
 const UNAVAILABLE_MESSAGE_KEYS: Record<BookingTimeUnavailableReason, string> = {
   past: "bookingCommon.selectedTimeInPast",
   busy: "bookingCommon.selectedTimeSlotTaken",
+  restricted: "bookingCommon.selectedTimeRestricted",
 };
 
 export function BookingTimePicker({
@@ -62,6 +66,11 @@ export function BookingTimePicker({
 
   const onIosPickerChange = (_event: DateTimePickerEvent, selected?: Date) => {
     if (!selected) return;
+    const snappedMinutes = snapToBookingTimeGrid(minutesFromDate(selected));
+    if (isBookingTimeInRestrictedWindow(snappedMinutes)) {
+      onChange(bookingDateTimeFromYmd(dateYmd, snappedMinutes));
+      return;
+    }
     onChange(clampBookingPickerDate(dateYmd, selected));
   };
 

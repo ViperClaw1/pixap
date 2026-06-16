@@ -21,7 +21,10 @@ const TRACK_HEIGHT = 6;
 type Props = {
   value: VibeCustomTimeWindow;
   onChange: (value: VibeCustomTimeWindow) => void;
+  /** Blocks interaction (e.g. loading). */
   disabled?: boolean;
+  /** Visual dim when the other time-selection mode is active; gestures stay enabled. */
+  inactive?: boolean;
 };
 
 type DragPreview = {
@@ -33,6 +36,7 @@ export function VibeCustomTimeWindowSlider({
   value,
   onChange,
   disabled = false,
+  inactive = false,
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -254,7 +258,7 @@ export function VibeCustomTimeWindowSlider({
   }
 
   return (
-    <View style={[styles.wrap, disabled && styles.disabled]}>
+    <View style={[styles.wrap, inactive && styles.inactive]}>
       <Text style={[styles.rangeLabel, { color: colors.text }]}>
         {t("vibeMatch.customTimeRange", {
           start: formatVibeMinutesLabel(previewStartMinutes),
@@ -323,7 +327,7 @@ export function VibeCustomTimeWindowSlider({
 
 const styles = StyleSheet.create({
   wrap: { gap: 8, marginTop: 4 },
-  disabled: { opacity: 0.45 },
+  inactive: { opacity: 0.45 },
   unavailableLabel: { fontSize: 13, fontWeight: "600", textAlign: "center" },
   rangeLabel: { fontSize: 14, fontWeight: "700", textAlign: "center" },
   trackWrap: {

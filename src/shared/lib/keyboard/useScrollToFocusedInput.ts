@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import {
-  Dimensions,
   Keyboard,
   Platform,
   type KeyboardEvent,
@@ -11,9 +10,8 @@ import {
 } from "react-native";
 
 const DEFAULT_GAP = Platform.OS === "android" ? 48 : 16;
-const ANDROID_SCROLL_DEDUPE_PX = 4;
-/** Typical Android soft-keyboard height until the first `keyboardDidShow`. */
-const ANDROID_DEFAULT_KEYBOARD_HEIGHT = 280;
+/** Skip redundant Android scrollTo when the target barely changed. */
+const ANDROID_SCROLL_DEDUPE_PX = 8;
 
 type Options = {
   gap?: number;
@@ -37,13 +35,7 @@ export function useScrollToFocusedInput(
   const scrollOffsetYRef = options?.scrollOffsetYRef ?? internalScrollOffsetYRef;
   const activeInputRef = useRef<TextInput | null>(null);
   const keyboardTopRef = useRef<number | null>(null);
-  const lastKeyboardHeightRef = useRef(ANDROID_DEFAULT_KEYBOARD_HEIGHT);
   const lastAndroidScrollYRef = useRef<number | null>(null);
-
-  const resolveAndroidKeyboardTop = useCallback((knownTop: number | null): number => {
-    if (knownTop != null) return knownTop;
-    return Dimensions.get("window").height - lastKeyboardHeightRef.current;
-  }, []);
 
   const ensureFocusedInputVisible = useCallback(
     (keyboardTop: number, ensureOptions?: EnsureVisibleOptions) => {
@@ -77,7 +69,9 @@ export function useScrollToFocusedInput(
   const scheduleEnsureVisible = useCallback(
     (keyboardTop: number, ensureOptions?: EnsureVisibleOptions) => {
       if (Platform.OS === "android") {
-        ensureFocusedInputVisible(keyboardTop, ensureOptions);
+        requestAnimationFrame(() => {
+          ensureFocusedInputVisible(keyboardTop, ensureOptions);
+        });
         return;
       }
 
@@ -102,11 +96,10 @@ export function useScrollToFocusedInput(
         return;
       }
       keyboardTopRef.current = screenY;
-      lastKeyboardHeightRef.current = height;
 
       if (Platform.OS === "android") {
-        // Snap to final position once keyboard metrics are known (focus scroll already ran in parallel).
-        scheduleEnsureVisible(screenY, { animated: false });
+        // One smooth scroll once keyboard metrics are known — no estimate + snap.
+        scheduleEnsureVisible(screenY, { animated: true });
         return;
       }
 
@@ -132,8 +125,10 @@ export function useScrollToFocusedInput(
       lastAndroidScrollYRef.current = null;
 
       if (Platform.OS === "android") {
-        // Start scrolling with the keyboard open animation, before `keyboardDidShow`.
-        scheduleEnsureVisible(resolveAndroidKeyboardTop(keyboardTopRef.current), { animated: true });
+        const keyboardTop = keyboardTopRef.current;
+        if (keyboardTop == null) return;
+        // Keyboard already open — scroll smoothly to the next field.
+        scheduleEnsureVisible(keyboardTop, { animated: true });
         return;
       }
 
@@ -142,12 +137,12 @@ export function useScrollToFocusedInput(
         scheduleEnsureVisible(keyboardTop);
       }
     },
-    [resolveAndroidKeyboardTop, scheduleEnsureVisible],
+    [scheduleEnsureVisible],
   );
 
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollOffsetYRef.current = event.nativeEvent.contentOffset.y;
-  }, []);
+  }, [scrollOffsetYRef]);
 
   return { onInputFocus, onScroll };
-}
+};

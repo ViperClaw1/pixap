@@ -96,6 +96,7 @@ export const MessageThreadRow = memo(MessageThreadRowComponent, (prev, next) => 
     return (
       prev.item.key === next.item.key &&
       prevMsg.id === nextMsg.id &&
+      prevMsg.mine === nextMsg.mine &&
       prevMsg.content === nextMsg.content &&
       prevMsg.created_at === nextMsg.created_at &&
       prevMsg.attachments.length === nextMsg.attachments.length &&
