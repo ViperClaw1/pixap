@@ -82,6 +82,7 @@ import {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const FOOTER_VERTICAL_PAD = 8;
 const FOOTER_BUTTON_HEIGHT = 44;
+const CONTINUE_THROTTLE_MS = 600;
 
 type R = RouteProp<BrowseFlowParamList, "BookingFlow">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "BookingFlow">;
@@ -130,6 +131,10 @@ export default function BookingFlowPage() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [comment, setComment] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const confirmingRef = useRef(false);
+  const continueLockRef = useRef(false);
+  const lastContinueAtRef = useRef(0);
+  const continueUnlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [celebrationActive, setCelebrationActive] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const { onInputFocus, onScroll } = useScrollToFocusedInput(scrollRef);
@@ -191,6 +196,67 @@ export default function BookingFlowPage() {
     return null;
   }, [customerEmail, customerName, customerPhone, guests]);
 
+  const scheduleContinueUnlock = useCallback(() => {
+    if (continueUnlockTimerRef.current) {
+      clearTimeout(continueUnlockTimerRef.current);
+    }
+    continueUnlockTimerRef.current = setTimeout(() => {
+      continueLockRef.current = false;
+      continueUnlockTimerRef.current = null;
+    }, CONTINUE_THROTTLE_MS);
+  }, []);
+
+  const resetContinueThrottle = useCallback(() => {
+    if (continueUnlockTimerRef.current) {
+      clearTimeout(continueUnlockTimerRef.current);
+      continueUnlockTimerRef.current = null;
+    }
+    continueLockRef.current = false;
+    lastContinueAtRef.current = 0;
+  }, []);
+
+  useEffect(() => {
+    if (step > BOOKING_FLOW_TOTAL_STEPS) {
+      setStep(BOOKING_FLOW_TOTAL_STEPS);
+    }
+  }, [step]);
+
+  useEffect(() => () => {
+    if (continueUnlockTimerRef.current) {
+      clearTimeout(continueUnlockTimerRef.current);
+    }
+  }, []);
+
+  const handleContinue = useCallback(() => {
+    const now = Date.now();
+    if (continueLockRef.current || now - lastContinueAtRef.current < CONTINUE_THROTTLE_MS) {
+      return;
+    }
+
+    if (step === 1 && !selectedBookingTime) {
+      showMissingBookingSlotPopup(t);
+      return;
+    }
+    if (step === 1 && timeSelectionUnavailable) {
+      showMissingAvailableSlotPopup(t);
+      return;
+    }
+    if (step === 1) {
+      const formError = getGuestFormError();
+      if (formError) {
+        showGuestFormValidationPopup({ error: formError, t });
+        return;
+      }
+    }
+
+    if (step >= BOOKING_FLOW_TOTAL_STEPS) return;
+
+    continueLockRef.current = true;
+    lastContinueAtRef.current = now;
+    setStep((prev) => Math.min(prev + 1, BOOKING_FLOW_TOTAL_STEPS));
+    scheduleContinueUnlock();
+  }, [getGuestFormError, scheduleContinueUnlock, selectedBookingTime, step, t, timeSelectionUnavailable]);
+
   if (placeLoading) {
     return (
       <View style={[styles.root, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
@@ -231,7 +297,7 @@ export default function BookingFlowPage() {
   };
 
   const handleConfirm = async () => {
-    if (confirming) return;
+    if (confirmingRef.current) return;
     if (!canUseBookingCredits) {
       showErrorToast(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
       return;
@@ -251,6 +317,7 @@ export default function BookingFlowPage() {
     }
     const dateTime = new Date(selectedAvailableSlot.dateTimeIso);
     const phoneToSave = serializePhone(customerPhone);
+    confirmingRef.current = true;
     setConfirming(true);
     try {
       const price = Number(place.booking_price);
@@ -297,6 +364,8 @@ export default function BookingFlowPage() {
         );
       }, 1200);
     } catch (error) {
+      confirmingRef.current = false;
+      setConfirming(false);
       if (isAuthRequiredError(error)) {
         navigateToAuthScreen(navigation);
         return;
@@ -306,8 +375,6 @@ export default function BookingFlowPage() {
         return;
       }
       showErrorToast(t("bookingCommon.couldNotCreateDraft"));
-    } finally {
-      setConfirming(false);
     }
   };
 
@@ -318,13 +385,19 @@ export default function BookingFlowPage() {
     );
   };
 
+  const handleStepBack = useCallback(() => {
+    resetContinueThrottle();
+    setStep((prev) => Math.max(prev - 1, 0));
+  }, [resetContinueThrottle]);
+
   const handleFooterBack = useCallback(() => {
+    resetContinueThrottle();
     if (step === 0) {
       navigation.goBack();
       return;
     }
     setStep(step - 1);
-  }, [navigation, step]);
+  }, [navigation, resetContinueThrottle, step]);
 
   return (
     <>
@@ -333,7 +406,7 @@ export default function BookingFlowPage() {
         <SafeAreaView edges={["top"]} style={styles.stepOneTopChrome}>
           <BookingStepIndicator step={step} totalSteps={totalSteps} />
           <View style={styles.header}>
-            <AppPressable onPress={() => setStep(step - 1)}>
+            <AppPressable onPress={handleStepBack}>
               <Text style={[styles.back, themedStyles.headerBack]}>←</Text>
             </AppPressable>
             <View>
@@ -522,7 +595,7 @@ export default function BookingFlowPage() {
               }}
               isFavorite={isFavorite}
               onPressFavorite={onFavoritePress}
-              onPressBack={() => setStep(step - 1)}
+              onPressBack={handleStepBack}
               useMonotoneDarkBackground={useMonotoneDarkBackground}
             >
               <BookingStepIndicator step={step} totalSteps={totalSteps} />
@@ -555,39 +628,18 @@ export default function BookingFlowPage() {
           {step < BOOKING_FLOW_TOTAL_STEPS ? (
             <AppPressable
               style={[styles.primary, styles.footerPrimaryBtn]}
-              onPress={() => {
-                if (step === 1 && !selectedBookingTime) {
-                  showMissingBookingSlotPopup(t);
-                  return;
-                }
-                if (step === 1 && timeSelectionUnavailable) {
-                  showMissingAvailableSlotPopup(t);
-                  return;
-                }
-                if (step === 1) {
-                  const formError = getGuestFormError();
-                  if (formError) {
-                    showGuestFormValidationPopup({ error: formError, t });
-                    return;
-                  }
-                }
-                setStep(step + 1);
-              }}
+              onPress={handleContinue}
             >
               <Text style={styles.primaryText}>Continue</Text>
             </AppPressable>
           ) : (
             <AppPressable
-              style={[styles.primary, styles.footerPrimaryBtn, confirming && { opacity: 0.55 }]}
+              style={[styles.primary, styles.footerPrimaryBtn]}
               disabled={confirming}
               accessibilityState={{ disabled: confirming }}
               onPress={() => void handleConfirm()}
             >
-              {confirming ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryText}>Confirm booking</Text>
-              )}
+              <Text style={styles.primaryText}>Confirm booking</Text>
             </AppPressable>
           )}
         </View>
