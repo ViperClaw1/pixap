@@ -14,6 +14,9 @@ type NavBack = { goBack: () => void; canGoBack: () => boolean };
 
 export type AndroidSwipeBackSensitivity = "default" | "high";
 
+/** Hit area width for edge-only Android back swipe (aligns with iOS native stack). */
+export const ANDROID_EDGE_SWIPE_BACK_WIDTH = 24;
+
 type SwipeBackPreset = {
   captureDistancePx: number;
   releaseDistancePx: number;

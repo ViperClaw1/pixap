@@ -35,6 +35,10 @@ export const bookingFlowThemedStaticStyles = StyleSheet.create({
   confirmText: {},
   confirmPrice: {},
   footer: { borderTopWidth: 1 },
+  footerSecondaryBtn: {
+    borderWidth: 1,
+  },
+  footerSecondaryBtnText: {},
 });
 
 export function bookingFlowThemedThemeStyles(colors: ThemeColors, isDark: boolean) {
@@ -78,5 +82,10 @@ export function bookingFlowThemedThemeStyles(colors: ThemeColors, isDark: boolea
     confirmText: { color: colors.text },
     confirmPrice: { color: colors.textMuted },
     footer: { borderTopColor: colors.border, backgroundColor: colors.background },
+    footerSecondaryBtn: {
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    footerSecondaryBtnText: { color: colors.text },
   } satisfies Partial<Record<keyof typeof bookingFlowThemedStaticStyles, object>>;
 }

@@ -22,7 +22,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useCartItems, useCreateCartItem, useStartN8nWaBooking } from "@/entities/cart";
 import { useCreateBooking } from "@/entities/booking";
-import { useAvailableSlots, findBookingSlotForTime, minutesFromDate, defaultBookingDateTime } from "@/entities/booking";
+import {
+  useAvailableSlots,
+  findBookingSlotForTime,
+  minutesFromDate,
+  defaultBookingDateTime,
+  resolveBookingTimeUnavailableReason,
+} from "@/entities/booking";
 import {
   usePixAI,
   type PixAIFlowPayload,
@@ -672,9 +678,17 @@ function AIBookingPageContent() {
 
   const selectedSlot = useMemo((): PixAISlot | null => {
     if (!selectedBookingTime || !bookingDateYmd) return null;
-    const slot = findBookingSlotForTime(slotsForDate, minutesFromDate(selectedBookingTime));
-    if (!slot) return null;
-    const inCart = cartReservedSlotTimes.has(new Date(slot.dateTimeIso).getTime());
+    const totalMinutes = minutesFromDate(selectedBookingTime);
+    const slot = findBookingSlotForTime(slotsForDate, totalMinutes);
+    const inCart =
+      slot != null && cartReservedSlotTimes.has(new Date(slot.dateTimeIso).getTime());
+    const unavailable = resolveBookingTimeUnavailableReason({
+      slot,
+      dateYmd: bookingDateYmd,
+      totalMinutes,
+      reservedInCart: inCart,
+    });
+    if (unavailable || !slot) return null;
     if (inCart) return { ...slot, available: false };
     return slot;
   }, [selectedBookingTime, bookingDateYmd, slotsForDate, cartReservedSlotTimes]);

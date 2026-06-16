@@ -9,7 +9,7 @@ import { BookingWhatsAppBanner } from "./BookingWhatsAppBanner";
 import { useTranslation } from "react-i18next";
 import { CommonActions, useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useBusinessCard } from "@/entities/business-card";
 import { useCreateCartItem, useStartN8nWaBooking } from "@/entities/cart";
@@ -80,6 +80,8 @@ import {
 } from "@/shared/lib/bookingCalendar";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const FOOTER_VERTICAL_PAD = 8;
+const FOOTER_BUTTON_HEIGHT = 44;
 
 type R = RouteProp<BrowseFlowParamList, "BookingFlow">;
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "BookingFlow">;
@@ -316,32 +318,45 @@ export default function BookingFlowPage() {
     );
   };
 
+  const handleFooterBack = useCallback(() => {
+    if (step === 0) {
+      navigation.goBack();
+      return;
+    }
+    setStep(step - 1);
+  }, [navigation, step]);
+
   return (
     <>
     <View style={[styles.root, { backgroundColor: colors.background }]} {...androidSwipeBackPanHandlers}>
-      <BookingStepIndicator step={step} totalSteps={totalSteps} />
-      <BookingConfetti active={celebrationActive} />
       {step === 1 ? (
-        <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
-          <AppPressable onPress={() => setStep(step - 1)}>
-            <Text style={[styles.back, themedStyles.headerBack]}>←</Text>
-          </AppPressable>
-          <View>
-            <Text style={[styles.title, themedStyles.headerTitle]}>Book {place.name}</Text>
-            <Text style={[styles.stepText, themedStyles.headerStep]}>
-              Step {step + 1} of {BOOKING_FLOW_TOTAL_STEPS + 1}
-            </Text>
+        <SafeAreaView edges={["top"]} style={styles.stepOneTopChrome}>
+          <BookingStepIndicator step={step} totalSteps={totalSteps} />
+          <View style={styles.header}>
+            <AppPressable onPress={() => setStep(step - 1)}>
+              <Text style={[styles.back, themedStyles.headerBack]}>←</Text>
+            </AppPressable>
+            <View>
+              <Text style={[styles.title, themedStyles.headerTitle]}>Book {place.name}</Text>
+              <Text style={[styles.stepText, themedStyles.headerStep]}>
+                Step {step + 1} of {BOOKING_FLOW_TOTAL_STEPS + 1}
+              </Text>
+            </View>
           </View>
-        </View>
+        </SafeAreaView>
       ) : null}
+      <BookingConfetti active={celebrationActive} />
 
       {step === 1 ? (
         <ScrollView
           ref={scrollRef}
+          style={styles.stepScroll}
           keyboardShouldPersistTaps="handled"
           onScroll={onScroll}
           scrollEventThrottle={16}
-          contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
+          contentContainerStyle={{
+            paddingBottom: FOOTER_VERTICAL_PAD * 2 + FOOTER_BUTTON_HEIGHT + 16,
+          }}
         >
           <View style={styles.stepContent}>
             <Text style={[styles.section, themedStyles.sectionText]}>Select date & time</Text>
@@ -470,7 +485,6 @@ export default function BookingFlowPage() {
         <View style={styles.panelFill}>
           {step === 0 ? (
             <BookingFlowPlacePanel
-              fillContent
               place={{
                 id: place.id,
                 name: place.name,
@@ -478,13 +492,13 @@ export default function BookingFlowPage() {
                 rating: place.rating,
                 images: place.images,
               }}
-              heroTopInset={Math.max(insets.top, 10)}
               isFavorite={isFavorite}
               onPressFavorite={onFavoritePress}
               onPressBack={() => navigation.goBack()}
               useMonotoneDarkBackground={useMonotoneDarkBackground}
             >
-              <Text style={[styles.section, themedStyles.sectionText]}>Number of guests</Text>
+              <BookingStepIndicator step={step} totalSteps={totalSteps} />
+              <Text style={[styles.section, themedStyles.sectionText, { marginTop: 16 }]}>Number of guests</Text>
               <View style={styles.guestRow}>
                 <AppPressable style={[styles.guestBtn, themedStyles.guestButton]} onPress={() => adjustGuests(-1)}>
                   <Text style={[styles.guestBtnText, themedStyles.guestButtonText]}>−</Text>
@@ -499,7 +513,6 @@ export default function BookingFlowPage() {
 
           {step === 2 ? (
             <BookingFlowPlacePanel
-              fillContent
               place={{
                 id: place.id,
                 name: place.name,
@@ -507,13 +520,13 @@ export default function BookingFlowPage() {
                 rating: place.rating,
                 images: place.images,
               }}
-              heroTopInset={Math.max(insets.top, 10)}
               isFavorite={isFavorite}
               onPressFavorite={onFavoritePress}
               onPressBack={() => setStep(step - 1)}
               useMonotoneDarkBackground={useMonotoneDarkBackground}
             >
-              <Text style={[styles.section, themedStyles.sectionText]}>Confirm</Text>
+              <BookingStepIndicator step={step} totalSteps={totalSteps} />
+              <Text style={[styles.section, themedStyles.sectionText, { marginTop: 16 }]}>Confirm</Text>
               <Text style={[themedStyles.confirmText, { fontSize: 18, fontWeight: "700" }]}>{place.name}</Text>
               <Text style={themedStyles.confirmText}>
                 {guests} guests · {selectedDate.toDateString()} {selectedTimeLabel}
@@ -524,45 +537,60 @@ export default function BookingFlowPage() {
         </View>
       )}
 
-      <View style={[styles.footer, themedStyles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        {step < BOOKING_FLOW_TOTAL_STEPS ? (
+      <View style={[styles.footer, themedStyles.footer]}>
+        <View style={styles.footerRow}>
           <AppPressable
-            style={styles.primary}
-            onPress={() => {
-              if (step === 1 && !selectedBookingTime) {
-                showMissingBookingSlotPopup(t);
-                return;
-              }
-              if (step === 1 && timeSelectionUnavailable) {
-                showMissingAvailableSlotPopup(t);
-                return;
-              }
-              if (step === 1) {
-                const formError = getGuestFormError();
-                if (formError) {
-                  showGuestFormValidationPopup({ error: formError, t });
+            style={[styles.secondary, themedStyles.footerSecondaryBtn]}
+            onPress={handleFooterBack}
+          >
+            <Text
+              style={[styles.secondaryText, themedStyles.footerSecondaryBtnText]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
+              {t("bookingCommon.backStep")}
+            </Text>
+          </AppPressable>
+          {step < BOOKING_FLOW_TOTAL_STEPS ? (
+            <AppPressable
+              style={[styles.primary, styles.footerPrimaryBtn]}
+              onPress={() => {
+                if (step === 1 && !selectedBookingTime) {
+                  showMissingBookingSlotPopup(t);
                   return;
                 }
-              }
-              setStep(step + 1);
-            }}
-          >
-            <Text style={styles.primaryText}>Continue</Text>
-          </AppPressable>
-        ) : (
-          <AppPressable
-            style={[styles.primary, confirming && { opacity: 0.55 }]}
-            disabled={confirming}
-            accessibilityState={{ disabled: confirming }}
-            onPress={() => void handleConfirm()}
-          >
-            {confirming ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.primaryText}>Confirm booking</Text>
-            )}
-          </AppPressable>
-        )}
+                if (step === 1 && timeSelectionUnavailable) {
+                  showMissingAvailableSlotPopup(t);
+                  return;
+                }
+                if (step === 1) {
+                  const formError = getGuestFormError();
+                  if (formError) {
+                    showGuestFormValidationPopup({ error: formError, t });
+                    return;
+                  }
+                }
+                setStep(step + 1);
+              }}
+            >
+              <Text style={styles.primaryText}>Continue</Text>
+            </AppPressable>
+          ) : (
+            <AppPressable
+              style={[styles.primary, styles.footerPrimaryBtn, confirming && { opacity: 0.55 }]}
+              disabled={confirming}
+              accessibilityState={{ disabled: confirming }}
+              onPress={() => void handleConfirm()}
+            >
+              {confirming ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.primaryText}>Confirm booking</Text>
+              )}
+            </AppPressable>
+          )}
+        </View>
       </View>
     </View>
     </>
@@ -571,8 +599,12 @@ export default function BookingFlowPage() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#fff" },
-  panelFill: { flex: 1 },
-  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
+  panelFill: { flex: 1, justifyContent: "space-between" },
+  stepScroll: { flex: 1 },
+  stepOneTopChrome: {
+    gap: 8,
+  },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 8 },
   stepContent: { paddingHorizontal: 16, paddingTop: 16 },
   back: { fontSize: 22 },
   title: { fontSize: 18, fontWeight: "700" },
@@ -633,7 +665,42 @@ const styles = StyleSheet.create({
   slotsError: { marginTop: 16, gap: 8 },
   retrySlotsBtn: { alignSelf: "flex-start", paddingVertical: 8 },
   slotsEmptyText: { marginTop: 16 },
-  footer: { padding: 16, borderTopWidth: 1, borderTopColor: "#eee" },
-  primary: primaryPressableStyle,
-  primaryText: primaryPressableTextStyle,
+  footer: {
+    paddingHorizontal: 16,
+    paddingVertical: FOOTER_VERTICAL_PAD,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
+  footerRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  footerPrimaryBtn: { flex: 1, minWidth: 0 },
+  secondary: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: FOOTER_BUTTON_HEIGHT,
+    height: FOOTER_BUTTON_HEIGHT,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#f9fafb",
+  },
+  secondaryText: {
+    fontWeight: "700",
+    fontSize: 15,
+    lineHeight: 20,
+    color: "#111",
+  },
+  primary: {
+    ...primaryPressableStyle,
+    minHeight: FOOTER_BUTTON_HEIGHT,
+    height: FOOTER_BUTTON_HEIGHT,
+    paddingVertical: 0,
+  },
+  primaryText: {
+    ...primaryPressableTextStyle,
+    fontSize: 15,
+    lineHeight: 20,
+  },
 });

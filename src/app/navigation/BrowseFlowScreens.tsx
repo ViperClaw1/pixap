@@ -6,6 +6,11 @@ const fullWidthSwipeBackOptions = {
   fullScreenGestureEnabled: true,
 } as const;
 
+const bookingFlowScreenOptions = {
+  ...fullWidthSwipeBackOptions,
+  safeAreaInsets: { top: 0, bottom: 0, left: 0, right: 0 },
+} as const;
+
 /** Галерея — полноэкранная модалка как раньше. */
 const galleryModalOptions = {
   presentation: "fullScreenModal" as const,
@@ -108,7 +113,7 @@ export function renderBrowseFlowScreens(Screen: BrowseFlowStackScreen) {
       <Screen
         name="BookingFlow"
         getComponent={() => require("@/pages/booking-flow").default}
-        options={fullWidthSwipeBackOptions}
+        options={bookingFlowScreenOptions}
       />
       <Screen
         name="AIBooking"

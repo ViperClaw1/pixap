@@ -10,6 +10,7 @@ import {
   FOOTER_VERTICAL_PADDING,
   messageThreadHeaderHeight,
 } from "@/shared/lib/messageThreadLayout";
+import { ANDROID_EDGE_SWIPE_BACK_WIDTH } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 
@@ -67,6 +68,14 @@ export const messageThreadStaticStyles = StyleSheet.create({
   invertedListItem: { transform: [{ scaleY: -1 as const }] },
   listHiddenWhilePositioning: { opacity: 0 },
   listWrap: { flex: 1 },
+  androidBackSwipeEdge: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: ANDROID_EDGE_SWIPE_BACK_WIDTH,
+    zIndex: 20,
+  },
   /** Android-only sticky footer dock (MessageThreadPage). */
   androidFooterDock: {
     position: "absolute",

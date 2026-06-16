@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -27,6 +27,10 @@ import { appAlert } from "@/shared/ui/app-popup";
 import { useReportContent } from "@/features/ugc-moderation";
 import type { ContentReportReason } from "@/features/ugc-moderation";
 import { MESSAGE_REPORT_REASONS, type MessageReportLabels } from "../model/messageReportLabels";
+
+/** Blocks Swipeable pan activation in the disallowed direction (see RNGH activeOffsetX). */
+const BLOCKED_SWIPE_DRAG_OFFSET = 10_000;
+const SWIPE_ACTIVATION_OFFSET = 10;
 
 function attachmentBlurhashAt(
   blurhashes: (string | null)[] | null | undefined,
@@ -295,6 +299,7 @@ function MessageThreadListItemComponent({
 }: Props) {
   const reportMutation = useReportContent();
   const [reportVisible, setReportVisible] = useState(false);
+  const [swipeOpenDirection, setSwipeOpenDirection] = useState<"left" | "right" | null>(null);
   const swipeableRef = useRef<Swipeable>(null);
   const closeSwipeActions = useCallback(() => {
     swipeableRef.current?.close();
@@ -334,6 +339,36 @@ function MessageThreadListItemComponent({
   );
 
   const isMine = message.mine;
+
+  useLayoutEffect(() => {
+    swipeableRef.current?.close();
+    setSwipeOpenDirection(null);
+  }, [message.id, isMine]);
+
+  const dragOffsetFromLeftEdge = useMemo(() => {
+    if (swipeOpenDirection === "right") return SWIPE_ACTIVATION_OFFSET;
+    if (swipeOpenDirection === "left") return BLOCKED_SWIPE_DRAG_OFFSET;
+    return isMine ? BLOCKED_SWIPE_DRAG_OFFSET : SWIPE_ACTIVATION_OFFSET;
+  }, [isMine, swipeOpenDirection]);
+
+  const dragOffsetFromRightEdge = useMemo(() => {
+    if (swipeOpenDirection === "left") return SWIPE_ACTIVATION_OFFSET;
+    if (swipeOpenDirection === "right") return BLOCKED_SWIPE_DRAG_OFFSET;
+    return isMine ? SWIPE_ACTIVATION_OFFSET : BLOCKED_SWIPE_DRAG_OFFSET;
+  }, [isMine, swipeOpenDirection]);
+
+  const handleSwipeOpenStartDrag = useCallback(
+    (direction: "left" | "right") => {
+      const allowedOpenDirection = isMine ? "right" : "left";
+      if (direction !== allowedOpenDirection) {
+        closeSwipeActions();
+        return;
+      }
+      setSwipeOpenDirection(direction);
+    },
+    [closeSwipeActions, isMine],
+  );
+
   const storyShareButtonStyle = useMemo(
     () =>
       isMine
@@ -422,6 +457,11 @@ function MessageThreadListItemComponent({
       ref={swipeableRef}
       overshootLeft={false}
       overshootRight={false}
+      dragOffsetFromLeftEdge={dragOffsetFromLeftEdge}
+      dragOffsetFromRightEdge={dragOffsetFromRightEdge}
+      onSwipeableOpen={(direction) => setSwipeOpenDirection(direction)}
+      onSwipeableClose={() => setSwipeOpenDirection(null)}
+      onSwipeableOpenStartDrag={handleSwipeOpenStartDrag}
       renderLeftActions={
         isMine
           ? undefined

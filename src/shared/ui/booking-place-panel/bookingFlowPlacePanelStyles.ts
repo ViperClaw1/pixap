@@ -1,65 +1,74 @@
 import { useMemo } from "react";
 import { StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
+import { radii } from "@/shared/theme/radii";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 
-const HERO_HEIGHT = 260;
+export const BOOKING_FLOW_HERO_HEIGHT = 340;
+
+export const BOOKING_HERO_OVERLAY_ICON_COLOR = "#ffffff";
+export const BOOKING_HERO_OVERLAY_BTN_BG = "rgba(0,0,0,0.55)";
+export const BOOKING_HERO_OVERLAY_BTN_BORDER = "rgba(255,255,255,0.32)";
 
 export const bookingFlowPlacePanelStaticStyles = StyleSheet.create({
   wrap: {
-    marginBottom: 16,
+    marginBottom: 0,
   },
   wrapFill: {
     flex: 1,
     marginBottom: 0,
   },
   heroWrap: {
-    height: HERO_HEIGHT,
+    width: "100%",
     overflow: "hidden",
-    alignSelf: "center",
   },
   hero: {
     width: "100%",
     height: "100%",
   },
-  heroBar: {
+  heroChrome: {
     position: "absolute",
-    left: 12,
-    right: 12,
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 6,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  heroProgressWrap: {},
+  heroBar: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
-  iconBtn: {
+  heroBackBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.92)",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: BOOKING_HERO_OVERLAY_BTN_BG,
+    borderWidth: 1,
+    borderColor: BOOKING_HERO_OVERLAY_BTN_BORDER,
   },
-  iconText: {
-    fontSize: 18,
-    color: "#111",
-    fontWeight: "700",
-  },
-  dotsRow: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 10,
+  heroBarActions: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    backgroundColor: BOOKING_HERO_OVERLAY_BTN_BG,
+    borderWidth: 1,
+    borderColor: BOOKING_HERO_OVERLAY_BTN_BORDER,
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: "rgba(255,255,255,0.45)",
-  },
-  dotActive: {
-    backgroundColor: "rgba(255,255,255,0.95)",
   },
   detailsCard: {
     marginTop: -24,
@@ -95,17 +104,12 @@ export const bookingFlowPlacePanelStaticStyles = StyleSheet.create({
 
 export function bookingFlowPlacePanelThemeStyles(
   colors: ThemeColors,
-  heroWidth: number,
-  heroTopInset: number,
   useMonotoneDarkBackground: boolean,
 ) {
   return {
     heroWrap: {
-      width: heroWidth,
+      height: BOOKING_FLOW_HERO_HEIGHT,
       backgroundColor: colors.border,
-    },
-    heroBar: {
-      top: heroTopInset,
     },
     detailsCard: {
       borderWidth: useMonotoneDarkBackground ? 0 : 1,
@@ -118,15 +122,10 @@ export function bookingFlowPlacePanelThemeStyles(
   } satisfies Partial<Record<keyof typeof bookingFlowPlacePanelStaticStyles, object>>;
 }
 
-export function useBookingFlowPlacePanelStyles(
-  heroWidth: number,
-  heroTopInset: number,
-  useMonotoneDarkBackground: boolean,
-) {
+export function useBookingFlowPlacePanelStyles(useMonotoneDarkBackground: boolean) {
   const themed = useThemeStyles(
-    ({ colors }) =>
-      bookingFlowPlacePanelThemeStyles(colors, heroWidth, heroTopInset, useMonotoneDarkBackground),
-    [heroWidth, heroTopInset, useMonotoneDarkBackground],
+    ({ colors }) => bookingFlowPlacePanelThemeStyles(colors, useMonotoneDarkBackground),
+    [useMonotoneDarkBackground],
   );
   return useMemo(() => mergeStaticAndThemed(bookingFlowPlacePanelStaticStyles, themed), [themed]);
 }

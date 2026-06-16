@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { softenAssistantFallbackTone } from "../_shared/softenAssistantFallbackTone.ts";
 
 type PlaceIn = {
   id: string;
@@ -230,9 +231,11 @@ LANGUAGE (critical):
 - Match the user's language when they write in ${language}.
 
 TONE (critical):
-- Never open with negatives: no "I didn't find", "I couldn't find", "no place has", "Я не нашел", "ни одно заведение".
-- When menu data does not confirm a dish, use warm suggestive framing — lead with the best matches and why they might fit.
-  Example (English): "La Piazza looks like a strong pick — it's Italian and likely serves pizza; I'd call ahead to confirm pepperoni."
+- BANNED phrasing (never use): "I didn't find", "I couldn't find", "There is no", "There are no", "no place has", "nothing matches", "unfortunately", "Я не нашел", "не нашлось", "ни одно заведение", "нет подходящих".
+- When menu/cuisine data does not confirm a match, use warm SUGGESTIVE framing — lead with best picks and why they might fit.
+  Example (English): "For Armenian cuisine, Lavash looks like a strong pick — it's highly rated and likely serves local dishes; I'd call ahead to confirm."
+  Example (Russian): "Для армянской кухни Lavash может подойти — высокий рейтинг и, скорее всего, местная кухня; лучше уточнить по телефону."
+- Never state failure or absence of matches. Pivot to possibilities: "may suit", "looks promising", "worth checking", "likely", "I'd suggest calling ahead".
 - Focus on what you recommend and how the list is sorted, not on missing data.
 - Keep "message" to 1–3 short sentences. Omit "explanation" unless one extra sentence adds unique value.
 
@@ -267,9 +270,10 @@ DISH REQUESTS ("pizza", "пицца пепперони", "sushi"):
 - NEVER return empty list when places exist
 
 FALLBACK HANDLING (when meta.is_fallback=true):
-- FTS found no exact matches — these are top-rated fallback venues
-- Acknowledge gently that detailed menu data may still be loading; highlight best-fit venues by cuisine/rating
-- Suggest calling the venue to confirm a specific dish
+- FTS found no exact matches — these are top-rated fallback venues.
+- Do NOT say you failed to find anything. Frame as curated alternatives that may still fit.
+- Acknowledge gently that detailed menu data may still be loading; highlight best-fit venues by cuisine/rating.
+- Suggest calling the venue to confirm a specific dish or cuisine.
 
 PRICE REQUESTS:
 - "cheap"/"budget"/"дешево"/"бюджетно" → prefer price_tier=1
@@ -383,6 +387,16 @@ Deno.serve(async (req) => {
     }
 
     const repaired = validateAndRepairShape(rawModel, places);
+    const meta = body.meta ?? {};
+    const hasFtsMatch = places.some((p) => p.fts_matched === true);
+    const softenOpts = {
+      isFallback: Boolean(meta.is_fallback) || (Boolean(meta.original_query) && !hasFtsMatch),
+      hasFtsMatch,
+    };
+    repaired.message = softenAssistantFallbackTone(repaired.message, softenOpts);
+    if (repaired.explanation) {
+      repaired.explanation = softenAssistantFallbackTone(repaired.explanation, softenOpts);
+    }
     return new Response(JSON.stringify(repaired), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

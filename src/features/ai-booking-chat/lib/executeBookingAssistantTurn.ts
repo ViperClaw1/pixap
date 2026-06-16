@@ -46,7 +46,7 @@ export async function executeBookingAssistantTurn(input: {
       locale: i18n.language,
     });
     const safe = sanitizeAiBookingChatResult(raw, orderedIds);
-    const fullText = buildAssistantReplyText(safe);
+    const fullText = buildAssistantReplyText(safe, { searchMeta });
     const messageId = useBookingChatStore.getState().appendAssistantShellForStream(tabId);
 
     let lastLayoutAt = 0;
