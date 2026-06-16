@@ -26,6 +26,8 @@ import {
   POST_PLACE_IMAGE_HEIGHT,
 } from "./constants";
 
+const IOS_KEYBOARD_LAYOUT_SETTLE_MS = 320;
+
 export type MatchedPlaceCarouselItem = {
   id: string;
   name: string;
@@ -127,14 +129,26 @@ export function useCreatePostComposer(
 
   useEffect(() => {
     if (!visible || step !== "post") return;
+
+    if (Platform.OS === "ios") {
+      const delayMs = keyboardHeight > 0 ? IOS_KEYBOARD_LAYOUT_SETTLE_MS : 0;
+      const timer = setTimeout(() => {
+        measurePostAddressFieldBottom();
+      }, delayMs);
+      return () => clearTimeout(timer);
+    }
+
     measurePostAddressFieldBottom();
   }, [visible, step, keyboardHeight, measurePostAddressFieldBottom, postAddressDraft, selectedGeocode]);
 
   const postAddressSuggestionsMaxHeight = useMemo(() => {
     const keyboardTop = windowHeight - keyboardHeight;
-    const availableBottom = keyboardHeight > 0 ? keyboardTop - POST_ADDRESS_SUGGESTIONS_KEYBOARD_GAP : windowHeight - 8;
+    const availableBottom =
+      keyboardHeight > 0 ? keyboardTop - POST_ADDRESS_SUGGESTIONS_KEYBOARD_GAP : windowHeight - 8;
     const availableHeight = availableBottom - postAddressFieldBottomY;
-    return Math.max(POST_ADDRESS_SUGGESTIONS_MIN_HEIGHT, Math.floor(availableHeight));
+    const raw = Math.max(POST_ADDRESS_SUGGESTIONS_MIN_HEIGHT, Math.floor(availableHeight));
+    if (Platform.OS !== "ios") return raw;
+    return Math.round(raw / 8) * 8;
   }, [keyboardHeight, postAddressFieldBottomY, windowHeight]);
 
   const matchedPlacesForAddress = useMemo(
@@ -364,7 +378,8 @@ export function useCreatePostComposer(
     step,
     mapsApiKey,
     isAddressSuggestionsOpen,
-    bodyScrollEnabled: !(Platform.OS === "android" && step === "post" && isAddressSuggestionsOpen),
+    bodyScrollEnabled: true,
+    parentScrollActive: !(Platform.OS === "android" && step === "post" && isAddressSuggestionsOpen),
     createStepFadeStyle,
     postInput,
     postInputError,

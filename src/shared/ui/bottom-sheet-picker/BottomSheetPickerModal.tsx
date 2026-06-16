@@ -36,6 +36,8 @@ type Props = {
   /** Sheet height follows measured body + header + footer, capped at maxHeightFraction. */
   fitContent?: boolean;
   bodyScrollEnabled?: boolean;
+  /** Keeps ScrollView mounted but disables scrolling (nested lists on Android). */
+  parentScrollActive?: boolean;
   bodyContentContainerStyle?: StyleProp<ViewStyle>;
   /** Optional top gap that caps keyboard lift so the sheet stays inside the viewport. */
   keyboardTopGap?: number;
@@ -53,6 +55,7 @@ export function BottomSheetPickerModal({
   minHeightFraction,
   fitContent = false,
   bodyScrollEnabled = true,
+  parentScrollActive = true,
   bodyContentContainerStyle,
   keyboardTopGap,
   overlay,
@@ -62,7 +65,6 @@ export function BottomSheetPickerModal({
   const [layoutWindowHeight, setLayoutWindowHeight] = useState(() => Dimensions.get("window").height);
   const [footerHeight, setFooterHeight] = useState(0);
   const [bodyContentHeight, setBodyContentHeight] = useState(0);
-  const [isKeyboardOpen, setKeyboardOpen] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -80,7 +82,7 @@ export function BottomSheetPickerModal({
     120,
     sheetMaxHeight - SHEET_HEADER_HEIGHT - footerHeight - Math.max(insets.bottom, 8),
   );
-  const sheetBottomPad = isAndroid ? Math.max(insets.bottom, 10) : isKeyboardOpen ? 0 : Math.max(insets.bottom, 10);
+  const sheetBottomPad = Math.max(insets.bottom, 10);
   const minBodyHeight =
     sheetMinHeight != null
       ? Math.max(0, sheetMinHeight - SHEET_HEADER_HEIGHT - footerHeight - sheetBottomPad)
@@ -107,7 +109,8 @@ export function BottomSheetPickerModal({
             )
           : sheetMaxHeight
       : undefined;
-  const scrollEnabled = bodyScrollEnabled && (!fitContent || !contentFitsWithoutScroll);
+  const scrollEnabled =
+    bodyScrollEnabled && parentScrollActive && (!fitContent || !contentFitsWithoutScroll);
   const mergedBodyContentContainerStyle = useMemo(
     () => [
       fitContent && minBodyHeight > 0 ? { flexGrow: 1, minHeight: minBodyHeight } : null,
@@ -170,15 +173,10 @@ export function BottomSheetPickerModal({
 
   const dragY = useSharedValue(0);
   const dragStart = useSharedValue(0);
-  const onKeyboardChange = useCallback((_keyboardTop: number, keyboardHeight: number) => {
-    if (Platform.OS !== "ios") return;
-    setKeyboardOpen(keyboardHeight > 0);
-  }, []);
 
   const keyboardInsetAnim = useKeyboardInset({
     gap: KEYBOARD_GAP,
     useNativeDriver: true,
-    onKeyboardChange,
   });
 
   const metricsRef = useRef({ windowHeight: layoutWindowHeight, sheetMaxHeight });
@@ -244,7 +242,6 @@ export function BottomSheetPickerModal({
     sheetMaxHeight,
     insets.bottom,
     isAndroid,
-    isKeyboardOpen,
     fittedSheetHeight,
   );
 

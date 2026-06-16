@@ -1,4 +1,4 @@
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Animated from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,6 +33,7 @@ export function CreatePostModal({ composer, onOpenStory, storyAvailable }: Creat
       title={c.step === "menu" ? "Create" : "Create post"}
       maxHeightFraction={c.step === "post" ? 0.95 : 0.82}
       bodyScrollEnabled={c.bodyScrollEnabled}
+      parentScrollActive={c.parentScrollActive}
     >
       <Animated.View style={[s.createStepBody, c.createStepFadeStyle]}>
         {c.step === "menu" ? (
