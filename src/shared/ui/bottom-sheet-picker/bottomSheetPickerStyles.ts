@@ -51,7 +51,6 @@ export function bottomSheetPickerThemeStyles(
   sheetMaxHeight: number,
   bottomInset: number,
   isAndroid: boolean,
-  isKeyboardOpen: boolean,
   sheetHeight?: number,
 ) {
   return {
@@ -63,7 +62,7 @@ export function bottomSheetPickerThemeStyles(
       ...(sheetHeight != null ? { height: sheetHeight } : null),
       backgroundColor: colors.card,
       borderColor: colors.border,
-      paddingBottom: isAndroid ? Math.max(bottomInset, 10) : isKeyboardOpen ? 0 : Math.max(bottomInset, 10),
+      paddingBottom: Math.max(bottomInset, 10),
     },
     grabber: { backgroundColor: colors.textMuted },
     title: {
@@ -77,12 +76,11 @@ export function useBottomSheetPickerStyles(
   sheetMaxHeight: number,
   bottomInset: number,
   isAndroid: boolean,
-  isKeyboardOpen: boolean,
   sheetHeight?: number,
 ) {
   const themed = useThemeStyles(
-    ({ colors }) => bottomSheetPickerThemeStyles(colors, sheetMaxHeight, bottomInset, isAndroid, isKeyboardOpen, sheetHeight),
-    [sheetMaxHeight, bottomInset, isAndroid, isKeyboardOpen, sheetHeight],
+    ({ colors }) => bottomSheetPickerThemeStyles(colors, sheetMaxHeight, bottomInset, isAndroid, sheetHeight),
+    [sheetMaxHeight, bottomInset, isAndroid, sheetHeight],
   );
   return useMemo(() => mergeStaticAndThemed(bottomSheetPickerStaticStyles, themed), [themed]);
 }
