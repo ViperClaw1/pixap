@@ -2,12 +2,27 @@ import { StyleSheet } from "react-native";
 import type { ThemeColors } from "@/shared/theme/palettes";
 
 export const favoritesStaticStyles = StyleSheet.create({
-  thumb: { width: 56, height: 56, borderRadius: 8 },
+  thumb: { width: 56, height: 56, borderRadius: 8, flexShrink: 0 },
+  heartBtn: {
+    position: "absolute",
+    top: 12,
+    right: 0,
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   row: {
+    position: "relative",
     flexDirection: "row",
     gap: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
+  },
+  body: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 32,
   },
   name: { fontWeight: "700" },
   meta: { fontSize: 12, marginTop: 4 },

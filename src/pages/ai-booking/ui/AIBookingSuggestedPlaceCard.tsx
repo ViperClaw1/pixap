@@ -4,8 +4,6 @@ import { ActivityIndicator, PixelRatio, Text, useWindowDimensions, View } from "
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import type { NavigationProp, ParamListBase } from "@react-navigation/native";
-import { useNavigation } from "@react-navigation/native";
 import type { PixAIPlace } from "@/entities/pixai";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -15,9 +13,7 @@ import {
   getBusinessCardDisplayUrl,
 } from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
-import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
-import { useAuth } from "@/app/providers/AuthProvider";
-import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
+import { useFavoritePress } from "@/entities/favorite";
 import { AnimatedLikeHeart } from "@/shared/ui/animated-like-heart";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { tintForTagKey } from "@/shared/lib/tagTint";
@@ -104,24 +100,13 @@ function AIBookingSuggestedPlaceCardInner({
   const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const { width: windowWidth } = useWindowDimensions();
-  const navigation = useNavigation<NavigationProp<ParamListBase>>();
-  const { user } = useAuth();
   const thumbSize = windowWidth <= COMPACT_CARD_WIDTH ? THUMB_SIZE_COMPACT : THUMB_SIZE_DEFAULT;
   const { uri, fallbackUri } = placeThumbUris(place.images, thumbSize);
   const coverBlurhash = getBusinessCardCoverBlurhash(place.blurhashes);
-  const isFavorite = useIsFavorite(place.id);
-  const toggleFavorite = useToggleFavorite();
+  const { isFavorite, onFavoritePress } = useFavoritePress(place.id, { placeName: place.name });
 
   const visibleTags = useMemo(() => buildVisibleTags(place.tags), [place.tags]);
   const addressLine = place.address?.trim() ?? "";
-
-  const onFavoritePress = () => {
-    if (!user) {
-      navigateToProfileAuth(navigation);
-      return;
-    }
-    toggleFavorite.mutate({ businessCardId: place.id, isFavorite });
-  };
 
   return (
     <View style={[s.placeCard, selected && s.placeCardSelected]}>
