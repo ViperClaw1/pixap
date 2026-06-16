@@ -119,9 +119,12 @@ export default function MessageThreadPage() {
   const voiceStopRef = useRef<(() => void) | null>(null);
   const isAtBottomRef = useRef(true);
   const scrollAfterSendRef = useRef(false);
+  const listPositioningRef = useRef(false);
+  const wasShowingEmptyRef = useRef(false);
   const canPersistScrollRef = useRef(false);
   const scrollFabVisible = useSharedValue(0);
   const [showScrollFab, setShowScrollFab] = useState(false);
+  const [listRevealed, setListRevealed] = useState(true);
   const { colors, mode } = useAppTheme();
   const [draft, setDraft] = useState(params.initialDraft ?? "");
   const { handleListeningChange, handleTranscriptChange, bindStopOnManualEdit } =
@@ -175,6 +178,10 @@ export default function MessageThreadPage() {
   useEffect(() => {
     markMessagingPerfStart("thread_open");
     setEditingMessage(null);
+    setListRevealed(true);
+    listPositioningRef.current = false;
+    wasShowingEmptyRef.current = false;
+    scrollAfterSendRef.current = false;
     if (!threadId || !hasMessageThreadSessionVisit(threadId)) {
       canPersistScrollRef.current = false;
     } else {
@@ -298,6 +305,54 @@ export default function MessageThreadPage() {
   const isAndroid = Platform.OS === "android";
   const listContentComposerInset = footerHeight + MESSAGE_THREAD_LIST_BOTTOM_GAP;
 
+  const beginListPositioning = useCallback(() => {
+    listPositioningRef.current = true;
+    setListRevealed(false);
+  }, []);
+
+  const revealList = useCallback(() => {
+    listPositioningRef.current = false;
+    setListRevealed(true);
+  }, []);
+
+  const positionListAtBottom = useCallback(
+    (animated: boolean) => {
+      listRef.current?.scrollToOffset({ offset: 0, animated });
+      isAtBottomRef.current = true;
+      scrollFabVisible.value = 0;
+      setShowScrollFab(false);
+      if (!animated) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(revealList);
+        });
+      }
+    },
+    [revealList, scrollFabVisible],
+  );
+
+  const scrollToBottom = useCallback(
+    (animated = true) => {
+      positionListAtBottom(animated);
+    },
+    [positionListAtBottom],
+  );
+
+  const resetEmptyListScroll = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    isAtBottomRef.current = true;
+    scrollFabVisible.value = 0;
+    setShowScrollFab(false);
+    wasShowingEmptyRef.current = true;
+    revealList();
+    if (threadId) {
+      setMessageThreadScrollSnapshot(threadId, {
+        offsetY: 0,
+        wasAtBottom: true,
+        showScrollFab: false,
+      });
+    }
+  }, [revealList, scrollFabVisible, threadId]);
+
   const handleListScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -317,31 +372,34 @@ export default function MessageThreadPage() {
         });
       }
 
+      if (listPositioningRef.current && wasAtBottom) {
+        revealList();
+      }
+
       const distanceFromTop = contentSize.height - layoutMeasurement.height - contentOffset.y;
       if (distanceFromTop < LOAD_OLDER_SCROLL_THRESHOLD_PX && hasMoreOlder && !isLoadingOlder) {
         void loadOlderMessages();
       }
     },
-    [hasMoreOlder, isLoadingOlder, loadOlderMessages, scrollFabVisible, threadId],
+    [hasMoreOlder, isLoadingOlder, loadOlderMessages, revealList, scrollFabVisible, threadId],
   );
 
-  const scrollToBottom = useCallback((animated = true) => {
-    listRef.current?.scrollToOffset({ offset: 0, animated });
-    isAtBottomRef.current = true;
-    scrollFabVisible.value = 0;
-    setShowScrollFab(false);
-  }, [scrollFabVisible]);
+  const completeListPositioningIfAtBottom = useCallback(
+    (offsetY: number) => {
+      if (!listPositioningRef.current) return;
+      if (offsetY <= SCROLL_AT_BOTTOM_THRESHOLD_PX) {
+        revealList();
+      }
+    },
+    [revealList],
+  );
 
-  const flushScrollAfterSend = useCallback(() => {
-    if (!scrollAfterSendRef.current) return;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!scrollAfterSendRef.current) return;
-        scrollAfterSendRef.current = false;
-        scrollToBottom(true);
-      });
-    });
-  }, [scrollToBottom]);
+  const handleListMomentumScrollEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      completeListPositioningIfAtBottom(event.nativeEvent.contentOffset.y);
+    },
+    [completeListPositioningIfAtBottom],
+  );
 
   const scrollFabAnimatedStyle = useAnimatedStyle(() => {
     const visibility = scrollFabVisible.value;
@@ -355,11 +413,6 @@ export default function MessageThreadPage() {
     };
   });
 
-  useEffect(() => {
-    if (!scrollAfterSendRef.current || rows.length === 0) return;
-    flushScrollAfterSend();
-  }, [rows, flushScrollAfterSend]);
-
   const showLoadingSkeleton =
     !isSessionRevisit &&
     (isResolvingThread || (threadReady && isLoading && rows.length === 0));
@@ -369,6 +422,29 @@ export default function MessageThreadPage() {
       canPersistScrollRef.current = true;
     }
   }, [showLoadingSkeleton]);
+
+  useEffect(() => {
+    if (!showLoadingSkeleton && rows.length === 0) {
+      wasShowingEmptyRef.current = true;
+      revealList();
+    }
+  }, [revealList, rows.length, showLoadingSkeleton]);
+
+  useLayoutEffect(() => {
+    if (showLoadingSkeleton || rows.length === 0) return;
+    if (!wasShowingEmptyRef.current && !scrollAfterSendRef.current) return;
+
+    wasShowingEmptyRef.current = false;
+    const animated = scrollAfterSendRef.current;
+    scrollAfterSendRef.current = false;
+    beginListPositioning();
+    positionListAtBottom(animated);
+  }, [beginListPositioning, positionListAtBottom, rows.length, showLoadingSkeleton]);
+
+  useLayoutEffect(() => {
+    if (showLoadingSkeleton || rows.length > 0) return;
+    resetEmptyListScroll();
+  }, [resetEmptyListScroll, rows.length, showLoadingSkeleton]);
 
   useLayoutEffect(() => {
     if (!threadId || openAtBottom || rows.length === 0 || !isSessionRevisit) return;
@@ -381,9 +457,14 @@ export default function MessageThreadPage() {
   }, [isSessionRevisit, openAtBottom, rows.length, scrollFabVisible, threadId]);
 
   const handleListContentSizeChange = useCallback(() => {
-    if (!scrollAfterSendRef.current) return;
-    flushScrollAfterSend();
-  }, [flushScrollAfterSend]);
+    if (rows.length === 0) {
+      resetEmptyListScroll();
+      return;
+    }
+    if (listPositioningRef.current) {
+      positionListAtBottom(false);
+    }
+  }, [positionListAtBottom, resetEmptyListScroll, rows.length]);
 
   const keyExtractor = useCallback((row: MessageThreadListRow) => row.key, []);
   const getItemType = useCallback((row: MessageThreadListRow) => row.kind, []);
@@ -664,8 +745,13 @@ export default function MessageThreadPage() {
   );
 
   const listInvertedStyle = useMemo(
-    () => StyleSheet.flatten([styles.list, styles.invertedList]),
-    [styles.invertedList, styles.list],
+    () =>
+      StyleSheet.flatten([
+        styles.list,
+        styles.invertedList,
+        !listRevealed && rows.length > 0 ? styles.listHiddenWhilePositioning : null,
+      ]),
+    [listRevealed, rows.length, styles.invertedList, styles.list, styles.listHiddenWhilePositioning],
   );
 
   const renderRow = useCallback(
@@ -868,6 +954,9 @@ export default function MessageThreadPage() {
                     if (!threadReady) return;
                     stopTyping();
                     blurComposerInput();
+                    if (rows.length === 0 || !isAtBottomRef.current) {
+                      beginListPositioning();
+                    }
                     if (!isAtBottomRef.current) {
                       scrollAfterSendRef.current = true;
                     }
@@ -947,7 +1036,9 @@ export default function MessageThreadPage() {
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
               onScroll={handleListScroll}
-              onContentSizeChange={rows.length > 0 ? handleListContentSizeChange : undefined}
+              onMomentumScrollEnd={handleListMomentumScrollEnd}
+              onScrollEndDrag={handleListMomentumScrollEnd}
+              onContentSizeChange={handleListContentSizeChange}
               scrollEventThrottle={32}
               renderItem={renderRow}
               removeClippedSubviews

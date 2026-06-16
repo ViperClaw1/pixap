@@ -24,7 +24,10 @@
     "openA11y": "Abrir notificações"
   },
   "favorites": {
-    "empty": "Ainda não há favoritos"
+    "empty": "Ainda não há favoritos",
+    "toastAdded": "Adicionado aos favoritos",
+    "toastRemoved": "Removido dos favoritos",
+    "toastFailed": "Não foi possível atualizar os favoritos"
   },
   "placeDetail": {
     "seeAllPhotos": "Ver todas as {{count}} fotos",

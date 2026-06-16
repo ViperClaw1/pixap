@@ -8,11 +8,9 @@ import { AppPressable } from "@/shared/ui/app-pressable";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, type NavigationProp, type ParamListBase } from "@react-navigation/native";
 import type { BusinessCard } from "@/entities/business-card";
-import { useAuth } from "@/app/providers/AuthProvider";
-import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
+import { useFavoritePress } from "@/entities/favorite";
 import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCardDisplayUrl";
 import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
-import { navigateToProfileAuth } from "@/app/navigation/navigationHelpers";
 import { useNavigateOnce } from "@/shared/lib/navigation/useNavigateOnce";
 import { prefetchBusinessCard } from "@/shared/lib/navigation/prefetchBusinessCard";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -263,7 +261,6 @@ function BusinessPlaceCardInner({
   const queryClient = useQueryClient();
   const navigateOnce = useNavigateOnce();
   const isVerticalFill = variant === "vertical" && verticalLayout === "fill";
-  const { user } = useAuth();
   const { colors, isDark } = useAppTheme();
 
   const tagRenderOptions = useMemo(
@@ -285,8 +282,7 @@ function BusinessPlaceCardInner({
     });
   }, [navigateOnce, navigation, onOpen, place.id]);
 
-  const isFavorite = useIsFavorite(place.id);
-  const toggleFavorite = useToggleFavorite();
+  const { isFavorite, onFavoritePress } = useFavoritePress(place.id, { placeName: place.name });
 
   const themed = useThemeStyles<BusinessPlaceCardThemedStyles>(({ colors: c }) =>
     businessPlaceCardThemeStyles(c),
@@ -295,14 +291,6 @@ function BusinessPlaceCardInner({
     () => mergeStaticAndThemed(businessPlaceCardStaticStyles, themed),
     [themed],
   );
-
-  const onFavoritePress = () => {
-    if (!user) {
-      navigateToProfileAuth(navigation as NavigationProp<ParamListBase>);
-      return;
-    }
-    toggleFavorite.mutate({ businessCardId: place.id, isFavorite });
-  };
 
   const tags = place.tags ?? [];
   const displayTags = tags.length > 0 ? tags : [];

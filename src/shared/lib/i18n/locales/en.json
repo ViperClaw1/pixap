@@ -24,7 +24,10 @@
     "openA11y": "Open notifications"
   },
   "favorites": {
-    "empty": "No favorites yet"
+    "empty": "No favorites yet",
+    "toastAdded": "Added to favorites",
+    "toastRemoved": "Removed from favorites",
+    "toastFailed": "Couldn't update favorites"
   },
   "placeDetail": {
     "seeAllPhotos": "See all {{count}} photos",
