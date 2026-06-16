@@ -68,7 +68,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   },
   android: {
     ...config.android,
-    googleServicesFile: "./google-services.json",
+    googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
     playStoreUrl,
     allowBackup: true,
     versionCode: Number.isFinite(androidVersionCode) && androidVersionCode > 0 ? androidVersionCode : 12,
