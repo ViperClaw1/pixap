@@ -1,10 +1,15 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
+const ANDROID_PUSH_CHANNEL_ID = "pixap-default";
+
 type ExpoPushMessage = {
   to: string;
   title: string;
   body: string;
+  sound?: "default";
+  priority?: "default" | "normal" | "high";
+  channelId?: string;
   data?: Record<string, unknown>;
 };
 
@@ -241,6 +246,9 @@ Deno.serve(async (req) => {
         to,
         title: row.title,
         body: row.body,
+        sound: "default",
+        priority: "high",
+        channelId: ANDROID_PUSH_CHANNEL_ID,
         data: { ...(row.data ?? {}), outbox_id: row.id },
       });
     }

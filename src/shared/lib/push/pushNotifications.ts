@@ -16,7 +16,26 @@ let notificationOpenHandler: ((data: Record<string, unknown>) => void) | null = 
 
 const CONSUME_DEBOUNCE_MS = 4_000;
 
-/** Call once after first frame / interactions — avoids top-level side effect at import time. */
+/** Must match `channelId` in server push payloads and optional `defaultChannel` in app.config. */
+export const ANDROID_PUSH_CHANNEL_ID = "pixap-default";
+
+let androidChannelReady: Promise<void> | null = null;
+
+async function ensureAndroidNotificationChannel(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  if (!androidChannelReady) {
+    androidChannelReady = Notifications.setNotificationChannelAsync(ANDROID_PUSH_CHANNEL_ID, {
+      name: "Notifications",
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: "default",
+      vibrationPattern: [0, 250, 250, 250],
+      enableVibrate: true,
+    }).then(() => undefined);
+  }
+  await androidChannelReady;
+}
+
+/** Install foreground handler early (e.g. from index.ts) so pushes show while the app is active. */
 export function ensurePushNotificationHandler(): void {
   if (notificationHandlerInstalled) return;
   notificationHandlerInstalled = true;
@@ -24,14 +43,18 @@ export function ensurePushNotificationHandler(): void {
     handleNotification: async () => ({
       shouldShowBanner: true,
       shouldShowList: true,
-      shouldPlaySound: false,
+      shouldPlaySound: true,
       shouldSetBadge: false,
+      ...(Platform.OS === "android"
+        ? { priority: Notifications.AndroidNotificationPriority.HIGH }
+        : {}),
     }),
   });
   Notifications.addNotificationResponseReceivedListener((response) => {
     const data = (response.notification.request.content.data ?? {}) as Record<string, unknown>;
     notificationOpenHandler?.(data);
   });
+  void ensureAndroidNotificationChannel();
 }
 
 /** Handles notification tap when the app was cold-started from a push. */
@@ -56,7 +79,13 @@ async function resolveNotificationPermission(): Promise<Notifications.Permission
   if (current.status === "granted" || current.status === "denied") {
     return current.status;
   }
-  const requested = await Notifications.requestPermissionsAsync();
+  const requested = await Notifications.requestPermissionsAsync({
+    ios: {
+      allowAlert: true,
+      allowBadge: true,
+      allowSound: true,
+    },
+  });
   return requested.status;
 }
 
@@ -113,6 +142,8 @@ export async function registerNativePushToken(userId: string): Promise<void> {
     devWarn("[push] Notifications permission not granted:", status);
     return;
   }
+
+  await ensureAndroidNotificationChannel();
 
   const device = await Notifications.getDevicePushTokenAsync();
   const platform = Platform.OS === "ios" ? "ios" : "android";

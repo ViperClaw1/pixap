@@ -61,6 +61,7 @@ export function useCreatePostComposer(
   const [selectedGeocode, setSelectedGeocode] = useState<GeocodeSearchResultItem | null>(null);
   const [selectedGooglePlaceId, setSelectedGooglePlaceId] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [androidKeyboardTransitioning, setAndroidKeyboardTransitioning] = useState(false);
   const [postAddressFieldBottomY, setPostAddressFieldBottomY] = useState(0);
 
   const postAddressFieldRef = useRef<import("react-native").View | null>(null);
@@ -89,6 +90,8 @@ export function useCreatePostComposer(
     setAddressGeocodeLoading(false);
     setSelectedGeocode(null);
     setSelectedGooglePlaceId(null);
+    setKeyboardHeight(0);
+    setAndroidKeyboardTransitioning(false);
   }, []);
 
   const openMenu = useCallback(() => {
@@ -115,11 +118,26 @@ export function useCreatePostComposer(
   );
 
   useEffect(() => {
+    if (Platform.OS === "ios") {
+      const showSub = Keyboard.addListener("keyboardWillShow", (event) => {
+        setKeyboardHeight(event.endCoordinates?.height ?? 0);
+      });
+      const hideSub = Keyboard.addListener("keyboardWillHide", () => {
+        setKeyboardHeight(0);
+      });
+      return () => {
+        showSub.remove();
+        hideSub.remove();
+      };
+    }
+
     const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
+      setAndroidKeyboardTransitioning(false);
       setKeyboardHeight(event.endCoordinates?.height ?? 0);
     });
     const hideSub = Keyboard.addListener("keyboardDidHide", () => {
       setKeyboardHeight(0);
+      setAndroidKeyboardTransitioning(false);
     });
     return () => {
       showSub.remove();
@@ -127,10 +145,17 @@ export function useCreatePostComposer(
     };
   }, []);
 
+  const dismissAddressKeyboard = useCallback(() => {
+    setAndroidKeyboardTransitioning(true);
+    Keyboard.dismiss();
+  }, []);
+
   useEffect(() => {
     if (!visible || step !== "post") return;
+    if (Platform.OS === "android" && androidKeyboardTransitioning) return;
 
     if (Platform.OS === "ios") {
+      if (selectedGeocode && keyboardHeight > 0) return;
       const delayMs = keyboardHeight > 0 ? IOS_KEYBOARD_LAYOUT_SETTLE_MS : 0;
       const timer = setTimeout(() => {
         measurePostAddressFieldBottom();
@@ -138,8 +163,23 @@ export function useCreatePostComposer(
       return () => clearTimeout(timer);
     }
 
+    if (Platform.OS === "android" && selectedGeocode) {
+      const timer = setTimeout(() => {
+        measurePostAddressFieldBottom();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+
     measurePostAddressFieldBottom();
-  }, [visible, step, keyboardHeight, measurePostAddressFieldBottom, postAddressDraft, selectedGeocode]);
+  }, [
+    visible,
+    step,
+    keyboardHeight,
+    measurePostAddressFieldBottom,
+    postAddressDraft,
+    selectedGeocode,
+    androidKeyboardTransitioning,
+  ]);
 
   const postAddressSuggestionsMaxHeight = useMemo(() => {
     const keyboardTop = windowHeight - keyboardHeight;
@@ -327,6 +367,9 @@ export function useCreatePostComposer(
   const selectGeocodeSuggestion = useCallback(
     async (placeId: string) => {
       if (!mapsApiKey) return;
+      if (Platform.OS === "android") {
+        dismissAddressKeyboard();
+      }
       setAddressGeocodeLoading(true);
       try {
         const res = await geocodePlaceIdToSearchItem(placeId, mapsApiKey);
@@ -350,7 +393,7 @@ export function useCreatePostComposer(
         setAddressGeocodeLoading(false);
       }
     },
-    [mapsApiKey],
+    [mapsApiKey, dismissAddressKeyboard],
   );
 
   const clearSelectedAddress = useCallback(() => {
@@ -379,7 +422,11 @@ export function useCreatePostComposer(
     mapsApiKey,
     isAddressSuggestionsOpen,
     bodyScrollEnabled: true,
-    parentScrollActive: !(Platform.OS === "android" && step === "post" && isAddressSuggestionsOpen),
+    parentScrollActive: !(
+      Platform.OS === "android" &&
+      step === "post" &&
+      (isAddressSuggestionsOpen || androidKeyboardTransitioning)
+    ),
     createStepFadeStyle,
     postInput,
     postInputError,
