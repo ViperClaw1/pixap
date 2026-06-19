@@ -169,6 +169,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       {
         icon: "./assets/android/notification-icon.png",
         color: "#ffffff",
+        defaultChannel: "pixap-default",
         sounds: [],
       },
     ],

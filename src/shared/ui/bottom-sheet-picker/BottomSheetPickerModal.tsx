@@ -41,6 +41,8 @@ type Props = {
   bodyContentContainerStyle?: StyleProp<ViewStyle>;
   /** Optional top gap that caps keyboard lift so the sheet stays inside the viewport. */
   keyboardTopGap?: number;
+  /** Android: treat keyboard overlap via inset even when adjustResize shrinks the window. */
+  keyboardInsetIgnoreWindowResize?: boolean;
   /** Rendered above sheet + backdrop (e.g. inline alerts while sheet stays open). */
   overlay?: ReactNode;
 };
@@ -58,6 +60,7 @@ export function BottomSheetPickerModal({
   parentScrollActive = true,
   bodyContentContainerStyle,
   keyboardTopGap,
+  keyboardInsetIgnoreWindowResize = false,
   overlay,
 }: Props) {
   const isAndroid = Platform.OS === "android";
@@ -177,6 +180,7 @@ export function BottomSheetPickerModal({
   const keyboardInsetAnim = useKeyboardInset({
     gap: KEYBOARD_GAP,
     useNativeDriver: true,
+    ignoreWindowResize: keyboardInsetIgnoreWindowResize,
   });
 
   const metricsRef = useRef({ windowHeight: layoutWindowHeight, sheetMaxHeight });

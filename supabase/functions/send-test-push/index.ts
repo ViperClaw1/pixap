@@ -63,7 +63,17 @@ Deno.serve(async (req) => {
     headers.Authorization = `Bearer ${expoAccessToken}`;
   }
 
-  const payload = [{ to, title, body: msgBody, data: { kind: "test_push" } }];
+  const payload = [
+    {
+      to,
+      title,
+      body: msgBody,
+      sound: "default",
+      priority: "high",
+      channelId: "pixap-default",
+      data: { kind: "test_push" },
+    },
+  ];
   const res = await fetch(EXPO_PUSH_URL, {
     method: "POST",
     headers,
