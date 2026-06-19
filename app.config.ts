@@ -5,9 +5,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const googleMapsWebApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY?.trim();
   const googleMapsAndroidCertSha1 = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_CERT_SHA1?.replace(/:/g, "").trim();
   const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
-  const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.1";
+  const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.2";
   const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "55";
-  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "46");
+  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "47");
   const androidVersionCode = Number.parseInt(androidVersionCodeRaw, 10);
   const nativeOAuthRedirectUri =
     oauthMobileRedirectUri && !oauthMobileRedirectUri.startsWith("exp://") ? oauthMobileRedirectUri : undefined;
@@ -168,7 +168,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "expo-notifications",
       {
         icon: "./assets/android/notification-icon.png",
-        color: "#ffffff",
+        color: "#F57C00",
         defaultChannel: "pixap-default",
         sounds: [],
       },
