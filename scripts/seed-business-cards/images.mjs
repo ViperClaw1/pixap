@@ -94,6 +94,15 @@ function googlePlaceStorageFolder(venue) {
   return `${SEED_STORAGE_PREFIX}/places/${placeId}`;
 }
 
+/** One folder per OSM element id. */
+function osmPlaceStorageFolder(venue) {
+  const placeId = venue._osmPlace?.placeId?.trim();
+  if (!placeId) {
+    throw new Error(`${venue.slug}: missing OSM place id — cannot upload venue photos`);
+  }
+  return `${SEED_STORAGE_PREFIX}/osm/${placeId.replace(/^osm:/, "")}`;
+}
+
 function buildStockCandidateUrls(venue, imageIndex) {
   const pool = PHOTO_POOLS[venue.photoPool] ?? PHOTO_POOLS.restaurant;
   const poolIdx = (venue.seedOffset + imageIndex) % pool.length;
@@ -219,6 +228,60 @@ async function uploadVenueImagesFromGoogleOnly(
   return urls;
 }
 
+/**
+ * OSM: Wikimedia / image tags first, then stock for the remainder.
+ */
+async function uploadVenueImagesFromOsm(supabase, venue, imageCount, registry) {
+  const directUrls = [...new Set(venue._osmPlace?.imageUrls ?? [])];
+  const storageFolder = osmPlaceStorageFolder(venue);
+  const urls = [];
+  const failures = [];
+
+  for (let u = 0; u < directUrls.length && urls.length < imageCount; u += 1) {
+    const imageUrl = directUrls[u];
+    const label = `${venue.slug} #${urls.length + 1}`;
+    try {
+      const payload = await fetchImageBytes(imageUrl);
+      payload.bytes = toNodeBuffer(payload.bytes);
+      const preUploadDup = checkImageUnique(registry, imageUrl, payload.bytes);
+      if (preUploadDup) {
+        failures.push(`${imageUrl.slice(0, 48)}: ${preUploadDup}`);
+        continue;
+      }
+      const publicUrl = await uploadOneImage(supabase, storageFolder, urls.length, payload);
+      registerUploadedImage(registry, imageUrl, payload.bytes, publicUrl);
+      urls.push(publicUrl);
+      log("images", `${label}: OSM/Wikimedia (${Math.round(payload.bytes.length / 1024)} KB)`);
+      if (urls.length < imageCount) await sleep(UPLOAD_DELAY_MS);
+    } catch (err) {
+      failures.push(`${imageUrl.slice(0, 48)}: ${err.message}`);
+      log("images", `${label}: OSM image rejected (${err.message})`);
+    }
+  }
+
+  if (urls.length < imageCount) {
+    const poiLabel = venue._osmPlace?.name?.trim() ?? venue.slug;
+    log(
+      "images",
+      `${poiLabel}: ${urls.length}/${imageCount} from OSM tags — filling remainder with stock`,
+    );
+    const stockFolder = `${SEED_STORAGE_PREFIX}/${venue.slug}-osm`;
+    for (let i = urls.length; i < imageCount; i += 1) {
+      const label = `${venue.slug} #${i + 1}`;
+      const candidates = buildStockCandidateUrls(venue, i);
+      const payload = await downloadFromCandidates(label, candidates);
+      urls.push(await uploadOneImage(supabase, stockFolder, i, payload));
+      if (i < imageCount - 1) await sleep(UPLOAD_DELAY_MS);
+    }
+  }
+
+  if (failures.length && urls.length) {
+    log("images", `${venue.slug}: OSM image warnings (${failures.slice(0, 2).join("; ")})`);
+  }
+
+  return urls;
+}
+
 async function uploadVenueImagesFromStock(supabase, venue, imageCount) {
   const urls = [];
   const storageFolder = `${SEED_STORAGE_PREFIX}/${venue.slug}`;
@@ -243,7 +306,13 @@ export async function uploadVenueImages(
   supabase,
   venue,
   imageCount,
-  { googleApiKey = null, googlePhotoMaxBytes = null, requireGooglePhotos = false, registry = null } = {},
+  {
+    googleApiKey = null,
+    googlePhotoMaxBytes = null,
+    requireGooglePhotos = false,
+    requireOsmPhotos = false,
+    registry = null,
+  } = {},
 ) {
   if (imageCount < MIN_IMAGE_COUNT) {
     throw new GoogleVenueImagesError(
@@ -254,6 +323,10 @@ export async function uploadVenueImages(
   }
 
   const imageRegistry = registry ?? createSeedImageRegistry();
+
+  if (requireOsmPhotos && venue._osmPlace?.placeId) {
+    return uploadVenueImagesFromOsm(supabase, venue, imageCount, imageRegistry);
+  }
 
   if (requireGooglePhotos) {
     if (!googleApiKey) {

@@ -90,6 +90,8 @@ app.get("/health", async (_req, res) => {
 
 app.use("/webhook", bookingRoutes);
 app.use("/webhook", whatsappRoutes);
+app.use("/webhook", require("./routes/voice"));
+app.use("/webhook", require("./routes/sms"));
 
 app.get("/debug/state", (_req, res) => {
   res.status(200).json(getDebugState());

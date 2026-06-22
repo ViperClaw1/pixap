@@ -1,4 +1,5 @@
 import { geocodeCity } from "./googleMaps.mjs";
+import { geocodeCityOsm } from "./openStreetMap.mjs";
 import { log, normalizeSeedPhone, pickFrom } from "./lib.mjs";
 
 /** Lowercase key → canonical `business_cards.city` label + center coordinates. */
@@ -61,17 +62,25 @@ export function normalizeCityInput(cityInput) {
 }
 
 /**
- * @returns {{ label: string, lat: number, lng: number }}
+ * @param {string} cityInput
+ * @param {string | null} googleApiKey
+ * @param {"google" | "osm"} [source]
+ * @returns {Promise<{ label: string, lat: number, lng: number }>}
  */
-export async function resolveCity(cityInput, googleApiKey) {
+export async function resolveCity(cityInput, googleApiKey, source = "google") {
   const normalized = normalizeCityInput(cityInput);
   const key = presetKey(normalized);
   const preset = CITY_PRESETS[key];
   if (preset) return { ...preset };
 
+  if (source === "osm") {
+    log("city", `Geocoding "${normalized}" via Nominatim…`);
+    return geocodeCityOsm(normalized);
+  }
+
   if (!googleApiKey) {
     throw new Error(
-      `Unknown city "${normalized}". Use one of: ${SEED_CITY_POOL.join(", ")} — or set EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY for geocoding.`,
+      `Unknown city "${normalized}". Use one of: ${SEED_CITY_POOL.join(", ")} — or set EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY for geocoding, or use --source osm.`,
     );
   }
 
@@ -96,7 +105,7 @@ function jitterCoordinates(lat, lng, slotIndex) {
 export function applyCityCenterToVenue(venue, cityResolved, slotIndex) {
   const { lat, lng } = jitterCoordinates(cityResolved.lat, cityResolved.lng, slotIndex);
   const cityShort = cityResolved.label.split(",")[0]?.trim() ?? cityResolved.label;
-  const { _googlePlace: _drop, ...template } = venue;
+  const { _googlePlace: _g, _osmPlace: _o, ...template } = venue;
   return {
     ...template,
     city: cityResolved.label,
@@ -121,6 +130,25 @@ export function applyGooglePlaceToVenue(venue, place) {
     phone,
     contact_whatsapp,
     _googlePlace: place,
+    _osmPlace: undefined,
+  };
+}
+
+/** Override geo + contact fields from an OpenStreetMap POI. */
+export function applyOsmPlaceToVenue(venue, place) {
+  const phone = place.phone ?? normalizeSeedPhone(venue.phone) ?? venue.phone;
+  const contact_whatsapp = phone ?? normalizeSeedPhone(venue.contact_whatsapp) ?? venue.contact_whatsapp;
+
+  return {
+    ...venue,
+    city: place.cityLabel ?? venue.city,
+    address: place.formatted_address,
+    latitude: place.lat,
+    longitude: place.lng,
+    phone,
+    contact_whatsapp,
+    _osmPlace: place,
+    _googlePlace: undefined,
   };
 }
 
@@ -142,15 +170,16 @@ export function pickRandomCityNames(rng, count) {
 /**
  * @param {string[]} cityNames
  * @param {string | null} googleApiKey
+ * @param {"google" | "osm"} [source]
  * @returns {Promise<Array<{ label: string, lat: number, lng: number }>>}
  */
-export async function resolveCityList(cityNames, googleApiKey) {
+export async function resolveCityList(cityNames, googleApiKey, source = "google") {
   const cache = new Map();
   const out = [];
   for (const name of cityNames) {
     const key = presetKey(name);
     if (!cache.has(key)) {
-      cache.set(key, await resolveCity(name, googleApiKey));
+      cache.set(key, await resolveCity(name, googleApiKey, source));
     }
     out.push(cache.get(key));
   }

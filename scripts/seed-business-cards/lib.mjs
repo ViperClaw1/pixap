@@ -293,7 +293,7 @@ export function parseNamesArg(raw) {
 const LINKS_MIN = 1;
 const LINKS_MAX = 50;
 
-function isGoogleMapsUrl(value) {
+export function isGoogleMapsUrl(value) {
   try {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
@@ -304,11 +304,30 @@ function isGoogleMapsUrl(value) {
   }
 }
 
+function isOpenStreetMapUrl(value) {
+  return /openstreetmap\.org\/(?:node|way|relation)\/\d+/i.test(String(value ?? "").trim());
+}
+
+const SEED_SOURCES = new Set(["google", "osm"]);
+
 /**
- * @param {string} raw Comma-separated Maps URLs or JSON string array
+ * @param {string} raw
+ * @returns {"google" | "osm"}
+ */
+export function parseSourceArg(raw) {
+  const value = String(raw ?? "").trim().toLowerCase();
+  if (!SEED_SOURCES.has(value)) {
+    throw new Error(`Invalid --source "${raw}". Valid values: google, osm`);
+  }
+  return value;
+}
+
+/**
+ * @param {string} raw Comma-separated Maps/OSM URLs or JSON string array
+ * @param {"google" | "osm"} [source]
  * @returns {string[]}
  */
-export function parseLinksArg(raw) {
+export function parseLinksArg(raw, source = "google") {
   if (raw == null || String(raw).trim() === "") return null;
 
   const trimmed = String(raw).trim();
@@ -339,7 +358,15 @@ export function parseLinksArg(raw) {
   }
 
   for (const link of links) {
-    if (!isGoogleMapsUrl(link)) {
+    const isGoogle = isGoogleMapsUrl(link);
+    const isOsm = isOpenStreetMapUrl(link);
+    if (source === "osm") {
+      if (!isOsm) {
+        throw new Error(
+          `--link with --source osm requires OpenStreetMap URLs (node/way/relation): ${link.slice(0, 120)}`,
+        );
+      }
+    } else if (!isGoogle) {
       throw new Error(`--link value is not a Google Maps URL: ${link.slice(0, 120)}`);
     }
   }
@@ -366,6 +393,7 @@ const CLI_BOOLEAN_FLAGS = new Set([
   "--skip-images",
   "--no-google",
   "--allow-duplicate",
+  "--osm",
 ]);
 
 /** Windows / copy-paste often turns `--flag` into `-—flag` (hyphen + em dash). */
@@ -394,9 +422,10 @@ export function parseCliArgs(argv) {
   let count = SEED_COUNT;
   let tags = null;
   let names = null;
-  let links = null;
+  let linksRaw = null;
   let listingType = null;
   let images = null;
+  let source = "google";
   const handled = new Set();
 
   for (let i = 0; i < args.length; i += 1) {
@@ -461,9 +490,17 @@ export function parseCliArgs(argv) {
       if (!a.startsWith("--names=")) i += 1;
       continue;
     }
+    if (a === "--source" || a.startsWith("--source=")) {
+      const raw = a.startsWith("--source=") ? a.slice("--source=".length) : requireCliValue("--source", args, i);
+      source = parseSourceArg(raw);
+      handled.add(i);
+      if (!a.startsWith("--source=")) handled.add(i + 1);
+      if (!a.startsWith("--source=")) i += 1;
+      continue;
+    }
     if (a === "--link" || a.startsWith("--link=")) {
       const raw = a.startsWith("--link=") ? a.slice("--link=".length) : requireCliValue("--link", args, i);
-      links = parseLinksArg(raw);
+      linksRaw = raw;
       handled.add(i);
       if (!a.startsWith("--link=")) handled.add(i + 1);
       if (!a.startsWith("--link=")) i += 1;
@@ -502,6 +539,12 @@ export function parseCliArgs(argv) {
     handled.add(i);
   }
 
+  if (args.includes("--osm")) {
+    source = "osm";
+  }
+
+  const links = linksRaw != null ? parseLinksArg(linksRaw, source) : null;
+
   if (names?.length && links?.length) {
     throw new Error("Use either --names or --link, not both");
   }
@@ -515,7 +558,9 @@ export function parseCliArgs(argv) {
   return {
     dryRun: args.includes("--dry-run"),
     skipImages: args.includes("--skip-images"),
-    noGoogle: args.includes("--no-google"),
+    noGoogle: args.includes("--no-google") || source === "osm",
+    /** POI + geo source: `google` (default) or `osm` (Nominatim + Overpass). */
+    source,
     /** With `--link`, skip address dedupe and insert even if the POI is already in business_cards. */
     allowDuplicate: args.includes("--allow-duplicate"),
     city: city?.trim() || null,
