@@ -242,12 +242,12 @@ function tagsFor(pool, loc, cityShort, cliTags) {
  * (never static template text from another city/venue).
  */
 export function buildVenueLocalizedFields(venue, { listingType, usedNames, cliTags }) {
-  const fromGoogle = Boolean(venue._googlePlace?.placeId);
+  const fromPoi = Boolean(venue._googlePlace?.placeId || venue._osmPlace?.placeId);
   const pool = venue.photoPool ?? "restaurant";
   const cityLabel = venue.city ?? "";
   const cityShort = cityShortFromLabel(cityLabel);
 
-  const rawName = venue._googlePlace?.name?.trim() || venue.name.en;
+  const rawName = venue._googlePlace?.name?.trim() || venue._osmPlace?.name?.trim() || venue.name.en;
   const nameEn = disambiguateListingName(rawName, venue.address, usedNames);
   usedNames.add(nameEn);
 
@@ -255,15 +255,15 @@ export function buildVenueLocalizedFields(venue, { listingType, usedNames, cliTa
 
   const row = {
     name: nameEn,
-    description: fromGoogle ? descriptionFor(pool, "en", ctx) : venue.description.en,
-    tags: fromGoogle ? tagsFor(pool, "en", cityShort, cliTags) : (cliTags ?? venue.tags.en),
+    description: fromPoi ? descriptionFor(pool, "en", ctx) : venue.description.en,
+    tags: fromPoi ? tagsFor(pool, "en", cityShort, cliTags) : (cliTags ?? venue.tags.en),
     type: listingType,
   };
 
   for (const loc of LOCALES) {
-    row[`name_${loc}`] = fromGoogle ? nameEn : venue.name[loc];
-    row[`description_${loc}`] = fromGoogle ? descriptionFor(pool, loc, ctx) : venue.description[loc];
-    row[`tags_${loc}`] = fromGoogle ? tagsFor(pool, loc, cityShort, cliTags) : (cliTags ?? venue.tags[loc]);
+    row[`name_${loc}`] = fromPoi ? nameEn : venue.name[loc];
+    row[`description_${loc}`] = fromPoi ? descriptionFor(pool, loc, ctx) : venue.description[loc];
+    row[`tags_${loc}`] = fromPoi ? tagsFor(pool, loc, cityShort, cliTags) : (cliTags ?? venue.tags[loc]);
   }
 
   return row;

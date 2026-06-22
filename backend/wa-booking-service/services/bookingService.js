@@ -9,10 +9,8 @@ const {
   waTemplateLanguageCodeForTemplate,
 } = require("./whatsapp");
 const { waTemplateLocaleFromOwnerPhone } = require("./waTemplateLocale");
-
-const APP_CALLBACK_URL = process.env.APP_CALLBACK_URL || "https://example.com/api/update-booking";
-const APP_NOTIFY_RETRIES = Number.parseInt(process.env.APP_NOTIFY_RETRIES || "3", 10);
-const APP_NOTIFY_TIMEOUT_MS = Number.parseInt(process.env.APP_NOTIFY_TIMEOUT_MS || "5000", 10);
+const { syncCartOrLegacy, notifyLegacyApp: notifyLegacyApp_ } = require("./bookingNotify");
+const { bookingChannelFromOwnerPhone } = require("./bookingChannelRegion");
 
 /** Base names in Meta; resolved per locale as `{base}_{rus|eng}` (see resolveWaTemplate). */
 const TEMPLATE_CHECK_IS_AVAILABLE = "check_availability";
@@ -271,150 +269,8 @@ function requireStringField(payload, fieldName) {
   return value.trim();
 }
 
-function hasSupabaseCartIntegration(booking) {
-  return Boolean(
-    booking.supabase_callback_url &&
-      booking.supabase_callback_token &&
-      typeof booking.supabase_callback_url === "string",
-  );
-}
-
-async function postSupabaseCartCallback(booking, patch) {
-  const url = String(booking.supabase_callback_url).trim();
-  const token = String(booking.supabase_callback_token).trim();
-  const secret = (process.env.WA_BOOKING_SUPABASE_CALLBACK_SECRET || "").trim();
-
-  const isHostedSupabaseFn = /supabase\.co\/functions\/v1\//i.test(url);
-  const gatewayJwt = (
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
-    ""
-  ).trim();
-
-  if (isHostedSupabaseFn && !gatewayJwt) {
-    log("supabase_cart_callback_missing_gateway_jwt", {
-      booking_id: booking.id,
-      hint: "Set SUPABASE_ANON_KEY or EXPO_PUBLIC_SUPABASE_ANON_KEY (same anon JWT). Without it, no request is sent — zero n8n-wa-booking-callback invocations in Supabase logs.",
-    });
-    console.error(
-      "[wa-booking-service] Missing SUPABASE_ANON_KEY / EXPO_PUBLIC_SUPABASE_ANON_KEY: cannot POST to Supabase Edge callback (see README).",
-    );
-    return {
-      ok: false,
-      error: "Missing SUPABASE_ANON_KEY or EXPO_PUBLIC_SUPABASE_ANON_KEY for hosted Supabase Edge callback",
-    };
-  }
-
-  const body = {
-    callback_token: token,
-    status_lines: patch.status_lines,
-    confirmable: Boolean(patch.confirmable),
-  };
-  if (patch.confirmed_slot !== undefined) body.confirmed_slot = patch.confirmed_slot;
-  if (patch.confirmed_price !== undefined && patch.confirmed_price !== null) {
-    body.confirmed_price = String(patch.confirmed_price);
-  }
-  if (patch.payment_link != null) {
-    const link = String(patch.payment_link).trim();
-    if (link) body.payment_link = link;
-  }
-
-  let lastError = null;
-  for (let attempt = 1; attempt <= APP_NOTIFY_RETRIES; attempt += 1) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), APP_NOTIFY_TIMEOUT_MS);
-    try {
-      const headers = { "Content-Type": "application/json" };
-      if (gatewayJwt && isHostedSupabaseFn) {
-        headers.apikey = gatewayJwt;
-        headers.Authorization = `Bearer ${gatewayJwt}`;
-      }
-      if (secret) {
-        headers["x-wa-booking-secret"] = secret;
-      }
-      if (attempt === 1) {
-        log("supabase_cart_callback_fetch", {
-          booking_id: booking.id,
-          has_gateway_jwt: Boolean(gatewayJwt),
-          has_x_wa_secret: Boolean(secret),
-        });
-      }
-      const response = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      if (response.ok) {
-        log("supabase_cart_callback_ok", { booking_id: booking.id, attempt });
-        return { ok: true };
-      }
-      const text = await response.text();
-      lastError = new Error(`status=${response.status} body=${text.slice(0, 300)}`);
-      log("supabase_cart_callback_non_2xx", { booking_id: booking.id, attempt, status: response.status });
-    } catch (error) {
-      clearTimeout(timeoutId);
-      lastError = error;
-      log("supabase_cart_callback_error", { booking_id: booking.id, attempt, error: String(error) });
-    }
-    await new Promise((resolve) => setTimeout(resolve, attempt * 250));
-  }
-  return { ok: false, error: lastError ? String(lastError) : "Unknown Supabase callback error" };
-}
-
-async function notifyLegacyApp(payload) {
-  let lastError = null;
-
-  for (let attempt = 1; attempt <= APP_NOTIFY_RETRIES; attempt += 1) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), APP_NOTIFY_TIMEOUT_MS);
-
-    try {
-      const response = await fetch(APP_CALLBACK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-      if (response.ok) {
-        log("notify_legacy_app_ok", { payload, attempt });
-        return { ok: true };
-      }
-
-      const body = await response.text();
-      lastError = new Error(`status=${response.status} body=${body.slice(0, 300)}`);
-      log("notify_legacy_app_non_2xx", { payload, attempt, status: response.status });
-    } catch (error) {
-      clearTimeout(timeoutId);
-      lastError = error;
-      log("notify_legacy_app_error", { payload, attempt, error: String(error) });
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, attempt * 250));
-  }
-
-  return { ok: false, error: lastError ? String(lastError) : "Unknown notify error" };
-}
-
-async function syncCartOrLegacy(booking, supabasePatch, legacyPayload) {
-  if (hasSupabaseCartIntegration(booking)) {
-    log("sync_cart_notify_path", { booking_id: booking.id, path: "supabase_callback" });
-    const out = await postSupabaseCartCallback(booking, supabasePatch);
-    if (!out.ok) {
-      log("supabase_cart_callback_exhausted", { booking_id: booking.id, error: out.error });
-    }
-    return out;
-  }
-  log("sync_cart_notify_path", {
-    booking_id: booking.id,
-    path: "legacy_app_callback",
-    hint: "Payload had no supabase_callback_url/token — n8n-wa-booking-callback is never called.",
-  });
-  return notifyLegacyApp(legacyPayload);
-}
+// syncCartOrLegacy, hasSupabaseCartIntegration, postSupabaseCartCallback, notifyLegacyApp
+// are now provided by ./bookingNotify (imported above).
 
 async function sendLocaleTemplate(booking, baseName, variables = []) {
   const waLocale = bookingWaTemplateLocale(booking);
@@ -471,6 +327,25 @@ async function createBooking(payload) {
   const date = requireStringField(payload, "date");
   const time = requireStringField(payload, "time");
   const ownerPhone = sanitizePhone(requireStringField(payload, "owner_phone"));
+
+  const explicitChannel = optionalTrimString(payload, "preferred_booking_channel");
+  const channel = explicitChannel ?? bookingChannelFromOwnerPhone(ownerPhone);
+
+  if (channel === "voice") {
+    const { initiateVoiceBooking } = require("./voiceBookingService");
+    return initiateVoiceBooking({
+      booking_id: bookingId,
+      venue_name: venueName,
+      date,
+      time,
+      owner_phone: ownerPhone,
+      customer_name: optionalTrimString(payload, "customer_name"),
+      app_interface_locale: optionalTrimString(payload, "interface_locale") ?? "en",
+      supabase_callback_url: optionalTrimString(payload, "supabase_callback_url"),
+      supabase_callback_token: optionalTrimString(payload, "supabase_callback_token"),
+    });
+  }
+
   const templateLocale = waTemplateLocaleFromOwnerPhone(ownerPhone);
 
   if (bookingsById.has(bookingId)) {
@@ -841,10 +716,14 @@ async function processWhatsAppWebhook(payload) {
 
 function getDebugState() {
   const bookings = Array.from(bookingsById.values()).map(makeBookingSnapshot);
+  const { getVoiceDebugState } = require("./voiceBookingService");
+  const { getSmsDebugState } = require("./smsBookingService");
   return {
     bookings,
     activeBookingIdsByPhone: Object.fromEntries(activeBookingIdsByPhone.entries()),
     outboundMessageMeta: Object.fromEntries(outboundMessageMeta.entries()),
+    ...getVoiceDebugState(),
+    ...getSmsDebugState(),
   };
 }
 
@@ -892,5 +771,5 @@ module.exports = {
   resolveWaTemplate,
   normalizeInterfaceLocale,
   waTemplateLocaleFromOwnerPhone,
-  notifyApp: notifyLegacyApp,
+  notifyApp: notifyLegacyApp_,
 };
