@@ -110,6 +110,9 @@
   "editProfile": {
     "savedTitle": "Сохранено",
     "savedBody": "Данные профиля обновлены.",
+    "savedTitleOnboardingCompleted": "Готово",
+    "savedBodyOnboardingCompleted": "Профиль настроен. Готовы к приключениям?",
+    "continueExploringCta": "Продолжить",
     "personalizeCta": "Настроить",
     "usernameLabel": "Имя пользователя",
     "usernamePlaceholder": "username",
@@ -800,7 +803,14 @@
       "successBody": "Ваш аккаунт и персональные данные удалены.",
       "failedTitle": "Не удалось удалить",
       "failedBody": "Не удалось удалить аккаунт. Попробуйте снова или напишите на support@pixap.kz.",
-      "usernameRequired": "Укажите имя пользователя в разделе «Изменить», чтобы удалить аккаунт."
+      "usernameRequired": "Укажите имя пользователя в разделе «Изменить», чтобы удалить аккаунт.",
+      "confirmMatches": "Фраза совпадает ✓",
+      "confirmMismatches": "Продолжайте вводить… ({{percentage}}% совпадение)",
+      "confirmDeleteTitle": "Удалить аккаунт?",
+      "confirmDeleteBody": "Это действие нельзя отменить. Все ваши данные будут безвозвратно удалены.",
+      "deleteIrrevocably": "Да, удалить навсегда",
+      "deleteButtonDisabledHint": "Введите фразу подтверждения выше, чтобы активировать удаление",
+      "deleteButtonEnabledHint": "Нажмите, чтобы навсегда удалить аккаунт"
     },
     "adminDashboard": "Панель админа",
     "adminModeration": "Модерация жалоб",

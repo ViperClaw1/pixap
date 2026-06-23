@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Text, View, StyleSheet, type LayoutChangeEvent } from "react-native";
 import { useTranslation } from "react-i18next";
 import Carousel, { type ICarouselInstance } from "react-native-reanimated-carousel";
-import { Easing } from "react-native-reanimated";
+import Animated, { Easing, useSharedValue, withTiming, useAnimatedStyle } from "react-native-reanimated";
 import type { PanGesture } from "react-native-gesture-handler";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import {
@@ -89,6 +89,9 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
   const [deckSize, setDeckSize] = useState({ width: 0, height: 0 });
   const carouselRef = useRef<ICarouselInstance>(null);
 
+  const carouselOpacity = useSharedValue(0);
+  const carouselAnimStyle = useAnimatedStyle(() => ({ opacity: carouselOpacity.value }));
+
   const { favoriteCategories, vibePreferences, habits, favoriteMusic } = preferences;
   const prefsFingerprint = useMemo(
     () =>
@@ -105,8 +108,16 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
     setOffset(0);
     setVenues([]);
     setIndex(0);
+    carouselOpacity.value = 0;
     carouselRef.current?.scrollTo({ index: 0, animated: false });
   }, [prefsFingerprint]);
+
+  // Fade in carousel once deck is measured and first batch of venues is ready
+  useEffect(() => {
+    if (deckSize.width > 0 && deckSize.height > 0 && venues.length > 0) {
+      carouselOpacity.value = withTiming(1, { duration: 280 });
+    }
+  }, [deckSize.width, deckSize.height, venues.length]);
 
   const { data: page = [], isLoading } = useRecommendedOnboardingVenues(
     offset,
@@ -223,22 +234,7 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
 
   const canFinishEarly = ratedCount >= MIN_ONBOARDING_VENUE_RATINGS;
 
-  // Show skeleton while waiting for first batch (covers both initial load and fingerprint reset).
-  // This prevents the flash of empty state between isLoading=false and venues state update.
-  if (venues.length === 0) {
-    return (
-      <View style={styles.root}>
-        <Text style={[styles.hint, { color: colors.textMuted }]}>
-          {t("progress", { keyPrefix: "onboarding.venue", count: 0, min: MIN_ONBOARDING_VENUE_RATINGS })}
-        </Text>
-        <View style={styles.deckWrap}>
-          <OnboardingVenueCardSkeleton />
-        </View>
-      </View>
-    );
-  }
-
-  if (!current && !isLoading) {
+  if (!current && !isLoading && venues.length > 0) {
     return (
       <View style={styles.centered}>
         <Text style={{ color: colors.text }}>{t("empty", { keyPrefix: "onboarding.venue" })}</Text>
@@ -254,27 +250,36 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
     );
   }
 
+  // Single layout tree: skeleton is shown until deckSize is measured + venues arrive,
+  // then the carousel fades in over the skeleton position. onLayout is always attached
+  // so deckSize is ready before venues finish loading.
+  const carouselReady = deckSize.width > 0 && deckSize.height > 0 && venues.length > 0;
+
   return (
     <View style={styles.root}>
       <Text style={[styles.hint, { color: colors.textMuted }]}>
         {t("progress", { keyPrefix: "onboarding.venue", count: ratedCount, min: MIN_ONBOARDING_VENUE_RATINGS })}
       </Text>
       <View style={styles.deckWrap} onLayout={onDeckLayout}>
-        {deckSize.width > 0 && deckSize.height > 0 ? (
-          <Carousel
-            ref={carouselRef}
-            data={venues}
-            width={deckSize.width}
-            height={deckSize.height}
-            loop={false}
-            defaultIndex={0}
-            windowSize={3}
-            withAnimation={SLIDE_ANIMATION}
-            onConfigurePanGesture={configureVenueCarouselPanGesture}
-            onSnapToItem={handleSnapToItem}
-            renderItem={renderCarouselItem}
-          />
-        ) : null}
+        {!carouselReady ? (
+          <OnboardingVenueCardSkeleton />
+        ) : (
+          <Animated.View style={[StyleSheet.absoluteFill, carouselAnimStyle]}>
+            <Carousel
+              ref={carouselRef}
+              data={venues}
+              width={deckSize.width}
+              height={deckSize.height}
+              loop={false}
+              defaultIndex={0}
+              windowSize={3}
+              withAnimation={SLIDE_ANIMATION}
+              onConfigurePanGesture={configureVenueCarouselPanGesture}
+              onSnapToItem={handleSnapToItem}
+              renderItem={renderCarouselItem}
+            />
+          </Animated.View>
+        )}
       </View>
       <View style={styles.bottomControls}>
         <View style={styles.navRow}>

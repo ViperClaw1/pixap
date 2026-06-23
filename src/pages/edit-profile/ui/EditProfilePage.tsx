@@ -24,6 +24,7 @@ import {
 } from "@/app/navigation/navigationHelpers";
 import * as ImagePicker from "expo-image-picker";
 import { useProfile, useUpdateProfile, useUploadProfileAvatar } from "@/entities/user";
+import { useUserPreferences } from "@/entities/user-preferences";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
@@ -111,6 +112,7 @@ function EditProfileScreenContent() {
   const { colors, mode, setMode } = useAppTheme();
   const { user } = useAuth();
   const { data: profile } = useProfile();
+  const { data: preferences } = useUserPreferences();
   const authAvatarUrl = typeof user?.user_metadata?.avatar_url === "string" ? user.user_metadata.avatar_url : "";
   const authEmail = user?.email;
   const scrollRef = useRef<ScrollView>(null);
@@ -285,16 +287,19 @@ function EditProfileScreenContent() {
         avatar_url: trimmedAvatar || null,
       });
       trackProfileSaved(Boolean(phoneToSave));
+      const isOnboardingDone = preferences?.onboarding_completed === true;
       appAlert(
-        t("editProfile.savedTitle"),
-        t("editProfile.savedBody"),
-        [
-          { text: t("common.ok"), onPress: () => leaveAfterEditProfileSave(navigation) },
-          {
-            text: t("editProfile.personalizeCta"),
-            onPress: () => openPreferenceOnboardingFromEditProfile(navigation),
-          },
-        ],
+        t(isOnboardingDone ? "editProfile.savedTitleOnboardingCompleted" : "editProfile.savedTitle"),
+        t(isOnboardingDone ? "editProfile.savedBodyOnboardingCompleted" : "editProfile.savedBody"),
+        isOnboardingDone
+          ? [{ text: t("editProfile.continueExploringCta"), onPress: () => leaveAfterEditProfileSave(navigation) }]
+          : [
+              { text: t("common.ok"), onPress: () => leaveAfterEditProfileSave(navigation) },
+              {
+                text: t("editProfile.personalizeCta"),
+                onPress: () => openPreferenceOnboardingFromEditProfile(navigation),
+              },
+            ],
         "success",
       );
     } catch (error: unknown) {

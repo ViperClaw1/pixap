@@ -1,9 +1,9 @@
 import type { Category } from "../api/useCategories";
 
 export const HOME_CATEGORY_ORDER = [
+  "Restaurants",
   "Bars",
   "Clubs",
-  "Restaurants",
   "Tourism",
   "Entertainment",
   "Events",

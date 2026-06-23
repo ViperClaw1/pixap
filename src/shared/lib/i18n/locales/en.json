@@ -110,6 +110,9 @@
   "editProfile": {
     "savedTitle": "Saved",
     "savedBody": "Your profile data was updated.",
+    "savedTitleOnboardingCompleted": "Done",
+    "savedBodyOnboardingCompleted": "Your profile is set. Ready to explore?",
+    "continueExploringCta": "Continue exploring",
     "personalizeCta": "Personalize",
     "usernameLabel": "Username",
     "usernamePlaceholder": "username",
@@ -800,7 +803,14 @@
       "successBody": "Your account and personal data have been removed.",
       "failedTitle": "Deletion failed",
       "failedBody": "Could not delete your account. Please try again or email support@pixap.kz.",
-      "usernameRequired": "Set a username in Edit Profile before you can delete your account."
+      "usernameRequired": "Set a username in Edit Profile before you can delete your account.",
+      "confirmMatches": "Phrase matches ✓",
+      "confirmMismatches": "Keep typing… ({{percentage}}% match)",
+      "confirmDeleteTitle": "Delete your account?",
+      "confirmDeleteBody": "This action cannot be undone. All your data will be permanently removed.",
+      "deleteIrrevocably": "Yes, delete forever",
+      "deleteButtonDisabledHint": "Type the confirmation phrase above to enable deletion",
+      "deleteButtonEnabledHint": "Tap to permanently delete your account"
     },
     "adminDashboard": "Admin dashboard",
     "adminModeration": "Content moderation",

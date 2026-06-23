@@ -96,6 +96,9 @@
   "editProfile": {
     "savedTitle": "Enregistré",
     "savedBody": "Votre profil a été mis à jour.",
+    "savedTitleOnboardingCompleted": "Terminé",
+    "savedBodyOnboardingCompleted": "Votre profil est configuré. Prêt à explorer ?",
+    "continueExploringCta": "Continuer à explorer",
     "personalizeCta": "Personnaliser",
     "usernameLabel": "Nom d'utilisateur",
     "usernamePlaceholder": "nom_utilisateur",
@@ -606,7 +609,14 @@
       "successBody": "Votre compte et vos données personnelles ont été supprimés.",
       "failedTitle": "Échec de la suppression",
       "failedBody": "Impossible de supprimer le compte. Réessayez ou écrivez à support@pixap.kz.",
-      "usernameRequired": "Définissez un nom d'utilisateur dans « Modifier le profil » avant de supprimer votre compte."
+      "usernameRequired": "Définissez un nom d'utilisateur dans « Modifier le profil » avant de supprimer votre compte.",
+      "confirmMatches": "La phrase correspond ✓",
+      "confirmMismatches": "Continuez à saisir… ({{percentage}}% de correspondance)",
+      "confirmDeleteTitle": "Supprimer votre compte ?",
+      "confirmDeleteBody": "Cette action est irréversible. Toutes vos données seront définitivement supprimées.",
+      "deleteIrrevocably": "Oui, supprimer définitivement",
+      "deleteButtonDisabledHint": "Saisissez la phrase de confirmation ci-dessus pour activer la suppression",
+      "deleteButtonEnabledHint": "Appuyez pour supprimer définitivement votre compte"
     },
     "adminDashboard": "Tableau de bord admin",
     "partnerUpload": "Partenaire : téléverser l'image de l'annonce",
