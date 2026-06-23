@@ -17,6 +17,14 @@
     "feed": "Лента",
     "search": "Поиск"
   },
+  "pushPermissions": {
+    "title": "Будьте в курсе",
+    "body": "Мгновенные уведомления, когда заведение подтверждает бронь, присылает спецпредложение или хочет связаться с вами.",
+    "demoTitle": "Бронь подтверждена!",
+    "demoBody": "Ваш столик на вечер забронирован. Ждём вас!",
+    "enableBtn": "Включить уведомления",
+    "skipBtn": "Не сейчас"
+  },
   "notifications": {
     "sheetTitle": "Уведомления",
     "empty": "Пока нет уведомлений.",
@@ -650,6 +658,7 @@
     "inlineEmailInvalid": "Введите корректный email.",
     "inlinePasswordsMismatch": "Пароли не совпадают.",
     "ruleMinLength": "Не менее 8 символов",
+    "ruleLetterAndDigit": "Хотя бы одна буква и одна цифра",
     "ruleUppercase": "Хотя бы 1 заглавная буква",
     "ruleDigit": "Хотя бы одна цифра",
     "ruleSpecial": "Хотя бы один спецсимвол",
@@ -659,6 +668,7 @@
     "forgotPassword": "Забыли пароль?",
     "backToSignIn": "Вернуться ко входу",
     "or": "или",
+    "orEmail": "или войти через email",
     "continueGoogle": "Продолжить с Google",
     "continueApple": "Продолжить с Apple",
     "noAccount": "Нет аккаунта?",
