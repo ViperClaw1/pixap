@@ -129,6 +129,13 @@ import {
 import { AiBookingAssistantGate, AiBookingStepConsentPrompt, refreshAiDataConsent, useAiDataConsent } from "@/features/ai-data-consent";
 import { devWarn } from "@/shared/lib/devLog";
 import { AppPopupModal, appAlert } from "@/shared/ui/app-popup";
+import { BookingWhatsAppBanner } from "@/pages/booking-flow/ui/BookingWhatsAppBanner";
+import { bookingChannelFromPhone } from "@/shared/lib/booking/bookingChannel";
+import {
+  trackBookingScreenOpened,
+  trackBookingStarted,
+  trackBookingConfirmed,
+} from "@/shared/lib/analytics/track";
 import {
   AI_BOOKING_COMPOSER_KEYBOARD_MARGIN,
   AI_BOOKING_DEFAULT_PERSONS,
@@ -454,6 +461,14 @@ function AIBookingPageContent() {
     setSelection((prev) => ({ ...prev, bookingPlaceId: null }));
     bookingScrollRef.current?.scrollTo({ y: 0, animated: false });
     bookingScrollYRef.current = 0;
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (currentStep === "booking" && selectedPlace) {
+      trackBookingScreenOpened("ai_booking", selectedPlace.id);
+    }
+    // intentionally omit selectedPlace — track once per step transition
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep]);
 
   useLayoutEffect(() => {
@@ -1157,6 +1172,8 @@ function AIBookingPageContent() {
     }
     const persons = Number(form.persons);
 
+    const bookingChannel = bookingChannelFromPhone(selectedPlace.contact_whatsapp);
+    trackBookingStarted(selectedPlace.id, bookingChannel);
     setUiState((prev) => ({ ...prev, confirmingBooking: true }));
     try {
       const price = Number(selectedPlace.booking_price ?? 0);
@@ -1192,6 +1209,7 @@ function AIBookingPageContent() {
           }
         });
       }
+      trackBookingConfirmed(selectedPlace.id, bookingChannel);
       appAlert(
         t("bookingCommon.draftCreatedTitle"),
         t("bookingCommon.draftCreatedMessage"),
@@ -1370,6 +1388,7 @@ function AIBookingPageContent() {
         {currentStep === "booking" && selectedPlace ? (
           <>
             <AIBookingSelectedPlaceDetails styles={styles} selectedPlace={selectedPlace} />
+            <BookingWhatsAppBanner channel={bookingChannelFromPhone(selectedPlace.contact_whatsapp)} />
             <AIBookingSlotPicker
               styles={styles}
               selectedPlace={selectedPlace}

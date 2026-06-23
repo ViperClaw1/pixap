@@ -45,6 +45,7 @@ import {
   StorySourcePickerModal,
   type StorySourceOption,
 } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
+import { trackProfileSaved } from "@/shared/lib/analytics/track";
 
 const USERNAME_REGEX = /^[a-z0-9._-]+$/;
 const USERNAME_MIN_LENGTH = 3;
@@ -283,6 +284,7 @@ function EditProfileScreenContent() {
         bio: trimmedBio || null,
         avatar_url: trimmedAvatar || null,
       });
+      trackProfileSaved(Boolean(phoneToSave));
       appAlert(
         t("editProfile.savedTitle"),
         t("editProfile.savedBody"),

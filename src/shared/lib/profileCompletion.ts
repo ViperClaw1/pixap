@@ -6,21 +6,16 @@ function hasText(value: string | null | undefined): boolean {
   return Boolean(value?.trim());
 }
 
-/** First name, last name, and phone saved in profile (optional; guest form can supply them per booking). */
+/** First name saved in profile (last_name and phone are optional since EditProfile no longer requires them). */
 export function isPersonalDataComplete(profile: Profile | null | undefined): boolean {
   if (!profile) return false;
-  return hasText(profile.first_name) && hasText(profile.last_name) && hasText(profile.phone);
+  return hasText(profile.first_name);
 }
 
 /** Minimum profile fields required before booking flows (AI booking, booking flow, vibe match). */
 export function isProfileComplete(profile: Profile | null | undefined): boolean {
   if (!profile) return false;
-  return (
-    hasText(profile.username) &&
-    hasText(profile.first_name) &&
-    hasText(profile.last_name) &&
-    hasText(profile.phone)
-  );
+  return hasText(profile.username) && hasText(profile.first_name);
 }
 
 /** Apple sign-in users with missing name or phone should see the booking profile notice. */
