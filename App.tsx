@@ -16,7 +16,7 @@ import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import { subscribeSupabaseAuthDeepLinks } from "@/app/navigation/subscribeSupabaseAuthDeepLinks";
 import { hasSeenPermissionsIntro, setSeenPermissionsIntro } from "@/shared/lib/permissionsStorage";
 import { hasLaunchedAppBefore } from "@/shared/lib/appLaunchStorage";
-import { supabaseConfigError } from "@/shared/api/supabase/client";
+import { supabase, supabaseConfigError } from "@/shared/api/supabase/client";
 import { logStartupDiagnostics } from "@/shared/lib/startupDiagnostics";
 import { useAppToastConfig } from "@/shared/ui/app-toast/createAppToastConfig";
 import { AppPopupHost } from "@/shared/ui/app-popup";
@@ -149,18 +149,20 @@ export default function App() {
     void (async () => {
       try {
         markStartup("boot_effect_start");
-        const [, seen, themeMode, launchedBefore] = await Promise.all([
+        const [, seen, themeMode, launchedBefore, sessionResult] = await Promise.all([
           bootstrapI18n(),
           hasSeenPermissionsIntro(),
           loadPersistedThemeMode(),
           hasLaunchedAppBefore(),
+          supabase.auth.getSession(),
         ]);
         markStartup("i18n_bootstrap_done");
         if (!cancelled) {
           setInitialThemeMode(themeMode);
           setIsFirstAppLaunch(!launchedBefore);
           setReady(true);
-          setShowPerms(!seen);
+          // Only prompt for push permissions when user is signed in — no value to anonymous users.
+          setShowPerms(!seen && sessionResult.data.session != null);
         }
         if (cancelled) return;
         deferredRef.current = InteractionManager.runAfterInteractions(() => {

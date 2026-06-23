@@ -9,7 +9,8 @@ import {
   Platform,
   Dimensions,
   ScrollView,
-  Linking
+  Linking,
+  Animated,
 } from "react-native";
 import { runOnJS, useAnimatedReaction } from "react-native-reanimated";
 import { useFocusedOverlapKeyboardInset } from "@/shared/lib/keyboard";
@@ -52,6 +53,9 @@ type Mode = "login" | "signup" | "forgot";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, "Auth">;
 const KEYBOARD_GAP = Platform.OS === "android" ? 48 : 24;
+// Extra scroll clearance when password is focused in signup — ensures both policy bullets are visible above keyboard.
+// Bullet rows ≈ 12px margin + 36px content + 8px gap = ~56px below password field.
+const SIGNUP_PASSWORD_EXTRA_GAP = 60;
 const PASSWORD_RULE_SUCCESS_COLOR = "#22c55e";
 
 function getAuthErrorTranslationKey(code: AuthErrorCode | undefined): string {
@@ -104,29 +108,27 @@ export default function AuthScreen() {
   const activeInputRef = useRef<TextInput | null>(null);
   const keyboardTopRef = useRef<number | null>(null);
   const isKeyboardVisibleRef = useRef(false);
-  const firstNameInputRef = useRef<TextInput>(null);
-  const lastNameInputRef = useRef<TextInput>(null);
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
-  const confirmPasswordInputRef = useRef<TextInput>(null);
   const [mode, setMode] = useState<Mode>(route.params?.initialMode ?? "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
   const [authTransition, setAuthTransition] = useState(false);
   const authRequestInFlightRef = useRef(false);
   const postAuthRouteRef = useRef<PostAuthRoute>("ProfileMain");
   const hadUserWhenAuthReadyRef = useRef<boolean | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
-  const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState(false);
   const [keyboardOverlapPad, setKeyboardOverlapPad] = useState(0);
+  const [switcherWidth, setSwitcherWidth] = useState(0);
+  const contentOpacity = useRef(new Animated.Value(1)).current;
+  const tabSliderAnim = useRef(new Animated.Value(route.params?.initialMode === "signup" ? 1 : 0)).current;
+  const modeRef = useRef(mode);
+  useEffect(() => { modeRef.current = mode; }, [mode]);
   const baseScrollPaddingBottom = Math.max(insets.bottom, 48);
   const { extraInset: keyboardExtraInset, recalculate: recalculateKeyboardInset } =
     useFocusedOverlapKeyboardInset({
@@ -167,17 +169,29 @@ export default function AuthScreen() {
     [t],
   );
 
+  const switchMode = useCallback(
+    (newMode: "login" | "signup") => {
+      if (newMode === mode) return;
+      Animated.timing(tabSliderAnim, { toValue: newMode === "login" ? 0 : 1, duration: 200, useNativeDriver: true }).start();
+      Animated.timing(contentOpacity, { toValue: 0, duration: 120, useNativeDriver: true }).start(() => {
+        setMode(newMode);
+        setPassword("");
+        setPasswordTouched(false);
+        setTermsAccepted(false);
+        setTermsError(false);
+        Animated.timing(contentOpacity, { toValue: 1, duration: 180, useNativeDriver: true }).start();
+      });
+    },
+    [mode, contentOpacity, tabSliderAnim],
+  );
+
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   const hasMinPasswordLength = password.length >= 8;
-  const hasPasswordDigit = /\d/.test(password);
-  const hasPasswordUppercase = /[A-Z]/.test(password);
-  const hasPasswordSpecial = /[^A-Za-z0-9]/.test(password);
-  const isPasswordPolicyValid = hasMinPasswordLength && hasPasswordDigit && hasPasswordUppercase && hasPasswordSpecial;
+  const hasLetterAndDigit = /[a-zA-Z]/.test(password) && /\d/.test(password);
+  const isPasswordPolicyValid = hasMinPasswordLength && hasLetterAndDigit;
   const isEmailEmpty = email.trim().length === 0;
   const showEmailRequiredError = emailTouched && isEmailEmpty;
   const showEmailInvalidError = emailTouched && !isEmailEmpty && !isValidEmail(email);
-  const arePasswordsMatching = password === confirmPassword;
-  const showPasswordsMismatch = mode === "signup" && confirmPasswordTouched && confirmPassword.length > 0 && !arePasswordsMatching;
   const showPasswordPolicyError = mode === "signup" && passwordTouched && password.length > 0 && !isPasswordPolicyValid;
 
   const onPasswordChange = (value: string) => {
@@ -188,8 +202,10 @@ export default function AuthScreen() {
   const ensureFocusedInputVisible = useCallback((keyboardTop: number) => {
     const focusedField = activeInputRef.current;
     if (!focusedField || typeof focusedField.measureInWindow !== "function") return;
+    const isSignupPassword = modeRef.current !== "forgot" && focusedField === passwordInputRef.current;
+    const gap = KEYBOARD_GAP + (isSignupPassword ? SIGNUP_PASSWORD_EXTRA_GAP : 0);
     focusedField.measureInWindow((_x, y, _w, h) => {
-      const overlap = Math.max(0, y + h + KEYBOARD_GAP - keyboardTop);
+      const overlap = Math.max(0, y + h + gap - keyboardTop);
       if (overlap <= 0) return;
       scrollRef.current?.scrollTo({
         y: scrollOffsetYRef.current + overlap,
@@ -374,7 +390,6 @@ export default function AuthScreen() {
       if (mode === "signup") {
         setEmailTouched(true);
         setPasswordTouched(true);
-        setConfirmPasswordTouched(true);
         if (isEmailEmpty) {
           showUserAlert(t("auth.alerts.validationTitle"), t("auth.alerts.emailRequired"));
           return;
@@ -387,15 +402,12 @@ export default function AuthScreen() {
           showUserAlert(t("auth.alerts.validationTitle"), t("auth.alerts.passwordPolicy"));
           return;
         }
-        if (!arePasswordsMatching) {
-          showUserAlert(t("auth.alerts.validationTitle"), t("auth.alerts.passwordsMismatch"));
-          return;
-        }
         if (!termsAccepted) {
-          showUserAlert(t("auth.alerts.validationTitle"), t("legal.acceptTermsRequired"));
+          setTermsError(true);
+          scrollRef.current?.scrollToEnd({ animated: true });
           return;
         }
-        const { error, errorCode, isUserAlreadyExists } = await signUp(email, password, firstName, lastName, true);
+        const { error, errorCode, isUserAlreadyExists } = await signUp(email, password, "", "", true);
         if (error) {
           if (isUserAlreadyExists) {
             showUserAlert(t("auth.alerts.emailAlreadyRegisteredTitle"), t("auth.alerts.emailAlreadyRegisteredBody"), "info");
@@ -432,6 +444,10 @@ export default function AuthScreen() {
 
   const showSubmitLoading = loading || authTransition;
   const ph = colors.textMuted;
+  const sliderTranslateX = tabSliderAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, Math.max(0, (switcherWidth - 8) / 2)],
+  });
 
   return (
     <ScrollView
@@ -441,7 +457,7 @@ export default function AuthScreen() {
         styles.content,
         {
           paddingTop: Math.max(insets.top, 22),
-          paddingBottom: baseScrollPaddingBottom + keyboardOverlapPad,
+          paddingBottom: baseScrollPaddingBottom + keyboardOverlapPad + (mode !== "forgot" ? 180 : 0),
         },
       ]}
       keyboardShouldPersistTaps="handled"
@@ -458,42 +474,46 @@ export default function AuthScreen() {
         {mode === "forgot" ? t("auth.helperForgot") : t("auth.helperDefault")}
       </Text>
 
-      {mode === "signup" && (
+      {mode !== "forgot" && (
         <>
-          <View style={styles.fieldWrap}>
-            <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
-            <TextInput
-              ref={firstNameInputRef}
-              style={styles.input}
-              placeholder={t("auth.placeholderFirstName")}
-              placeholderTextColor={ph}
-              autoComplete="given-name"
-              textContentType="givenName"
-              importantForAutofill="yes"
-              autoCapitalize="words"
-              value={firstName}
-              onChangeText={setFirstName}
-              onFocus={() => onInputFocus(firstNameInputRef)}
-            />
+          <AppPressable style={styles.outline} onPress={() => void social("google")} disabled={showSubmitLoading}>
+            <FontAwesome name="google" size={18} color="#EA4335" />
+            <Text style={styles.outlineText}>{t("auth.continueGoogle")}</Text>
+          </AppPressable>
+          {Platform.OS !== "android" ? (
+            <AppPressable style={styles.outline} onPress={() => void social("apple")} disabled={showSubmitLoading}>
+              <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? colors.onAccent : colors.accent} />
+              <Text style={styles.outlineText}>{t("auth.continueApple")}</Text>
+            </AppPressable>
+          ) : null}
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>{t("auth.orEmail")}</Text>
+            <View style={styles.orLine} />
           </View>
-          <View style={styles.fieldWrap}>
-            <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
-            <TextInput
-              ref={lastNameInputRef}
-              style={styles.input}
-              placeholder={t("auth.placeholderLastName")}
-              placeholderTextColor={ph}
-              autoComplete="family-name"
-              textContentType="familyName"
-              importantForAutofill="yes"
-              autoCapitalize="words"
-              value={lastName}
-              onChangeText={setLastName}
-              onFocus={() => onInputFocus(lastNameInputRef)}
+          <View style={styles.tabSwitcher} onLayout={(e) => setSwitcherWidth(e.nativeEvent.layout.width)}>
+            <Animated.View
+              style={[
+                styles.tabSlider,
+                { width: Math.max(0, (switcherWidth - 8) / 2), transform: [{ translateX: sliderTranslateX }] },
+              ]}
             />
+            <AppPressable style={styles.tab} onPress={() => switchMode("login")}>
+              <Text style={[styles.tabText, { color: mode === "login" ? colors.onPrimary : colors.textMuted }]}>
+                {t("auth.btnSignIn")}
+              </Text>
+            </AppPressable>
+            <AppPressable style={styles.tab} onPress={() => switchMode("signup")}>
+              <Text style={[styles.tabText, { color: mode === "signup" ? colors.onPrimary : colors.textMuted }]}>
+                {t("auth.btnSignUp")}
+              </Text>
+            </AppPressable>
           </View>
         </>
       )}
+
+      <Animated.View style={{ opacity: contentOpacity }}>
+
 
       <View style={[styles.fieldWrap, (showEmailRequiredError || showEmailInvalidError) ? styles.fieldWrapError : null]}>
         <Ionicons name="mail-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
@@ -544,7 +564,7 @@ export default function AuthScreen() {
               <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
             </AppPressable>
           </View>
-          {mode === "signup" && passwordTouched ? (
+          {mode === "signup" && passwordTouched && password.length > 0 ? (
             <View style={styles.passwordRules}>
               <View style={styles.passwordRuleRow}>
                 <Ionicons
@@ -558,143 +578,95 @@ export default function AuthScreen() {
               </View>
               <View style={styles.passwordRuleRow}>
                 <Ionicons
-                  name={hasPasswordUppercase ? "checkmark-circle-outline" : "close-circle-outline"}
+                  name={hasLetterAndDigit ? "checkmark-circle-outline" : "close-circle-outline"}
                   size={16}
-                  color={hasPasswordUppercase ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
+                  color={hasLetterAndDigit ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
                 />
-                <Text style={[styles.passwordRuleText, hasPasswordUppercase ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
-                  {t("auth.ruleUppercase")}
-                </Text>
-              </View>
-              <View style={styles.passwordRuleRow}>
-                <Ionicons
-                  name={hasPasswordDigit ? "checkmark-circle-outline" : "close-circle-outline"}
-                  size={16}
-                  color={hasPasswordDigit ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
-                />
-                <Text style={[styles.passwordRuleText, hasPasswordDigit ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
-                  {t("auth.ruleDigit")}
-                </Text>
-              </View>
-              
-              <View style={styles.passwordRuleRow}>
-                <Ionicons
-                  name={hasPasswordSpecial ? "checkmark-circle-outline" : "close-circle-outline"}
-                  size={16}
-                  color={hasPasswordSpecial ? PASSWORD_RULE_SUCCESS_COLOR : colors.danger}
-                />
-                <Text style={[styles.passwordRuleText, hasPasswordSpecial ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
-                  {t("auth.ruleSpecial")}
+                <Text style={[styles.passwordRuleText, hasLetterAndDigit ? { color: PASSWORD_RULE_SUCCESS_COLOR } : { color: colors.textMuted }]}>
+                  {t("auth.ruleLetterAndDigit")}
                 </Text>
               </View>
             </View>
           ) : null}
-          {mode === "signup" ? (
-            <>
-              <View style={[styles.fieldWrap, showPasswordsMismatch ? styles.fieldWrapError : null]}>
-                <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
-                <TextInput
-                  ref={confirmPasswordInputRef}
-                  style={styles.input}
-                  placeholder={t("auth.placeholderConfirmPassword")}
-                  placeholderTextColor={ph}
-                  autoComplete="new-password"
-                  textContentType="newPassword"
-                  importantForAutofill="yes"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  onFocus={() => onInputFocus(confirmPasswordInputRef)}
-                  onBlur={() => {
-                    setConfirmPasswordTouched(true);
-                    if (activeInputRef.current === confirmPasswordInputRef.current) activeInputRef.current = null;
-                  }}
-                  secureTextEntry={!showConfirmPassword}
-                />
-                <AppPressable onPress={() => setShowConfirmPassword((v) => !v)} hitSlop={8}>
-                  <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
-                </AppPressable>
-              </View>
-              {showPasswordsMismatch ? <Text style={styles.inlineError}>{t("auth.inlinePasswordsMismatch")}</Text> : null}
-              <AppPressable style={styles.termsRow} onPress={() => setTermsAccepted((v) => !v)}>
-                <Ionicons
-                  name={termsAccepted ? "checkbox" : "square-outline"}
-                  size={22}
-                  color={termsAccepted ? colors.primary : colors.textMuted}
-                />
-                <Text style={[styles.termsText, { color: colors.textMuted }]}>
-                  {t("legal.acceptTermsPrefix")}{" "}
-                  <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(TERMS_URL)}>
-                    {t("legal.terms")}
-                  </Text>{" "}
-                  {t("legal.acceptTermsAnd")}{" "}
-                  <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(COMMUNITY_GUIDELINES_URL)}>
-                    {t("legal.communityGuidelines")}
-                  </Text>
-                </Text>
-              </AppPressable>
-            </>
-          ) : null}
         </>
       )}
 
-      <AppPressable
-        style={[styles.primary, showSubmitLoading && styles.primaryDisabled]}
-        onPress={() => void submit()}
-        disabled={showSubmitLoading}
-        accessibilityState={{ disabled: showSubmitLoading, busy: showSubmitLoading }}
-      >
-        {showSubmitLoading ? (
-          <ActivityIndicator color={colors.onPrimary} />
-        ) : (
-          <Text style={styles.primaryText}>
-            {mode === "login" ? t("auth.btnSignIn") : mode === "signup" ? t("auth.btnSignUp") : t("auth.btnSendReset")}
-          </Text>
-        )}
-      </AppPressable>
-
-      {mode === "login" ? (
-        <AppPressable style={styles.smallLink} onPress={() => setMode("forgot")}>
-          <Text style={styles.smallLinkText}>{t("auth.forgotPassword")}</Text>
-        </AppPressable>
-      ) : null}
-      {mode === "forgot" ? (
-        <AppPressable style={styles.smallLink} onPress={() => setMode("login")}>
-          <Text style={styles.smallLinkText}>{t("auth.backToSignIn")}</Text>
-        </AppPressable>
-      ) : null}
-
+      {/* Forgot link (login) and terms (signup) share the same container so switching tabs causes no layout shift */}
       {mode !== "forgot" && (
-        <>
-          <View style={styles.orRow}>
-            <View style={styles.orLine} />
-            <Text style={styles.orText}>{t("auth.or")}</Text>
-            <View style={styles.orLine} />
-          </View>
-          <AppPressable style={styles.outline} onPress={() => void social("google")} disabled={showSubmitLoading}>
-            <FontAwesome name="google" size={18} color={colors.accent} />
-            <Text style={styles.outlineText}>{t("auth.continueGoogle")}</Text>
-          </AppPressable>
-          {Platform.OS !== "android" ? (
-            <AppPressable style={styles.outline} onPress={() => void social("apple")} disabled={showSubmitLoading}>
-              <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? colors.onAccent : colors.accent} />
-              <Text style={styles.outlineText}>{t("auth.continueApple")}</Text>
+        <View style={{ position: "relative" }}>
+          <View
+            pointerEvents={mode === "signup" ? "auto" : "none"}
+            style={{ opacity: mode === "signup" ? 1 : 0 }}
+          >
+            <AppPressable
+              style={[
+                styles.termsRow,
+                termsError && !termsAccepted
+                  ? { borderWidth: 1, borderColor: colors.danger, borderRadius: 10, padding: 8 }
+                  : null,
+              ]}
+              onPress={() => {
+                setTermsAccepted((v) => !v);
+                setTermsError(false);
+              }}
+            >
+              <Ionicons
+                name={termsAccepted ? "checkbox" : "square-outline"}
+                size={22}
+                color={termsError && !termsAccepted ? colors.danger : termsAccepted ? colors.primary : colors.textMuted}
+              />
+              <Text style={[styles.termsText, { color: colors.textMuted }]}>
+                {t("legal.acceptTermsPrefix")}{" "}
+                <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(TERMS_URL)}>
+                  {t("legal.terms")}
+                </Text>{" "}
+                {t("legal.acceptTermsAnd")}{" "}
+                <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(COMMUNITY_GUIDELINES_URL)}>
+                  {t("legal.communityGuidelines")}
+                </Text>
+              </Text>
             </AppPressable>
-          ) : null}
-        </>
+          </View>
+          <View
+            style={{ position: "absolute", top: 0, bottom: 0, right: 0, justifyContent: "center", opacity: mode === "login" ? 1 : 0 }}
+            pointerEvents={mode === "login" ? "auto" : "none"}
+          >
+            <AppPressable onPress={() => setMode("forgot")}>
+              <Text style={styles.smallLinkText}>{t("auth.forgotPassword")}</Text>
+            </AppPressable>
+          </View>
+        </View>
       )}
 
-      {mode === "login" ? (
-        <AppPressable style={styles.bottomSwitch} onPress={() => setMode("signup")}>
-          <Text style={styles.bottomSwitchText}>{t("auth.noAccount")}</Text>
-          <Text style={styles.bottomSwitchLink}>{t("auth.signUpLink")}</Text>
+        <AppPressable
+          style={[styles.primary, showSubmitLoading && styles.primaryDisabled]}
+          onPress={() => void submit()}
+          disabled={showSubmitLoading}
+          accessibilityState={{ disabled: showSubmitLoading, busy: showSubmitLoading }}
+        >
+          {showSubmitLoading ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <View style={{ alignItems: "center" }}>
+              <Text style={[styles.primaryText, mode !== "login" && { position: "absolute", opacity: 0 }]}>
+                {t("auth.btnSignIn")}
+              </Text>
+              <Text style={[styles.primaryText, mode !== "signup" && { position: "absolute", opacity: 0 }]}>
+                {t("auth.btnSignUp")}
+              </Text>
+              <Text style={[styles.primaryText, mode !== "forgot" && { position: "absolute", opacity: 0 }]}>
+                {t("auth.btnSendReset")}
+              </Text>
+            </View>
+          )}
         </AppPressable>
-      ) : null}
-      {mode === "signup" ? (
-        <AppPressable style={styles.bottomSwitch} onPress={() => setMode("login")}>
-          <Text style={styles.bottomSwitchText}>{t("auth.haveAccount")}</Text>
-          <Text style={styles.bottomSwitchLink}>{t("auth.signInLink")}</Text>
-        </AppPressable>
-      ) : null}
+
+        {mode === "forgot" && (
+          <AppPressable style={styles.smallLink} onPress={() => setMode("login")}>
+            <Text style={styles.smallLinkText}>{t("auth.backToSignIn")}</Text>
+          </AppPressable>
+        )}
+      </Animated.View>
     </ScrollView>
   );
 }

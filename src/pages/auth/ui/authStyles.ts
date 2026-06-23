@@ -10,7 +10,7 @@ import {
 
 export const authStaticStyles = StyleSheet.create({
   root: { flex: 1, paddingHorizontal: 20 },
-  content: { flexGrow: 1, justifyContent: "center" },
+  content: { flexGrow: 1, justifyContent: "flex-start" },
   title: { fontSize: 36, fontWeight: "800", marginBottom: 6, lineHeight: 54 },
   helper: { fontSize: 14, marginBottom: 26, lineHeight: 30 },
   fieldWrap: {
@@ -51,9 +51,6 @@ export const authStaticStyles = StyleSheet.create({
     gap: 10,
   },
   outlineText: { fontWeight: "700", fontSize: 14 },
-  bottomSwitch: { marginTop: 12, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 },
-  bottomSwitchText: { fontSize: 14 },
-  bottomSwitchLink: { color: AUTH_PRIMARY_COLOR, fontSize: 14, fontWeight: "700" },
   inlineError: { marginTop: -4, marginBottom: 10, fontSize: 12 },
   passwordRules: { marginTop: -2, marginBottom: 8, gap: 4 },
   passwordRuleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -69,6 +66,30 @@ export const authStaticStyles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 20,
+  },
+  tabSwitcher: {
+    flexDirection: "row",
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+  },
+  tabSlider: {
+    position: "absolute",
+    top: 4,
+    bottom: 4,
+    left: 4,
+    borderRadius: 8,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 
@@ -92,8 +113,10 @@ export function authThemeStyles(colors: ThemeColors) {
       backgroundColor: colors.background,
     },
     outlineText: { color: colors.text },
-    bottomSwitchText: { color: colors.textMuted },
     inlineError: { color: colors.danger },
     passwordRuleText: { color: colors.textMuted },
+    tabSwitcher: { backgroundColor: colors.card },
+    tabSlider: { backgroundColor: colors.primary },
+    tabText: { color: colors.textMuted },
   } satisfies Partial<Record<keyof typeof authStaticStyles, object>>;
 }

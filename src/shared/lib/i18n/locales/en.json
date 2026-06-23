@@ -17,6 +17,14 @@
     "feed": "Feed",
     "search": "Search"
   },
+  "pushPermissions": {
+    "title": "Don't miss a thing",
+    "body": "Get instant updates when venues confirm your booking, send special offers, or need to reach you.",
+    "demoTitle": "Booking confirmed!",
+    "demoBody": "Your reservation at tonight has been accepted. See you there.",
+    "enableBtn": "Turn on notifications",
+    "skipBtn": "Not now"
+  },
   "notifications": {
     "sheetTitle": "Notifications",
     "empty": "No notifications yet.",
@@ -650,6 +658,7 @@
     "inlineEmailInvalid": "Please enter a valid email address.",
     "inlinePasswordsMismatch": "Passwords do not match.",
     "ruleMinLength": "At least 8 characters",
+    "ruleLetterAndDigit": "At least one letter and one digit",
     "ruleUppercase": "At least 1 uppercase letter",
     "ruleDigit": "At least one digit",
     "ruleSpecial": "At least one special character",
@@ -659,6 +668,7 @@
     "forgotPassword": "Forgot password?",
     "backToSignIn": "Back to sign in",
     "or": "or",
+    "orEmail": "or continue with email",
     "continueGoogle": "Continue with Google",
     "continueApple": "Continue with Apple",
     "noAccount": "Don't have an account?",
