@@ -96,6 +96,9 @@
   "editProfile": {
     "savedTitle": "Guardado",
     "savedBody": "Tu perfil se actualizó.",
+    "savedTitleOnboardingCompleted": "Listo",
+    "savedBodyOnboardingCompleted": "Tu perfil está configurado. ¿Listo para explorar?",
+    "continueExploringCta": "Seguir explorando",
     "personalizeCta": "Personalizar",
     "usernameLabel": "Usuario",
     "usernamePlaceholder": "usuario",
@@ -606,7 +609,14 @@
       "successBody": "Tu cuenta y tus datos personales han sido eliminados.",
       "failedTitle": "Error al eliminar",
       "failedBody": "No se pudo eliminar la cuenta. Inténtalo de nuevo o escribe a support@pixap.kz.",
-      "usernameRequired": "Define un nombre de usuario en «Editar perfil» antes de eliminar tu cuenta."
+      "usernameRequired": "Define un nombre de usuario en «Editar perfil» antes de eliminar tu cuenta.",
+      "confirmMatches": "La frase coincide ✓",
+      "confirmMismatches": "Sigue escribiendo… ({{percentage}}% de coincidencia)",
+      "confirmDeleteTitle": "¿Eliminar tu cuenta?",
+      "confirmDeleteBody": "Esta acción no se puede deshacer. Todos tus datos serán eliminados permanentemente.",
+      "deleteIrrevocably": "Sí, eliminar para siempre",
+      "deleteButtonDisabledHint": "Escribe la frase de confirmación arriba para activar la eliminación",
+      "deleteButtonEnabledHint": "Toca para eliminar permanentemente tu cuenta"
     },
     "adminDashboard": "Panel de administración",
     "partnerUpload": "Socio: subir imagen del anuncio",

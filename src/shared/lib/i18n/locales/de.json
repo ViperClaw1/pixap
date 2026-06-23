@@ -1,4 +1,4 @@
-{
+﻿{
   "language": {
     "choose": "Oberflächensprache",
     "en": "Englisch",
@@ -606,7 +606,14 @@
       "successBody": "Dein Konto und deine personenbezogenen Daten wurden entfernt.",
       "failedTitle": "Löschen fehlgeschlagen",
       "failedBody": "Konto konnte nicht gelöscht werden. Bitte erneut versuchen oder support@pixap.kz kontaktieren.",
-      "usernameRequired": "Lege zuerst in „Profil bearbeiten“ einen Benutzernamen fest, um dein Konto zu löschen."
+      "usernameRequired": "Lege zuerst in „Profil bearbeiten“ einen Benutzernamen fest, um dein Konto zu löschen.",
+      "confirmMatches": "Phrase stimmt überein ✓",
+      "confirmMismatches": "Weiter tippen… ({{percentage}}% Übereinstimmung)",
+      "confirmDeleteTitle": "Konto löschen?",
+      "confirmDeleteBody": "Diese Aktion kann nicht rückgängig gemacht werden. Alle deine Daten werden dauerhaft entfernt.",
+      "deleteIrrevocably": "Ja, für immer löschen",
+      "deleteButtonDisabledHint": "Gib oben die Bestätigungsphrase ein, um die Löschung zu aktivieren",
+      "deleteButtonEnabledHint": "Tippe hier, um dein Konto dauerhaft zu löschen"
     },
     "adminDashboard": "Admin-Dashboard",
     "partnerUpload": "Partner: Listing-Bild hochladen",
