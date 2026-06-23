@@ -196,6 +196,21 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
     [scheduleSave, temperament],
   );
 
+  const skipStep = useCallback(async () => {
+    let nextStep: OnboardingStep;
+    if (step === "city_selection") {
+      nextStep = "venue_categories";
+    } else if (step === "temperament") {
+      nextStep = "venue_ratings";
+    } else if (isStage1 && stage1Index < STAGE1_STEPS.length - 1) {
+      nextStep = STAGE1_STEPS[stage1Index + 1] as OnboardingStep;
+    } else {
+      return;
+    }
+    setStep(nextStep);
+    await flushSave({ onboarding_step: nextStep });
+  }, [flushSave, isStage1, stage1Index, step]);
+
   const skipOnboarding = useCallback(async () => {
     await flushSave({
       onboarding_skipped_at: new Date().toISOString(),
@@ -246,6 +261,7 @@ export function useOnboardingWizard(initialStep?: OnboardingStep) {
     updateTemperament,
     goNext,
     goBack,
+    skipStep,
     skipOnboarding,
     completeOnboarding,
     flushSave,

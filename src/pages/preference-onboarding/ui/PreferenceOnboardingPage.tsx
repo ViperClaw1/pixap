@@ -1,6 +1,6 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, BackHandler, Platform, Text, View, StyleSheet } from "react-native";
+import { ActivityIndicator, Alert, BackHandler, Platform, Text, View, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 import { useTrackOnboardingEvent } from "@/entities/onboarding-analytics";
+import { trackOnboardingAbandoned, trackOnboardingCompleted, trackOnboardingStepSkipped } from "@/shared/lib/analytics/track";
 import {
   useOnboardingWizard,
   clearOnboardingDraft,
@@ -43,6 +44,9 @@ function PreferenceOnboardingContent() {
   const advanceLockRef = useRef(false);
   const [stepDirection, setStepDirection] = useState<1 | -1>(1);
   const [isAdvancing, setIsAdvancing] = useState(false);
+
+  const isFirstStep = wizard.step === "city_selection";
+  const isVenueStep = wizard.step === "venue_ratings";
 
   const wizardSnapshot = useMemo(
     () => ({
@@ -84,24 +88,43 @@ function PreferenceOnboardingContent() {
   }, [navigation]);
 
   const leaveOnboardingToProfile = useCallback(() => {
+    Alert.alert(
+      t("onboarding.exitSetupTitle"),
+      t("onboarding.exitSetupBody"),
+      [
+        { text: t("onboarding.exitSetupCancel"), style: "cancel" },
+        {
+          text: t("onboarding.exitSetupConfirm"),
+          style: "destructive",
+          onPress: () => {
+            trackOnboardingAbandoned(wizard.step);
+            void wizard.skipOnboarding().then(() => resetToProfileMain());
+          },
+        },
+      ],
+    );
+  }, [resetToProfileMain, t, wizard]);
+
+  const handleVenueStageComplete = useCallback(async () => {
+    const result = await wizard.completeOnboarding();
+    await clearOnboardingDraft();
+    if (result.isFirstCompletion) trackOnboardingCompleted(0);
     resetToProfileMain();
-  }, [resetToProfileMain]);
+  }, [resetToProfileMain, wizard]);
 
   const handleSkip = useCallback(async () => {
+    if (isVenueStep) {
+      await handleVenueStageComplete();
+      return;
+    }
     track({
       event_name: "step_skipped",
       step: wizard.step,
       payload: buildStepSkippedPayload(wizardSnapshot),
     });
-    await wizard.skipOnboarding();
-    leaveOnboardingToProfile();
-  }, [leaveOnboardingToProfile, track, wizard, wizardSnapshot]);
-
-  const handleVenueStageComplete = useCallback(async () => {
-    await wizard.completeOnboarding();
-    await clearOnboardingDraft();
-    resetToProfileMain();
-  }, [resetToProfileMain, wizard]);
+    trackOnboardingStepSkipped(wizard.step);
+    await wizard.skipStep();
+  }, [handleVenueStageComplete, isVenueStep, track, wizard, wizardSnapshot]);
 
   const handleNext = useCallback(async () => {
     if (advanceLockRef.current || !wizard.canContinue) return;
@@ -131,8 +154,6 @@ function PreferenceOnboardingContent() {
     wizard.goBack();
   }, [wizard]);
 
-  const isFirstStep = wizard.step === "city_selection";
-  const isVenueStep = wizard.step === "venue_ratings";
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
     swipeBackFallback: leaveOnboardingToProfile,
   });

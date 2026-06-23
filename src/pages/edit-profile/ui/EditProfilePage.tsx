@@ -94,8 +94,8 @@ function EditProfileScreenContent() {
   const getPhoneError = useCallback(
     (value: PhoneValue) =>
       getPhoneValidationMessage(value, {
+        required: false,
         messages: {
-          required: t("editProfile.phoneRequired"),
           invalid: t("editProfile.phoneInvalid"),
         },
       }),
@@ -265,12 +265,12 @@ function EditProfileScreenContent() {
 
     setUsernameError(nextUsernameError);
     setFirstError(trimmedFirst ? null : t("editProfile.firstNameRequired"));
-    setLastError(trimmedLast ? null : t("editProfile.lastNameRequired"));
+    setLastError(null);
     setAvatarError(null);
     setPhoneError(nextPhoneError);
     setPhoneTouched(true);
 
-    if (nextUsernameError || !trimmedFirst || !trimmedLast || nextPhoneError) {
+    if (nextUsernameError || !trimmedFirst || nextPhoneError) {
       return;
     }
     const phoneToSave = serializePhone(phoneValue) || null;
@@ -403,7 +403,10 @@ function EditProfileScreenContent() {
           onFocus={() => onInputFocus(lastInputRef)}
         />
         {lastError ? <Text style={styles.errorText}>{lastError}</Text> : null}
-        <Text style={styles.label}>{t("editProfile.phoneLabel")}</Text>
+        <Text style={styles.label}>
+          {t("editProfile.phoneLabel")}{" "}
+          <Text style={{ fontWeight: "400", opacity: 0.55 }}>({t("editProfile.optional")})</Text>
+        </Text>
         <View style={styles.phoneInputWrap}>
           <PhoneInput
             value={phoneValue}

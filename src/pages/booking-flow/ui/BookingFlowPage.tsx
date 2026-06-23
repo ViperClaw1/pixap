@@ -6,6 +6,8 @@ import { showErrorToast, showSuccessToast } from "@/shared/ui/app-toast/showToas
 import { BookingStepIndicator } from "./BookingStepIndicator";
 import { BookingConfetti } from "./BookingConfetti";
 import { BookingWhatsAppBanner } from "./BookingWhatsAppBanner";
+import { bookingChannelFromPhone } from "@/shared/lib/booking/bookingChannel";
+import { trackBookingConfirmed } from "@/shared/lib/analytics/track";
 import { useTranslation } from "react-i18next";
 import { CommonActions, useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -352,6 +354,7 @@ export default function BookingFlowPage() {
           }
         });
       }
+      trackBookingConfirmed(place.id, bookingChannelFromPhone(place.contact_whatsapp));
       setCelebrationActive(true);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showSuccessToast(t("bookingCommon.draftCreatedTitle"), t("bookingCommon.draftCreatedMessage"));
@@ -604,7 +607,7 @@ export default function BookingFlowPage() {
               <Text style={themedStyles.confirmText}>
                 {guests} guests · {selectedDate.toDateString()} {selectedTimeLabel}
               </Text>
-              <BookingWhatsAppBanner />
+              <BookingWhatsAppBanner channel={bookingChannelFromPhone(place.contact_whatsapp)} />
             </BookingFlowPlacePanel>
           ) : null}
         </View>

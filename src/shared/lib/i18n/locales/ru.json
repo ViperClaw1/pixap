@@ -136,7 +136,8 @@
     "chooseAvatarTitle": "Выбрать аватар",
     "chooseAvatarSubtitle": "Выберите, откуда загрузить фото.",
     "phoneRequired": "Введите номер телефона.",
-    "phoneInvalid": "Введите корректный номер телефона."
+    "phoneInvalid": "Введите корректный номер телефона.",
+    "optional": "необязательно"
   },
   "onboarding": {
     "actions": {
@@ -148,6 +149,10 @@
       "prev": "Назад",
       "next": "Вперёд"
     },
+    "exitSetupTitle": "Пропустить настройку?",
+    "exitSetupBody": "Без вкусового профиля рекомендации будут менее персональными.",
+    "exitSetupConfirm": "Пропустить",
+    "exitSetupCancel": "Продолжить",
     "steps": {
       "city": {
         "title": "В каком городе вы чаще всего выбираетесь?",
@@ -845,7 +850,10 @@
     "trending": "В тренде"
   },
   "bookingFlow": {
-    "popular": "Популярно"
+    "popular": "Популярно",
+    "confirmChannelWhatsapp": "Бронь отправляется в WhatsApp для подтверждения заведением.",
+    "confirmChannelVoice": "Мы позвоним в заведение для подтверждения брони.",
+    "confirmChannelUnknown": "Мы свяжемся с заведением для подтверждения брони."
   },
   "bookingCredits": {
     "balanceBadge": "Осталось кредитов: {{count}}",

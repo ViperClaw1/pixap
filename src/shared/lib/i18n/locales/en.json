@@ -136,7 +136,8 @@
     "chooseAvatarTitle": "Choose avatar",
     "chooseAvatarSubtitle": "Select where to pick your photo from.",
     "phoneRequired": "Phone is required.",
-    "phoneInvalid": "Please enter a valid phone number."
+    "phoneInvalid": "Please enter a valid phone number.",
+    "optional": "optional"
   },
   "onboarding": {
     "actions": {
@@ -148,6 +149,10 @@
       "prev": "Previous",
       "next": "Next"
     },
+    "exitSetupTitle": "Skip personalization?",
+    "exitSetupBody": "Without your taste profile, recommendations will be less personalized.",
+    "exitSetupConfirm": "Skip",
+    "exitSetupCancel": "Keep going",
     "steps": {
       "city": {
         "title": "Which city do you usually go out in?",
@@ -845,7 +850,10 @@
     "trending": "Trending"
   },
   "bookingFlow": {
-    "popular": "Popular"
+    "popular": "Popular",
+    "confirmChannelWhatsapp": "Your booking goes to WhatsApp for venue confirmation.",
+    "confirmChannelVoice": "We'll call the venue to confirm your booking.",
+    "confirmChannelUnknown": "We'll contact the venue to confirm your booking."
   },
   "bookingCredits": {
     "balanceBadge": "{{count}} booking credits left",
