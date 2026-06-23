@@ -285,6 +285,10 @@
       "citySaveTitle": "Could not save city",
       "citySaveBody": "Please try again."
     },
+    "featuredEmpty": {
+      "title": "No featured places here yet",
+      "subtitle": "Try another city or check back soon"
+    },
     "a11y": {
       "openPixaiBooking": "Open Pix AI Concierge",
       "openPixaiVibeMatch": "Open PixAI Vibe Match",

@@ -151,6 +151,10 @@
       "citySaveTitle": "Impossible d'enregistrer la ville",
       "citySaveBody": "Veuillez réessayer."
     },
+    "featuredEmpty": {
+      "title": "Aucun lieu vedette ici pour l'instant",
+      "subtitle": "Essayez une autre ville ou revenez bientôt"
+    },
     "a11y": {
       "openPixaiBooking": "Ouvrir Pix AI Concierge",
       "openPixaiVibeMatch": "Ouvrir PixAI Vibe Match",

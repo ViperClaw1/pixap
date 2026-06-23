@@ -86,10 +86,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       {
         action: "VIEW",
         autoVerify: true,
-        data: [
-          { scheme: "https", host: "pixapp.kz", pathPrefix: "/" },
-          { scheme: "https", host: "www.pixapp.kz", pathPrefix: "/" },
-        ],
         category: ["BROWSABLE", "DEFAULT"],
       },
       {

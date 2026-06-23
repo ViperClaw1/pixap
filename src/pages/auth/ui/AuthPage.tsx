@@ -406,7 +406,7 @@ export default function AuthScreen() {
           scrollRef.current?.scrollToEnd({ animated: true });
           return;
         }
-        const { error, errorCode, isUserAlreadyExists } = await signUp(email, password, "", "", true);
+        const { error, errorCode, isUserAlreadyExists } = await signUp(email, password, true);
         if (error) {
           if (isUserAlreadyExists) {
             showUserAlert(t("auth.alerts.emailAlreadyRegisteredTitle"), t("auth.alerts.emailAlreadyRegisteredBody"), "info");
@@ -456,7 +456,7 @@ export default function AuthScreen() {
         styles.content,
         {
           paddingTop: Math.max(insets.top, 22),
-          paddingBottom: baseScrollPaddingBottom + keyboardOverlapPad + (mode !== "forgot" ? 180 : 0),
+          paddingBottom: baseScrollPaddingBottom + keyboardOverlapPad,
         },
       ]}
       keyboardShouldPersistTaps="handled"
@@ -474,41 +474,24 @@ export default function AuthScreen() {
       </Text>
 
       {mode !== "forgot" && (
-        <>
-          <AppPressable style={styles.outline} onPress={() => void social("google")} disabled={showSubmitLoading}>
-            <FontAwesome name="google" size={18} color="#EA4335" />
-            <Text style={styles.outlineText}>{t("auth.continueGoogle")}</Text>
+        <View style={styles.tabSwitcher} onLayout={(e) => setSwitcherWidth(e.nativeEvent.layout.width)}>
+          <Animated.View
+            style={[
+              styles.tabSlider,
+              { width: Math.max(0, (switcherWidth - 8) / 2), transform: [{ translateX: sliderTranslateX }] },
+            ]}
+          />
+          <AppPressable style={styles.tab} onPress={() => switchMode("login")}>
+            <Text style={[styles.tabText, { color: mode === "login" ? colors.onPrimary : colors.textMuted }]}>
+              {t("auth.btnSignIn")}
+            </Text>
           </AppPressable>
-          {Platform.OS !== "android" ? (
-            <AppPressable style={styles.outline} onPress={() => void social("apple")} disabled={showSubmitLoading}>
-              <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? colors.onAccent : colors.accent} />
-              <Text style={styles.outlineText}>{t("auth.continueApple")}</Text>
-            </AppPressable>
-          ) : null}
-          <View style={styles.orRow}>
-            <View style={styles.orLine} />
-            <Text style={styles.orText}>{t("auth.orEmail")}</Text>
-            <View style={styles.orLine} />
-          </View>
-          <View style={styles.tabSwitcher} onLayout={(e) => setSwitcherWidth(e.nativeEvent.layout.width)}>
-            <Animated.View
-              style={[
-                styles.tabSlider,
-                { width: Math.max(0, (switcherWidth - 8) / 2), transform: [{ translateX: sliderTranslateX }] },
-              ]}
-            />
-            <AppPressable style={styles.tab} onPress={() => switchMode("login")}>
-              <Text style={[styles.tabText, { color: mode === "login" ? colors.onPrimary : colors.textMuted }]}>
-                {t("auth.btnSignIn")}
-              </Text>
-            </AppPressable>
-            <AppPressable style={styles.tab} onPress={() => switchMode("signup")}>
-              <Text style={[styles.tabText, { color: mode === "signup" ? colors.onPrimary : colors.textMuted }]}>
-                {t("auth.btnSignUp")}
-              </Text>
-            </AppPressable>
-          </View>
-        </>
+          <AppPressable style={styles.tab} onPress={() => switchMode("signup")}>
+            <Text style={[styles.tabText, { color: mode === "signup" ? colors.onPrimary : colors.textMuted }]}>
+              {t("auth.btnSignUp")}
+            </Text>
+          </AppPressable>
+        </View>
       )}
 
       <Animated.View style={{ opacity: contentOpacity }}>
@@ -666,6 +649,26 @@ export default function AuthScreen() {
           </AppPressable>
         )}
       </Animated.View>
+
+      {mode !== "forgot" && (
+        <>
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>{t("auth.orEmail")}</Text>
+            <View style={styles.orLine} />
+          </View>
+          <AppPressable style={styles.outline} onPress={() => void social("google")} disabled={showSubmitLoading}>
+            <FontAwesome name="google" size={18} color="#EA4335" />
+            <Text style={styles.outlineText}>{t("auth.continueGoogle")}</Text>
+          </AppPressable>
+          {Platform.OS !== "android" ? (
+            <AppPressable style={styles.outline} onPress={() => void social("apple")} disabled={showSubmitLoading}>
+              <FontAwesome6 name="apple" size={18} color={themeMode === "dark" ? colors.onAccent : colors.accent} />
+              <Text style={styles.outlineText}>{t("auth.continueApple")}</Text>
+            </AppPressable>
+          ) : null}
+        </>
+      )}
     </ScrollView>
   );
 }

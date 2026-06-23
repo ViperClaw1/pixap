@@ -473,6 +473,14 @@ export default function HomeScreen() {
             imageHeight={FEATURED_CARD_IMAGE_HEIGHT}
             itemGap={FEATURED_CARD_ITEM_GAP}
           />
+        ) : featured.length === 0 ? (
+          <View style={styles.featuredEmpty}>
+            <View style={styles.featuredEmptyIconWrap}>
+              <Ionicons name="storefront-outline" size={24} color={colors.primary} />
+            </View>
+            <Text style={styles.featuredEmptyTitle}>{t("home.featuredEmpty.title")}</Text>
+            <Text style={styles.featuredEmptySubtitle}>{t("home.featuredEmpty.subtitle")}</Text>
+          </View>
         ) : (
           <FlashList
             horizontal

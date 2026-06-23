@@ -9,7 +9,6 @@ export const appPopupStaticStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
-    ...(Platform.OS === "android" ? { elevation: 24 } : null),
   },
   card: {
     width: "100%",
