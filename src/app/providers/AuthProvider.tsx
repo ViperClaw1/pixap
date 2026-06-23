@@ -18,6 +18,7 @@ import { syncProfileTimezone } from "@/entities/user/api/syncProfileTimezone";
 import { devError, devInfo, devWarn } from "@/shared/lib/devLog";
 import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
 import { clearOnboardingDraft } from "@/features/preference-onboarding";
+import { identifyUser, resetAnalyticsIdentity } from "@/shared/lib/analytics/track";
 
 export type AuthErrorCode =
   | "email_already_registered"
@@ -176,16 +177,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       if (event === "SIGNED_IN") {
         resetSignOutNavigationGuard();
+        if (next?.user) identifyUser(next.user.id, { email: next.user.email, created_at: next.user.created_at });
         void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root });
         void queryClient.invalidateQueries({ queryKey: queryKeys.businessCards.listPrefix });
         void queryClient.invalidateQueries({ queryKey: queryKeys.dailyRecommendations.prefix });
         void queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
       }
       if (event === "SIGNED_OUT") {
+        resetAnalyticsIdentity();
         navigateAfterSignOut();
         void clearSessionCaches(queryClient);
         void resetBookingChatPersistedSession();
         void clearOnboardingDraft();
+      }
+      if (event === "INITIAL_SESSION" && next?.user) {
+        identifyUser(next.user.id, { email: next.user.email, created_at: next.user.created_at });
       }
       if (event === "INITIAL_SESSION") finishInit();
     });

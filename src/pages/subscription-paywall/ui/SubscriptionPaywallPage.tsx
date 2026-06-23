@@ -1,5 +1,5 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ActivityIndicator, Alert, Linking, Platform, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
@@ -23,6 +23,7 @@ import { SubscriptionPaywallTourModal, usePaywallTourAutoOpen } from "@/features
 import { getAnnualPlanFeatures, getMonthlyPlanFeatures } from "../lib/paywallPlanFeatures";
 import { PaywallPlanCard } from "./PaywallPlanCard";
 import { useSubscriptionPaywallStyles } from "./subscriptionPaywallStyles";
+import { trackPaywallViewed, trackPurchaseCompleted } from "@/shared/lib/analytics/track";
 
 const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
 const GOOGLE_SUBSCRIPTION_URL = "https://play.google.com/store/account/subscriptions";
@@ -85,6 +86,10 @@ export default function SubscriptionPaywallScreen() {
 
   const paywallReason = route.params?.reason;
 
+  useEffect(() => {
+    trackPaywallViewed(paywallReason ?? "upgrade", "direct");
+  }, [paywallReason]);
+
   const styles = useSubscriptionPaywallStyles(insets.top, insets.bottom);
   const monthlyFeatures = getMonthlyPlanFeatures(t);
   const annualFeatures = getAnnualPlanFeatures(t);
@@ -113,6 +118,7 @@ export default function SubscriptionPaywallScreen() {
       : t("subscriptionPaywall.subtitleUpgrade");
 
   const handleSuccessDismiss = () => {
+    trackPurchaseCompleted(selectedSku);
     resetVerificationState();
     if (navigation.canGoBack()) {
       navigation.goBack();

@@ -2,19 +2,34 @@ import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import type { BookingChannel } from "@/shared/lib/booking/bookingChannel";
 
-export function BookingWhatsAppBanner() {
+type Props = { channel: BookingChannel };
+
+export function BookingWhatsAppBanner({ channel }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
 
+  const icon =
+    channel === "whatsapp"
+      ? ("logo-whatsapp" as const)
+      : channel === "voice"
+        ? ("call-outline" as const)
+        : ("information-circle-outline" as const);
+
+  const iconColor = channel === "whatsapp" ? "#25D366" : colors.primary;
+
+  const text =
+    channel === "whatsapp"
+      ? t("bookingFlow.confirmChannelWhatsapp")
+      : channel === "voice"
+        ? t("bookingFlow.confirmChannelVoice")
+        : t("bookingFlow.confirmChannelUnknown");
+
   return (
     <View style={[styles.wrap, { backgroundColor: `${colors.primary}14`, borderColor: `${colors.primary}33` }]}>
-      <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
-      <Text style={[styles.text, { color: colors.text }]}>
-        {t("bookingFlow.whatsappTooltip", {
-          defaultValue: "Your booking goes to WhatsApp for venue confirmation.",
-        })}
-      </Text>
+      <Ionicons name={icon} size={22} color={iconColor} />
+      <Text style={[styles.text, { color: colors.text }]}>{text}</Text>
     </View>
   );
 }
