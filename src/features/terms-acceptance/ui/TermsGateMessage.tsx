@@ -1,4 +1,5 @@
-import { Linking, Text } from "react-native";
+import { Text } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { useAppPopupStyles } from "@/shared/ui/app-popup";
@@ -12,11 +13,11 @@ export function TermsGateMessage() {
   return (
     <Text style={styles.message}>
       {t("legal.termsGateMessagePrefix")}{" "}
-      <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(TERMS_URL)}>
+      <Text style={{ color: colors.primary }} onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)}>
         {t("legal.terms")}
       </Text>{" "}
       {t("legal.acceptTermsAnd")}{" "}
-      <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(COMMUNITY_GUIDELINES_URL)}>
+      <Text style={{ color: colors.primary }} onPress={() => void WebBrowser.openBrowserAsync(COMMUNITY_GUIDELINES_URL)}>
         {t("legal.communityGuidelines")}
       </Text>
       . {t("legal.termsGateMessageSuffix")}

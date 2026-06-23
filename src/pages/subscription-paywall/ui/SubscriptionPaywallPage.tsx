@@ -1,6 +1,7 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useState, useEffect } from "react";
 import { ActivityIndicator, Alert, Linking, Platform, ScrollView, Text, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -249,11 +250,11 @@ export default function SubscriptionPaywallScreen() {
           {t(Platform.OS === "android" ? "subscriptionPaywall.legalGoogle" : "subscriptionPaywall.legalApple")}
         </Text>
         <Text style={styles.legal}>
-          <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(TERMS_URL)}>
+          <Text style={{ color: colors.primary }} onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)}>
             {t("subscriptionPaywall.termsLink")}
           </Text>
           {" · "}
-          <Text style={{ color: colors.primary }} onPress={() => void Linking.openURL(PRIVACY_URL)}>
+          <Text style={{ color: colors.primary }} onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)}>
             {t("subscriptionPaywall.privacyLink")}
           </Text>
         </Text>

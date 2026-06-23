@@ -20,6 +20,7 @@ import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as WebBrowser from "expo-web-browser";
 import Toast from "react-native-toast-message";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useProfile, useUserRole, isProfileAdmin } from "@/entities/user";
@@ -280,13 +281,13 @@ function ProfileScreenContent() {
   }, [emailVerificationLabel, isCompact, isEmailVerified, isRussianLocale, profileAvatarSize, verifyEmailLabel, windowWidth]);
   const warningColor = "#f59e0b";
   const openPrivacy = () => {
-    void Linking.openURL(PRIVACY_URL);
+    void WebBrowser.openBrowserAsync(PRIVACY_URL);
   };
   const openTerms = () => {
-    void Linking.openURL(TERMS_URL);
+    void WebBrowser.openBrowserAsync(TERMS_URL);
   };
   const openDataDeletion = () => {
-    void Linking.openURL(DATA_DELETION_URL);
+    void WebBrowser.openBrowserAsync(DATA_DELETION_URL);
   };
   const openManageSubscription = () => {
     void Linking.openURL(Platform.OS === "ios" ? APPLE_SUBSCRIPTION_URL : GOOGLE_SUBSCRIPTION_URL);
