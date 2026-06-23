@@ -131,6 +131,7 @@ export type ProfileStackParamList = {
   Favorites: undefined;
   Privacy: undefined;
   NotFound: undefined;
+  DeleteAccount: undefined;
   AdminImageUpload: undefined;
   AdminDashboard: undefined;
   AdminModeration: undefined;

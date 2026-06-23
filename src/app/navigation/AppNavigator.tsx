@@ -157,6 +157,7 @@ function ProfileStackNavigator({ isFirstAppLaunch }: { isFirstAppLaunch: boolean
       <ProfileStack.Screen name="Favorites" getComponent={() => require("@/pages/favorites").default} options={fullWidthSwipeBackOptions} />
       <ProfileStack.Screen name="Privacy" component={PrivacyPolicyScreen} />
       <ProfileStack.Screen name="NotFound" component={NotFoundScreen} />
+      <ProfileStack.Screen name="DeleteAccount" getComponent={() => require("@/pages/delete-account").default} options={fullWidthSwipeBackOptions} />
       <ProfileStack.Screen name="AdminImageUpload" getComponent={() => require("@/pages/admin-image-upload").default} />
       <ProfileStack.Screen name="AdminModeration" getComponent={() => require("@/pages/admin-moderation").default} options={fullWidthSwipeBackOptions} />
       <ProfileStack.Screen name="AdminDashboard" getComponent={() => require("@/pages/admin-dashboard").default} options={fullWidthSwipeBackOptions} />

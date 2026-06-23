@@ -1,4 +1,4 @@
-{
+﻿{
   "language": {
     "choose": "Interface language",
     "en": "English",
@@ -811,6 +811,16 @@
       "deleteIrrevocably": "Yes, delete forever",
       "deleteButtonDisabledHint": "Type the confirmation phrase above to enable deletion",
       "deleteButtonEnabledHint": "Tap to permanently delete your account"
+    },
+    "deleteAccount": {
+      "screenTitle": "Delete Account",
+      "subtitle": "Your account and all personal data will be permanently removed from Pixap.",
+      "whatGetsDeleted": "What will be deleted:",
+      "item_profile": "Profile, avatar and photos",
+      "item_content": "Posts, stories and comments",
+      "item_bookings": "Bookings and activity history",
+      "item_settings": "Preferences and settings",
+      "learnMore": "Learn more about data deletion"
     },
     "adminDashboard": "Admin dashboard",
     "adminModeration": "Content moderation",

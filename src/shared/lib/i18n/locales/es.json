@@ -1,4 +1,4 @@
-{
+﻿{
   "language": {
     "choose": "Idioma de la interfaz",
     "en": "Inglés",
@@ -617,6 +617,16 @@
       "deleteIrrevocably": "Sí, eliminar para siempre",
       "deleteButtonDisabledHint": "Escribe la frase de confirmación arriba para activar la eliminación",
       "deleteButtonEnabledHint": "Toca para eliminar permanentemente tu cuenta"
+    },
+    "deleteAccount": {
+      "screenTitle": "Eliminar cuenta",
+      "subtitle": "Tu cuenta y todos tus datos personales serán eliminados permanentemente de Pixap.",
+      "whatGetsDeleted": "Qué se eliminará:",
+      "item_profile": "Perfil, avatar y fotos",
+      "item_content": "Publicaciones, historias y comentarios",
+      "item_bookings": "Reservas e historial de actividad",
+      "item_settings": "Preferencias y configuraciones",
+      "learnMore": "Más información sobre la eliminación de datos"
     },
     "adminDashboard": "Panel de administración",
     "partnerUpload": "Socio: subir imagen del anuncio",

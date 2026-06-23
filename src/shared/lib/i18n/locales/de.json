@@ -615,6 +615,16 @@
       "deleteButtonDisabledHint": "Gib oben die Bestätigungsphrase ein, um die Löschung zu aktivieren",
       "deleteButtonEnabledHint": "Tippe hier, um dein Konto dauerhaft zu löschen"
     },
+    "deleteAccount": {
+      "screenTitle": "Konto löschen",
+      "subtitle": "Dein Konto und alle persönlichen Daten werden dauerhaft aus Pixap entfernt.",
+      "whatGetsDeleted": "Was wird gelöscht:",
+      "item_profile": "Profil, Avatar und Fotos",
+      "item_content": "Beiträge, Stories und Kommentare",
+      "item_bookings": "Buchungen und Aktivitätsverlauf",
+      "item_settings": "Einstellungen und Präferenzen",
+      "learnMore": "Mehr über die Datenlöschung erfahren"
+    },
     "adminDashboard": "Admin-Dashboard",
     "partnerUpload": "Partner: Listing-Bild hochladen",
     "logOut": "Abmelden",
