@@ -40,6 +40,11 @@ import { appAlert } from "@/shared/ui/app-popup";
 import type { AppPopupVariant } from "@/shared/ui/app-popup";
 import { COMMUNITY_GUIDELINES_URL, TERMS_URL } from "@/shared/lib/legalUrls";
 import { markAppLaunched } from "@/shared/lib/appLaunchStorage";
+import {
+  trackSignupStarted,
+  trackSignupCompleted,
+  trackLoginCompleted,
+} from "@/shared/lib/analytics/track";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -222,6 +227,10 @@ export default function AuthScreen() {
   }, [route.params?.initialMode]);
 
   useEffect(() => {
+    if (mode === "signup") trackSignupStarted();
+  }, [mode]);
+
+  useEffect(() => {
     if (authLoading || !user || !authTransition) return;
     setAuthTransition(false);
     setLoading(false);
@@ -289,6 +298,9 @@ export default function AuthScreen() {
         await applyAppleCredentialProfile(credential);
         devInfo("[Apple][native] signInWithIdToken success");
         // Apple HIG: do not ask for name/email after Sign in with Apple — use credential data and go to the app.
+        const { data: { session: appleSession } } = await supabase.auth.getSession();
+        if (appleSession?.user && isNewAuthRegistration(appleSession.user)) trackSignupCompleted("apple");
+        else trackLoginCompleted("apple");
         beginAuthTransition("ProfileMain");
         keepLoading = true;
         return;
@@ -324,7 +336,10 @@ export default function AuthScreen() {
           return;
         }
         markOAuthCallbackHandled(result.url);
-        beginAuthTransition(await resolveSocialPostAuthRoute());
+        const oauthRoute = await resolveSocialPostAuthRoute();
+        if (oauthRoute === "EditProfile") trackSignupCompleted(provider);
+        else trackLoginCompleted(provider);
+        beginAuthTransition(oauthRoute);
         keepLoading = true;
         return;
       }
@@ -351,6 +366,7 @@ export default function AuthScreen() {
           showUserAlert(t("auth.alerts.signInFailed"), getAuthErrorMessage(errorCode));
           return;
         }
+        trackLoginCompleted("email");
         beginAuthTransition("ProfileMain");
         keepLoading = true;
         return;
@@ -394,6 +410,7 @@ export default function AuthScreen() {
           setMode("login");
           return;
         }
+        trackSignupCompleted("email");
         beginAuthTransition("EditProfile");
         keepLoading = true;
         return;

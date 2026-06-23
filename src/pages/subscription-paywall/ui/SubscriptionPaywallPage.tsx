@@ -23,7 +23,7 @@ import { SubscriptionPaywallTourModal, usePaywallTourAutoOpen } from "@/features
 import { getAnnualPlanFeatures, getMonthlyPlanFeatures } from "../lib/paywallPlanFeatures";
 import { PaywallPlanCard } from "./PaywallPlanCard";
 import { useSubscriptionPaywallStyles } from "./subscriptionPaywallStyles";
-import { trackPaywallViewed, trackPurchaseCompleted } from "@/shared/lib/analytics/track";
+import { trackPaywallViewed, trackPaywallDismissed, trackPurchaseCompleted } from "@/shared/lib/analytics/track";
 
 const APPLE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
 const GOOGLE_SUBSCRIPTION_URL = "https://play.google.com/store/account/subscriptions";
@@ -90,6 +90,12 @@ export default function SubscriptionPaywallScreen() {
     trackPaywallViewed(paywallReason ?? "upgrade", "direct");
   }, [paywallReason]);
 
+  useEffect(() => {
+    if (verificationState.status === "success") {
+      trackPurchaseCompleted(selectedSku);
+    }
+  }, [verificationState.status, selectedSku]);
+
   const styles = useSubscriptionPaywallStyles(insets.top, insets.bottom);
   const monthlyFeatures = getMonthlyPlanFeatures(t);
   const annualFeatures = getAnnualPlanFeatures(t);
@@ -118,7 +124,6 @@ export default function SubscriptionPaywallScreen() {
       : t("subscriptionPaywall.subtitleUpgrade");
 
   const handleSuccessDismiss = () => {
-    trackPurchaseCompleted(selectedSku);
     resetVerificationState();
     if (navigation.canGoBack()) {
       navigation.goBack();
@@ -161,7 +166,7 @@ export default function SubscriptionPaywallScreen() {
     <>
       <ScrollView style={styles.root} contentContainerStyle={styles.content} {...androidSwipeBackPanHandlers}>
         <View style={styles.card}>
-          <AppPressable onPress={() => navigation.goBack()} accessibilityRole="button" style={{ alignSelf: "flex-start" }}>
+          <AppPressable onPress={() => { trackPaywallDismissed(paywallReason ?? "upgrade"); navigation.goBack(); }} accessibilityRole="button" style={{ alignSelf: "flex-start" }}>
             <Ionicons name="arrow-back" size={20} color={colors.text} />
           </AppPressable>
           <Text style={styles.title}>{t("subscriptionPaywall.title")}</Text>

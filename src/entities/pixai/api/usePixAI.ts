@@ -28,6 +28,7 @@ export type PixAIPlace = Pick<
   menu_items?: string[];
   price_tier?: number | null;
   fts_matched?: boolean | null;
+  contact_whatsapp?: string | null;
 };
 
 export type PixAISlot = {
@@ -84,6 +85,7 @@ export type VibePlanStop = {
   longitude?: number | null;
   rating?: number;
   images?: string[];
+  contact_whatsapp?: string | null;
 };
 
 export type VibePlanResult = {
@@ -127,6 +129,7 @@ function parseVibeStops(raw: unknown): VibePlanStop[] {
       latitude: r.latitude != null ? Number(r.latitude) : undefined,
       longitude: r.longitude != null ? Number(r.longitude) : undefined,
       images,
+      contact_whatsapp: typeof r.contact_whatsapp === "string" ? r.contact_whatsapp : null,
     });
   }
   return out;
@@ -202,6 +205,7 @@ function mapRowsToPlaces(rows: unknown, language: string): PixAIPlace[] {
         : [],
       price_tier: typeof r.price_tier === "number" ? r.price_tier : null,
       fts_matched: r.fts_matched === true ? true : r.fts_matched === false ? false : null,
+      contact_whatsapp: typeof r.contact_whatsapp === "string" ? r.contact_whatsapp : null,
     };
   });
 }

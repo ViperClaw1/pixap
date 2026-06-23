@@ -108,6 +108,9 @@ import { createCustomTimeWindowAxis } from "../lib/customTimeWindowAxis";
 import { ctaGradientColors } from "@/shared/theme/gradients";
 import { devWarn } from "@/shared/lib/devLog";
 import Toast from "react-native-toast-message";
+import { BookingWhatsAppBanner } from "@/pages/booking-flow/ui/BookingWhatsAppBanner";
+import { bookingChannelFromPhone } from "@/shared/lib/booking/bookingChannel";
+import { trackBookingConfirmed } from "@/shared/lib/analytics/track";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -728,6 +731,7 @@ function VibeMatchPageContent() {
             if (accessToken && createdCartItem?.id) {
               scheduleN8nWaBookingStart(createdCartItem.id, accessToken);
             }
+            trackBookingConfirmed(stop.venue_id, bookingChannelFromPhone(stop.contact_whatsapp));
             results.push({ stop, ok: true });
           } catch (e) {
             if (isAuthRequiredError(e)) {
@@ -1125,7 +1129,10 @@ function VibeMatchPageContent() {
 
         {suggestedPlan.length > 0 && !showPaywallCta ? (
           <View style={styles.section}>
-            <Text style={styles.label}>{t("vibeMatch.guestDetails")}</Text>
+            <BookingWhatsAppBanner
+              channel={bookingChannelFromPhone(selectedBookableStops[0]?.contact_whatsapp)}
+            />
+            <Text style={[styles.label, { marginTop: 16 }]}>{t("vibeMatch.guestDetails")}</Text>
             <TextInput
               ref={personsInputRef}
               style={styles.input}
