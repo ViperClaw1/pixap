@@ -282,7 +282,7 @@ function PreferenceOnboardingContent() {
       </View>
 
       {!isVenueStep ? (
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.footer, { paddingBottom: Platform.OS === "android" ? 16 : insets.bottom + 16 }]}>
           <AppPressable
             style={[primaryPressableStyle, continueDisabled && styles.continueDisabled]}
             onPress={navigateForward}
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   headerSpacer: { width: 48 },
   body: { flex: 1, overflow: "hidden" },
-  footer: { paddingTop: 8 },
+  footer: { paddingTop: 16 },
   continueDisabled: { opacity: 0.45 },
   continueBusyRow: {
     flexDirection: "row",

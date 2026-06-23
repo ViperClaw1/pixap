@@ -5,8 +5,6 @@ import { isValidEmail, jsonHeaders, normalizeEmail } from "../_shared/authEmail.
 type SignupBody = {
   email?: string;
   password?: string;
-  firstName?: string;
-  lastName?: string;
   acceptTerms?: boolean;
 };
 
@@ -31,9 +29,7 @@ Deno.serve(async (req) => {
 
   const email = normalizeEmail(body.email);
   const password = (body.password ?? "").trim();
-  const firstName = (body.firstName ?? "").trim();
-  const lastName = (body.lastName ?? "").trim();
-  if (!email || !password || !firstName || !lastName) {
+  if (!email || !password) {
     return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: jsonHeaders() });
   }
   if (!isValidEmail(email)) {
@@ -55,7 +51,7 @@ Deno.serve(async (req) => {
     password,
     // Keep signup non-blocking for auth flow: user can sign in immediately.
     email_confirm: true,
-    user_metadata: { first_name: firstName, last_name: lastName },
+    user_metadata: {},
   });
 
   if (createError) {

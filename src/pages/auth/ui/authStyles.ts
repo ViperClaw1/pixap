@@ -10,7 +10,7 @@ import {
 
 export const authStaticStyles = StyleSheet.create({
   root: { flex: 1, paddingHorizontal: 20 },
-  content: { flexGrow: 1, justifyContent: "flex-start" },
+  content: { flexGrow: 1, justifyContent: "center" },
   title: { fontSize: 36, fontWeight: "800", marginBottom: 6, lineHeight: 54 },
   helper: { fontSize: 14, marginBottom: 26, lineHeight: 30 },
   fieldWrap: {

@@ -151,6 +151,10 @@
       "citySaveTitle": "Stadt konnte nicht gespeichert werden",
       "citySaveBody": "Bitte versuchen Sie es erneut."
     },
+    "featuredEmpty": {
+      "title": "Hier gibt es noch keine Orte",
+      "subtitle": "Versuche eine andere Stadt oder schau später vorbei"
+    },
     "a11y": {
       "openPixaiBooking": "Pix AI Concierge öffnen",
       "openPixaiVibeMatch": "PixAI Vibe Match öffnen",

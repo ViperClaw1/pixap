@@ -1,9 +1,10 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Text, View, StyleSheet } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Text, View, StyleSheet, type LayoutChangeEvent } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import Carousel, { type ICarouselInstance } from "react-native-reanimated-carousel";
+import { Easing } from "react-native-reanimated";
+import type { PanGesture } from "react-native-gesture-handler";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import {
   MIN_ONBOARDING_VENUE_RATINGS,
@@ -20,8 +21,55 @@ import { OnboardingVenueCard } from "@/widgets/onboarding-venue-card";
 import { RatingScale } from "@/shared/ui/onboarding/RatingScale";
 import { primaryPressableStyle, primaryPressableTextStyle } from "@/shared/theme/primaryPressable";
 import { PageI18nProvider } from "@/shared/lib/i18n";
+import { ShimmerProvider, ShimmerSurface } from "@/shared/ui/shimmer";
+import { useStaticWindowSize } from "@/shared/lib/useStaticWindowSize";
 
-const SWIPE_THRESHOLD = 80;
+const SLIDE_ANIMATION = {
+  type: "timing" as const,
+  config: { duration: 380, easing: Easing.out(Easing.cubic) },
+};
+
+function configureVenueCarouselPanGesture(pan: PanGesture) {
+  "worklet";
+  pan.activeOffsetX([-10, 10]);
+  pan.failOffsetY([-10, 10]);
+}
+
+/** PreferenceOnboardingPage paddingHorizontal (20×2) + slide marginHorizontal (3×2) */
+const CARD_HORIZONTAL_INSET = 46;
+
+function OnboardingVenueCardSkeleton() {
+  const { colors } = useAppTheme();
+  const { width: windowWidth } = useStaticWindowSize();
+  const w = windowWidth - CARD_HORIZONTAL_INSET;
+
+  return (
+    <ShimmerProvider active>
+      <View style={[skeletonStyles.card, { backgroundColor: colors.card }]}>
+        <ShimmerSurface width={w} height={168} />
+        <View style={skeletonStyles.body}>
+          <ShimmerSurface width={Math.round(w * 0.68)} height={22} borderRadius={4} />
+          <ShimmerSurface width={Math.round(w * 0.42)} height={14} borderRadius={4} />
+          <ShimmerSurface width={Math.round(w * 0.52)} height={14} borderRadius={4} />
+          <View style={skeletonStyles.tags}>
+            <ShimmerSurface width={80} height={26} borderRadius={12} />
+            <ShimmerSurface width={96} height={26} borderRadius={12} />
+            <ShimmerSurface width={68} height={26} borderRadius={12} />
+          </View>
+          <ShimmerSurface width={Math.round(w * 0.88)} height={14} borderRadius={4} />
+          <ShimmerSurface width={Math.round(w * 0.72)} height={14} borderRadius={4} />
+          <ShimmerSurface width={Math.round(w * 0.60)} height={14} borderRadius={4} />
+        </View>
+      </View>
+    </ShimmerProvider>
+  );
+}
+
+const skeletonStyles = StyleSheet.create({
+  card: { flex: 1, borderRadius: 20, overflow: "hidden" },
+  body: { padding: 16, gap: 8 },
+  tags: { flexDirection: "row", gap: 6 },
+});
 
 type Props = {
   onComplete: () => void;
@@ -38,6 +86,8 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [ratedCount, setRatedCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [deckSize, setDeckSize] = useState({ width: 0, height: 0 });
+  const carouselRef = useRef<ICarouselInstance>(null);
 
   const { favoriteCategories, vibePreferences, habits, favoriteMusic } = preferences;
   const prefsFingerprint = useMemo(
@@ -55,6 +105,7 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
     setOffset(0);
     setVenues([]);
     setIndex(0);
+    carouselRef.current?.scrollTo({ index: 0, animated: false });
   }, [prefsFingerprint]);
 
   const { data: page = [], isLoading } = useRecommendedOnboardingVenues(
@@ -67,8 +118,6 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
   const upsertRating = useUpsertVenueRating();
   const calculateAffinity = useCalculateUserAffinity();
   const { track, trackImmediate } = useTrackOnboardingEvent();
-
-  const translateX = useSharedValue(0);
 
   useEffect(() => {
     if (page.length === 0) return;
@@ -86,27 +135,27 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
     setRatedCount(alreadyRated.length);
   }, [alreadyRated.length]);
 
-  const current = venues[index];
-
-  const prefetchNext = useCallback(() => {
+  useEffect(() => {
     if (index >= venues.length - 3 && page.length > 0) {
       setOffset((o) => o + 8);
     }
-  }, [index, page.length, venues.length]);
+  }, [index, venues.length, page.length]);
 
-  useEffect(() => {
-    prefetchNext();
-  }, [prefetchNext]);
+  const current = venues[index];
 
-  const goToIndex = useCallback(
-    (next: number) => {
-      setIndex(next);
-      setSelectedRating(null);
-      translateX.value = 0;
-      prefetchNext();
-    },
-    [prefetchNext, translateX],
-  );
+  const goToIndex = useCallback((next: number) => {
+    carouselRef.current?.scrollTo({ index: next, animated: true });
+  }, []);
+
+  const handleSnapToItem = useCallback((nextIndex: number) => {
+    setIndex(nextIndex);
+    setSelectedRating(null);
+  }, []);
+
+  const onDeckLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setDeckSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+  }, []);
 
   const finishSession = useCallback(
     async (via: "min_ratings" | "finish_button", ratedCountSnapshot: number) => {
@@ -163,33 +212,28 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
     ],
   );
 
-  const pan = useMemo(
-    () =>
-      Gesture.Pan()
-        .onUpdate((e) => {
-          translateX.value = e.translationX;
-        })
-        .onEnd((e) => {
-          if (e.translationX < -SWIPE_THRESHOLD && index < venues.length - 1) {
-            runOnJS(goToIndex)(index + 1);
-          } else if (e.translationX > SWIPE_THRESHOLD && index > 0) {
-            runOnJS(goToIndex)(index - 1);
-          }
-          translateX.value = withSpring(0);
-        }),
-    [goToIndex, index, translateX, venues.length],
+  const renderCarouselItem = useCallback(
+    ({ item }: { item: OnboardingVenue | undefined }) => (
+      <View style={styles.slide}>
+        {item ? <OnboardingVenueCard venue={item} /> : <OnboardingVenueCardSkeleton />}
+      </View>
+    ),
+    [],
   );
-
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
 
   const canFinishEarly = ratedCount >= MIN_ONBOARDING_VENUE_RATINGS;
 
-  if (isLoading && venues.length === 0) {
+  // Show skeleton while waiting for first batch (covers both initial load and fingerprint reset).
+  // This prevents the flash of empty state between isLoading=false and venues state update.
+  if (venues.length === 0) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.root}>
+        <Text style={[styles.hint, { color: colors.textMuted }]}>
+          {t("progress", { keyPrefix: "onboarding.venue", count: 0, min: MIN_ONBOARDING_VENUE_RATINGS })}
+        </Text>
+        <View style={styles.deckWrap}>
+          <OnboardingVenueCardSkeleton />
+        </View>
       </View>
     );
   }
@@ -215,15 +259,29 @@ function OnboardingVenueRatingStepContent({ onComplete, preferences }: Props) {
       <Text style={[styles.hint, { color: colors.textMuted }]}>
         {t("progress", { keyPrefix: "onboarding.venue", count: ratedCount, min: MIN_ONBOARDING_VENUE_RATINGS })}
       </Text>
-      <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.deck, cardStyle]}>
-          {current ? <OnboardingVenueCard venue={current} /> : null}
-        </Animated.View>
-      </GestureDetector>
+      <View style={styles.deckWrap} onLayout={onDeckLayout}>
+        {deckSize.width > 0 && deckSize.height > 0 ? (
+          <Carousel
+            ref={carouselRef}
+            data={venues}
+            width={deckSize.width}
+            height={deckSize.height}
+            loop={false}
+            defaultIndex={0}
+            windowSize={3}
+            withAnimation={SLIDE_ANIMATION}
+            onConfigurePanGesture={configureVenueCarouselPanGesture}
+            onSnapToItem={handleSnapToItem}
+            renderItem={renderCarouselItem}
+          />
+        ) : null}
+      </View>
       <View style={styles.bottomControls}>
         <View style={styles.navRow}>
           <AppPressable disabled={index === 0} onPress={() => goToIndex(index - 1)} style={styles.navBtn}>
-            <Text style={{ color: index === 0 ? colors.textMuted : colors.text }}>{t("prev", { keyPrefix: "onboarding.actions" })}</Text>
+            <Text style={{ color: index === 0 ? colors.textMuted : colors.text }}>
+              {t("prev", { keyPrefix: "onboarding.actions" })}
+            </Text>
           </AppPressable>
           <AppPressable
             disabled={index >= venues.length - 1}
@@ -262,7 +320,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, minHeight: 0, gap: 12 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16 },
   hint: { fontSize: 13, textAlign: "center", flexShrink: 0 },
-  deck: { flex: 1, minHeight: 0, alignSelf: "stretch" },
+  deckWrap: { flex: 1, minHeight: 0 },
+  slide: { flex: 1, marginHorizontal: 3 },
   bottomControls: { flexShrink: 0, gap: 12 },
   navRow: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 8 },
   navBtn: { padding: 8 },

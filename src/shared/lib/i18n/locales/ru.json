@@ -285,6 +285,10 @@
       "citySaveTitle": "Не удалось сохранить город",
       "citySaveBody": "Попробуйте ещё раз."
     },
+    "featuredEmpty": {
+      "title": "Здесь пока нет заведений",
+      "subtitle": "Попробуйте другой город или загляните позже"
+    },
     "a11y": {
       "openPixaiBooking": "Открыть Pix AI Concierge",
       "openPixaiVibeMatch": "Открыть PixAI Vibe Match",

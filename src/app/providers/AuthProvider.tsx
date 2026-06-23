@@ -53,8 +53,6 @@ interface AuthContextType {
   signUp: (
     email: string,
     password: string,
-    firstName: string,
-    lastName: string,
     acceptTerms?: boolean,
   ) => Promise<AuthActionResult & { isUserAlreadyExists?: boolean }>;
   signIn: (email: string, password: string) => Promise<SignInResult>;
@@ -220,13 +218,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user?.id]);
 
   const signUp = useCallback(
-    async (email: string, password: string, firstName: string, lastName: string, acceptTerms = false) => {
+    async (email: string, password: string, acceptTerms = false) => {
       const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string }>("auth-email-signup", {
         body: {
           email,
           password,
-          firstName,
-          lastName,
           acceptTerms,
           redirectTo: getEmailCallbackRedirectUrl(),
         },
