@@ -44,6 +44,11 @@ export const bookingDetailStaticStyles = StyleSheet.create({
   linkBtnText: { fontSize: 14, fontWeight: "600" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   emptyText: { fontSize: 15, textAlign: "center", lineHeight: 22 },
+  statusTimeline: { gap: 8, marginTop: 2 },
+  timelineRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  timelineDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5, flexShrink: 0 },
+  timelineDotActive: {},
+  timelineText: { flex: 1, fontSize: 13, lineHeight: 18 },
 });
 
 export function bookingDetailThemeStyles(colors: ThemeColors) {
@@ -57,5 +62,8 @@ export function bookingDetailThemeStyles(colors: ThemeColors) {
     linkBtnText: { color: colors.primary },
     emptyText: { color: colors.textMuted },
     primaryBtn: { backgroundColor: colors.primary },
+    timelineDot: { backgroundColor: colors.border },
+    timelineDotActive: { backgroundColor: colors.primary },
+    timelineText: { color: colors.textMuted },
   };
 }

@@ -1,6 +1,6 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { memo } from "react";
-import { Alert, Linking, PixelRatio, Text, View } from "react-native";
+import { memo, useEffect, useRef } from "react";
+import { Animated, Alert, Linking, PixelRatio, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -75,6 +75,8 @@ export type BookingListItem = Booking & {
   waPaymentLink: string | null;
   /** Price + currency from venue WhatsApp reply (`wa_confirmed_price`). */
   venueConfirmedPrice: string | null;
+  /** Parsed lines from `cart_items.wa_status_lines` — live booking progress. */
+  waStatusLines: string[];
 };
 
 type BookingsScreenStyles = typeof bookingsStaticStyles;
@@ -89,6 +91,19 @@ type Props = {
 function BookingListCardInner({ item, styles, isCompact, onBookingPress }: Props) {
   const { t } = useTranslation();
   const cancelBooking = useCancelBooking();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (item.displayStatus !== "draft") return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.5, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [item.displayStatus, pulseAnim]);
 
   const palette = statusPalette(item.displayStatus);
   const isFreeEntry = isFreeBookingEntry(Number(item.cost), item.venueConfirmedPrice);
@@ -185,9 +200,13 @@ function BookingListCardInner({ item, styles, isCompact, onBookingPress }: Props
           </AppPressable>
         ) : null}
         {item.displayStatus === "draft" ? (
-          <View style={styles.waitingBadge}>
-            <Text style={styles.waitingBadgeText}>{t("bookings.waitingForVenue")}</Text>
-          </View>
+          <Animated.View style={[styles.waitingBadge, { opacity: pulseAnim }]}>
+            <Text style={styles.waitingBadgeText}>
+              {item.waStatusLines.length > 0
+                ? item.waStatusLines[item.waStatusLines.length - 1]
+                : t("bookings.waitingForVenue")}
+            </Text>
+          </Animated.View>
         ) : null}
         <View style={styles.badgeRow}>
           {showEntryUi ? (
