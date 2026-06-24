@@ -688,6 +688,7 @@
   "bookingCredits": {
     "balanceBadge": "{{count}} créditos de reserva",
     "introBadge": "{{count}} reservas gratis · {{days}} días",
+    "introBadgeLast": "¡Última reserva gratis! · {{days}} días",
     "noCreditsTitle": "Sin créditos de reserva",
     "noCreditsMessage": "Suscríbete a Premium para más créditos o espera el próximo ciclo.",
     "insufficientForStops": "Necesitas {{count}} créditos para esta ruta.",

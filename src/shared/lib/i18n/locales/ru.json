@@ -892,11 +892,12 @@
   "bookingCredits": {
     "balanceBadge": "Осталось кредитов: {{count}}",
     "introBadge": "{{count}} бесплатных брони · {{days}} дн.",
+    "introBadgeLast": "Последняя бесплатная бронь! · {{days}} дн.",
     "noCreditsTitle": "Нет кредитов на бронирование",
     "noCreditsMessage": "Оформите Premium, чтобы получить кредиты, или дождитесь следующего платёжного периода.",
     "insufficientForStops": "Для маршрута нужно {{count}} кредитов, у вас их меньше.",
     "trialWelcomeTitle": "3 бесплатных бронирования включено!",
-    "trialWelcomeBody": "Ваш 7-дневный пробный период активен. Используйте PixAI Booking или Vibe Match — совершенно бесплатно, без карты.",
+    "trialWelcomeBody": "Ваш 7-дневный пробный период активен. Используйте PixAI Booking или Vibe Match — совершенно бесплатно, без карты. После триала — продолжайте с PixAI Premium.",
     "trialWelcomeCta": "Начать",
     "trialBannerDismiss": "Скрыть"
   },

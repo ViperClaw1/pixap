@@ -8,3 +8,12 @@ export function resolveBookingCreditsBadgeSurface(colors: ThemeColors, isDark: b
     textColor: colors.text,
   };
 }
+
+/** Urgent (danger) surface for last-credit urgency state. */
+export function resolveBookingCreditsBadgeUrgentSurface(colors: ThemeColors) {
+  return {
+    backgroundColor: colors.dangerSurface,
+    borderColor: colors.danger,
+    textColor: colors.danger,
+  };
+}
