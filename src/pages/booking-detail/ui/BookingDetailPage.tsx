@@ -25,13 +25,42 @@ import {
   venueConfirmedPriceLabel,
   type BookingDisplayStatus,
 } from "@/entities/booking";
-import { useCartItems } from "@/entities/cart";
+import { useCartItems, parseWaStatusLines } from "@/entities/cart";
 import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
 import { bookingThumbUris } from "@/pages/bookings/ui/BookingListCard";
 import { bookingDetailStaticStyles, bookingDetailThemeStyles } from "./bookingDetailStyles";
 
 type Route = RouteProp<BookingsStackParamList, "BookingDetail">;
 type Nav = NativeStackNavigationProp<BookingsStackParamList, "BookingDetail">;
+
+type TimelineStyles = Pick<
+  typeof bookingDetailStaticStyles,
+  "meta" | "statusTimeline" | "timelineRow" | "timelineDot" | "timelineDotActive" | "timelineText"
+>;
+
+function BookingStatusTimeline({
+  lines,
+  fallback,
+  styles,
+}: {
+  lines: string[];
+  fallback: string;
+  styles: TimelineStyles;
+}) {
+  if (lines.length === 0) {
+    return <Text style={styles.meta}>{fallback}</Text>;
+  }
+  return (
+    <View style={styles.statusTimeline}>
+      {lines.map((line, idx) => (
+        <View key={idx} style={styles.timelineRow}>
+          <View style={[styles.timelineDot, idx === lines.length - 1 ? styles.timelineDotActive : null]} />
+          <Text style={styles.timelineText}>{line}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 function formatBookingDateTime(value: string): string {
   const date = new Date(value);
@@ -219,7 +248,11 @@ export default function BookingDetailPage() {
               ) : null}
             </View>
             {displayStatus === "draft" ? (
-              <Text style={styles.meta}>{t("bookings.waitingForVenue")}</Text>
+              <BookingStatusTimeline
+                lines={parseWaStatusLines(linkedCartItem?.wa_status_lines)}
+                fallback={t("bookings.waitingForVenue")}
+                styles={styles}
+              />
             ) : null}
             {displayStatus === "cancelled" && venueDeclined ? (
               <Text style={styles.meta}>{t("bookings.venueDeclinedHint")}</Text>

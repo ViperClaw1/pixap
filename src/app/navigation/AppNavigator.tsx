@@ -119,6 +119,11 @@ function BookingsStackNavigator() {
         getComponent={() => require("@/pages/booking-detail").default}
         options={fullWidthSwipeBackOptions}
       />
+      <BookingsStack.Screen
+        name="SearchMain"
+        getComponent={() => require("@/pages/search").default}
+        options={fullWidthSwipeBackOptions}
+      />
       {renderBrowseFlowScreens(BookingsStack.Screen as BrowseFlowStackScreen)}
     </BookingsStack.Navigator>
   );

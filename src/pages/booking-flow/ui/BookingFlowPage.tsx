@@ -11,7 +11,7 @@ import { trackBookingConfirmed } from "@/shared/lib/analytics/track";
 import { useTranslation } from "react-i18next";
 import { CommonActions, useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useBusinessCard } from "@/entities/business-card";
 import { useCreateCartItem, useStartN8nWaBooking } from "@/entities/cart";
@@ -97,7 +97,6 @@ export default function BookingFlowPage() {
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation, {
     sensitivity: "high",
   });
-  const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const { session, user } = useAuth();
   const { data: profile } = useProfile();
@@ -264,6 +263,20 @@ export default function BookingFlowPage() {
     scheduleContinueUnlock();
   }, [getGuestFormError, scheduleContinueUnlock, selectedBookingTime, step, t, timeSelectionUnavailable]);
 
+  const handleStepBack = useCallback(() => {
+    resetContinueThrottle();
+    setStep((prev) => Math.max(prev - 1, 0));
+  }, [resetContinueThrottle]);
+
+  const handleFooterBack = useCallback(() => {
+    resetContinueThrottle();
+    if (step === 0) {
+      navigation.goBack();
+      return;
+    }
+    setStep(step - 1);
+  }, [navigation, resetContinueThrottle, step]);
+
   if (placeLoading) {
     return (
       <View style={[styles.root, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
@@ -393,20 +406,6 @@ export default function BookingFlowPage() {
     );
   };
 
-  const handleStepBack = useCallback(() => {
-    resetContinueThrottle();
-    setStep((prev) => Math.max(prev - 1, 0));
-  }, [resetContinueThrottle]);
-
-  const handleFooterBack = useCallback(() => {
-    resetContinueThrottle();
-    if (step === 0) {
-      navigation.goBack();
-      return;
-    }
-    setStep(step - 1);
-  }, [navigation, resetContinueThrottle, step]);
-
   return (
     <>
     <View style={[styles.root, { backgroundColor: colors.background }]} {...androidSwipeBackPanHandlers}>
@@ -445,6 +444,7 @@ export default function BookingFlowPage() {
           keyboardShouldPersistTaps="handled"
           onScroll={onScroll}
           scrollEventThrottle={16}
+          automaticallyAdjustKeyboardInsets
           contentContainerStyle={{
             paddingBottom: FOOTER_VERTICAL_PAD * 2 + FOOTER_BUTTON_HEIGHT + 16,
           }}

@@ -4,6 +4,8 @@ const { parseAvailabilityReply, parseFreeOrPriceReply, parsePriceAndCurrency } =
 const smsBookingsById = new Map();
 /** phone (digits-only) → booking_id */
 const activeSmsBookingByPhone = new Map();
+/** twilio message SID → booking_id (for async delivery status callbacks) */
+const smsByMessageSid = new Map();
 
 function log(action, details) {
   console.log(
@@ -24,6 +26,7 @@ function smsStatusLines(appLocale, key) {
   const lines = {
     en: {
       sent: ["Text message sent to venue. Waiting for reply…"],
+      sms_failed: ["Could not send text message to venue. Please contact support."],
       available_pricing: ["Venue available via SMS. Checking booking fee…"],
       slot_free_confirm: ["Slot available and free.", "You can confirm the booking in the app."],
       slot_priced_confirm: ["Slot available.", "Price received — you can confirm in the app."],
@@ -33,6 +36,7 @@ function smsStatusLines(appLocale, key) {
     },
     ru: {
       sent: ["SMS отправлен в заведение. Ожидаем ответ…"],
+      sms_failed: ["Не удалось отправить SMS в заведение. Обратитесь в поддержку."],
       available_pricing: ["Слот доступен (по SMS). Уточняем стоимость…"],
       slot_free_confirm: ["Слот доступен и бесплатный.", "Можно подтвердить бронь в приложении."],
       slot_priced_confirm: ["Слот доступен.", "Цена получена — можно подтвердить в приложении."],
@@ -81,7 +85,7 @@ function makeSmsBookingSnapshot(booking) {
   };
 }
 
-async function sendSms(toPhone, text) {
+async function sendSms(toPhone, text, statusCallbackUrl = null) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const fromNumber = process.env.TWILIO_SMS_FROM_NUMBER;
@@ -97,6 +101,7 @@ async function sendSms(toPhone, text) {
     To: toPhone,
     Body: text,
   });
+  if (statusCallbackUrl) body.set("StatusCallback", statusCallbackUrl);
 
   const response = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
@@ -165,10 +170,25 @@ async function createSmsBooking(payload) {
 
   log("sms_booking_created", { booking_id: bookingId, owner_phone, fallback_from });
 
+  const statusCallbackUrl = process.env.TWILIO_STATUS_CALLBACK_URL || null;
   try {
-    await sendSms(owner_phone, buildAvailabilityMessage(booking));
+    const result = await sendSms(owner_phone, buildAvailabilityMessage(booking), statusCallbackUrl);
+    if (result?.message_id) {
+      booking.twilio_message_sid = result.message_id;
+      smsByMessageSid.set(result.message_id, bookingId);
+    }
   } catch (err) {
     log("sms_send_error", { booking_id: bookingId, error: String(err) });
+    booking.status = "sms_failed";
+    booking.step = "completed";
+    booking.updated_at = new Date().toISOString();
+    activeSmsBookingByPhone.delete(phoneKey(owner_phone));
+    await syncCartOrLegacy(
+      booking,
+      { status_lines: smsStatusLines(appLocale, "sms_failed"), confirmable: false },
+      { booking_id: bookingId, status: "sms_failed", channel: "sms" },
+    );
+    return makeSmsBookingSnapshot(booking);
   }
 
   await syncCartOrLegacy(
@@ -289,8 +309,33 @@ async function processIncomingSms({ from, message, message_id }) {
   return { ok: true, ignored: true, reason: "SMS booking already completed" };
 }
 
+async function processSmsDeliveryStatus({ messageSid, messageStatus }) {
+  const bookingId = smsByMessageSid.get(messageSid);
+  if (!bookingId) {
+    log("sms_status_no_booking", { messageSid, messageStatus });
+    return;
+  }
+
+  const booking = smsBookingsById.get(bookingId);
+  if (!booking || booking.step === "completed") return;
+
+  if (messageStatus === "undelivered" || messageStatus === "failed") {
+    log("sms_delivery_failed", { booking_id: bookingId, messageSid, messageStatus });
+    booking.status = "sms_failed";
+    booking.step = "completed";
+    booking.updated_at = new Date().toISOString();
+    activeSmsBookingByPhone.delete(phoneKey(booking.owner_phone));
+    smsByMessageSid.delete(messageSid);
+    await syncCartOrLegacy(
+      booking,
+      { status_lines: smsStatusLines(booking.app_interface_locale, "sms_failed"), confirmable: false },
+      { booking_id: bookingId, status: "sms_failed", channel: "sms" },
+    );
+  }
+}
+
 function getSmsDebugState() {
   return { sms_bookings: Array.from(smsBookingsById.values()).map(makeSmsBookingSnapshot) };
 }
 
-module.exports = { createSmsBooking, processIncomingSms, getSmsDebugState };
+module.exports = { createSmsBooking, processIncomingSms, processSmsDeliveryStatus, getSmsDebugState };

@@ -614,8 +614,8 @@ export default function MessagesPage() {
         visible={startChatModalOpen}
         onClose={closeStartChatModal}
         title={t("messages.startChatTitle")}
-        maxHeightFraction={0.5}
-        minHeightFraction={0.5}
+        maxHeightFraction={0.6}
+        minHeightFraction={0.6}
         fitContent
       >
         <View style={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>
@@ -633,7 +633,33 @@ export default function MessagesPage() {
             />
           </View>
           {publicProfilesLoading ? (
-            <Text style={styles.empty}>{t("common.loading")}</Text>
+            <ShimmerProvider active>
+              <View style={styles.startChatList}>
+                {(["1", "2", "3", "4"] as const).map((id) => (
+                  <View key={`start-chat-skeleton-${id}`} style={[styles.card, isCompact ? styles.cardCompact : null]}>
+                    <ShimmerSurface
+                      width={isCompact ? 40 : 48}
+                      height={isCompact ? 40 : 48}
+                      borderRadius={isCompact ? 20 : 24}
+                    />
+                    <View style={styles.cardMain}>
+                      <ShimmerSurface width={isCompact ? 120 : 148} height={15} borderRadius={8} />
+                      <ShimmerSurface
+                        width={isCompact ? 80 : 96}
+                        height={12}
+                        borderRadius={8}
+                        style={styles.skeletonUsernameLine}
+                      />
+                    </View>
+                    <ShimmerSurface
+                      width={isCompact ? 32 : 36}
+                      height={isCompact ? 32 : 36}
+                      borderRadius={isCompact ? 16 : 18}
+                    />
+                  </View>
+                ))}
+              </View>
+            </ShimmerProvider>
           ) : startChatCandidates.length ? (
             <View style={styles.startChatList}>
               {startChatCandidates.map((item) => (
