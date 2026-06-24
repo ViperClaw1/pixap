@@ -16,8 +16,10 @@ import {
 import { consumePendingPushOutbox, registerNativePushToken } from "@/shared/lib/push/pushNotifications";
 import { syncProfileTimezone } from "@/entities/user/api/syncProfileTimezone";
 import { devError, devInfo, devWarn } from "@/shared/lib/devLog";
+import { markStartup } from "@/shared/lib/startupDevTiming";
 import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
 import { clearOnboardingDraft } from "@/features/preference-onboarding";
+import { ensureAuthScreenReady } from "@/pages/auth/lib/prefetchAuthScreen";
 import { identifyUser, resetAnalyticsIdentity } from "@/shared/lib/analytics/track";
 
 export type AuthErrorCode =
@@ -182,11 +184,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
       }
       if (event === "SIGNED_OUT") {
+        markStartup("signed_out_start");
         resetAnalyticsIdentity();
+        // Warm auth bundle before dispatching navigation so getComponent() resolve is instant.
+        ensureAuthScreenReady();
         navigateAfterSignOut();
-        void clearSessionCaches(queryClient);
-        void resetBookingChatPersistedSession();
-        void clearOnboardingDraft();
+        markStartup("signed_out_navigated");
+        // Defer heavy sync work (queryClient.clear + image cache) until after navigation animation.
+        InteractionManager.runAfterInteractions(() => {
+          void clearSessionCaches(queryClient);
+          void resetBookingChatPersistedSession();
+          void clearOnboardingDraft();
+          markStartup("signed_out_caches_cleared");
+        });
       }
       if (event === "INITIAL_SESSION" && next?.user) {
         identifyUser(next.user.id, { email: next.user.email, created_at: next.user.created_at });
