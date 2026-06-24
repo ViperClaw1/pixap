@@ -894,7 +894,11 @@
     "introBadge": "{{count}} бесплатных брони · {{days}} дн.",
     "noCreditsTitle": "Нет кредитов на бронирование",
     "noCreditsMessage": "Оформите Premium, чтобы получить кредиты, или дождитесь следующего платёжного периода.",
-    "insufficientForStops": "Для маршрута нужно {{count}} кредитов, у вас их меньше."
+    "insufficientForStops": "Для маршрута нужно {{count}} кредитов, у вас их меньше.",
+    "trialWelcomeTitle": "3 бесплатных бронирования включено!",
+    "trialWelcomeBody": "Ваш 7-дневный пробный период активен. Используйте PixAI Booking или Vibe Match — совершенно бесплатно, без карты.",
+    "trialWelcomeCta": "Начать",
+    "trialBannerDismiss": "Скрыть"
   },
   "subscriptionPaywall": {
     "title": "Откройте Pix AI Booking",

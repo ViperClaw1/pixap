@@ -62,6 +62,8 @@ import {
 import { buildHomeCategoryList, type HomeCategoryListItem } from "../lib/buildHomeCategoryList";
 import { AnimatedHomeSparklesIcon, AnimatedHomeVibeIcon } from "@/shared/ui/animated-home-header-icons";
 import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
+import { useBookingAccess } from "@/features/booking-access";
+import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import { DailyPicksHero, DailyPicksHeroSkeleton, isDailyPicksHeroLoading, resolveDailyPicksHeroDisplay } from "@/widgets/daily-picks-hero";
 import { preloadSmartImages } from "@/shared/ui/smart-image/SmartImage";
 import { getBusinessCardThumbUris } from "@/shared/lib/business-card/businessCardDisplayUrl";
@@ -117,6 +119,9 @@ export default function HomeScreen() {
   const trackRecommendationInteraction = useTrackRecommendationInteraction();
   const unread = useUnreadCount();
   const { openAIBooking, openVibeMatch } = useSubscriptionGatedNavigation(navigation);
+  const { isIntroActive, hasPaidPremium, balance, introPeriodEndsAt } = useBookingAccess();
+  const [trialBannerDismissed, setTrialBannerDismissed] = useState(false);
+  const showTrialBanner = !!user && isIntroActive && !hasPaidPremium && !trialBannerDismissed;
 
   /** Horizontal padding 16 + 16 from `content` — matches full-width recommended cards */
   const recommendedCardWidth = windowWidth - 32;
@@ -437,6 +442,37 @@ export default function HomeScreen() {
           </Text>
         </AppPressable>
 
+        {showTrialBanner ? (
+          <AppPressable
+            style={[
+              homePageStaticStyles.trialBanner,
+              {
+                backgroundColor: isDark ? `${colors.accent}55` : `${colors.accent}38`,
+                borderColor: isDark ? `${colors.accent}90` : `${colors.accent}72`,
+              },
+            ]}
+            onPress={handleOpenAIBooking}
+            accessibilityRole="button"
+          >
+            <BookingCreditsBadge
+              balance={balance}
+              isIntroActive={isIntroActive}
+              hasPaidPremium={hasPaidPremium}
+              introPeriodEndsAt={introPeriodEndsAt}
+              compact
+              style={[homePageStaticStyles.trialBannerBadge, { backgroundColor: "transparent", borderColor: "transparent", paddingHorizontal: 0, paddingVertical: 0 }]}
+            />
+            <AppPressable
+              hitSlop={8}
+              onPress={() => setTrialBannerDismissed(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t("bookingCredits.trialBannerDismiss")}
+            >
+              <Ionicons name="close" size={16} color={colors.textMuted} />
+            </AppPressable>
+          </AppPressable>
+        ) : null}
+
         {isDailyPicksHeroPending ? (
           <DailyPicksHeroSkeleton />
         ) : (
@@ -521,6 +557,11 @@ export default function HomeScreen() {
       renderCategoryRow,
       renderFeaturedRow,
       selectedCity,
+      showTrialBanner,
+      balance,
+      isIntroActive,
+      hasPaidPremium,
+      introPeriodEndsAt,
       styles,
       t,
       unread,

@@ -176,5 +176,5 @@ const styles = StyleSheet.create({
   tagText: { fontSize: 11, fontWeight: "600" },
   desc: { fontSize: 14, lineHeight: 20, marginTop: 4 },
   crowd: { marginTop: 8 },
-  crowdMeta: { marginBottom: 18 },
+  crowdMeta: { marginTop: 6, marginBottom: 18 },
 });
