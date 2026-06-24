@@ -293,7 +293,7 @@ export const aiBookingStaticStyles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 16,
     borderTopWidth: 1,
     gap: 8,
   },
@@ -526,7 +526,7 @@ export function aiBookingThemeStyles(colors: ThemeColors, insets: { top: number;
     summaryText: { color: colors.textMuted },
     helperText: { color: colors.textMuted },
     footer: {
-      paddingBottom: Math.max(10, insets.bottom),
+      paddingBottom: 16,
       borderTopColor: colors.border,
       backgroundColor: colors.background,
     },

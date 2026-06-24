@@ -526,6 +526,7 @@ export default function AuthScreen() {
           <View style={[styles.fieldWrap, showPasswordPolicyError ? styles.fieldWrapError : null]}>
             <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.fieldIcon} />
             <TextInput
+              key={`password-${mode}`}
               ref={passwordInputRef}
               style={styles.input}
               placeholder={t("auth.placeholderPassword")}

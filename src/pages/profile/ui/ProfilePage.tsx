@@ -493,6 +493,7 @@ function ProfileScreenContent() {
           }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          directionalLockEnabled
         >
       {showProfileSkeleton ? (
         <ProfilePageSkeleton isCompact={isCompact} />
