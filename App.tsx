@@ -29,6 +29,8 @@ import { handlePushNotificationOpen } from "@/shared/lib/push/handlePushNotifica
 import { markAppNavigationReady } from "@/shared/lib/appNavigationReady";
 import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
+import { ensureFeedScreensReady } from "@/pages/stories-feed/lib/prefetchFeedScreen";
+import { ensureBookingsScreensReady } from "@/pages/bookings/lib/prefetchBookingsScreen";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -154,9 +156,9 @@ export default function App() {
           hasSeenPermissionsIntro(),
           loadPersistedThemeMode(),
           hasLaunchedAppBefore(),
-          supabase.auth.getSession(),
+          supabase.auth.getSession().then((r) => { markStartup("auth_getSession_done"); return r; }),
         ]);
-        markStartup("i18n_bootstrap_done");
+        markStartup("boot_promises_done");
         if (!cancelled) {
           setInitialThemeMode(themeMode);
           setIsFirstAppLaunch(!launchedBefore);
@@ -169,6 +171,8 @@ export default function App() {
           logStartupDiagnostics();
           ensurePushNotificationHandler();
           ensureMessagesScreensReady();
+          ensureFeedScreensReady();
+          ensureBookingsScreensReady();
           markStartup("deferred_tasks_start");
           void hydrateI18nFromStorage().then(() => {
             markStartup("i18n_storage_hydrated");
