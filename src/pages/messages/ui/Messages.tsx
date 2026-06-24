@@ -496,7 +496,10 @@ export default function MessagesPage() {
               <Text style={styles.sectionTitle}>{item.title}</Text>
             </View>
             {item.key === "section-chats" && !visibleThreads.length ? (
-              <Text style={styles.empty}>{t("messages.noChatsFound")}</Text>
+              <View style={{ alignItems: "center", paddingVertical: 16 }}>
+                <Ionicons name="chatbubbles-outline" size={44} color={colors.textMuted} style={{ opacity: 0.7 }} />
+                <Text style={styles.empty}>{t("messages.noChatsFound")}</Text>
+              </View>
             ) : null}
             {item.key === "section-people" && !people.length ? (
               <Text style={styles.empty}>{t("messages.noUsersFound")}</Text>
@@ -614,8 +617,8 @@ export default function MessagesPage() {
         visible={startChatModalOpen}
         onClose={closeStartChatModal}
         title={t("messages.startChatTitle")}
-        maxHeightFraction={0.6}
-        minHeightFraction={0.6}
+        maxHeightFraction={0.5}
+        minHeightFraction={0.5}
         fitContent
       >
         <View style={{ paddingHorizontal: 12, paddingBottom: Math.max(insets.bottom, 12), gap: 10 }}>

@@ -41,6 +41,7 @@ import { BookingConfirmedBanner } from "./BookingConfirmedBanner";
 import { ShimmerProvider } from "@/shared/ui/shimmer";
 import { bookingStatusNotificationText, useCreateNotification } from "@/entities/notification";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
+import { Ionicons } from "@expo/vector-icons";
 
 type Nav = NativeStackNavigationProp<BookingsStackParamList, "BookingsMain">;
 
@@ -247,6 +248,7 @@ export default function BookingsScreen() {
           contentContainerStyle={listContentStyle}
           ListEmptyComponent={
             <View style={styles.emptyListWrap}>
+              <Ionicons name="calendar-outline" size={52} color={colors.textMuted} style={{ marginBottom: 12, opacity: 0.65 }} />
               <Text style={styles.empty}>{t("bookings.noBookings")}</Text>
             </View>
           }
