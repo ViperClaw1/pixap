@@ -1,7 +1,7 @@
 import { Text, View, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
-import { resolveBookingCreditsBadgeSurface } from "./bookingCreditsBadgeTheme";
+import { resolveBookingCreditsBadgeSurface, resolveBookingCreditsBadgeUrgentSurface } from "./bookingCreditsBadgeTheme";
 
 type Props = {
   balance: number;
@@ -22,9 +22,13 @@ export function BookingCreditsBadge({
 }: Props) {
   const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
-  const surface = resolveBookingCreditsBadgeSurface(colors, isDark);
 
   const showIntroBadge = isIntroActive && !hasPaidPremium;
+  const isLastCredit = showIntroBadge && balance === 1;
+
+  const surface = isLastCredit
+    ? resolveBookingCreditsBadgeUrgentSurface(colors)
+    : resolveBookingCreditsBadgeSurface(colors, isDark);
 
   const introDaysLeft =
     showIntroBadge && introPeriodEndsAt
@@ -33,7 +37,9 @@ export function BookingCreditsBadge({
 
   const label =
     showIntroBadge && introDaysLeft != null
-      ? t("bookingCredits.introBadge", { count: balance, days: introDaysLeft })
+      ? isLastCredit
+        ? t("bookingCredits.introBadgeLast", { days: introDaysLeft })
+        : t("bookingCredits.introBadge", { count: balance, days: introDaysLeft })
       : t("bookingCredits.balanceBadge", { count: balance });
 
   return (

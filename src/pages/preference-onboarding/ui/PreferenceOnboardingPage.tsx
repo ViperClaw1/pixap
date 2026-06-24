@@ -1,6 +1,7 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, BackHandler, Platform, Text, View, StyleSheet } from "react-native";
+import { ActivityIndicator, BackHandler, Modal, Platform, Text, View, StyleSheet } from "react-native";
+import { AppPopupModal } from "@/shared/ui/app-popup";
 import { useTranslation } from "react-i18next";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -47,6 +48,7 @@ function PreferenceOnboardingContent() {
 
   const isFirstStep = wizard.step === "city_selection";
   const isVenueStep = wizard.step === "venue_ratings";
+  const [trialPopupVisible, setTrialPopupVisible] = useState(false);
 
   const wizardSnapshot = useMemo(
     () => ({
@@ -110,15 +112,11 @@ function PreferenceOnboardingContent() {
     await clearOnboardingDraft();
     if (result.isFirstCompletion) {
       trackOnboardingCompleted(0);
-      Alert.alert(
-        t("bookingCredits.trialWelcomeTitle"),
-        t("bookingCredits.trialWelcomeBody"),
-        [{ text: t("bookingCredits.trialWelcomeCta"), onPress: resetToProfileMain }],
-      );
+      setTrialPopupVisible(true);
     } else {
       resetToProfileMain();
     }
-  }, [resetToProfileMain, t, wizard]);
+  }, [resetToProfileMain, wizard]);
 
   const handleSkip = useCallback(async () => {
     if (isVenueStep) {
@@ -315,6 +313,18 @@ function PreferenceOnboardingContent() {
           </AppPressable>
         </View>
       ) : null}
+
+      <Modal visible={trialPopupVisible} transparent animationType="fade" onRequestClose={resetToProfileMain}>
+        <AppPopupModal
+          embedded
+          visible={trialPopupVisible}
+          variant="success"
+          title={t("bookingCredits.trialWelcomeTitle")}
+          message={t("bookingCredits.trialWelcomeBody")}
+          onClose={resetToProfileMain}
+          buttons={[{ text: t("bookingCredits.trialWelcomeCta"), onPress: resetToProfileMain }]}
+        />
+      </Modal>
     </View>
   );
 }

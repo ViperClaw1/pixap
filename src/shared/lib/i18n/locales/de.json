@@ -685,6 +685,7 @@
   "bookingCredits": {
     "balanceBadge": "{{count}} Buchungsguthaben übrig",
     "introBadge": "{{count}} gratis Buchungen · {{days}} Tage",
+    "introBadgeLast": "Letzte gratis Buchung! · {{days}} Tage",
     "noCreditsTitle": "Keine Buchungsguthaben",
     "noCreditsMessage": "Abonnieren Sie Premium für mehr Guthaben oder warten Sie auf den nächsten Abrechnungszeitraum.",
     "insufficientForStops": "Für diese Route brauchen Sie {{count}} Guthaben.",

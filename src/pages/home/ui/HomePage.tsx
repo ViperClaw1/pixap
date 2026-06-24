@@ -71,6 +71,7 @@ import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/busines
 import { useExpandVisibleBatch } from "@/shared/lib/useExpandVisibleBatch";
 import { ShowMoreButton } from "@/shared/ui/show-more-button";
 import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
+import { hasTrialBannerDismissed, setTrialBannerDismissed } from "../lib/trialBannerStorage";
 
 import { categoryAccentColor } from "../lib/categoryAccentColors";
 
@@ -120,8 +121,18 @@ export default function HomeScreen() {
   const unread = useUnreadCount();
   const { openAIBooking, openVibeMatch } = useSubscriptionGatedNavigation(navigation);
   const { isIntroActive, hasPaidPremium, balance, introPeriodEndsAt } = useBookingAccess();
-  const [trialBannerDismissed, setTrialBannerDismissed] = useState(false);
+  const [trialBannerDismissed, setTrialBannerDismissedState] = useState(false);
   const showTrialBanner = !!user && isIntroActive && !hasPaidPremium && !trialBannerDismissed;
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void hasTrialBannerDismissed(user.id).then(setTrialBannerDismissedState);
+  }, [user?.id]);
+
+  const handleDismissTrialBanner = useCallback(() => {
+    setTrialBannerDismissedState(true);
+    if (user?.id) void setTrialBannerDismissed(user.id);
+  }, [user?.id]);
 
   /** Horizontal padding 16 + 16 from `content` — matches full-width recommended cards */
   const recommendedCardWidth = windowWidth - 32;
@@ -464,7 +475,7 @@ export default function HomeScreen() {
             />
             <AppPressable
               hitSlop={8}
-              onPress={() => setTrialBannerDismissed(true)}
+              onPress={handleDismissTrialBanner}
               accessibilityRole="button"
               accessibilityLabel={t("bookingCredits.trialBannerDismiss")}
             >
@@ -562,6 +573,7 @@ export default function HomeScreen() {
       isIntroActive,
       hasPaidPremium,
       introPeriodEndsAt,
+      handleDismissTrialBanner,
       styles,
       t,
       unread,

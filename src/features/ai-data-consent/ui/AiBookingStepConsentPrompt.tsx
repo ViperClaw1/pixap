@@ -8,7 +8,7 @@ export function AiBookingStepConsentPrompt() {
   const { t } = useTranslation();
   const { status, needsPrompt, grant, decline } = useAiDataConsent();
   const [visible, setVisible] = useState(false);
-  const [pending, setPending] = useState(false);
+  const [declining, setDeclining] = useState(false);
 
   useEffect(() => {
     if (status === "loading" || !needsPrompt) return;
@@ -22,29 +22,30 @@ export function AiBookingStepConsentPrompt() {
   if (status === "loading" || !visible) return null;
 
   const onAllow = () => {
-    setPending(true);
-    void grant()
-      .then(() => setVisible(false))
-      .catch(() => {
-        appAlert(t("aiConsent.saveFailedTitle"), t("aiConsent.saveFailed"), undefined, "alert");
-      })
-      .finally(() => setPending(false));
+    // Close the modal immediately so the consent status update (granted) and
+    // the greeting message seeding happen after the modal is already gone —
+    // this prevents the chat from rendering behind a still-visible overlay and
+    // ensures the typewriter greeting animation is visible to the user.
+    setVisible(false);
+    void grant().catch(() => {
+      appAlert(t("aiConsent.saveFailedTitle"), t("aiConsent.saveFailed"), undefined, "alert");
+    });
   };
 
   const onDecline = () => {
-    setPending(true);
+    setDeclining(true);
     void decline()
       .then(() => setVisible(false))
       .catch(() => {
         appAlert(t("aiConsent.saveFailedTitle"), t("aiConsent.saveFailed"), undefined, "alert");
       })
-      .finally(() => setPending(false));
+      .finally(() => setDeclining(false));
   };
 
   return (
     <AiDataConsentModal
       visible
-      loading={pending}
+      loading={declining}
       onAllow={onAllow}
       onDecline={onDecline}
     />

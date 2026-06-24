@@ -892,11 +892,12 @@
   "bookingCredits": {
     "balanceBadge": "{{count}} booking credits left",
     "introBadge": "{{count}} free bookings · {{days}} days left",
+    "introBadgeLast": "Last free booking! · {{days}} days left",
     "noCreditsTitle": "No booking credits",
     "noCreditsMessage": "Subscribe to Premium to get more booking credits, or wait for your next billing cycle.",
     "insufficientForStops": "You need {{count}} credits for this route but have fewer left.",
     "trialWelcomeTitle": "3 free bookings included!",
-    "trialWelcomeBody": "Your 7-day trial is active. Use PixAI Booking or Vibe Match — completely free, no card needed.",
+    "trialWelcomeBody": "Your 7-day trial is active. Use PixAI Booking or Vibe Match — completely free, no card needed. After your trial, continue with PixAI Premium.",
     "trialWelcomeCta": "Start exploring",
     "trialBannerDismiss": "Dismiss"
   },
