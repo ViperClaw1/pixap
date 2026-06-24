@@ -70,6 +70,7 @@ import { isPersonalDataComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
 import { useBookingAccess } from "@/features/booking-access";
+import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import { useTranslation } from "react-i18next";
 import { PageI18nProvider } from "@/shared/lib/i18n";
 import { isAuthRequiredError, navigateToAuthScreen } from "@/shared/lib/auth/authRequired";
@@ -416,6 +417,10 @@ function AIBookingPageContent() {
     canAccessAIBooking,
     isLoading: accessLoading,
     canUseBookingCredits,
+    balance,
+    isIntroActive,
+    hasPaidPremium,
+    introPeriodEndsAt,
   } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
   const navigation = useNavigation<Nav>();
@@ -1311,6 +1316,16 @@ function AIBookingPageContent() {
             <Text style={styles.title}>{t("aiBooking.title")}</Text>
           </View>
           <Text style={styles.subtitle}>{t("aiBooking.subtitle")}</Text>
+          {isIntroActive && !hasPaidPremium ? (
+            <BookingCreditsBadge
+              balance={balance}
+              isIntroActive={isIntroActive}
+              hasPaidPremium={hasPaidPremium}
+              introPeriodEndsAt={introPeriodEndsAt}
+              compact
+              style={{ marginTop: 6 }}
+            />
+          ) : null}
         </View>
 
         {currentStep === "assistant" ? (

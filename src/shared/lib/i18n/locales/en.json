@@ -894,7 +894,11 @@
     "introBadge": "{{count}} free bookings · {{days}} days left",
     "noCreditsTitle": "No booking credits",
     "noCreditsMessage": "Subscribe to Premium to get more booking credits, or wait for your next billing cycle.",
-    "insufficientForStops": "You need {{count}} credits for this route but have fewer left."
+    "insufficientForStops": "You need {{count}} credits for this route but have fewer left.",
+    "trialWelcomeTitle": "3 free bookings included!",
+    "trialWelcomeBody": "Your 7-day trial is active. Use PixAI Booking or Vibe Match — completely free, no card needed.",
+    "trialWelcomeCta": "Start exploring",
+    "trialBannerDismiss": "Dismiss"
   },
   "subscriptionPaywall": {
     "title": "Unlock Pix AI Booking",

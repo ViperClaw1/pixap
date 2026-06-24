@@ -108,9 +108,17 @@ function PreferenceOnboardingContent() {
   const handleVenueStageComplete = useCallback(async () => {
     const result = await wizard.completeOnboarding();
     await clearOnboardingDraft();
-    if (result.isFirstCompletion) trackOnboardingCompleted(0);
-    resetToProfileMain();
-  }, [resetToProfileMain, wizard]);
+    if (result.isFirstCompletion) {
+      trackOnboardingCompleted(0);
+      Alert.alert(
+        t("bookingCredits.trialWelcomeTitle"),
+        t("bookingCredits.trialWelcomeBody"),
+        [{ text: t("bookingCredits.trialWelcomeCta"), onPress: resetToProfileMain }],
+      );
+    } else {
+      resetToProfileMain();
+    }
+  }, [resetToProfileMain, t, wizard]);
 
   const handleSkip = useCallback(async () => {
     if (isVenueStep) {

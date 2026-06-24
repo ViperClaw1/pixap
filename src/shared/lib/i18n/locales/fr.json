@@ -690,7 +690,11 @@
     "introBadge": "{{count}} réservations gratuites · {{days}} j",
     "noCreditsTitle": "Plus de crédits",
     "noCreditsMessage": "Abonnez-vous à Premium ou attendez le prochain cycle.",
-    "insufficientForStops": "Il faut {{count}} crédits pour cet itinéraire."
+    "insufficientForStops": "Il faut {{count}} crédits pour cet itinéraire.",
+    "trialWelcomeTitle": "3 réservations gratuites incluses !",
+    "trialWelcomeBody": "Votre essai de 7 jours est actif. Utilisez PixAI Booking ou Vibe Match — gratuitement, sans carte.",
+    "trialWelcomeCta": "Commencer",
+    "trialBannerDismiss": "Fermer"
   },
   "subscriptionPaywall": {
     "title": "Débloquer Pix AI Booking",

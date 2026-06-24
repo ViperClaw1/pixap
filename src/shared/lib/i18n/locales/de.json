@@ -687,7 +687,11 @@
     "introBadge": "{{count}} gratis Buchungen · {{days}} Tage",
     "noCreditsTitle": "Keine Buchungsguthaben",
     "noCreditsMessage": "Abonnieren Sie Premium für mehr Guthaben oder warten Sie auf den nächsten Abrechnungszeitraum.",
-    "insufficientForStops": "Für diese Route brauchen Sie {{count}} Guthaben."
+    "insufficientForStops": "Für diese Route brauchen Sie {{count}} Guthaben.",
+    "trialWelcomeTitle": "3 kostenlose Buchungen inklusive!",
+    "trialWelcomeBody": "Ihr 7-tägiger Test ist aktiv. Nutzen Sie PixAI Booking oder Vibe Match — kostenlos, keine Karte nötig.",
+    "trialWelcomeCta": "Loslegen",
+    "trialBannerDismiss": "Schließen"
   },
   "subscriptionPaywall": {
     "title": "Pix AI Booking freischalten",

@@ -56,6 +56,7 @@ import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDi
 import { devWarn } from "@/shared/lib/devLog";
 import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
 import { useBookingAccess } from "@/features/booking-access";
+import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import {
   shouldEnforceSubscriptionPaywall,
   useSubscriptionPaywallRedirect,
@@ -111,6 +112,10 @@ export default function BookingFlowPage() {
     canAccessBookingFlow,
     isLoading: accessLoading,
     canUseBookingCredits,
+    balance,
+    isIntroActive,
+    hasPaidPremium,
+    introPeriodEndsAt,
   } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
   useSubscriptionPaywallRedirect({
@@ -419,6 +424,16 @@ export default function BookingFlowPage() {
               </Text>
             </View>
           </View>
+          {isIntroActive && !hasPaidPremium ? (
+            <BookingCreditsBadge
+              balance={balance}
+              isIntroActive={isIntroActive}
+              hasPaidPremium={hasPaidPremium}
+              introPeriodEndsAt={introPeriodEndsAt}
+              compact
+              style={{ marginHorizontal: 12, marginBottom: 4 }}
+            />
+          ) : null}
         </SafeAreaView>
       ) : null}
       <BookingConfetti active={celebrationActive} />
