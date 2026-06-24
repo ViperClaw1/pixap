@@ -21,6 +21,8 @@ import NotFoundScreen from "@/pages/not-found";
 import { browseFlowSwipeBackOptions } from "./stackGestureOptions";
 import { renderBrowseFlowScreens, type BrowseFlowStackScreen } from "./BrowseFlowScreens";
 import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
+import { ensureFeedScreensReady } from "@/pages/stories-feed/lib/prefetchFeedScreen";
+import { ensureBookingsScreensReady } from "@/pages/bookings/lib/prefetchBookingsScreen";
 import { BOOKINGS_TAB_OPTIONS, CART_TAB_OPTIONS, PROFILE_TAB_OPTIONS } from "./tabBarButtons";
 import { handleCartTabPress } from "./navigationHelpers";
 
@@ -244,8 +246,18 @@ export default function AppNavigator({ isFirstAppLaunch }: { isFirstAppLaunch: b
       detachInactiveScreens={false}
       screenOptions={tabScreenOptions}
     >
-      <Tab.Screen name="Feed" component={FeedStackNavigator} options={{ title: "Feed" }} />
-      <Tab.Screen name="Bookings" component={BookingsStackNavigator} options={BOOKINGS_TAB_OPTIONS} />
+      <Tab.Screen
+        name="Feed"
+        component={FeedStackNavigator}
+        options={{ title: "Feed" }}
+        listeners={{ tabPress: () => ensureFeedScreensReady() }}
+      />
+      <Tab.Screen
+        name="Bookings"
+        component={BookingsStackNavigator}
+        options={BOOKINGS_TAB_OPTIONS}
+        listeners={{ tabPress: () => ensureBookingsScreensReady() }}
+      />
       <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: "Home" }} />
       <Tab.Screen
         name="Cart"
