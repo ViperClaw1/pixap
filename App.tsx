@@ -31,6 +31,7 @@ import { markStartup, resetStartupTiming } from "@/shared/lib/startupDevTiming";
 import { ensureMessagesScreensReady } from "@/pages/messages/lib/prefetchMessagesScreen";
 import { ensureFeedScreensReady } from "@/pages/stories-feed/lib/prefetchFeedScreen";
 import { ensureBookingsScreensReady } from "@/pages/bookings/lib/prefetchBookingsScreen";
+import { ensureAuthScreenReady } from "@/pages/auth/lib/prefetchAuthScreen";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -173,6 +174,7 @@ export default function App() {
           ensureMessagesScreensReady();
           ensureFeedScreensReady();
           ensureBookingsScreensReady();
+          ensureAuthScreenReady();
           markStartup("deferred_tasks_start");
           void hydrateI18nFromStorage().then(() => {
             markStartup("i18n_storage_hydrated");
