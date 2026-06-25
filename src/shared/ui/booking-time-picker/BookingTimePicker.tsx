@@ -17,10 +17,12 @@ import {
   clampBookingPickerDate,
   defaultBookingDateTime,
   formatBookingTimeLabel,
+  formatBookingTimeLabelAmPm,
   isBookingTimeInRestrictedWindow,
   minutesFromDate,
   snapToBookingTimeGrid,
   type BookingTimeUnavailableReason,
+  type BookingTimeWindows,
 } from "@/entities/booking/lib/bookingSlots";
 import { BookingAndroidInlineTimePicker } from "./BookingAndroidInlineTimePicker";
 
@@ -30,6 +32,8 @@ type Props = {
   onChange: (date: Date) => void;
   unavailableReason?: BookingTimeUnavailableReason | null;
   style?: StyleProp<ViewStyle>;
+  windows?: BookingTimeWindows;
+  use12h?: boolean;
 };
 
 const UNAVAILABLE_MESSAGE_KEYS: Record<BookingTimeUnavailableReason, string> = {
@@ -44,13 +48,17 @@ export function BookingTimePicker({
   onChange,
   unavailableReason = null,
   style,
+  windows,
+  use12h = false,
 }: Props) {
   const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const [pickerWidth, setPickerWidth] = useState(0);
 
   const pickerValue = value ?? defaultBookingDateTime(dateYmd);
-  const displayLabel = formatBookingTimeLabel(minutesFromDate(pickerValue));
+  const displayLabel = use12h
+    ? formatBookingTimeLabelAmPm(minutesFromDate(pickerValue))
+    : formatBookingTimeLabel(minutesFromDate(pickerValue));
 
   useEffect(() => {
     if (Platform.OS !== "ios" || value != null) return;
@@ -66,12 +74,14 @@ export function BookingTimePicker({
 
   const onIosPickerChange = (_event: DateTimePickerEvent, selected?: Date) => {
     if (!selected) return;
-    const snappedMinutes = snapToBookingTimeGrid(minutesFromDate(selected));
-    if (isBookingTimeInRestrictedWindow(snappedMinutes)) {
-      onChange(bookingDateTimeFromYmd(dateYmd, snappedMinutes));
-      return;
+    if (!windows) {
+      const snappedMinutes = snapToBookingTimeGrid(minutesFromDate(selected));
+      if (isBookingTimeInRestrictedWindow(snappedMinutes)) {
+        onChange(bookingDateTimeFromYmd(dateYmd, snappedMinutes));
+        return;
+      }
     }
-    onChange(clampBookingPickerDate(dateYmd, selected));
+    onChange(clampBookingPickerDate(dateYmd, selected, windows));
   };
 
   return (
@@ -89,7 +99,7 @@ export function BookingTimePicker({
         ]}
       >
         {Platform.OS === "android" ? (
-          <BookingAndroidInlineTimePicker dateYmd={dateYmd} value={value} onChange={onChange} />
+          <BookingAndroidInlineTimePicker dateYmd={dateYmd} value={value} onChange={onChange} windows={windows} use12h={use12h} />
         ) : pickerWidth > 0 ? (
           <DateTimePicker
             mode="time"
@@ -98,6 +108,7 @@ export function BookingTimePicker({
             onChange={onIosPickerChange}
             minuteInterval={BOOKING_SLOT_STEP_MINUTES}
             themeVariant={isDark ? "dark" : "light"}
+            locale={use12h ? "en_US" : "en_GB"}
             style={[
               styles.picker,
               {

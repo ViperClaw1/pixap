@@ -47,6 +47,7 @@ import {
   useAvailableCities,
   groupCitiesByCountry,
   filterCityGroups,
+  countryLabelForCity,
 } from "@/entities/business-card";
 import {
   useCategories,
@@ -1422,6 +1423,8 @@ function AIBookingPageContent() {
               slotsError={slotsError}
               refetchSlots={refetchSlots}
               cartReservedSlotTimes={cartReservedSlotTimes}
+              isRestaurant={isRestaurantTable}
+              use12h={countryLabelForCity(selectedCity) === "United States"}
             />
           </>
         ) : null}

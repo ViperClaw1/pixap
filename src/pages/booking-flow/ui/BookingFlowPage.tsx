@@ -22,6 +22,7 @@ import {
   defaultBookingDateTime,
   minutesFromDate,
   resolveBookingTimeUnavailableReason,
+  RESTAURANT_BOOKING_TIME_WINDOWS,
 } from "@/entities/booking/lib/bookingSlots";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useProfile } from "@/entities/user";
@@ -34,6 +35,8 @@ import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { bookingFlowThemedStaticStyles, bookingFlowThemedThemeStyles } from "./bookingFlowThemeStyles";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
+import { countryLabelForCity } from "@/entities/business-card";
+import { isRestaurantCategoryName } from "@/entities/category";
 import { BookingFlowPlacePanel } from "@/shared/ui/booking-place-panel";
 import {
   BookingProfileCompleteTip,
@@ -298,6 +301,9 @@ export default function BookingFlowPage() {
     return null;
   }
 
+  const isRestaurantVenue = isRestaurantCategoryName(place.category?.name ?? "");
+  const use12h = countryLabelForCity(place.city ?? "") === "United States";
+
   const todayYmd = toYmd(startOfLocalDay(new Date()));
   const earliestBookableMonth = firstOfMonthContaining(new Date());
   const latestBookableMonth = new Date(
@@ -552,6 +558,8 @@ export default function BookingFlowPage() {
                 onChange={setSelectedBookingTime}
                 unavailableReason={timeUnavailableReason}
                 style={styles.timePicker}
+                windows={isRestaurantVenue ? RESTAURANT_BOOKING_TIME_WINDOWS : undefined}
+                use12h={use12h}
               />
             )}
             <BookingFlowCustomerForm

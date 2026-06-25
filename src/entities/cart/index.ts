@@ -8,4 +8,4 @@ export {
   normalizeWaInterfaceLocale,
   type WaInterfaceLocale,
 } from "./lib/n8nWaBookingStart";
-export { isWaOwnerUnreachableLines } from "./lib/waDeliveryStatus";
+export { isWaOwnerUnreachableLines, isSmsDeliveryFailed } from "./lib/waDeliveryStatus";

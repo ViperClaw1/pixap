@@ -15,6 +15,7 @@ import {
   getAllowedBookingMinutesForHour,
   minutesFromDate,
   splitAllowedBookingTime,
+  type BookingTimeWindows,
 } from "@/entities/booking/lib/bookingSlots";
 
 const WHEEL_ITEM_HEIGHT = 44;
@@ -142,14 +143,16 @@ type Props = {
   dateYmd: string;
   value: Date | null;
   onChange: (date: Date) => void;
+  windows?: BookingTimeWindows;
+  use12h?: boolean;
 };
 
-export function BookingAndroidInlineTimePicker({ dateYmd, value, onChange }: Props) {
+export function BookingAndroidInlineTimePicker({ dateYmd, value, onChange, windows, use12h = false }: Props) {
   const { colors } = useAppTheme();
   const pickerValue = value ?? defaultBookingDateTime(dateYmd);
-  const { hour, minute } = splitAllowedBookingTime(minutesFromDate(pickerValue));
-  const allowedHours = useMemo(() => getAllowedBookingHours(), []);
-  const allowedMinutes = useMemo(() => getAllowedBookingMinutesForHour(hour), [hour]);
+  const { hour, minute } = splitAllowedBookingTime(minutesFromDate(pickerValue), windows);
+  const allowedHours = useMemo(() => getAllowedBookingHours(windows), [windows]);
+  const allowedMinutes = useMemo(() => getAllowedBookingMinutesForHour(hour, windows), [hour, windows]);
   const safeMinute = allowedMinutes.includes(minute) ? minute : allowedMinutes[0] ?? 0;
 
   const emitTime = useCallback(
@@ -185,7 +188,9 @@ export function BookingAndroidInlineTimePicker({ dateYmd, value, onChange }: Pro
         values={allowedHours}
         selected={hour}
         onSelect={onHourSelect}
-        format={(h) => String(h).padStart(2, "0")}
+        format={use12h
+          ? (h) => `${h % 12 || 12} ${h >= 12 ? "PM" : "AM"}`
+          : (h) => String(h).padStart(2, "0")}
       />
       <Text style={[styles.colon, { color: colors.text }]}>:</Text>
       <TimeWheel
