@@ -33,6 +33,8 @@ export interface Booking {
     blurhashes?: string[] | null;
     address: string;
     category_id: string | null;
+    external_booking_platform?: string | null;
+    external_booking_url?: string | null;
   } | null;
 }
 

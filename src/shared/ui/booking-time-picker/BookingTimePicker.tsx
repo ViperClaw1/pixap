@@ -87,7 +87,11 @@ export function BookingTimePicker({
   return (
     <View style={[styles.root, style]}>
       <Text style={[styles.title, { color: colors.text }]}>{t("bookingCommon.selectBookingTime")}</Text>
-      <Text style={[styles.hint, { color: colors.textMuted }]}>{t("bookingCommon.bookingTimeWindowHint")}</Text>
+      <Text style={[styles.hint, { color: colors.textMuted }]}>
+        {windows
+          ? t(use12h ? "bookingCommon.bookingTimeWindowHintRestaurantUs" : "bookingCommon.bookingTimeWindowHintRestaurant")
+          : t(use12h ? "bookingCommon.bookingTimeWindowHintUs" : "bookingCommon.bookingTimeWindowHint")}
+      </Text>
       <View
         onLayout={Platform.OS === "ios" ? onPickerShellLayout : undefined}
         style={[

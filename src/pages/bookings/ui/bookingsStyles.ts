@@ -84,6 +84,15 @@ export const bookingsStaticStyles = StyleSheet.create({
     paddingVertical: 7,
   },
   payBtnText: { fontSize: 12, fontWeight: "700" },
+  externalBookingBtn: {
+    marginTop: 8,
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: "#111",
+  },
+  externalBookingBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
   skeletonList: { padding: 16, gap: 0 },
   skeletonCard: {
     flexDirection: "row",

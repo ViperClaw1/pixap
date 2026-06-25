@@ -343,6 +343,9 @@
     "missingAvailableSlotMessage": "Выберите доступный временной слот.",
     "selectBookingTime": "Выберите время",
     "bookingTimeWindowHint": "Доступные часы: 00:00–02:00 и 06:00–23:30.",
+    "bookingTimeWindowHintUs": "Available hours: 12:00 AM–2:00 AM and 6:00 AM–11:30 PM.",
+    "bookingTimeWindowHintRestaurant": "Доступные часы: 11:00–23:00.",
+    "bookingTimeWindowHintRestaurantUs": "Available hours: 11:00 AM–11:00 PM.",
     "selectedBookingTime": "Выбрано: {{time}}",
     "selectedTimeUnavailable": "Это время недоступно. Выберите другое.",
     "selectedTimeInPast": "Выберите время позже текущего.",
@@ -606,6 +609,7 @@
     "paymentPending": "Ожидает",
     "paymentPaid": "Оплачено",
     "pay": "Оплатить",
+    "bookOnPlatform": "Забронировать на {{platform}}",
     "waitingForVenue": "Ожидание ответа заведения",
     "noBookings": "Нет бронирований",
     "choosePlace": "Выберите место",
@@ -887,7 +891,10 @@
     "popular": "Популярно",
     "confirmChannelWhatsapp": "Бронь отправляется в WhatsApp для подтверждения заведением.",
     "confirmChannelVoice": "Мы позвоним в заведение для подтверждения брони.",
-    "confirmChannelUnknown": "Мы свяжемся с заведением для подтверждения брони."
+    "confirmChannelEmail": "Мы отправим email в заведение для подтверждения брони.",
+    "confirmChannelUnknown": "Мы свяжемся с заведением для подтверждения брони.",
+    "externalPlatformBanner": "Это заведение принимает брони через {{platform}}. Нажмите кнопку для прямого бронирования.",
+    "openPlatform": "Открыть {{platform}}"
   },
   "bookingCredits": {
     "balanceBadge": "Осталось кредитов: {{count}}",

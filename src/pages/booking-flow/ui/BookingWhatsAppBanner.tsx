@@ -15,7 +15,9 @@ export function BookingWhatsAppBanner({ channel }: Props) {
       ? ("logo-whatsapp" as const)
       : channel === "voice"
         ? ("call-outline" as const)
-        : ("information-circle-outline" as const);
+        : channel === "email"
+          ? ("mail-outline" as const)
+          : ("information-circle-outline" as const);
 
   const iconColor = channel === "whatsapp" ? "#25D366" : colors.primary;
 
@@ -24,7 +26,9 @@ export function BookingWhatsAppBanner({ channel }: Props) {
       ? t("bookingFlow.confirmChannelWhatsapp")
       : channel === "voice"
         ? t("bookingFlow.confirmChannelVoice")
-        : t("bookingFlow.confirmChannelUnknown");
+        : channel === "email"
+          ? t("bookingFlow.confirmChannelEmail")
+          : t("bookingFlow.confirmChannelUnknown");
 
   return (
     <View style={[styles.wrap, { backgroundColor: `${colors.primary}14`, borderColor: `${colors.primary}33` }]}>

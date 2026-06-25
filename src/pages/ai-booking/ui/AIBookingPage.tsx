@@ -28,6 +28,7 @@ import {
   minutesFromDate,
   defaultBookingDateTime,
   resolveBookingTimeUnavailableReason,
+  RESTAURANT_BOOKING_TIME_WINDOWS,
 } from "@/entities/booking";
 import {
   usePixAI,
@@ -677,7 +678,7 @@ function AIBookingPageContent() {
     isFetching: slotsFetching,
     isError: slotsError,
     refetch: refetchSlots,
-  } = useAvailableSlots(selectedPlace?.id ?? null, bookingDateYmd);
+  } = useAvailableSlots(selectedPlace?.id ?? null, bookingDateYmd, isRestaurantTable ? RESTAURANT_BOOKING_TIME_WINDOWS : undefined);
 
   const cartReservedSlotTimes = useMemo(() => {
     const s = new Set<number>();
