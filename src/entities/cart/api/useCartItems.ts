@@ -97,7 +97,16 @@ export const useCartItems = () => {
     refetchInterval: (query) => {
       const list = query.state.data as CartItem[] | undefined;
       if (!list?.length) return false;
-      return list.some((i) => i.wa_n8n_started_at && !i.wa_confirmable) ? 5000 : false;
+      return list.some((i) => {
+        if (i.wa_confirmable) return false;
+        // WA/n8n in progress
+        if (i.wa_n8n_started_at) return true;
+        // SMS in progress: status_lines set but not yet resolved
+        const lines = parseWaStatusLines(i.wa_status_lines);
+        return lines.length > 0;
+      })
+        ? 5000
+        : false;
     },
   });
 };

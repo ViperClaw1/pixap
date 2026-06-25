@@ -18,6 +18,21 @@ function log(action, details) {
   );
 }
 
+/** disconnection_reason values that mean a human never picked up. */
+const NON_HUMAN_DISCONNECTION_REASONS = new Set(["no_answer", "voicemail_reached", "ivr_reached"]);
+
+function mapDisconnectionToStatus(reason) {
+  if (reason === "voicemail_reached") return "voice_voicemail";
+  if (reason === "ivr_reached") return "voice_ivr_unresolved";
+  return "voice_no_answer";
+}
+
+function mapDisconnectionToStatusLinesKey(reason) {
+  if (reason === "voicemail_reached") return "voicemail";
+  if (reason === "ivr_reached") return "ivr_unresolved";
+  return "fallback_sms";
+}
+
 function voiceStatusLines(appLocale, key) {
   const lines = {
     en: {
@@ -26,6 +41,8 @@ function voiceStatusLines(appLocale, key) {
       declined: ["Venue declined your booking request."],
       alternative: ["Venue offered an alternative time.", "Please check your options in the app."],
       fallback_sms: ["No answer — sent a follow-up text to the venue. Waiting for reply…"],
+      voicemail: ["Reached voicemail — sent a follow-up text to the venue. Waiting for reply…"],
+      ivr_unresolved: ["Reached automated menu — sent a follow-up text to the venue. Waiting for reply…"],
     },
     ru: {
       calling: ["Звоним в заведение для уточнения доступности…"],
@@ -33,6 +50,8 @@ function voiceStatusLines(appLocale, key) {
       declined: ["Заведение отклонило запрос на бронирование."],
       alternative: ["Заведение предложило альтернативное время.", "Проверьте варианты в приложении."],
       fallback_sms: ["Нет ответа — отправили текстовое сообщение в заведение. Ожидаем ответ…"],
+      voicemail: ["Дозвонились до автоответчика — отправили SMS в заведение. Ожидаем ответ…"],
+      ivr_unresolved: ["Попали на голосовое меню — отправили SMS в заведение. Ожидаем ответ…"],
     },
   };
   const table = appLocale === "ru" ? lines.ru : lines.en;
@@ -165,17 +184,25 @@ async function handleRetellWebhook(payload) {
   }
 
   const outcome = payload?.call?.call_analysis?.custom_analysis_data?.outcome;
-  const noAnswer = payload?.call?.disconnection_reason === "no_answer";
+  const disconnectionReason = payload?.call?.disconnection_reason;
+  const noAnswer = NON_HUMAN_DISCONNECTION_REASONS.has(disconnectionReason);
 
-  log("retell_webhook_received", { booking_id: bookingId, outcome, no_answer: noAnswer });
+  log("retell_webhook_received", {
+    booking_id: bookingId,
+    outcome,
+    no_answer: noAnswer,
+    disconnection_reason: disconnectionReason,
+  });
 
   if (outcome === "UNCLEAR" || noAnswer) {
-    booking.status = "voice_no_answer";
+    const fallbackStatus = mapDisconnectionToStatus(disconnectionReason);
+    const statusLinesKey = mapDisconnectionToStatusLinesKey(disconnectionReason);
+    booking.status = fallbackStatus;
     const appLocale = booking.app_interface_locale;
     await syncCartOrLegacy(
       booking,
-      { status_lines: voiceStatusLines(appLocale, "fallback_sms"), confirmable: false },
-      { booking_id: bookingId, status: "voice_no_answer", channel: "voice" },
+      { status_lines: voiceStatusLines(appLocale, statusLinesKey), confirmable: false },
+      { booking_id: bookingId, status: fallbackStatus, channel: "voice" },
     );
     const { createSmsBooking } = require("./smsBookingService");
     await createSmsBooking({ ...booking, fallback_from: "voice" });
@@ -183,6 +210,18 @@ async function handleRetellWebhook(payload) {
   }
 
   const appLocale = booking.app_interface_locale;
+
+  if (outcome === "IVR_NAVIGATION_FAILED") {
+    booking.status = "voice_ivr_failed";
+    await syncCartOrLegacy(
+      booking,
+      { status_lines: voiceStatusLines(appLocale, "ivr_unresolved"), confirmable: false },
+      { booking_id: bookingId, status: "voice_ivr_failed", channel: "voice" },
+    );
+    const { createSmsBooking } = require("./smsBookingService");
+    await createSmsBooking({ ...booking, fallback_from: "voice" });
+    return;
+  }
 
   if (outcome === "CONFIRMED") {
     booking.status = "voice_confirmed";

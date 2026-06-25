@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import type { PixAIPlace, PixAISlot } from "@/entities/pixai";
 import { chunkCells, WEEKDAY_LABELS, type CalendarCell } from "@/shared/lib/bookingCalendar";
-import { findBookingSlotForTime, minutesFromDate, resolveBookingTimeUnavailableReason } from "@/entities/booking/lib/bookingSlots";
+import { findBookingSlotForTime, minutesFromDate, resolveBookingTimeUnavailableReason, RESTAURANT_BOOKING_TIME_WINDOWS } from "@/entities/booking/lib/bookingSlots";
 import { BookingTimePicker } from "@/shared/ui/booking-time-picker";
 import type { AIBookingStyles } from "./aiBookingStyles";
 
@@ -28,6 +28,8 @@ type Props = {
   slotsError: boolean;
   refetchSlots: () => void;
   cartReservedSlotTimes: Set<number>;
+  isRestaurant: boolean;
+  use12h: boolean;
 };
 
 export function AIBookingSlotPicker({
@@ -48,6 +50,8 @@ export function AIBookingSlotPicker({
   slotsError,
   refetchSlots,
   cartReservedSlotTimes,
+  isRestaurant,
+  use12h,
 }: Props) {
   const { t, i18n } = useTranslation();
   const { colors } = useAppTheme();
@@ -172,6 +176,8 @@ export function AIBookingSlotPicker({
           onChange={onSelectedBookingTimeChange}
           unavailableReason={timeUnavailableReason}
           style={{ marginTop: 16 }}
+          windows={isRestaurant ? RESTAURANT_BOOKING_TIME_WINDOWS : undefined}
+          use12h={use12h}
         />
       )}
     </View>

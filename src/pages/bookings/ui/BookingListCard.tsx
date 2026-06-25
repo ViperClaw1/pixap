@@ -11,6 +11,7 @@ import {
   type Booking,
   type BookingDisplayStatus,
 } from "@/entities/booking";
+import { isSmsDeliveryFailed } from "@/entities/cart";
 import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import {
   businessCardDisplayFallback,
@@ -93,8 +94,10 @@ function BookingListCardInner({ item, styles, isCompact, onBookingPress }: Props
   const cancelBooking = useCancelBooking();
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  const isSmsError = isSmsDeliveryFailed(item.waStatusLines);
+
   useEffect(() => {
-    if (item.displayStatus !== "draft") return;
+    if (item.displayStatus !== "draft" || isSmsError) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 0.5, duration: 900, useNativeDriver: true }),
@@ -103,9 +106,9 @@ function BookingListCardInner({ item, styles, isCompact, onBookingPress }: Props
     );
     loop.start();
     return () => loop.stop();
-  }, [item.displayStatus, pulseAnim]);
+  }, [item.displayStatus, isSmsError, pulseAnim]);
 
-  const palette = statusPalette(item.displayStatus);
+  const palette = isSmsError ? STATUS_BADGE.danger : statusPalette(item.displayStatus);
   const isFreeEntry = isFreeBookingEntry(Number(item.cost), item.venueConfirmedPrice);
   const showEntryUi = item.displayStatus !== "draft";
   const listPrice = showEntryUi && !isFreeEntry ? bookingListPriceParts(Number(item.cost), item.venueConfirmedPrice) : null;
@@ -200,7 +203,7 @@ function BookingListCardInner({ item, styles, isCompact, onBookingPress }: Props
           </AppPressable>
         ) : null}
         {item.displayStatus === "draft" ? (
-          <Animated.View style={[styles.waitingBadge, { opacity: pulseAnim }]}>
+          <Animated.View style={[styles.waitingBadge, { opacity: isSmsError ? 1 : pulseAnim }]}>
             <Text style={styles.waitingBadgeText}>
               {item.waStatusLines.length > 0
                 ? item.waStatusLines[item.waStatusLines.length - 1]
