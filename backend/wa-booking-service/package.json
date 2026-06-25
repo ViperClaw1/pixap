@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test:parser": "node -e \"require('./services/parser').runParserSelfChecks()\""
+    "test:parser": "node -e \"require('./services/parser').runParserSelfChecks()\"",
+    "retell:sync": "node scripts/sync-retell-agent.js",
+    "retell:sync:dry": "node scripts/sync-retell-agent.js --dry-run"
   },
   "dependencies": {
     "express": "^4.21.2"
