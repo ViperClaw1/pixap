@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { PixAISlot } from "@/entities/pixai";
-import { buildSlotsFromBookingTimes, localDayBoundsIso } from "@/entities/booking/lib/bookingSlots";
+import { buildSlotsFromBookingTimes, filterSlotsToWindows, localDayBoundsIso, type BookingTimeWindows } from "@/entities/booking/lib/bookingSlots";
 import { safeRefreshSession } from "@/shared/lib/supabaseAuth";
 import { devWarn } from "@/shared/lib/devLog";
 
@@ -62,7 +62,7 @@ async function invokeGetAvailableSlots(businessId: string, dateYmd: string) {
  * Prefer DB RPC (no Edge deploy dependency, avoids gateway/404 issues).
  * Falls back to get-available-slots Edge Function if RPC is missing or errors.
  */
-export async function fetchAvailableSlotsForDay(businessId: string, dateYmd: string): Promise<PixAISlot[]> {
+export async function fetchAvailableSlotsForDay(businessId: string, dateYmd: string, windows?: BookingTimeWindows): Promise<PixAISlot[]> {
   const bounds = localDayBoundsIso(dateYmd);
   const { data: rpcData, error: rpcError } = await supabase.rpc("get_bookings_datetimes_for_availability", {
     p_business_id: businessId,
@@ -71,7 +71,7 @@ export async function fetchAvailableSlotsForDay(businessId: string, dateYmd: str
   });
 
   if (!rpcError) {
-    return buildSlotsFromBookingTimes(dateYmd, (rpcData ?? []) as string[]);
+    return buildSlotsFromBookingTimes(dateYmd, (rpcData ?? []) as string[], windows);
   }
 
   devWarn("[available_slots] RPC failed, trying edge:", rpcError.message);
@@ -80,17 +80,18 @@ export async function fetchAvailableSlotsForDay(businessId: string, dateYmd: str
   if (!edgeError) {
     const raw = edgeData as { slots?: PixAISlot[]; error?: string } | null;
     if (raw && typeof raw.error === "string" && raw.error) throw new Error(raw.error);
-    return (raw?.slots ?? []) as PixAISlot[];
+    const slots = (raw?.slots ?? []) as PixAISlot[];
+    return windows ? filterSlotsToWindows(slots, windows) : slots;
   }
 
   const edgeDetail = await readEdgeErrorDetail(edgeError);
   throw new Error(`${rpcError.message}${edgeDetail ? ` (${edgeDetail})` : ""}`);
 }
 
-export function useAvailableSlots(businessCardId: string | null, dateYmd: string | null) {
+export function useAvailableSlots(businessCardId: string | null, dateYmd: string | null, windows?: BookingTimeWindows) {
   return useQuery({
-    queryKey: queryKeys.availableSlots.forDay(businessCardId, dateYmd),
-    queryFn: async () => fetchAvailableSlotsForDay(businessCardId!, dateYmd!),
+    queryKey: [...queryKeys.availableSlots.forDay(businessCardId, dateYmd), windows ? "restaurant" : "default"],
+    queryFn: async () => fetchAvailableSlotsForDay(businessCardId!, dateYmd!, windows),
     enabled: !!businessCardId && !!dateYmd,
   });
 }

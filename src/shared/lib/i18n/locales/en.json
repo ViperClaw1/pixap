@@ -343,6 +343,9 @@
     "missingAvailableSlotMessage": "Choose an available time slot.",
     "selectBookingTime": "Select time",
     "bookingTimeWindowHint": "Available hours: 00:00–02:00 and 06:00–23:30.",
+    "bookingTimeWindowHintUs": "Available hours: 12:00 AM–2:00 AM and 6:00 AM–11:30 PM.",
+    "bookingTimeWindowHintRestaurant": "Available hours: 11:00–23:00.",
+    "bookingTimeWindowHintRestaurantUs": "Available hours: 11:00 AM–11:00 PM.",
     "selectedBookingTime": "Selected: {{time}}",
     "selectedTimeUnavailable": "This time is not available. Choose another.",
     "selectedTimeInPast": "Chosen time must be later than the current time.",
@@ -606,6 +609,7 @@
     "paymentPending": "Pending",
     "paymentPaid": "Paid",
     "pay": "Pay",
+    "bookOnPlatform": "Book on {{platform}}",
     "waitingForVenue": "Waiting for venue response",
     "noBookings": "No bookings",
     "choosePlace": "Choose place",
@@ -887,7 +891,10 @@
     "popular": "Popular",
     "confirmChannelWhatsapp": "Your booking goes to WhatsApp for venue confirmation.",
     "confirmChannelVoice": "We'll call the venue to confirm your booking.",
-    "confirmChannelUnknown": "We'll contact the venue to confirm your booking."
+    "confirmChannelEmail": "We'll email the venue to confirm your booking.",
+    "confirmChannelUnknown": "We'll contact the venue to confirm your booking.",
+    "externalPlatformBanner": "This venue takes reservations through {{platform}}. Tap the button to book directly.",
+    "openPlatform": "Open {{platform}}"
   },
   "bookingCredits": {
     "balanceBadge": "{{count}} booking credits left",

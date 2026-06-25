@@ -343,6 +343,9 @@ async function createBooking(payload) {
       app_interface_locale: optionalTrimString(payload, "interface_locale") ?? "en",
       supabase_callback_url: optionalTrimString(payload, "supabase_callback_url"),
       supabase_callback_token: optionalTrimString(payload, "supabase_callback_token"),
+      external_booking_platform: optionalTrimString(payload, "external_booking_platform") || null,
+      external_booking_url: optionalTrimString(payload, "external_booking_url") || null,
+      contact_email: optionalTrimString(payload, "contact_email") || null,
     });
   }
 

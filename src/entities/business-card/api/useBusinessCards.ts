@@ -34,6 +34,9 @@ export interface BusinessCard {
   booking_price: number;
   phone: string;
   contact_whatsapp?: string | null;
+  contact_email?: string | null;
+  external_booking_platform?: "resy" | "opentable" | "tock" | null;
+  external_booking_url?: string | null;
   type: "featured" | "recommended";
   created_at: string;
   latitude?: number | null;

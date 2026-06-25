@@ -1,3 +1,4 @@
+import * as WebBrowser from "expo-web-browser";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
@@ -86,6 +87,17 @@ import {
 } from "@/shared/lib/bookingCalendar";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const EXTERNAL_PLATFORM_LABELS: Record<string, string> = {
+  resy: "Resy",
+  opentable: "OpenTable",
+  tock: "Tock",
+};
+
+function externalPlatformLabel(platform: string | null | undefined): string | null {
+  if (!platform) return null;
+  return EXTERNAL_PLATFORM_LABELS[platform] ?? platform;
+}
 const FOOTER_VERTICAL_PAD = 8;
 const FOOTER_BUTTON_HEIGHT = 44;
 const CONTINUE_THROTTLE_MS = 600;
@@ -159,12 +171,13 @@ export default function BookingFlowPage() {
     () => buildMonthCells(visibleCalendarMonth.getFullYear(), visibleCalendarMonth.getMonth()),
     [visibleCalendarMonth],
   );
+  const isRestaurantVenue = isRestaurantCategoryName(place?.category?.name ?? "");
   const {
     data: slotsForDate = [],
     isFetching: slotsFetching,
     isError: slotsError,
     refetch: refetchSlots,
-  } = useAvailableSlots(id, selectedDateYmd);
+  } = useAvailableSlots(id, selectedDateYmd, isRestaurantVenue ? RESTAURANT_BOOKING_TIME_WINDOWS : undefined);
   const selectedAvailableSlot = useMemo(() => {
     if (!selectedBookingTime) return null;
     return findBookingSlotForTime(slotsForDate, minutesFromDate(selectedBookingTime));
@@ -301,7 +314,6 @@ export default function BookingFlowPage() {
     return null;
   }
 
-  const isRestaurantVenue = isRestaurantCategoryName(place.category?.name ?? "");
   const use12h = countryLabelForCity(place.city ?? "") === "United States";
 
   const todayYmd = toYmd(startOfLocalDay(new Date()));
@@ -630,7 +642,18 @@ export default function BookingFlowPage() {
               <Text style={themedStyles.confirmText}>
                 {guests} guests · {selectedDate.toDateString()} {selectedTimeLabel}
               </Text>
-              <BookingWhatsAppBanner channel={bookingChannelFromPhone(place.contact_whatsapp)} />
+              {place.external_booking_platform ? (
+                <View style={[styles.externalBanner, { backgroundColor: `${colors.primary}14`, borderColor: `${colors.primary}33` }]}>
+                  <Ionicons name="globe-outline" size={22} color={colors.primary} />
+                  <Text style={[styles.externalBannerText, { color: colors.text }]}>
+                    {t("bookingFlow.externalPlatformBanner", {
+                      platform: externalPlatformLabel(place.external_booking_platform),
+                    })}
+                  </Text>
+                </View>
+              ) : (
+                <BookingWhatsAppBanner channel={bookingChannelFromPhone(place.contact_whatsapp)} />
+              )}
             </BookingFlowPlacePanel>
           ) : null}
         </View>
@@ -657,6 +680,17 @@ export default function BookingFlowPage() {
               onPress={handleContinue}
             >
               <Text style={styles.primaryText}>Continue</Text>
+            </AppPressable>
+          ) : place.external_booking_platform && place.external_booking_url ? (
+            <AppPressable
+              style={[styles.primary, styles.footerPrimaryBtn]}
+              onPress={() => {
+                void WebBrowser.openBrowserAsync(place.external_booking_url!);
+              }}
+            >
+              <Text style={styles.primaryText}>
+                {t("bookingFlow.openPlatform", { platform: externalPlatformLabel(place.external_booking_platform) })}
+              </Text>
             </AppPressable>
           ) : (
             <AppPressable
@@ -738,6 +772,21 @@ const styles = StyleSheet.create({
   calendarCellToday: { borderStyle: "dashed", borderColor: "#d1d5db" },
   calendarCellSelected: { borderColor: "#111", backgroundColor: "#f3f4f6" },
   calendarCellPast: { opacity: 0.38 },
+  externalBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 12,
+  },
+  externalBannerText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "500",
+  },
   timePicker: { marginTop: 16 },
   slotsLoading: { marginTop: 16 },
   slotsError: { marginTop: 16, gap: 8 },

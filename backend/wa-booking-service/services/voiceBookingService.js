@@ -33,6 +33,13 @@ function mapDisconnectionToStatusLinesKey(reason) {
   return "fallback_sms";
 }
 
+function fallbackStatusLinesKey(disconnectionReason, hasEmail) {
+  if (!hasEmail) return mapDisconnectionToStatusLinesKey(disconnectionReason);
+  if (disconnectionReason === "voicemail_reached") return "voicemail_email";
+  if (disconnectionReason === "ivr_reached") return "ivr_email";
+  return "fallback_email";
+}
+
 function voiceStatusLines(appLocale, key) {
   const lines = {
     en: {
@@ -41,8 +48,12 @@ function voiceStatusLines(appLocale, key) {
       declined: ["Venue declined your booking request."],
       alternative: ["Venue offered an alternative time.", "Please check your options in the app."],
       fallback_sms: ["No answer — sent a follow-up text to the venue. Waiting for reply…"],
+      fallback_email: ["No answer — sent a follow-up email to the venue. Waiting for reply…"],
       voicemail: ["Reached voicemail — sent a follow-up text to the venue. Waiting for reply…"],
+      voicemail_email: ["Reached voicemail — sent a follow-up email to the venue. Waiting for reply…"],
       ivr_unresolved: ["Reached automated menu — sent a follow-up text to the venue. Waiting for reply…"],
+      ivr_email: ["Reached automated menu — sent a follow-up email to the venue. Waiting for reply…"],
+      external_booking: ["This venue takes reservations through a third-party platform. Use the button below to book directly."],
     },
     ru: {
       calling: ["Звоним в заведение для уточнения доступности…"],
@@ -50,8 +61,12 @@ function voiceStatusLines(appLocale, key) {
       declined: ["Заведение отклонило запрос на бронирование."],
       alternative: ["Заведение предложило альтернативное время.", "Проверьте варианты в приложении."],
       fallback_sms: ["Нет ответа — отправили текстовое сообщение в заведение. Ожидаем ответ…"],
+      fallback_email: ["Нет ответа — отправили email в заведение. Ожидаем ответ…"],
       voicemail: ["Дозвонились до автоответчика — отправили SMS в заведение. Ожидаем ответ…"],
+      voicemail_email: ["Дозвонились до автоответчика — отправили email в заведение. Ожидаем ответ…"],
       ivr_unresolved: ["Попали на голосовое меню — отправили SMS в заведение. Ожидаем ответ…"],
+      ivr_email: ["Попали на голосовое меню — отправили email в заведение. Ожидаем ответ…"],
+      external_booking: ["Это заведение принимает брони через стороннюю платформу. Нажмите кнопку ниже для бронирования."],
     },
   };
   const table = appLocale === "ru" ? lines.ru : lines.en;
@@ -79,6 +94,9 @@ async function initiateVoiceBooking(payload) {
     app_interface_locale,
     supabase_callback_url,
     supabase_callback_token,
+    external_booking_platform,
+    external_booking_url,
+    contact_email,
   } = payload;
 
   const appLocale = app_interface_locale === "ru" ? "ru" : "en";
@@ -99,6 +117,9 @@ async function initiateVoiceBooking(payload) {
     app_interface_locale: appLocale,
     supabase_callback_url: supabase_callback_url || null,
     supabase_callback_token: supabase_callback_token || null,
+    external_booking_platform: external_booking_platform || null,
+    external_booking_url: external_booking_url || null,
+    contact_email: contact_email || null,
     status: "calling",
     retell_call_id: null,
     created_at: new Date().toISOString(),
@@ -107,6 +128,19 @@ async function initiateVoiceBooking(payload) {
   voiceBookingsById.set(booking_id, booking);
 
   log("voice_booking_created", { booking_id, owner_phone });
+
+  // Gate: skip the call entirely for venues that use a third-party booking platform
+  if (external_booking_platform) {
+    log("voice_booking_skipped_external_platform", { booking_id, platform: external_booking_platform });
+    booking.status = "external_booking_required";
+    voiceBookingsById.delete(booking_id);
+    await syncCartOrLegacy(
+      booking,
+      { status_lines: voiceStatusLines(appLocale, "external_booking"), confirmable: false },
+      { booking_id, status: "external_booking_required", channel: "voice" },
+    );
+    return makeVoiceBookingSnapshot(booking);
+  }
 
   if (!RETELL_API_KEY || !RETELL_AGENT_ID || !RETELL_FROM_NUMBER) {
     log("voice_booking_retell_not_configured", {
@@ -196,16 +230,22 @@ async function handleRetellWebhook(payload) {
 
   if (outcome === "UNCLEAR" || noAnswer) {
     const fallbackStatus = mapDisconnectionToStatus(disconnectionReason);
-    const statusLinesKey = mapDisconnectionToStatusLinesKey(disconnectionReason);
-    booking.status = fallbackStatus;
     const appLocale = booking.app_interface_locale;
+    const hasEmail = Boolean(booking.contact_email);
+    const statusLinesKey = fallbackStatusLinesKey(disconnectionReason, hasEmail);
+    booking.status = fallbackStatus;
     await syncCartOrLegacy(
       booking,
       { status_lines: voiceStatusLines(appLocale, statusLinesKey), confirmable: false },
       { booking_id: bookingId, status: fallbackStatus, channel: "voice" },
     );
-    const { createSmsBooking } = require("./smsBookingService");
-    await createSmsBooking({ ...booking, fallback_from: "voice" });
+    if (hasEmail) {
+      const { createEmailBooking } = require("./emailBookingService");
+      await createEmailBooking({ ...booking, fallback_from: "voice" });
+    } else {
+      const { createSmsBooking } = require("./smsBookingService");
+      await createSmsBooking({ ...booking, fallback_from: "voice" });
+    }
     return;
   }
 
@@ -213,13 +253,20 @@ async function handleRetellWebhook(payload) {
 
   if (outcome === "IVR_NAVIGATION_FAILED") {
     booking.status = "voice_ivr_failed";
+    const hasEmail = Boolean(booking.contact_email);
+    const ivrKey = hasEmail ? "ivr_email" : "ivr_unresolved";
     await syncCartOrLegacy(
       booking,
-      { status_lines: voiceStatusLines(appLocale, "ivr_unresolved"), confirmable: false },
+      { status_lines: voiceStatusLines(appLocale, ivrKey), confirmable: false },
       { booking_id: bookingId, status: "voice_ivr_failed", channel: "voice" },
     );
-    const { createSmsBooking } = require("./smsBookingService");
-    await createSmsBooking({ ...booking, fallback_from: "voice" });
+    if (hasEmail) {
+      const { createEmailBooking } = require("./emailBookingService");
+      await createEmailBooking({ ...booking, fallback_from: "voice" });
+    } else {
+      const { createSmsBooking } = require("./smsBookingService");
+      await createSmsBooking({ ...booking, fallback_from: "voice" });
+    }
     return;
   }
 
@@ -256,16 +303,22 @@ async function handleRetellWebhook(payload) {
     return;
   }
 
-  // Unknown outcome — treat as UNCLEAR and fall back to SMS
+  // Unknown outcome — treat as UNCLEAR and fall back to email or SMS
   log("retell_webhook_unknown_outcome", { booking_id: bookingId, outcome });
   booking.status = "voice_unclear";
+  const hasEmailFallback = Boolean(booking.contact_email);
   await syncCartOrLegacy(
     booking,
-    { status_lines: voiceStatusLines(appLocale, "fallback_sms"), confirmable: false },
+    { status_lines: voiceStatusLines(appLocale, hasEmailFallback ? "fallback_email" : "fallback_sms"), confirmable: false },
     { booking_id: bookingId, status: "voice_unclear", channel: "voice" },
   );
-  const { createSmsBooking } = require("./smsBookingService");
-  await createSmsBooking({ ...booking, fallback_from: "voice" });
+  if (hasEmailFallback) {
+    const { createEmailBooking } = require("./emailBookingService");
+    await createEmailBooking({ ...booking, fallback_from: "voice" });
+  } else {
+    const { createSmsBooking } = require("./smsBookingService");
+    await createSmsBooking({ ...booking, fallback_from: "voice" });
+  }
 }
 
 function getVoiceDebugState() {

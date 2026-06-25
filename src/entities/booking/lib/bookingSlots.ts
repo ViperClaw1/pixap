@@ -202,11 +202,11 @@ export function localDayBoundsIso(ymd: string): { start: string; endExclusive: s
   return { start: start.toISOString(), endExclusive: endExclusive.toISOString() };
 }
 
-export function buildSlotsFromBookingTimes(ymd: string, bookingIsoTimes: string[]): PixAISlot[] {
+export function buildSlotsFromBookingTimes(ymd: string, bookingIsoTimes: string[], windows?: BookingTimeWindows): PixAISlot[] {
   const busy = new Set(bookingIsoTimes.map(snapIsoToSlotMs));
   const minStart = Date.now() + BOOKING_MIN_LEAD_MS;
 
-  return buildBookingSlotTimeLabels().map((label) => {
+  return buildBookingSlotTimeLabels(windows).map((label) => {
     const [h, m] = label.split(":").map(Number);
     const dt = bookingDateTimeFromYmd(ymd, h * 60 + m);
     const notBusy = !busy.has(dt.getTime());
@@ -218,4 +218,9 @@ export function buildSlotsFromBookingTimes(ymd: string, bookingIsoTimes: string[
       isBest: false,
     };
   });
+}
+
+export function filterSlotsToWindows(slots: PixAISlot[], windows: BookingTimeWindows): PixAISlot[] {
+  const validLabels = new Set(buildBookingSlotTimeLabels(windows));
+  return slots.filter((slot) => validLabels.has(slot.label));
 }

@@ -18,7 +18,7 @@ const SORTED_WA_PREFIXES = [
   "+7",
 ].sort((a, b) => b.length - a.length);
 
-export type BookingChannel = "whatsapp" | "voice" | "unknown";
+export type BookingChannel = "whatsapp" | "voice" | "email" | "unknown";
 
 export function bookingChannelFromPhone(phone: string | null | undefined): BookingChannel {
   const raw = (phone ?? "").replace(/\s/g, "");

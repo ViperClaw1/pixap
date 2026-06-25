@@ -1,3 +1,4 @@
+import * as WebBrowser from "expo-web-browser";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { memo, useEffect, useRef } from "react";
 import { Animated, Alert, Linking, PixelRatio, Text, View } from "react-native";
@@ -210,6 +211,21 @@ function BookingListCardInner({ item, styles, isCompact, onBookingPress }: Props
                 : t("bookings.waitingForVenue")}
             </Text>
           </Animated.View>
+        ) : null}
+        {item.business_card?.external_booking_url ? (
+          <AppPressable
+            style={styles.externalBookingBtn}
+            onPress={(event) => {
+              event.stopPropagation?.();
+              void WebBrowser.openBrowserAsync(item.business_card!.external_booking_url!);
+            }}
+          >
+            <Text style={styles.externalBookingBtnText}>
+              {t("bookings.bookOnPlatform", {
+                platform: item.business_card.external_booking_platform ?? "platform",
+              })}
+            </Text>
+          </AppPressable>
         ) : null}
         <View style={styles.badgeRow}>
           {showEntryUi ? (

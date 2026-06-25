@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
   const { data: row, error: fetchErr } = await db
     .from("cart_items")
     .select(
-      "id, user_id, status, business_card_id, date_time, cost, persons, customer_name, customer_phone, customer_email, comment, is_restaurant_table, wa_n8n_callback_token, wa_n8n_started_at, business_card:business_cards(name, contact_whatsapp, preferred_booking_channel)",
+      "id, user_id, status, business_card_id, date_time, cost, persons, customer_name, customer_phone, customer_email, comment, is_restaurant_table, wa_n8n_callback_token, wa_n8n_started_at, business_card:business_cards(name, contact_whatsapp, preferred_booking_channel, external_booking_platform, external_booking_url, contact_email)",
     )
     .eq("id", cartItemId)
     .eq("user_id", userId)
@@ -148,7 +148,14 @@ Deno.serve(async (req) => {
     });
   }
 
-  const bc = row.business_card as { name?: string | null; contact_whatsapp?: string | null; preferred_booking_channel?: string | null } | null;
+  const bc = row.business_card as {
+    name?: string | null;
+    contact_whatsapp?: string | null;
+    preferred_booking_channel?: string | null;
+    external_booking_platform?: string | null;
+    external_booking_url?: string | null;
+    contact_email?: string | null;
+  } | null;
   const venueWhatsapp = (bc?.contact_whatsapp ?? "").trim();
   if (!venueWhatsapp) {
     const payload = {
@@ -256,6 +263,9 @@ Deno.serve(async (req) => {
     supabase_callback_token: callbackToken,
     interface_locale: interfaceLocale,
     ...(preferredChannel ? { preferred_booking_channel: preferredChannel } : {}),
+    ...(bc?.external_booking_platform ? { external_booking_platform: bc.external_booking_platform } : {}),
+    ...(bc?.external_booking_url ? { external_booking_url: bc.external_booking_url } : {}),
+    ...(bc?.contact_email ? { contact_email: bc.contact_email } : {}),
   };
 
   let waRes: Response;

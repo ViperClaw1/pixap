@@ -57,7 +57,7 @@ const embed = (extra: string) =>
 
 export const FAVORITES_SELECT = `*, ${embed("images, address, rating, booking_price, type")}`;
 export const CART_ITEMS_SELECT = `*, ${embed("images, address, category_id, contact_whatsapp")}`;
-export const BOOKINGS_SELECT = `*, ${embed("images, blurhashes, address, category_id")}`;
+export const BOOKINGS_SELECT = `*, ${embed("images, blurhashes, address, category_id, external_booking_platform, external_booking_url")}`;
 export const SHOPPING_CART_SELECT = `*, shopping_item:shopping_items(*), ${embed("images, contact_whatsapp")}`;
 export const PIXAI_BUSINESS_CARD_SELECT = `id, ${BUSINESS_CARD_I18N_COLUMN_LIST}, address, city, rating, booking_price, images, blurhashes, cuisine_types, menu_items, price_tier`;
 
