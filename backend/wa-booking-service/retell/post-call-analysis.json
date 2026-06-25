@@ -1,0 +1,14 @@
+[
+  {
+    "name": "outcome",
+    "type": "enum",
+    "description": "The result of the booking availability call. Choose the single most accurate value based on the entire conversation. CONFIRMED = venue said the slot is available (fee or free). DECLINED = venue said the slot is not available. ALTERNATIVE_OFFERED = venue suggested a different date or time. IVR_NAVIGATION_FAILED = agent reached an automated phone menu and could not reach a human after 3 navigation attempts. UNCLEAR = any other result: voicemail reached without leaving a message, no answer, confusing response, call dropped before a clear answer.",
+    "choices": [
+      "CONFIRMED",
+      "DECLINED",
+      "ALTERNATIVE_OFFERED",
+      "IVR_NAVIGATION_FAILED",
+      "UNCLEAR"
+    ]
+  }
+]

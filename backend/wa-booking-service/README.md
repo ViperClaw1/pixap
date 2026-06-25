@@ -2,6 +2,26 @@
 
 Standalone Express backend that handles deterministic (non-AI) WhatsApp booking confirmation.
 
+## Retell voice agent config
+
+The Retell agent's system prompt and post-call analysis schema live in `retell/` and are the source of truth:
+
+- `retell/agent.prompt.txt` — full system prompt (includes IVR navigation instructions)
+- `retell/post-call-analysis.json` — post-call analysis schema (outcome enum: CONFIRMED / DECLINED / ALTERNATIVE_OFFERED / IVR_NAVIGATION_FAILED / UNCLEAR)
+
+To push local config to Retell, add `RETELL_API_KEY` and `RETELL_AGENT_ID` to the root `.env` file, then:
+```powershell
+npm run retell:sync:dry   # dry-run — shows diff without writing
+npm run retell:sync       # apply changes
+```
+
+Or inline in PowerShell without touching `.env`:
+```powershell
+$env:RETELL_API_KEY="key"; $env:RETELL_AGENT_ID="agent_xxx"; npm run retell:sync:dry
+```
+
+The script enables `enable_voicemail_detection` and `enable_ivr_navigation` on the agent if not already set.
+
 ## Run
 
 1. Install dependencies:
