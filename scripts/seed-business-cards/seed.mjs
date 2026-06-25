@@ -121,6 +121,8 @@ function buildInsertRow(venue, rng, images, usedNames) {
     cuisine_types: venue._googlePlace?.cuisine_types ?? venue._osmPlace?.cuisine_types ?? [],
     menu_items: venue._googlePlace?.menu_items ?? venue._osmPlace?.menu_items ?? [],
     price_tier: venue._googlePlace?.price_tier ?? venue._osmPlace?.price_tier ?? null,
+    external_booking_platform: venue._googlePlace?.external_booking_platform ?? null,
+    external_booking_url: venue._googlePlace?.external_booking_url ?? null,
     images: images ?? [],
     image: images?.[0] ?? null,
   };

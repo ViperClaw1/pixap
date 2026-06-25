@@ -25,7 +25,7 @@ import {
   venueConfirmedPriceLabel,
   type BookingDisplayStatus,
 } from "@/entities/booking";
-import { useCartItems, parseWaStatusLines } from "@/entities/cart";
+import { useCartItems, parseWaStatusLines, localizeWaStatusLine } from "@/entities/cart";
 import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/businessCardBlurhash";
 import { bookingThumbUris } from "@/pages/bookings/ui/BookingListCard";
 import { bookingDetailStaticStyles, bookingDetailThemeStyles } from "./bookingDetailStyles";
@@ -249,7 +249,7 @@ export default function BookingDetailPage() {
             </View>
             {displayStatus === "draft" ? (
               <BookingStatusTimeline
-                lines={parseWaStatusLines(linkedCartItem?.wa_status_lines)}
+                lines={parseWaStatusLines(linkedCartItem?.wa_status_lines).map((line) => localizeWaStatusLine(line, t))}
                 fallback={t("bookings.waitingForVenue")}
                 styles={styles}
               />

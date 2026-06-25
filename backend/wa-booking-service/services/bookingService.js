@@ -300,7 +300,7 @@ async function completeBookingWithTerms(booking, { isFree, priceDisplay }) {
   booking.updated_at = new Date().toISOString();
   removeActiveBooking(booking.owner_phone, booking.id);
 
-  const locale = booking.interface_locale;
+  const locale = bookingUserLocale(booking);
 
   await sendLocaleTemplate(booking, TEMPLATE_GOT_IT, []);
 
@@ -408,7 +408,7 @@ async function createBooking(payload) {
   await syncCartOrLegacy(
     booking,
     {
-      status_lines: statusLinesFor(templateLocale, "waiting_delivery"),
+      status_lines: statusLinesFor(bookingUserLocale(booking), "waiting_delivery"),
       confirmable: false,
       payment_link: null,
     },
@@ -419,7 +419,8 @@ async function createBooking(payload) {
 }
 
 async function handleAvailabilityStep(booking, messageText) {
-  const locale = booking.interface_locale;
+  const waLocale = booking.interface_locale;
+  const userLocale = bookingUserLocale(booking);
   const decision = parseAvailabilityReply(messageText);
 
   if (decision === "no") {
@@ -429,12 +430,12 @@ async function handleAvailabilityStep(booking, messageText) {
     removeActiveBooking(booking.owner_phone, booking.id);
 
     const declineMsg =
-      locale === "ru" ? "Слот недоступен. Диалог завершён." : "Slot not available. Flow closed.";
+      waLocale === "ru" ? "Слот недоступен. Диалог завершён." : "Slot not available. Flow closed.";
     const sendResult = await sendWhatsAppMessage(booking.owner_phone, declineMsg);
     trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
-      { status_lines: statusLinesFor(locale, "slot_declined"), confirmable: false, payment_link: null },
+      { status_lines: statusLinesFor(userLocale, "slot_declined"), confirmable: false, payment_link: null },
       { booking_id: booking.id, status: "rejected", step: booking.step },
     );
     return;
@@ -448,7 +449,7 @@ async function handleAvailabilityStep(booking, messageText) {
     await syncCartOrLegacy(
       booking,
       {
-        status_lines: statusLinesFor(locale, "slot_available_pricing"),
+        status_lines: statusLinesFor(userLocale, "slot_available_pricing"),
         confirmable: false,
         payment_link: null,
       },
@@ -457,12 +458,13 @@ async function handleAvailabilityStep(booking, messageText) {
     return;
   }
 
-  const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptAvailability(locale));
+  const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptAvailability(waLocale));
   trackOutboundMessage(booking, sendResult?.message_id);
 }
 
 async function handlePricingStep(booking, messageText) {
-  const locale = booking.interface_locale;
+  const waLocale = booking.interface_locale;
+  const userLocale = bookingUserLocale(booking);
   const decision = parseFreeOrPriceReply(messageText);
 
   if (decision === "free") {
@@ -475,12 +477,12 @@ async function handlePricingStep(booking, messageText) {
     booking.status = "price_requested";
     booking.step = "pricing_price_input";
     booking.updated_at = new Date().toISOString();
-    const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptPriceInput(locale));
+    const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptPriceInput(waLocale));
     trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
       {
-        status_lines: statusLinesFor(locale, "awaiting_price"),
+        status_lines: statusLinesFor(userLocale, "awaiting_price"),
         confirmable: false,
         payment_link: null,
       },
@@ -489,21 +491,22 @@ async function handlePricingStep(booking, messageText) {
     return;
   }
 
-  const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptPricing(locale));
+  const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptPricing(waLocale));
   trackOutboundMessage(booking, sendResult?.message_id);
 }
 
 async function handlePricingPriceInputStep(booking, messageText) {
-  const locale = booking.interface_locale;
+  const waLocale = booking.interface_locale;
+  const userLocale = bookingUserLocale(booking);
   const parsed = parsePriceAndCurrency(messageText);
 
   if (parsed == null) {
-    const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptPriceInput(locale));
+    const sendResult = await sendWhatsAppMessage(booking.owner_phone, repromptPriceInput(waLocale));
     trackOutboundMessage(booking, sendResult?.message_id);
     await syncCartOrLegacy(
       booking,
       {
-        status_lines: statusLinesFor(locale, "invalid_price"),
+        status_lines: statusLinesFor(userLocale, "invalid_price"),
         confirmable: false,
         payment_link: null,
       },
@@ -602,7 +605,7 @@ async function processDeliveryStatus(payload) {
   const userLocale = bookingUserLocale(booking);
   const statusLines = ownerUnreachable
     ? waOwnerUnreachableStatusLines(userLocale, booking.owner_phone)
-    : [deliveryStatusLine(status, errorDetails, booking.template_locale || booking.interface_locale)];
+    : [deliveryStatusLine(status, errorDetails, userLocale)];
 
   if (ownerUnreachable) {
     booking.status = "wa_unreachable";

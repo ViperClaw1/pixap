@@ -1,22 +1,21 @@
 #!/usr/bin/env node
 /**
  * One-shot script: scan all business_cards where external_booking_platform IS NULL,
- * detect Resy / OpenTable / Tock from the venue's website field, and backfill
- * external_booking_platform + external_booking_url.
+ * fetch websiteUri from Google Places API (New) using the stored google_place_id,
+ * detect Resy / OpenTable / Tock, and backfill external_booking_platform + external_booking_url.
  *
- * Usage (reads SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY from root .env automatically):
+ * Usage (reads SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + GOOGLE_MAPS_API_KEY from root .env):
  *   node backend/wa-booking-service/scripts/backfill-external-booking-detection.js --dry-run
  *
- * Or pass inline (PowerShell):
- *   $env:SUPABASE_SERVICE_ROLE_KEY="eyJ..."; node backend/wa-booking-service/scripts/backfill-external-booking-detection.js --dry-run
- *
- * Add --limit=50 to cap how many rows are processed.
+ * Flags:
+ *   --dry-run      Print detections without writing to DB
+ *   --limit=N      Cap rows processed (default 2000)
+ *   --concurrency=N  Parallel Places API requests (default 3)
  */
 
 const fs = require('fs');
 const path = require('path');
 
-// Load .env from repo root (3 levels up from scripts/) — same pattern as sync-retell-agent.js
 (function loadDotEnv() {
   const envPath = path.join(__dirname, '..', '..', '..', '.env');
   if (!fs.existsSync(envPath)) return;
@@ -27,46 +26,31 @@ const path = require('path');
     const eq = trimmed.indexOf('=');
     if (eq === -1) continue;
     const key = trimmed.slice(0, eq).trim();
-    const val = trimmed
-      .slice(eq + 1)
-      .trim()
-      .replace(/^["']|["']$/g, '');
+    const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
     if (key && !(key in process.env)) process.env[key] = val;
   }
 })();
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 const DRY_RUN = process.argv.includes('--dry-run');
 const LIMIT = (() => {
   const arg = process.argv.find((a) => a.startsWith('--limit='));
   return arg ? Number.parseInt(arg.split('=')[1], 10) : 2000;
+})();
+const CONCURRENCY = (() => {
+  const arg = process.argv.find((a) => a.startsWith('--concurrency='));
+  return arg ? Number.parseInt(arg.split('=')[1], 10) : 3;
 })();
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars.');
   process.exit(1);
 }
-
-const PLATFORM_PATTERNS = [
-  { platform: 'resy', patterns: ['resy.com'] },
-  { platform: 'opentable', patterns: ['opentable.com'] },
-  { platform: 'tock', patterns: ['exploretock.com', 'tock.com'] },
-];
-
-/**
- * Detect external booking platform from a website URL string.
- * Returns { platform, url } or null.
- */
-function detectFromWebsite(website) {
-  if (!website || typeof website !== 'string') return null;
-  const lower = website.toLowerCase();
-  for (const { platform, patterns } of PLATFORM_PATTERNS) {
-    if (patterns.some((p) => lower.includes(p))) {
-      return { platform, url: website };
-    }
-  }
-  return null;
+if (!GOOGLE_API_KEY) {
+  console.error('Set GOOGLE_MAPS_API_KEY env var (needed for Places API calls).');
+  process.exit(1);
 }
 
 async function sbFetch(path, options = {}) {
@@ -89,60 +73,52 @@ async function sbFetch(path, options = {}) {
   return null;
 }
 
+async function runInChunks(items, concurrency, fn) {
+  const results = [];
+  for (let i = 0; i < items.length; i += concurrency) {
+    const chunk = items.slice(i, i + concurrency);
+    const chunkResults = await Promise.all(chunk.map(fn));
+    results.push(...chunkResults);
+  }
+  return results;
+}
+
 async function main() {
-  console.log(`[backfill] DRY_RUN=${DRY_RUN}, LIMIT=${LIMIT}`);
-  console.log(`[backfill] SUPABASE_URL=${SUPABASE_URL ?? '(not set)'}`);
-  console.log(
-    `[backfill] SERVICE_KEY=${SERVICE_KEY ? `${SERVICE_KEY.slice(0, 12)}...${SERVICE_KEY.slice(-6)} (len=${SERVICE_KEY.length})` : '(not set)'}`,
+  console.log(`[backfill] DRY_RUN=${DRY_RUN}, LIMIT=${LIMIT}, CONCURRENCY=${CONCURRENCY}`);
+
+  const { loadPlaceDetailsNew, extractExternalBookingInfo } = await import(
+    '../../../scripts/seed-business-cards/googleMaps.mjs'
   );
 
-  // Fetch all business_cards without external_booking_platform set, that have a website/phone field
   const rows = await sbFetch(
-    `business_cards?select=id,name,phone&external_booking_platform=is.null&limit=${LIMIT}`,
+    `business_cards?select=id,name,google_place_id&external_booking_platform=is.null&google_place_id=not.is.null&limit=${LIMIT}`,
     { method: 'GET', headers: { Prefer: 'return=representation' } },
   );
 
-  console.log(`[backfill] Fetched ${rows.length} rows to scan.`);
+  console.log(`[backfill] Fetched ${rows.length} rows with google_place_id to scan.`);
 
   let detected = 0;
   let updated = 0;
   let failed = 0;
 
-  // Known venues to hard-code (from transcript evidence)
-  const KNOWN_OVERRIDES = [
-    {
-      name_match: 'Eleven Madison Park',
-      platform: 'resy',
-      url: 'https://resy.com/cities/nyc/eleven-madison-park',
-    },
-    {
-      name_match: 'Clemente Bar',
-      platform: 'resy',
-      url: 'https://resy.com/cities/nyc/clemente-bar',
-    },
-  ];
+  await runInChunks(rows, CONCURRENCY, async (row) => {
+    let placeData;
+    try {
+      placeData = await loadPlaceDetailsNew(row.google_place_id, GOOGLE_API_KEY);
+    } catch (err) {
+      console.warn(`[backfill] Places API error for id=${row.id} place=${row.google_place_id}: ${String(err)}`);
+      return;
+    }
 
-  for (const row of rows) {
-    // Check known overrides first
-    const override = KNOWN_OVERRIDES.find(
-      (o) =>
-        o.name_match &&
-        row.name &&
-        row.name.toLowerCase().includes(o.name_match.toLowerCase()),
-    );
-
-    const match = override
-      ? { platform: override.platform, url: override.url }
-      : null; // website field not in current select; extend query if needed
-
-    if (!match) continue;
+    const match = extractExternalBookingInfo(placeData);
+    if (!match.platform) return;
 
     detected += 1;
     console.log(
       `[backfill] DETECTED  id=${row.id}  name="${row.name}"  → ${match.platform}  ${match.url}`,
     );
 
-    if (DRY_RUN) continue;
+    if (DRY_RUN) return;
 
     try {
       await sbFetch(`business_cards?id=eq.${row.id}`, {
@@ -158,14 +134,10 @@ async function main() {
       failed += 1;
       console.error(`[backfill] FAILED    id=${row.id}  error=${String(err)}`);
     }
-  }
+  });
 
   console.log(
     `[backfill] Done. detected=${detected}, updated=${updated}, failed=${failed}, dry_run=${DRY_RUN}`,
-  );
-  console.log(
-    '[backfill] TIP: To detect from website URLs, add `website` to the select query above and remove the KNOWN_OVERRIDES pattern.\n' +
-      '           Currently business_cards has no `website` column; add it to the schema if you have venue website data.',
   );
 }
 

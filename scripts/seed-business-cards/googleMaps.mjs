@@ -331,7 +331,14 @@ const PLACES_NEW_DETAILS_FIELDS = [
   "primaryTypeDisplayName",
   "priceLevel",
   "editorialSummary",
+  "websiteUri",
 ].join(",");
+
+export const EXTERNAL_BOOKING_DOMAIN_PATTERNS = [
+  { platform: "resy", patterns: ["resy.com"] },
+  { platform: "opentable", patterns: ["opentable.com"] },
+  { platform: "tock", patterns: ["exploretock.com", "tock.com"] },
+];
 
 export function extractCuisineTypes(placeData) {
   const cuisines = new Set();
@@ -354,6 +361,18 @@ export function extractPriceTier(placeData, legacyPriceLevel = null) {
     return LEGACY_PRICE_LEVEL_TO_TIER[legacyPriceLevel] ?? null;
   }
   return null;
+}
+
+export function extractExternalBookingInfo(placeData) {
+  const website = placeData?.websiteUri;
+  if (!website || typeof website !== "string") return { platform: null, url: null };
+  const lower = website.toLowerCase();
+  for (const { platform, patterns } of EXTERNAL_BOOKING_DOMAIN_PATTERNS) {
+    if (patterns.some((p) => lower.includes(p))) {
+      return { platform, url: website };
+    }
+  }
+  return { platform: null, url: null };
 }
 
 export function deriveMenuItemsFromCuisineTypes(cuisineTypes) {
@@ -407,6 +426,8 @@ async function enrichPlaceWithNewApiData(place, apiKey) {
       cuisine_types: [],
       price_tier: extractPriceTier(null, place?.price_level),
       menu_items: [],
+      external_booking_platform: null,
+      external_booking_url: null,
     };
   }
 
@@ -415,7 +436,9 @@ async function enrichPlaceWithNewApiData(place, apiKey) {
     const cuisine_types = extractCuisineTypes(newApiData);
     const price_tier = extractPriceTier(newApiData, place.price_level);
     const menu_items = deriveMenuItemsFromCuisineTypes(cuisine_types);
-    return { newApiData, cuisine_types, price_tier, menu_items };
+    const { platform: external_booking_platform, url: external_booking_url } =
+      extractExternalBookingInfo(newApiData);
+    return { newApiData, cuisine_types, price_tier, menu_items, external_booking_platform, external_booking_url };
   } catch (err) {
     log(
       "google",
@@ -428,6 +451,8 @@ async function enrichPlaceWithNewApiData(place, apiKey) {
       cuisine_types,
       price_tier,
       menu_items: deriveMenuItemsFromCuisineTypes(cuisine_types),
+      external_booking_platform: null,
+      external_booking_url: null,
     };
   }
 }
@@ -871,7 +896,7 @@ export async function findPlaceFromMapsLink(
   return { place: { ...resolved, source: "maps-link" }, failure: null };
 }
 
-/** @typedef {{ placeId: string, name: string, formatted_address: string, cityLabel?: string | null, lat: number, lng: number, photoReferences: string[], phone?: string | null, distanceM: number, source: string, types?: string[], price_level?: number, newApiData?: object | null, cuisine_types?: string[], price_tier?: number | null, menu_items?: string[] }} GooglePlaceCandidate */
+/** @typedef {{ placeId: string, name: string, formatted_address: string, cityLabel?: string | null, lat: number, lng: number, photoReferences: string[], phone?: string | null, distanceM: number, source: string, types?: string[], price_level?: number, newApiData?: object | null, cuisine_types?: string[], price_tier?: number | null, menu_items?: string[], external_booking_platform?: string | null, external_booking_url?: string | null }} GooglePlaceCandidate */
 
 /** Tried in order when `maxBytes` is set (Places Photo scales by maxwidth). */
 const PLACE_PHOTO_MAXWIDTH_STEPS = [1200, 960, 800, 640, 520, 420, 340, 280, 220];
