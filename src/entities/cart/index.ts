@@ -9,3 +9,4 @@ export {
   type WaInterfaceLocale,
 } from "./lib/n8nWaBookingStart";
 export { isWaOwnerUnreachableLines, isSmsDeliveryFailed } from "./lib/waDeliveryStatus";
+export { localizeWaStatusLine } from "./lib/localizeWaStatusLine";

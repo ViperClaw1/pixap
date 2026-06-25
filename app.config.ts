@@ -7,7 +7,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
   const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.2";
   const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "57";
-  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "50");
+  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "51");
   const androidVersionCode = Number.parseInt(androidVersionCodeRaw, 10);
   const nativeOAuthRedirectUri =
     oauthMobileRedirectUri && !oauthMobileRedirectUri.startsWith("exp://") ? oauthMobileRedirectUri : undefined;
@@ -86,6 +86,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       {
         action: "VIEW",
         autoVerify: true,
+        data: [
+          { scheme: "https", host: "pixapp.kz", pathPrefix: "/place" },
+          { scheme: "https", host: "pixapp.kz", pathPrefix: "/post" },
+          { scheme: "https", host: "pixapp.kz", pathPrefix: "/story" },
+          { scheme: "https", host: "pixapp.kz", pathPrefix: "/bookings" },
+          { scheme: "https", host: "www.pixapp.kz", pathPrefix: "/place" },
+          { scheme: "https", host: "www.pixapp.kz", pathPrefix: "/post" },
+          { scheme: "https", host: "www.pixapp.kz", pathPrefix: "/story" },
+          { scheme: "https", host: "www.pixapp.kz", pathPrefix: "/bookings" },
+        ],
         category: ["BROWSABLE", "DEFAULT"],
       },
       {

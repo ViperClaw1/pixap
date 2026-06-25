@@ -12,7 +12,7 @@ import {
   type Booking,
   type BookingDisplayStatus,
 } from "@/entities/booking";
-import { isSmsDeliveryFailed } from "@/entities/cart";
+import { isSmsDeliveryFailed, localizeWaStatusLine } from "@/entities/cart";
 import { getPrimaryBusinessCardImage } from "@/shared/lib/business-card/businessCardImages";
 import {
   businessCardDisplayFallback,
@@ -207,7 +207,7 @@ function BookingListCardInner({ item, styles, isCompact, onBookingPress }: Props
           <Animated.View style={[styles.waitingBadge, { opacity: isSmsError ? 1 : pulseAnim }]}>
             <Text style={styles.waitingBadgeText}>
               {item.waStatusLines.length > 0
-                ? item.waStatusLines[item.waStatusLines.length - 1]
+                ? localizeWaStatusLine(item.waStatusLines[item.waStatusLines.length - 1], t)
                 : t("bookings.waitingForVenue")}
             </Text>
           </Animated.View>

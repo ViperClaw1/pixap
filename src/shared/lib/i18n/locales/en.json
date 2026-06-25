@@ -638,6 +638,26 @@
     "guestPhone": "Phone: {{phone}}",
     "openVenue": "View venue"
   },
+  "waStatus": {
+    "waSent": "WhatsApp message sent to venue.",
+    "waDelivered": "WhatsApp message delivered to venue.",
+    "waRead": "Message read by venue.",
+    "templateAccepted": "Booking request sent.",
+    "waitingReply": "Waiting for venue reply…",
+    "slotDeclined": "Venue declined this slot.",
+    "slotAvailable": "Slot available.",
+    "checkingCost": "Checking booking fee…",
+    "slotFreeAvail": "Slot available and free.",
+    "canConfirm": "You can confirm the booking in the app.",
+    "priceReceivedConfirm": "Price received — confirm in the app.",
+    "awaitingPrice": "Awaiting price from venue…",
+    "invalidPrice": "Could not read price. Venue should resend.",
+    "smsSent": "Text message sent to venue. Waiting for reply…",
+    "smsFailed": "Could not send message to venue. Contact support.",
+    "smsAvailPricing": "Venue available. Checking booking fee…",
+    "smsDeclined": "Venue declined your booking request.",
+    "smsInvalidPrice": "Could not read price. Venue should resend."
+  },
   "cart": {
     "title": "Cart",
     "tabServices": "Services",
