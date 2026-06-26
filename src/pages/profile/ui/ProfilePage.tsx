@@ -13,12 +13,11 @@ import {
   Alert,
   useWindowDimensions,
 } from "react-native";
-import { useNavigation, useRoute, useIsFocused, type RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, useIsFocused, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import Toast from "react-native-toast-message";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -29,14 +28,11 @@ import { useBusinessCards } from "@/entities/business-card";
 import { useUnreadCount } from "@/entities/notification";
 import { useFavorites } from "@/entities/favorite";
 import { useBookings } from "@/entities/booking";
-import { useCreatePost } from "@/entities/post";
-import { useCreateStory } from "@/entities/story";
 import type { ProfileStackParamList, RootTabParamList } from "@/app/navigation/types";
 import { navigateToPublicProfile } from "@/app/navigation/navigationHelpers";
 import { StoriesArchiveView } from "@/widgets/stories-archive";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { PROFILE_CARD_PADDING, PROFILE_COMPACT_WIDTH, resolveProfileAvatarSize, useProfileStyles } from "./profileStyles";
-import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
 import { UserAvatarImage } from "@/shared/ui/user-avatar-image";
 import { useEntitlement } from "@/entities/subscription";
 import { useBookingCredits } from "@/entities/booking-credits";
@@ -45,16 +41,15 @@ import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCr
 import { ProfileOnboardingActions } from "./ProfileOnboardingActions";
 import { ProfilePageSkeleton } from "./ProfilePageSkeleton";
 import { ProfileSuggestionsSkeleton } from "./ProfileSuggestionsSkeleton";
-import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
-import { CommentComposer } from "@/shared/ui/comment-composer/CommentComposer";
 import { AppHeader } from "@/shared/ui/app-header/AppHeader";
 import { NotificationsSheetModal } from "@/shared/ui/notifications-sheet";
-import { profileStoryPathBuilder, uploadPostPickerAssets, uploadStoryPickerAssets } from "@/entities/story/lib/uploadStoriesBucketMedia";
+import { StorySourcePickerModal } from "@/shared/ui/story-source-picker/StorySourcePickerModal";
+import { useCreatePostComposer, CreatePostModal } from "@/features/create-post";
+import { useBatchStoryUpload } from "@/features/create-story";
 import type { ThemeMode } from "@/app/providers/ThemeProvider";
 import {
   APPLE_SUBSCRIPTION_URL,
   GOOGLE_SUBSCRIPTION_URL,
-  MAX_POST_PHOTOS,
   PRIVACY_URL,
   TERMS_URL,
 } from "../model/constants";
@@ -97,6 +92,7 @@ function ProfileScreenContent() {
   const { data: favorites = [] } = useFavorites({ enabled: profileQueriesEnabled });
   const { data: bookings = [] } = useBookings({ enabled: profileQueriesEnabled });
   const { data: businessCards = [] } = useBusinessCards(undefined, undefined, { enabled: profileQueriesEnabled });
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions(); // orientation-aware by design (compact layout)
   const { role } = useUserRole({ enabled: profileQueriesEnabled });
   const { postsCount, followersCount, followingCount } = useProfileSocialMetrics({ enabled: profileQueriesEnabled });
   const { suggestions, isLoading: suggestionsLoading, isFetching: suggestionsFetching } = useSuggestedProfiles(
@@ -111,23 +107,19 @@ function ProfileScreenContent() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [storiesArchiveVisible, setStoriesArchiveVisible] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [createStep, setCreateStep] = useState<"menu" | "post" | "story">("menu");
-  const [postInput, setPostInput] = useState("");
-  const [postInputError, setPostInputError] = useState(false);
-  const [selectedPostPlaceId, setSelectedPostPlaceId] = useState<string | null>(null);
-  const [postPlaceError, setPostPlaceError] = useState(false);
-  const [postPlacePickerOpen, setPostPlacePickerOpen] = useState(false);
-  const [postPhotos, setPostPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
-  const [uploadingPostPhotos, setUploadingPostPhotos] = useState(false);
-  const [storyPhotos, setStoryPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
-  const [storyPhotosError, setStoryPhotosError] = useState(false);
-  const [selectedStoryPlaceId, setSelectedStoryPlaceId] = useState<string | null>(null);
-  const [storyPlaceError, setStoryPlaceError] = useState(false);
-  const [storyPlacePickerOpen, setStoryPlacePickerOpen] = useState(false);
-  const [uploadingStory, setUploadingStory] = useState(false);
-  const createPost = useCreatePost();
-  const createStory = useCreateStory();
+  const [storySourceModalVisible, setStorySourceModalVisible] = useState(false);
+  const composer = useCreatePostComposer(
+    businessCards,
+    navigation as unknown as NavigationProp<Record<string, object | undefined>>,
+    windowHeight,
+  );
+  const createStoryPlaceId = businessCards[0]?.id ?? null;
+  const storyUpload = useBatchStoryUpload(createStoryPlaceId);
+  const {
+    openMenu: openCreateMenu,
+    setStep: setCreateComposerStep,
+    setVisible: setCreateComposerVisible,
+  } = composer;
   const toggleThemeMode = () => {
     const nextMode: ThemeMode = mode === "dark" ? "light" : "dark";
     setMode(nextMode);
@@ -162,12 +154,24 @@ function ProfileScreenContent() {
     const requestedCreateStep = route.params?.openCreateStep;
     const shouldOpenCreateModal = Boolean(route.params?.openCreateModal) || Boolean(requestedCreateStep);
     if (!shouldOpenCreateModal) return;
-    setCreateStep(requestedCreateStep ?? "menu");
-    setCreateModalOpen(true);
+    if (requestedCreateStep === "story") {
+      setStorySourceModalVisible(true);
+    } else if (requestedCreateStep === "post") {
+      setCreateComposerStep("post");
+      setCreateComposerVisible(true);
+    } else {
+      openCreateMenu();
+    }
     navigation.setParams({ openCreateStep: undefined, openCreateModal: undefined });
-  }, [navigation, route.params?.openCreateModal, route.params?.openCreateStep]);
+  }, [
+    navigation,
+    openCreateMenu,
+    route.params?.openCreateModal,
+    route.params?.openCreateStep,
+    setCreateComposerStep,
+    setCreateComposerVisible,
+  ]);
 
-  const { width: windowWidth } = useWindowDimensions(); // orientation-aware by design (compact layout)
   const isCompact = windowWidth < PROFILE_COMPACT_WIDTH;
   const profileAvatarSize = resolveProfileAvatarSize(windowWidth);
   const profileAvatarStyle = useMemo(
@@ -227,19 +231,6 @@ function ProfileScreenContent() {
     if (subscriptionStatus === "billing_retry") return t("profile.subscriptionStatus.billingRetry");
     return t("profile.subscriptionStatus.expired");
   }, [subscriptionStatus, t]);
-  const postPlaceOptions = useMemo(
-    () =>
-      businessCards
-        .map((card) => ({
-          id: card.id,
-          name: card.name?.trim() || t("profile.unknownPlace"),
-        }))
-        .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index),
-    [businessCards, t],
-  );
-  const createPlaceId = selectedPostPlaceId;
-  const currentUserAvatar = profile?.avatar_url?.trim() || null;
-
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) return;
     setIsSigningOut(true);
@@ -253,153 +244,6 @@ function ProfileScreenContent() {
       );
     }
   }, [isSigningOut, signOut, t]);
-
-  const closeCreateModal = () => {
-    setCreateModalOpen(false);
-    setCreateStep("menu");
-    resetPostComposer();
-  };
-
-  const resetPostComposer = () => {
-    setPostInput("");
-    setPostInputError(false);
-    setSelectedPostPlaceId(null);
-    setPostPlaceError(false);
-    setPostPlacePickerOpen(false);
-    setPostPhotos([]);
-    setSelectedStoryPlaceId(null);
-    setStoryPlaceError(false);
-    setStoryPlacePickerOpen(false);
-    setStoryPhotos([]);
-    setStoryPhotosError(false);
-  };
-
-  const goToFeedWithFocus = (focus: { postId?: string; storyId?: string }) => {
-    closeCreateModal();
-    navigation.navigate("Feed", { screen: "FeedMain" });
-    navigation.navigate("Feed", {
-      screen: "FeedMain",
-      params: {
-        focusPostId: focus.postId,
-        focusStoryId: focus.storyId,
-      },
-    });
-  };
-
-  const pickPostPhotos = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(t("profile.alerts.permissionTitle"), t("profile.alerts.permissionPhotos"));
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.82,
-      allowsMultipleSelection: true,
-      selectionLimit: MAX_POST_PHOTOS,
-      base64: false,
-    });
-    if (result.canceled) return;
-    setPostPhotos((prev) => {
-      const merged = [...prev, ...result.assets];
-      const dedup = merged.filter((asset, index, all) => all.findIndex((candidate) => candidate.uri === asset.uri) === index);
-      return dedup.slice(0, MAX_POST_PHOTOS);
-    });
-  };
-
-  const pickStoryPhotos = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(t("profile.alerts.permissionTitle"), t("profile.alerts.permissionPhotos"));
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.82,
-      allowsMultipleSelection: true,
-      selectionLimit: MAX_POST_PHOTOS,
-      base64: false,
-    });
-    if (result.canceled) return;
-    setStoryPhotos((prev) => {
-      const merged = [...prev, ...result.assets];
-      const dedup = merged.filter((asset, index, all) => all.findIndex((candidate) => candidate.uri === asset.uri) === index);
-      return dedup.slice(0, MAX_POST_PHOTOS);
-    });
-    setStoryPhotosError(false);
-  };
-
-  const uploadPostPhotos = async () => {
-    if (!postPhotos.length) return null;
-    setUploadingPostPhotos(true);
-    try {
-      const uploadedUrls = await uploadPostPickerAssets(postPhotos, user?.id);
-      return JSON.stringify(uploadedUrls);
-    } finally {
-      setUploadingPostPhotos(false);
-    }
-  };
-
-  const uploadStoryPhotos = async () => {
-    if (!storyPhotos.length) return null;
-    setUploadingStory(true);
-    try {
-      const uploadedUrls = await uploadStoryPickerAssets(storyPhotos, user?.id, profileStoryPathBuilder);
-      return JSON.stringify(uploadedUrls);
-    } finally {
-      setUploadingStory(false);
-    }
-  };
-
-  const submitPost = async () => {
-    if (!createPlaceId) {
-      setPostPlaceError(true);
-      return;
-    }
-    const trimmedPostInput = postInput.trim();
-    if (!trimmedPostInput) {
-      setPostInputError(true);
-      return;
-    }
-    if (createPost.isPending || uploadingPostPhotos) return;
-    try {
-      const mediaUrl = await uploadPostPhotos();
-      const created = await createPost.mutateAsync({
-        placeId: createPlaceId,
-        content: trimmedPostInput,
-        mediaUrl,
-      });
-      resetPostComposer();
-      goToFeedWithFocus({ postId: created.id });
-    } catch (error) {
-      Alert.alert(t("profile.alerts.postFailedTitle"), formatErrorForAlert(error, t("profile.alerts.postFailedBody")));
-    }
-  };
-
-  const submitStory = async () => {
-    if (!selectedStoryPlaceId) {
-      setStoryPlaceError(true);
-      return;
-    }
-    if (!storyPhotos.length) {
-      setStoryPhotosError(true);
-      return;
-    }
-    if (createStory.isPending || uploadingStory) return;
-    try {
-      const mediaUrl = await uploadStoryPhotos();
-      const created = await createStory.mutateAsync({
-        placeId: selectedStoryPlaceId,
-        content: "New story",
-        mediaUrl,
-        expiryTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      });
-      resetPostComposer();
-      goToFeedWithFocus({ storyId: created.id });
-    } catch (error) {
-      Alert.alert(t("profile.alerts.storyFailedTitle"), formatErrorForAlert(error, t("profile.alerts.storyFailedBody")));
-    }
-  };
 
   const handleSuggestionFollow = useCallback(
     async (item: { id: string; first_name: string | null; last_name: string | null; username: string | null }) => {
@@ -475,10 +319,7 @@ function ProfileScreenContent() {
         <AppHeader
           title={t("header.profile")}
           leftIcon="add"
-          onLeftPress={() => {
-            setCreateStep("menu");
-            setCreateModalOpen(true);
-          }}
+          onLeftPress={openCreateMenu}
           rightIcon={mode === "dark" ? "sunny-outline" : "moon-outline"}
           onRightPress={toggleThemeMode}
           onNotificationsPress={() => setNotificationsOpen(true)}
@@ -787,242 +628,20 @@ function ProfileScreenContent() {
       )}
     </ScrollView>
 
-      <BottomSheetPickerModal
-        visible={createModalOpen}
-        onClose={closeCreateModal}
-        title={
-          createStep === "menu"
-            ? t("profile.create.title")
-            : createStep === "post"
-              ? t("profile.create.postTitle")
-              : t("profile.create.storyTitle")
-        }
-        maxHeightFraction={0.68}
-      >
-        {createStep === "menu" ? (
-          <View style={styles.createMenuBody}>
-            <View style={styles.createOptionGrid}>
-              <AppPressable style={styles.createOptionCard} onPress={() => setCreateStep("post")}>
-                <Ionicons name="grid-outline" size={34} color={colors.text} />
-                <Text style={styles.createOptionLabel}>{t("profile.create.post")}</Text>
-                <Text style={styles.createOptionHint}>{t("profile.create.postHint")}</Text>
-              </AppPressable>
-              <AppPressable
-                style={styles.createOptionCard}
-                onPress={() => {
-                  setCreateStep("story");
-                }}
-                disabled={uploadingStory || createStory.isPending}
-              >
-                <Ionicons name="add-circle-outline" size={34} color={colors.text} />
-                <Text style={styles.createOptionLabel}>{t("profile.create.story")}</Text>
-                {uploadingStory || createStory.isPending ? (
-                  <ActivityIndicator style={styles.createOptionLoading} size="small" color={colors.primary} />
-                ) : (
-                  <Text style={styles.createOptionHint}>{t("profile.create.storyHint")}</Text>
-                )}
-              </AppPressable>
-            </View>
-          </View>
-        ) : createStep === "post" ? (
-          <View style={styles.createPostSheetBody}>
-            {createPost.isPending || uploadingPostPhotos ? (
-              <View style={styles.createPostLoadingOnlyWrap}>
-                <View style={styles.createPostLoadingWrap}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={styles.createPostLoadingText}>
-                    {uploadingPostPhotos ? t("profile.create.uploadingPhotos") : t("profile.create.publishingPost")}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-            {!(createPost.isPending || uploadingPostPhotos) ? (
-              <>
-                <AppPressable style={styles.postUploaderBox} onPress={() => void pickPostPhotos()}>
-                  <Ionicons name="images-outline" size={22} color={colors.textMuted} />
-                  <Text style={styles.postUploaderText}>{t("profile.create.tapAddPhotos")}</Text>
-                  <Text style={styles.postPhotoCount}>
-                    {postPhotos.length
-                      ? t("profile.create.photosSelected", { count: postPhotos.length, max: MAX_POST_PHOTOS })
-                      : t("profile.create.photosUpTo", { max: MAX_POST_PHOTOS })}
-                  </Text>
-                </AppPressable>
-                <Text style={styles.postRequiredHint}>{t("profile.create.requiredPost")}</Text>
-                {postPhotos.length ? (
-                  <View style={styles.postPhotosList}>
-                    {postPhotos.map((photo) => (
-                      <View key={photo.uri} style={styles.postPhotoItem}>
-                        <SmartImage uri={photo.uri} style={styles.postPhotoThumb} contentFit="cover" />
-                        <AppPressable
-                          style={styles.postPhotoRemoveBtn}
-                          onPress={() => {
-                            setPostPhotos((prev) => prev.filter((item) => item.uri !== photo.uri));
-                          }}
-                        >
-                          <Ionicons name="close" size={11} color={colors.text} />
-                        </AppPressable>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-                <AppPressable
-                  style={[
-                    styles.postPlaceSelectTrigger,
-                    postPlaceError ? styles.postPlaceSelectTriggerError : null,
-                  ]}
-                  onPress={() => setPostPlacePickerOpen((prev) => !prev)}
-                >
-                  <Text style={selectedPostPlaceId ? styles.postPlaceSelectText : styles.postPlaceSelectPlaceholder}>
-                    {selectedPostPlaceId
-                      ? (postPlaceOptions.find((option) => option.id === selectedPostPlaceId)?.name ??
-                        t("profile.create.selectedPlace"))
-                      : t("profile.create.selectPlace")}
-                  </Text>
-                  <Ionicons name={postPlacePickerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
-                </AppPressable>
-                {postPlacePickerOpen ? (
-                  <View style={styles.postPlaceOptionsWrap}>
-                    {postPlaceOptions.map((option, index) => (
-                      <AppPressable
-                        key={option.id}
-                        style={[styles.postPlaceOption, index === postPlaceOptions.length - 1 ? { borderBottomWidth: 0 } : null]}
-                        onPress={() => {
-                          setSelectedPostPlaceId(option.id);
-                          setPostPlaceError(false);
-                          setPostPlacePickerOpen(false);
-                        }}
-                      >
-                        <Text style={styles.postPlaceOptionText}>{option.name}</Text>
-                        {selectedPostPlaceId === option.id ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
-                      </AppPressable>
-                    ))}
-                  </View>
-                ) : null}
-                <View style={styles.composerWrap}>
-                  <CommentComposer
-                    avatarUrl={currentUserAvatar}
-                    value={postInput}
-                    onChangeText={(value) => {
-                      setPostInput(value);
-                      if (postInputError && value.trim()) {
-                        setPostInputError(false);
-                      }
-                    }}
-                    placeholder={t("profile.create.postPlaceholder")}
-                    canSend={!createPost.isPending && !uploadingPostPhotos}
-                    sending={createPost.isPending || uploadingPostPhotos}
-                    onSend={() => void submitPost()}
-                    minHeight={120}
-                    maxHeight={220}
-                    hasError={postInputError}
-                  />
-                </View>
-              </>
-            ) : null}
-            {!(createPost.isPending || uploadingPostPhotos) ? (
-              <View style={styles.createPostBackRow}>
-                <AppPressable style={styles.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
-                  <Text style={styles.createFlowBackBtnText}>{t("profile.create.backToMenu")}</Text>
-                </AppPressable>
-              </View>
-            ) : null}
-          </View>
-        ) : (
-          <View style={styles.createPostSheetBody}>
-            {createStory.isPending || uploadingStory ? (
-              <View style={styles.createStoryLoadingOnlyWrap}>
-                <View style={styles.createPostLoadingWrap}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={styles.createPostLoadingText}>
-                    {uploadingStory ? t("profile.create.uploadingPhotos") : t("profile.create.publishingStory")}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-            {!(createStory.isPending || uploadingStory) ? (
-              <>
-                <AppPressable
-                  style={[styles.postUploaderBox, storyPhotosError ? styles.postUploaderBoxError : null]}
-                  onPress={() => void pickStoryPhotos()}
-                >
-                  <Ionicons name="images-outline" size={22} color={colors.textMuted} />
-                  <Text style={styles.postUploaderText}>{t("profile.create.tapAddPhotos")}</Text>
-                  <Text style={styles.postPhotoCount}>
-                    {storyPhotos.length
-                      ? t("profile.create.photosSelected", { count: storyPhotos.length, max: MAX_POST_PHOTOS })
-                      : t("profile.create.photosUpTo", { max: MAX_POST_PHOTOS })}
-                  </Text>
-                </AppPressable>
-                <Text style={styles.postRequiredHint}>{t("profile.create.requiredStory")}</Text>
-                {storyPhotos.length ? (
-                  <View style={styles.postPhotosList}>
-                    {storyPhotos.map((photo) => (
-                      <View key={photo.uri} style={styles.postPhotoItem}>
-                        <SmartImage uri={photo.uri} style={styles.postPhotoThumb} contentFit="cover" />
-                        <AppPressable
-                          style={styles.postPhotoRemoveBtn}
-                          onPress={() => {
-                            setStoryPhotos((prev) => prev.filter((item) => item.uri !== photo.uri));
-                          }}
-                        >
-                          <Ionicons name="close" size={11} color={colors.text} />
-                        </AppPressable>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-                <AppPressable
-                  style={[
-                    styles.postPlaceSelectTrigger,
-                    storyPlaceError ? styles.postPlaceSelectTriggerError : null,
-                  ]}
-                  onPress={() => setStoryPlacePickerOpen((prev) => !prev)}
-                >
-                  <Text style={selectedStoryPlaceId ? styles.postPlaceSelectText : styles.postPlaceSelectPlaceholder}>
-                    {selectedStoryPlaceId
-                      ? (postPlaceOptions.find((option) => option.id === selectedStoryPlaceId)?.name ??
-                        t("profile.create.selectedPlace"))
-                      : t("profile.create.selectPlace")}
-                  </Text>
-                  <Ionicons name={storyPlacePickerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
-                </AppPressable>
-                {storyPlacePickerOpen ? (
-                  <View style={styles.postPlaceOptionsWrap}>
-                    {postPlaceOptions.map((option, index) => (
-                      <AppPressable
-                        key={option.id}
-                        style={[styles.postPlaceOption, index === postPlaceOptions.length - 1 ? { borderBottomWidth: 0 } : null]}
-                        onPress={() => {
-                          setSelectedStoryPlaceId(option.id);
-                          setStoryPlaceError(false);
-                          setStoryPlacePickerOpen(false);
-                        }}
-                      >
-                        <Text style={styles.postPlaceOptionText}>{option.name}</Text>
-                        {selectedStoryPlaceId === option.id ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
-                      </AppPressable>
-                    ))}
-                  </View>
-                ) : null}
-              </>
-            ) : null}
-            {!(createStory.isPending || uploadingStory) ? (
-              <View style={styles.createStoryActionsRow}>
-                <AppPressable style={styles.createFlowBackBtn} onPress={() => setCreateStep("menu")}>
-                  <Text style={styles.createFlowBackBtnText}>{t("profile.create.backToMenu")}</Text>
-                </AppPressable>
-                <AppPressable
-                  style={styles.createStoryPublishBtn}
-                  onPress={() => void submitStory()}
-                  disabled={createStory.isPending || uploadingStory}
-                >
-                  <Text style={styles.createStoryPublishBtnText}>{t("profile.create.publishStory")}</Text>
-                </AppPressable>
-              </View>
-            ) : null}
-          </View>
-        )}
-      </BottomSheetPickerModal>
+      <CreatePostModal
+        composer={composer}
+        onOpenStory={() => setStorySourceModalVisible(true)}
+        storyAvailable={Boolean(createStoryPlaceId)}
+      />
+
+      <StorySourcePickerModal
+        visible={storySourceModalVisible}
+        onClose={() => setStorySourceModalVisible(false)}
+        onChoose={(source) => {
+          setStorySourceModalVisible(false);
+          void storyUpload.onChooseStorySource(source);
+        }}
+      />
 
       <NotificationsSheetModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
 
