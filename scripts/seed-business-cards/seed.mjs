@@ -20,6 +20,7 @@
  *   node scripts/seed-business-cards/seed.mjs --city Paris --count 3 --listing-type recommended
  *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc" --images 10
  *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc" --images all
+ *   node scripts/seed-business-cards/seed.mjs --link "https://maps.app.goo.gl/abc" --external-booking
  *   node scripts/seed-business-cards/seed.mjs --source osm --city Almaty --count 5
  *   node scripts/seed-business-cards/seed.mjs --osm --city Paris --names "Le Comptoir,Septime"
  *   node scripts/seed-business-cards/seed.mjs --source osm --link "https://www.openstreetmap.org/node/123456789"
@@ -257,6 +258,7 @@ async function prepareVenue(
                 excludePlaceIds: usedPlaceIds,
                 excludeAddresses: existingIndex.addresses,
                 allowDuplicate: cli.allowDuplicate,
+                includeExternalBooking: cli.externalBooking,
               });
               if (outcome.failure) {
                 outcome.failure._mapsLinkFailure = true;
@@ -269,11 +271,13 @@ async function prepareVenue(
                 venue: prepared,
                 excludePlaceIds: usedPlaceIds,
                 excludeAddresses: existingIndex.addresses,
+                includeExternalBooking: cli.externalBooking,
               });
             }
             return findPlaceForVenue(prepared, cityResolved.label, googleApiKey, {
               excludePlaceIds: usedPlaceIds,
               excludeAddresses: existingIndex.addresses,
+              includeExternalBooking: cli.externalBooking,
             });
           },
           { attempts: 4, baseDelayMs: 1200 },
@@ -560,6 +564,12 @@ async function main() {
       "google",
       `Google mode: photos only from Places API (no Unsplash/Picsum fallback).${restaurantNote}`,
     );
+    if (cli.externalBooking) {
+      log(
+        "google",
+        "External booking enabled: Places New `websiteUri` will be checked for Resy/OpenTable/Tock links.",
+      );
+    }
   }
 
   const googlePhotoCapLabel =
@@ -573,7 +583,7 @@ async function main() {
 
   log(
     "seed",
-    `Starting business_cards seed (${venueCount} venues, count=${cli.count}, dryRun=${cli.dryRun}, skipImages=${cli.skipImages}, source=${cli.source}, city=${cli.city ?? (cli.links?.length ? "from link" : "random")}, poi=${linkSourceLabel}, category=${categoryType?.displayName ?? "all"}, listingType=${cli.listingType ?? "from venues.mjs"}, images=${cli.images ?? `random ${SEED_IMAGES_DEFAULT_MIN}-${SEED_IMAGES_DEFAULT_MAX}`}, tags=${cli.tags?.join(", ") ?? "from venues.mjs"}, googlePhotoMax=${googlePhotoCapLabel})`,
+    `Starting business_cards seed (${venueCount} venues, count=${cli.count}, dryRun=${cli.dryRun}, skipImages=${cli.skipImages}, source=${cli.source}, city=${cli.city ?? (cli.links?.length ? "from link" : "random")}, poi=${linkSourceLabel}, category=${categoryType?.displayName ?? "all"}, listingType=${cli.listingType ?? "from venues.mjs"}, images=${cli.images ?? `random ${SEED_IMAGES_DEFAULT_MIN}-${SEED_IMAGES_DEFAULT_MAX}`}, tags=${cli.tags?.join(", ") ?? "from venues.mjs"}, googlePhotoMax=${googlePhotoCapLabel}, externalBooking=${cli.externalBooking})`,
   );
 
   const prepared = [];

@@ -324,15 +324,19 @@ const CUISINE_TO_MENU_ITEMS = {
   кофе: ["эспрессо", "капучино", "латте", "круассан"],
 };
 
-const PLACES_NEW_DETAILS_FIELDS = [
+const PLACES_NEW_BASE_DETAILS_FIELDS = [
   "id",
   "types",
   "primaryType",
   "primaryTypeDisplayName",
   "priceLevel",
-  "editorialSummary",
-  "websiteUri",
-].join(",");
+];
+
+function placesNewDetailsFields({ includeExternalBooking = false } = {}) {
+  const fields = [...PLACES_NEW_BASE_DETAILS_FIELDS];
+  if (includeExternalBooking) fields.push("websiteUri");
+  return fields.join(",");
+}
 
 export const EXTERNAL_BOOKING_DOMAIN_PATTERNS = [
   { platform: "resy", patterns: ["resy.com"] },
@@ -385,7 +389,7 @@ export function deriveMenuItemsFromCuisineTypes(cuisineTypes) {
   return [...items].slice(0, 12);
 }
 
-export async function loadPlaceDetailsNew(placeId, apiKey) {
+export async function loadPlaceDetailsNew(placeId, apiKey, { includeExternalBooking = false } = {}) {
   const encodedId = encodeURIComponent(placeId.trim());
   const url = `${PLACES_NEW_BASE}/places/${encodedId}`;
   const controller = new AbortController();
@@ -396,7 +400,7 @@ export async function loadPlaceDetailsNew(placeId, apiKey) {
         signal: controller.signal,
         headers: {
           "X-Goog-Api-Key": apiKey,
-          "X-Goog-FieldMask": PLACES_NEW_DETAILS_FIELDS,
+          "X-Goog-FieldMask": placesNewDetailsFields({ includeExternalBooking }),
         },
       });
       const json = await res.json();
@@ -419,7 +423,7 @@ export async function loadPlaceDetailsNew(placeId, apiKey) {
   }
 }
 
-async function enrichPlaceWithNewApiData(place, apiKey) {
+async function enrichPlaceWithNewApiData(place, apiKey, { includeExternalBooking = false } = {}) {
   if (!place?.place_id || !apiKey) {
     return {
       newApiData: null,
@@ -432,12 +436,13 @@ async function enrichPlaceWithNewApiData(place, apiKey) {
   }
 
   try {
-    const newApiData = await loadPlaceDetailsNew(place.place_id, apiKey);
+    const newApiData = await loadPlaceDetailsNew(place.place_id, apiKey, { includeExternalBooking });
     const cuisine_types = extractCuisineTypes(newApiData);
     const price_tier = extractPriceTier(newApiData, place.price_level);
     const menu_items = deriveMenuItemsFromCuisineTypes(cuisine_types);
-    const { platform: external_booking_platform, url: external_booking_url } =
-      extractExternalBookingInfo(newApiData);
+    const { platform: external_booking_platform, url: external_booking_url } = includeExternalBooking
+      ? extractExternalBookingInfo(newApiData)
+      : { platform: null, url: null };
     return { newApiData, cuisine_types, price_tier, menu_items, external_booking_platform, external_booking_url };
   } catch (err) {
     log(
@@ -650,7 +655,13 @@ function passesVenuePlaceFilter(place, venue) {
   return { ok: true };
 }
 
-async function resolvePlaceCandidate(candidate, venue, apiKey, distanceM, { skipVenueFilter = false } = {}) {
+async function resolvePlaceCandidate(
+  candidate,
+  venue,
+  apiKey,
+  distanceM,
+  { skipVenueFilter = false, includeExternalBooking = false } = {},
+) {
   let place = candidate;
 
   if (place.place_id && (!place.formatted_address || !place.geometry?.location)) {
@@ -675,7 +686,7 @@ async function resolvePlaceCandidate(candidate, venue, apiKey, distanceM, { skip
     place.international_phone_number ?? place.formatted_phone_number ?? null,
   );
 
-  const enrichment = await enrichPlaceWithNewApiData(place, apiKey);
+  const enrichment = await enrichPlaceWithNewApiData(place, apiKey, { includeExternalBooking });
 
   return {
     placeId: place.place_id,
@@ -702,7 +713,7 @@ export async function findPlaceForVenue(
   venue,
   cityLabel,
   apiKey,
-  { excludePlaceIds = null, excludeAddresses = null } = {},
+  { excludePlaceIds = null, excludeAddresses = null, includeExternalBooking = false } = {},
 ) {
   const lat = venue.latitude;
   const lng = venue.longitude;
@@ -736,7 +747,9 @@ export async function findPlaceForVenue(
   for (const { place, distanceM } of ranked.slice(0, candidateLimit)) {
     if (excludePlaceIds?.has(place.place_id)) continue;
 
-    const resolved = await resolvePlaceCandidate(place, venue, apiKey, distanceM);
+    const resolved = await resolvePlaceCandidate(place, venue, apiKey, distanceM, {
+      includeExternalBooking,
+    });
     if (!resolved) continue;
 
     const addrKey = normalizeListingAddress(resolved.formatted_address);
@@ -772,7 +785,7 @@ export async function findPlaceByName(
   placeName,
   cityLabel,
   apiKey,
-  { venue, excludePlaceIds = null, excludeAddresses = null } = {},
+  { venue, excludePlaceIds = null, excludeAddresses = null, includeExternalBooking = false } = {},
 ) {
   const trimmedName = placeName?.trim();
   if (!trimmedName) {
@@ -794,7 +807,9 @@ export async function findPlaceByName(
   for (const place of ranked.slice(0, candidateLimit)) {
     if (excludePlaceIds?.has(place.place_id)) continue;
 
-    const resolved = await resolvePlaceCandidate(place, venue, apiKey, 0);
+    const resolved = await resolvePlaceCandidate(place, venue, apiKey, 0, {
+      includeExternalBooking,
+    });
     if (!resolved) continue;
 
     const addrKey = normalizeListingAddress(resolved.formatted_address);
@@ -822,7 +837,13 @@ export async function findPlaceByName(
 export async function findPlaceFromMapsLink(
   mapsLink,
   apiKey,
-  { venue, excludePlaceIds = null, excludeAddresses = null, allowDuplicate = false } = {},
+  {
+    venue,
+    excludePlaceIds = null,
+    excludeAddresses = null,
+    allowDuplicate = false,
+    includeExternalBooking = false,
+  } = {},
 ) {
   const trimmedLink = mapsLink?.trim();
   if (!trimmedLink) {
@@ -862,7 +883,10 @@ export async function findPlaceFromMapsLink(
     };
   }
 
-  const resolved = await resolvePlaceCandidate(detailed, venue, apiKey, 0, { skipVenueFilter: true });
+  const resolved = await resolvePlaceCandidate(detailed, venue, apiKey, 0, {
+    skipVenueFilter: true,
+    includeExternalBooking,
+  });
   if (!resolved) {
     log("google", `Maps URL resolved to "${detailed.name ?? placeId}" but place lacks usable photos`);
     return {

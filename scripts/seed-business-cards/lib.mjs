@@ -392,6 +392,8 @@ const CLI_BOOLEAN_FLAGS = new Set([
   "--dry-run",
   "--skip-images",
   "--no-google",
+  "--external-booking",
+  "--no-external-booking",
   "--allow-duplicate",
   "--osm",
 ]);
@@ -555,6 +557,10 @@ export function parseCliArgs(argv) {
     count = names.length;
   }
 
+  if (args.includes("--external-booking") && args.includes("--no-external-booking")) {
+    throw new Error("Use either --external-booking or --no-external-booking, not both");
+  }
+
   return {
     dryRun: args.includes("--dry-run"),
     skipImages: args.includes("--skip-images"),
@@ -580,6 +586,8 @@ export function parseCliArgs(argv) {
     /** `0` = no byte cap; otherwise max downloaded size per Google Places photo. */
     googlePhotoMaxKb,
     googlePhotoMaxBytes: googlePhotoMaxKb > 0 ? googlePhotoMaxKb * 1024 : null,
+    /** When set, fetch Google Places `websiteUri` and derive OpenTable/Resy/Tock booking links. */
+    externalBooking: args.includes("--external-booking"),
   };
 }
 
