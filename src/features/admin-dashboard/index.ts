@@ -4,6 +4,7 @@ export { MetricCard } from "./ui/MetricCard";
 export { PeriodSelector } from "./ui/PeriodSelector";
 export { TrendBadge } from "./ui/TrendBadge";
 export { DashboardSection } from "./ui/DashboardSection";
+export { AdminBookingRow } from "./ui/AdminBookingRow";
 export { AnalyticsLineChart } from "./ui/charts/AnalyticsLineChart";
 export { AnalyticsPieChart } from "./ui/charts/AnalyticsPieChart";
 export { AnalyticsBarChart } from "./ui/charts/AnalyticsBarChart";

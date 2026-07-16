@@ -1,6 +1,6 @@
 import * as WebBrowser from "expo-web-browser";
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Alert, Linking, PixelRatio, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
@@ -72,6 +72,13 @@ function statusPalette(status: BookingDisplayStatus) {
   }
 }
 
+function minutesUntilDeadline(deadlineIso: string | null, nowMs: number): number | null {
+  if (!deadlineIso) return null;
+  const deadlineMs = new Date(deadlineIso).getTime();
+  if (Number.isNaN(deadlineMs)) return null;
+  return Math.max(0, Math.ceil((deadlineMs - nowMs) / 60000));
+}
+
 export type BookingListItem = Booking & {
   displayStatus: BookingDisplayStatus;
   waPaymentLink: string | null;
@@ -79,6 +86,8 @@ export type BookingListItem = Booking & {
   venueConfirmedPrice: string | null;
   /** Parsed lines from `cart_items.wa_status_lines` — live booking progress. */
   waStatusLines: string[];
+  response_deadline_at: string | null;
+  response_timed_out_at: string | null;
 };
 
 type BookingsScreenStyles = typeof bookingsStaticStyles;
@@ -94,11 +103,31 @@ function BookingListCardInner({ item, styles, isCompact, onBookingPress }: Props
   const { t } = useTranslation();
   const cancelBooking = useCancelBooking();
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const isSmsError = isSmsDeliveryFailed(item.waStatusLines);
+  const isResponseTimedOut = Boolean(item.response_timed_out_at);
+  const waitingMinutesLeft = minutesUntilDeadline(item.response_deadline_at, nowMs);
+  const waitingStatusLabel = useMemo(() => {
+    if (isResponseTimedOut) {
+      return localizeWaStatusLine("Venue did not respond within 15 minutes.", t);
+    }
+    if (waitingMinutesLeft != null && waitingMinutesLeft > 0) {
+      return t("bookings.waitingForVenueEta", { minutes: waitingMinutesLeft });
+    }
+    return item.waStatusLines.length > 0
+      ? localizeWaStatusLine(item.waStatusLines[item.waStatusLines.length - 1], t)
+      : t("bookings.waitingForVenue");
+  }, [isResponseTimedOut, item.waStatusLines, t, waitingMinutesLeft]);
 
   useEffect(() => {
-    if (item.displayStatus !== "draft" || isSmsError) return;
+    if (item.displayStatus !== "draft" || isResponseTimedOut || !item.response_deadline_at) return;
+    const interval = setInterval(() => setNowMs(Date.now()), 30 * 1000);
+    return () => clearInterval(interval);
+  }, [isResponseTimedOut, item.displayStatus, item.response_deadline_at]);
+
+  useEffect(() => {
+    if (item.displayStatus !== "draft" || isSmsError || isResponseTimedOut) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 0.5, duration: 900, useNativeDriver: true }),
@@ -107,9 +136,9 @@ function BookingListCardInner({ item, styles, isCompact, onBookingPress }: Props
     );
     loop.start();
     return () => loop.stop();
-  }, [item.displayStatus, isSmsError, pulseAnim]);
+  }, [item.displayStatus, isResponseTimedOut, isSmsError, pulseAnim]);
 
-  const palette = isSmsError ? STATUS_BADGE.danger : statusPalette(item.displayStatus);
+  const palette = isSmsError || isResponseTimedOut ? STATUS_BADGE.danger : statusPalette(item.displayStatus);
   const isFreeEntry = isFreeBookingEntry(Number(item.cost), item.venueConfirmedPrice);
   const showEntryUi = item.displayStatus !== "draft";
   const listPrice = showEntryUi && !isFreeEntry ? bookingListPriceParts(Number(item.cost), item.venueConfirmedPrice) : null;
@@ -204,12 +233,8 @@ function BookingListCardInner({ item, styles, isCompact, onBookingPress }: Props
           </AppPressable>
         ) : null}
         {item.displayStatus === "draft" ? (
-          <Animated.View style={[styles.waitingBadge, { opacity: isSmsError ? 1 : pulseAnim }]}>
-            <Text style={styles.waitingBadgeText}>
-              {item.waStatusLines.length > 0
-                ? localizeWaStatusLine(item.waStatusLines[item.waStatusLines.length - 1], t)
-                : t("bookings.waitingForVenue")}
-            </Text>
+          <Animated.View style={[styles.waitingBadge, { opacity: isSmsError || isResponseTimedOut ? 1 : pulseAnim }]}>
+            <Text style={styles.waitingBadgeText}>{waitingStatusLabel}</Text>
           </Animated.View>
         ) : null}
         {item.business_card?.external_booking_url ? (

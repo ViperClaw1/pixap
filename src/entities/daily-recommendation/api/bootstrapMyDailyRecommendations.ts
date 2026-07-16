@@ -10,6 +10,8 @@ export type BootstrapMyDailyRecommendationsResult = {
 
 export type BootstrapMyDailyRecommendationsOptions = {
   force?: boolean;
+  moodTags?: string[];
+  energyLevel?: 1 | 2 | 3 | 4 | 5;
 };
 
 /**
@@ -21,7 +23,12 @@ export async function bootstrapMyDailyRecommendations(
   dateYmd: string = todayLocalYmd(),
   options?: BootstrapMyDailyRecommendationsOptions,
 ): Promise<BootstrapMyDailyRecommendationsResult | null> {
-  const params = options?.force ? { p_date: dateYmd, p_force: true } : { p_date: dateYmd };
+  const params = {
+    p_date: dateYmd,
+    ...(options?.force ? { p_force: true } : null),
+    ...(options?.moodTags ? { p_mood_tags: options.moodTags } : null),
+    ...(options?.energyLevel ? { p_energy_level: options.energyLevel } : null),
+  };
   const { data, error } = await supabase.rpc("bootstrap_my_daily_recommendations" as never, params as never);
 
   if (error) {

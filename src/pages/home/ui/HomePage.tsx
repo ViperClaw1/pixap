@@ -71,6 +71,7 @@ import { getBusinessCardCoverBlurhash } from "@/shared/lib/business-card/busines
 import { useExpandVisibleBatch } from "@/shared/lib/useExpandVisibleBatch";
 import { ShowMoreButton } from "@/shared/ui/show-more-button";
 import { resetBookingChatPersistedSession } from "@/features/ai-booking-chat";
+import { DailyMoodCheckinPrompt } from "@/features/daily-mood-checkin";
 import { hasTrialBannerDismissed, setTrialBannerDismissed } from "../lib/trialBannerStorage";
 
 import { categoryAccentColor } from "../lib/categoryAccentColors";
@@ -635,6 +636,7 @@ export default function HomeScreen() {
         windowSize={8}
         updateCellsBatchingPeriod={40}
       />
+      <DailyMoodCheckinPrompt enabled={dailyRecsEnabled} />
     </ShimmerProvider>
   );
 }

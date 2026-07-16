@@ -1201,6 +1201,29 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_whatsapp_bookings_list: {
+        Args: {
+          p_period_days?: number
+          p_limit?: number
+        }
+        Returns: {
+          id: string
+          venue_name: string
+          venue_address: string | null
+          date_time: string
+          persons: number | null
+          customer_name: string | null
+          customer_phone: string | null
+          status: string
+          wa_status_lines: Json
+          wa_confirmable: boolean
+          wa_confirmed_price: string | null
+          wa_payment_link: string | null
+          response_deadline_at: string | null
+          response_timed_out_at: string | null
+          created_at: string
+        }[]
+      }
     }
     Enums: {
       app_role: "buyer" | "partner" | "admin"

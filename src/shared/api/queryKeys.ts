@@ -156,6 +156,11 @@ export const queryKeys = {
       ["daily_recommendations", "today", userId ?? null, dateYmd, language, city ?? "all"] as const,
     prefix: ["daily_recommendations"] as const,
   },
+  dailyMoodCheckin: {
+    today: (userId: string | undefined | null, dateYmd: string) =>
+      ["daily_mood_checkin", "today", userId ?? null, dateYmd] as const,
+    prefix: ["daily_mood_checkin"] as const,
+  },
   pixai: {
     generationJob: (userId: string | null, jobId: string) =>
       ["pixai", "generation_job", userId, jobId] as const,
@@ -168,6 +173,8 @@ export const queryKeys = {
   adminAnalytics: {
     byPeriod: (period: number, userId: string | null) =>
       ["admin-analytics", period, userId] as const,
+    waBookings: (periodDays: number, userId: string | null) =>
+      ["admin-analytics", "wa-bookings", periodDays, userId] as const,
     prefix: ["admin-analytics"] as const,
   },
   moderation: {
