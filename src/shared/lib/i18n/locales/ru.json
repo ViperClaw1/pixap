@@ -270,7 +270,7 @@
     }
   },
   "home": {
-    "searchPlaceholder": "Рестораны, салоны, события…",
+    "searchPlaceholder": "Опиши вайб на сегодня, а не конкретное место",
     "categories": "Категории",
     "categoryComingSoon": "Скоро",
     "featured": "Избранное",
@@ -282,7 +282,7 @@
     "selected": "Выбрано",
     "noCitiesMatch": "Нет городов по вашему запросу.",
     "allCities": "Все города",
-    "pixAiBooking": "Pix AI Concierge",
+    "pixAiBooking": "Pix AI Консьерж",
     "vibeMatching": "Vibe Matching",
     "alerts": {
       "citySaveTitle": "Не удалось сохранить город",
@@ -296,6 +296,22 @@
       "openPixaiBooking": "Открыть Pix AI Concierge",
       "openPixaiVibeMatch": "Открыть PixAI Vibe Match",
       "openNotifications": "Открыть уведомления"
+    }
+  },
+  "dailyMoodCheckin": {
+    "title": "Какой у тебя вайб сегодня?",
+    "subtitle": "Pix AI подстроит подборку под настроение, энергию и планы на день.",
+    "submit": "Подобрать под вайб",
+    "skip": "Пропустить сегодня",
+    "energyLabel": "Уровень энергии",
+    "notePlaceholder": "Что-то конкретное? Например: джаз, rooftop, спокойный ужин",
+    "moods": {
+      "energetic": "Энергично",
+      "chill": "Спокойно",
+      "romantic": "Романтично",
+      "social": "Социально",
+      "solo": "Соло",
+      "curious": "Любопытно"
     }
   },
   "notFound": {
@@ -611,6 +627,7 @@
     "pay": "Оплатить",
     "bookOnPlatform": "Забронировать на {{platform}}",
     "waitingForVenue": "Ожидание ответа заведения",
+    "waitingForVenueEta": "Ожидаем ответ заведения — до {{minutes}} мин",
     "noBookings": "Нет бронирований",
     "choosePlace": "Выберите место",
     "noTags": "Нет тегов",
@@ -656,7 +673,8 @@
     "smsFailed": "Не удалось отправить сообщение в заведение. Обратитесь в поддержку.",
     "smsAvailPricing": "Заведение доступно. Уточняем стоимость…",
     "smsDeclined": "Заведение отклонило запрос на бронирование.",
-    "smsInvalidPrice": "Не удалось распознать цену. Заведение должно прислать снова."
+    "smsInvalidPrice": "Не удалось распознать цену. Заведение должно прислать снова.",
+    "responseTimedOut": "Заведение не ответило за 15 минут. Попробуйте похожее место."
   },
   "cart": {
     "title": "Корзина",
@@ -1043,7 +1061,9 @@
       "buzzingRightNow": "Сейчас на хайпе",
       "newSpotForYou": "Новое место для вас",
       "popularWithCommunity": "Популярно у сообщества",
-      "goodFitForTonight": "Хороший выбор на сегодня"
+      "goodFitForTonight": "Хороший выбор на сегодня",
+      "matchesTodayVibe": "Подходит под сегодняшний вайб",
+      "basedOnMoodCheckin": "На основе вашего настроения"
     }
   },
   "adminDashboard": {
@@ -1091,7 +1111,10 @@
         "missing_whatsapp": "Нет WA",
         "venue_rejection": "Отказ",
         "other": "Другое"
-      }
+      },
+      "bookingsList": "Последние заявки на бронирование",
+      "noBookings": "Нет заявок за этот период",
+      "guests": "гостей"
     },
     "subscriptions": {
       "total": "Покупок за период",

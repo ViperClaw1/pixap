@@ -12,6 +12,8 @@ const REASON_KEY_BY_VALUE: Record<string, string> = {
   "New spot for you": "newSpotForYou",
   "Popular with the community": "popularWithCommunity",
   "Good fit for tonight": "goodFitForTonight",
+  "Matches today's vibe": "matchesTodayVibe",
+  "Based on your mood check-in": "basedOnMoodCheckin",
 };
 
 export function resolveRecommendationReasonKey(reason: string): string | null {
@@ -22,7 +24,10 @@ export function getRecommendationReasonIcon(reason: string): RecommendationReaso
   const key = resolveRecommendationReasonKey(reason);
   switch (key) {
     case "matchesNightlifeVibe":
+    case "matchesTodayVibe":
       return "people-outline";
+    case "basedOnMoodCheckin":
+      return "sparkles-outline";
     case "newSpotForYou":
       return "sparkles-outline";
     case "popularWithCommunity":

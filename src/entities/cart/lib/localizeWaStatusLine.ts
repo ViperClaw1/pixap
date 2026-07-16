@@ -43,6 +43,9 @@ const REVERSE_MAP: Record<string, string> = {
   "Заведение отклонило запрос на бронирование по SMS.": "waStatus.smsDeclined",
   "Could not read price — venue should send amount and currency only.": "waStatus.smsInvalidPrice",
   "Не удалось распознать цену — заведение должно отправить только сумму и валюту.": "waStatus.smsInvalidPrice",
+  // SLA timeout
+  "Venue did not respond within 15 minutes.": "waStatus.responseTimedOut",
+  "Заведение не ответило за 15 минут.": "waStatus.responseTimedOut",
 };
 
 export function localizeWaStatusLine(line: string, t: (key: string) => string): string {

@@ -29,6 +29,8 @@ export interface CartItem {
   wa_confirmed_slot: string | null;
   wa_confirmed_price: string | null;
   wa_payment_link: string | null;
+  response_deadline_at: string | null;
+  response_timed_out_at: string | null;
   business_card?: {
     id: string;
     name: string;
@@ -99,6 +101,7 @@ export const useCartItems = () => {
       if (!list?.length) return false;
       return list.some((i) => {
         if (i.wa_confirmable) return false;
+        if (i.response_timed_out_at) return false;
         // WA/n8n in progress
         if (i.wa_n8n_started_at) return true;
         // SMS in progress: status_lines set but not yet resolved
@@ -177,7 +180,6 @@ export const useCreateCartItem = () => {
 
 export const useDeleteCartItem = () => {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("cart_items").delete().eq("id", id);

@@ -270,7 +270,7 @@
     }
   },
   "home": {
-    "searchPlaceholder": "Search restaurants, salons, events…",
+    "searchPlaceholder": "Describe today's vibe, not a specific place",
     "categories": "Categories",
     "categoryComingSoon": "Coming soon",
     "featured": "Featured",
@@ -296,6 +296,22 @@
       "openPixaiBooking": "Open Pix AI Concierge",
       "openPixaiVibeMatch": "Open PixAI Vibe Match",
       "openNotifications": "Open notifications"
+    }
+  },
+  "dailyMoodCheckin": {
+    "title": "What's your vibe today?",
+    "subtitle": "Pix AI will tune today's picks to your mood, energy and plans.",
+    "submit": "Match my vibe",
+    "skip": "Skip today",
+    "energyLabel": "Energy level",
+    "notePlaceholder": "Anything specific? e.g. jazz, rooftop, low-key dinner",
+    "moods": {
+      "energetic": "Energetic",
+      "chill": "Chill",
+      "romantic": "Romantic",
+      "social": "Social",
+      "solo": "Solo",
+      "curious": "Curious"
     }
   },
   "notFound": {
@@ -611,6 +627,7 @@
     "pay": "Pay",
     "bookOnPlatform": "Book on {{platform}}",
     "waitingForVenue": "Waiting for venue response",
+    "waitingForVenueEta": "Waiting for venue response — up to {{minutes}} min",
     "noBookings": "No bookings",
     "choosePlace": "Choose place",
     "noTags": "No tags",
@@ -656,7 +673,8 @@
     "smsFailed": "Could not send message to venue. Contact support.",
     "smsAvailPricing": "Venue available. Checking booking fee…",
     "smsDeclined": "Venue declined your booking request.",
-    "smsInvalidPrice": "Could not read price. Venue should resend."
+    "smsInvalidPrice": "Could not read price. Venue should resend.",
+    "responseTimedOut": "Venue did not respond within 15 minutes. Try a similar place."
   },
   "cart": {
     "title": "Cart",
@@ -1043,7 +1061,9 @@
       "buzzingRightNow": "Buzzing right now",
       "newSpotForYou": "New spot for you",
       "popularWithCommunity": "Popular with the community",
-      "goodFitForTonight": "Good fit for tonight"
+      "goodFitForTonight": "Good fit for tonight",
+      "matchesTodayVibe": "Matches today's vibe",
+      "basedOnMoodCheckin": "Based on your mood check-in"
     }
   },
   "adminDashboard": {
@@ -1102,7 +1122,10 @@
         "missing_whatsapp": "No WA",
         "venue_rejection": "Reject",
         "other": "Other"
-      }
+      },
+      "bookingsList": "Recent booking requests",
+      "noBookings": "No bookings in this period",
+      "guests": "guests"
     },
     "subscriptions": {
       "total": "Purchases in period",

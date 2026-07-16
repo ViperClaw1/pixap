@@ -3,6 +3,8 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 type ReqBody = { cart_item_id?: string; interface_locale?: string };
 
+const BOOKING_RESPONSE_SLA_MINUTES = 15;
+
 function normalizeInterfaceLocale(raw: unknown): "ru" | "en" {
   if (typeof raw !== "string") return "en";
   const base = raw.trim().split("-")[0]?.toLowerCase() ?? "";
@@ -123,7 +125,7 @@ Deno.serve(async (req) => {
   const { data: row, error: fetchErr } = await db
     .from("cart_items")
     .select(
-      "id, user_id, status, business_card_id, date_time, cost, persons, customer_name, customer_phone, customer_email, comment, is_restaurant_table, wa_n8n_callback_token, wa_n8n_started_at, business_card:business_cards(name, contact_whatsapp, preferred_booking_channel, external_booking_platform, external_booking_url, contact_email)",
+      "id, user_id, status, business_card_id, date_time, cost, persons, customer_name, customer_phone, customer_email, comment, is_restaurant_table, wa_n8n_callback_token, wa_n8n_started_at, response_deadline_at, business_card:business_cards(name, contact_whatsapp, preferred_booking_channel, external_booking_platform, external_booking_url, contact_email)",
     )
     .eq("id", cartItemId)
     .eq("user_id", userId)
@@ -176,6 +178,20 @@ Deno.serve(async (req) => {
   }
 
   if (row.wa_n8n_started_at) {
+    if (!row.response_deadline_at) {
+      const startedAt = new Date(row.wa_n8n_started_at as string);
+      const deadlineBase = Number.isNaN(startedAt.getTime()) ? new Date() : startedAt;
+      const responseDeadlineAt = new Date(deadlineBase.getTime() + BOOKING_RESPONSE_SLA_MINUTES * 60 * 1000);
+      const { error: deadlineErr } = await db
+        .from("cart_items")
+        .update({ response_deadline_at: responseDeadlineAt.toISOString() })
+        .eq("id", row.id)
+        .eq("user_id", userId)
+        .is("response_deadline_at", null);
+      if (deadlineErr) {
+        console.warn("[n8n-wa-booking-start] response_deadline_at backfill", deadlineErr.message);
+      }
+    }
     return new Response(
       JSON.stringify({
         ok: true,
@@ -316,10 +332,16 @@ Deno.serve(async (req) => {
     );
   }
 
-  const startedAt = new Date().toISOString();
+  const startedAtDate = new Date();
+  const startedAt = startedAtDate.toISOString();
+  const responseDeadlineAt = new Date(startedAtDate.getTime() + BOOKING_RESPONSE_SLA_MINUTES * 60 * 1000).toISOString();
   const { error: doneErr } = await db
     .from("cart_items")
-    .update({ wa_n8n_started_at: startedAt })
+    .update({
+      wa_n8n_started_at: startedAt,
+      response_deadline_at: responseDeadlineAt,
+      response_timed_out_at: null,
+    })
     .eq("id", row.id)
     .eq("user_id", userId)
     .eq("status", "created");

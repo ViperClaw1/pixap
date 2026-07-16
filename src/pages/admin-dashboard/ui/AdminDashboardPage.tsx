@@ -12,8 +12,9 @@ import { useTranslation } from "react-i18next";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { AnalyticsPeriod } from "@/entities/admin-analytics";
-import { useAdminAnalytics } from "@/entities/admin-analytics";
+import { useAdminAnalytics, useAdminWhatsappBookings } from "@/entities/admin-analytics";
 import {
+  AdminBookingRow,
   AdminDashboardGuard,
   AnalyticsBarChart,
   AnalyticsLineChart,
@@ -37,6 +38,7 @@ function AdminDashboardContent() {
   const styles = useThemeStyles(createStyles);
   const [period, setPeriod] = useState<AnalyticsPeriod>(DEFAULT_ANALYTICS_PERIOD);
   const { data, isLoading, isError, refetch, isFetching } = useAdminAnalytics(period);
+  const { data: waBookings = [], isLoading: waBookingsLoading } = useAdminWhatsappBookings(period);
 
   const metricRowGap = width > 400 ? 12 : 8;
 
@@ -158,6 +160,14 @@ function AdminDashboardContent() {
           title={t("adminDashboard.charts.whatsappBreakdown")}
           outcomes={data.whatsapp.outcomes}
         />
+        <Text style={styles.subsectionTitle}>{t("adminDashboard.whatsapp.bookingsList")}</Text>
+        {waBookingsLoading ? <ActivityIndicator size="small" /> : null}
+        {!waBookingsLoading && waBookings.length === 0 ? (
+          <Text style={styles.muted}>{t("adminDashboard.whatsapp.noBookings")}</Text>
+        ) : null}
+        {waBookings.map((booking) => (
+          <AdminBookingRow key={booking.id} booking={booking} />
+        ))}
       </DashboardSection>
 
       <DashboardSection
@@ -260,5 +270,6 @@ function createStyles({
     periodRange: { fontSize: 12, color: colors.textMuted, marginBottom: 8 },
     empty: { fontSize: 14, color: colors.textMuted, textAlign: "center", paddingVertical: 24 },
     metricsRow: { flexDirection: "row", flexWrap: "wrap" },
+    subsectionTitle: { fontSize: 15, fontWeight: "700", color: colors.text, marginTop: 8 },
   });
 }

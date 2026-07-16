@@ -91,6 +91,8 @@ export default function BookingsScreen() {
           venueConfirmedPrice: venueConfirmedPriceLabel(linkedCartItem?.wa_confirmed_price),
           displayStatus: deriveBookingDisplayStatus(booking, linkedCartItem),
           waStatusLines: parseWaStatusLines(linkedCartItem?.wa_status_lines),
+          response_deadline_at: linkedCartItem?.response_deadline_at ?? null,
+          response_timed_out_at: linkedCartItem?.response_timed_out_at ?? null,
         };
       })
       .filter((item) => item.displayStatus === filter)
