@@ -67,7 +67,7 @@ export function PaywallPlanCard({
           >
             <Ionicons name="star" size={12} color={colors.accent} />
             <Text style={{ color: colors.accent, fontSize: 11, fontWeight: "700" }}>
-              {t("subscriptionPaywall.recommendedBadge")}
+              {t("subscriptionPaywall.mostPopularBadge")}
             </Text>
           </View>
         ) : null}

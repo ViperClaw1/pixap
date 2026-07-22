@@ -16,6 +16,8 @@ type Extra = {
   googleMapsAndroidCertSha1?: string;
   /** Digits-only E.164 for PixAI WhatsApp fallback (availability messages). */
   pixaiWhatsAppE164?: string;
+  /** Store product id for PixAI weekly subscription. */
+  pixAiWeeklySubscriptionSku?: string;
   /** Store product id for PixAI monthly subscription. */
   pixAiMonthlySubscriptionSku?: string;
   /** Store product id for PixAI annual (Premium Plus) subscription. */
@@ -85,6 +87,13 @@ export const env = {
     const raw = getExtra().pixaiWhatsAppE164 ?? process.env.EXPO_PUBLIC_PIXAI_WHATSAPP_E164 ?? "971525235996";
     const digits = raw.replace(/\D/g, "");
     return digits.length >= 8 ? digits : "971525235996";
+  },
+  get pixAiWeeklySubscriptionSku(): string {
+    return (
+      getExtra().pixAiWeeklySubscriptionSku ??
+      process.env.EXPO_PUBLIC_PIXAI_WEEKLY_SUBSCRIPTION_SKU ??
+      "pixai_premium_weekly"
+    ).trim();
   },
   get pixAiMonthlySubscriptionSku(): string {
     return (

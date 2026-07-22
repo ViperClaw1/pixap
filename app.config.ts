@@ -202,6 +202,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       googleMapsAndroidCertSha1 && /^[0-9a-fA-F]{40}$/.test(googleMapsAndroidCertSha1)
         ? googleMapsAndroidCertSha1.toUpperCase()
         : undefined,
+    pixAiWeeklySubscriptionSku: process.env.EXPO_PUBLIC_PIXAI_WEEKLY_SUBSCRIPTION_SKU ?? "pixai_premium_weekly",
     pixAiMonthlySubscriptionSku: process.env.EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU ?? "pixai_premium_monthly",
     pixAiAnnualSubscriptionSku: process.env.EXPO_PUBLIC_PIXAI_ANNUAL_SUBSCRIPTION_SKU ?? "pixai_premium_annual",
     appStoreUrl,
