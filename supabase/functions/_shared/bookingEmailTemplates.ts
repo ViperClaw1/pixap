@@ -203,6 +203,78 @@ export function buildStatusEmail(p: StatusEmailParams): string {
   return baseLayout(content);
 }
 
+export interface AdminNewBookingEmailParams {
+  venueName: string;
+  dateTime: string;
+  persons: number;
+  customerName: string;
+  customerPhone: string;
+  bookingId: string;
+}
+
+export function buildAdminNewBookingEmail(p: AdminNewBookingEmailParams): string {
+  const venue = escapeHtml(p.venueName);
+  const dt = escapeHtml(p.dateTime);
+  const customer = escapeHtml(p.customerName || "—");
+  const phone = escapeHtml(p.customerPhone || "—");
+
+  const content = `
+    <tr><td align="center" style="font-size:42px;padding-bottom:8px;">
+      🔔
+    </td></tr>
+    <tr><td align="center"
+            style="font-size:22px;font-weight:800;line-height:1.3;padding-bottom:6px;">
+      New booking request
+    </td></tr>
+    <tr><td align="center"
+            style="font-size:15px;color:#4b5563;padding-bottom:24px;">
+      A customer just requested a booking.
+    </td></tr>
+    <tr><td style="background:#f9fafb;border:1.5px solid #e5e7eb;
+                   border-radius:14px;padding:20px 22px;margin-bottom:24px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="font-size:18px;font-weight:700;color:#111827;
+                     padding-bottom:14px;">${venue}</td>
+        </tr>
+        <tr>
+          <td>
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="font-size:13px;color:#6b7280;width:100px;">📅 Date</td>
+                <td style="font-size:14px;font-weight:600;color:#111827;">${dt}</td>
+              </tr>
+              <tr><td colspan="2" style="height:8px;"></td></tr>
+              <tr>
+                <td style="font-size:13px;color:#6b7280;">👥 Guests</td>
+                <td style="font-size:14px;font-weight:600;color:#111827;">
+                  ${p.persons} ${p.persons === 1 ? "person" : "people"}
+                </td>
+              </tr>
+              <tr><td colspan="2" style="height:8px;"></td></tr>
+              <tr>
+                <td style="font-size:13px;color:#6b7280;">👤 Customer</td>
+                <td style="font-size:14px;font-weight:600;color:#111827;">${customer}</td>
+              </tr>
+              <tr><td colspan="2" style="height:8px;"></td></tr>
+              <tr>
+                <td style="font-size:13px;color:#6b7280;">📞 Phone</td>
+                <td style="font-size:14px;font-weight:600;color:#111827;">${phone}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+    <tr><td align="center"
+            style="font-size:13px;color:#9ca3af;padding-bottom:8px;">
+      Open the admin dashboard in the Pixap app for outreach options.
+    </td></tr>
+  `;
+
+  return baseLayout(content);
+}
+
 export function formatBookingDateTime(isoString: string): string {
   const d = new Date(isoString);
   return d.toLocaleDateString("en-US", {

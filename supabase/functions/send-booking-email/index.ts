@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import {
+  buildAdminNewBookingEmail,
   buildReminderEmail,
   buildStatusEmail,
   formatBookingDateTime,
@@ -10,7 +11,7 @@ import { sendResendEmail } from "../_shared/resend.ts";
 
 type ReqBody = {
   booking_id: string;
-  kind: "reminder" | "status_update";
+  kind: "reminder" | "status_update" | "admin_new_booking";
 };
 
 const APP_URL = "https://pixapp.kz";
@@ -76,6 +77,42 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Booking not found" }, 404);
   }
 
+  const businessCards = booking.business_cards as { name: string } | { name: string }[] | null;
+  const venueName = Array.isArray(businessCards)
+    ? businessCards[0]?.name
+    : businessCards?.name ?? "your venue";
+  const dateTimeStr = formatBookingDateTime(booking.date_time);
+
+  if (kind === "admin_new_booking") {
+    const { data: admins, error: adminsErr } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("account_role", "admin");
+    if (adminsErr) {
+      return jsonResponse({ error: adminsErr.message }, 500);
+    }
+    const adminEmails = (admins ?? [])
+      .map((row: { email: string | null }) => row.email?.trim())
+      .filter((email): email is string => Boolean(email));
+    if (adminEmails.length === 0) {
+      return jsonResponse({ ok: true, skipped: "no_admin_emails" });
+    }
+
+    const subject = `🔔 New booking — ${venueName}`;
+    const html = buildAdminNewBookingEmail({
+      venueName,
+      dateTime: dateTimeStr,
+      persons: booking.persons ?? 1,
+      customerName: booking.customer_name ?? "",
+      customerPhone: booking.customer_phone ?? "",
+      bookingId: booking_id,
+    });
+
+    await Promise.all(adminEmails.map((to) => sendResendEmail({ to, subject, html })));
+
+    return jsonResponse({ ok: true, to: adminEmails, kind });
+  }
+
   const { data: authUser } = await admin.auth.admin.getUserById(booking.user_id);
   const toEmail =
     booking.customer_email?.trim() ||
@@ -85,15 +122,10 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: true, skipped: "no_email" });
   }
 
-  const businessCards = booking.business_cards as { name: string } | { name: string }[] | null;
-  const venueName = Array.isArray(businessCards)
-    ? businessCards[0]?.name
-    : businessCards?.name ?? "your venue";
   const customerName =
     booking.customer_name ||
     (authUser?.user?.user_metadata?.first_name as string | undefined) ||
     "";
-  const dateTimeStr = formatBookingDateTime(booking.date_time);
 
   let subject: string;
   let html: string;

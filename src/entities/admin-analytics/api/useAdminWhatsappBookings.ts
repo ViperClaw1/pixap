@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -10,11 +11,13 @@ export type AdminWhatsappBookingRow = {
   id: string;
   venue_name: string;
   venue_address: string | null;
+  venue_phone: string | null;
+  venue_contact_whatsapp: string | null;
   date_time: string;
   persons: number | null;
   customer_name: string | null;
   customer_phone: string | null;
-  status: "created" | "paid" | "expired";
+  status: string;
   wa_status_lines: unknown;
   wa_confirmable: boolean;
   wa_confirmed_price: string | null;
@@ -30,9 +33,11 @@ export function useAdminWhatsappBookings(period: AnalyticsPeriod, limit = 50) {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const canAccess = canAccessAdminDashboard(profile?.account_role);
+  const queryClient = useQueryClient();
+  const queryKey = queryKeys.adminAnalytics.waBookings(period, user?.id ?? null);
 
-  return useQuery({
-    queryKey: queryKeys.adminAnalytics.waBookings(period, user?.id ?? null),
+  const query = useQuery({
+    queryKey,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_whatsapp_bookings_list", {
         p_period_days: period,
@@ -44,4 +49,19 @@ export function useAdminWhatsappBookings(period: AnalyticsPeriod, limit = 50) {
     enabled: !!user && canAccess,
     staleTime: STALE_MS,
   });
+
+  useEffect(() => {
+    if (!user || !canAccess) return;
+    const invalidate = () => void queryClient.invalidateQueries({ queryKey });
+    const channel = supabase
+      .channel("admin_wa_bookings_list_rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "bookings" }, invalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cart_items" }, invalidate)
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user, canAccess, queryClient, queryKey]);
+
+  return query;
 }

@@ -14,6 +14,7 @@ import { SubscriptionPurchaseResultModal } from "@/features/subscription-paywall
 import {
   getPixAiAnnualSubscriptionSku,
   getPixAiMonthlySubscriptionSku,
+  getPixAiWeeklySubscriptionSku,
 } from "@/entities/subscription/model/productIds";
 import { PRIVACY_URL, TERMS_URL } from "@/shared/lib/legalUrls";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
@@ -21,7 +22,7 @@ import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDi
 import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { SubscriptionPaywallTourModal, usePaywallTourAutoOpen } from "@/features/subscription-paywall-tour";
-import { getAnnualPlanFeatures, getMonthlyPlanFeatures } from "../lib/paywallPlanFeatures";
+import { getAnnualPlanFeatures, getMonthlyPlanFeatures, getWeeklyPlanFeatures } from "../lib/paywallPlanFeatures";
 import { PaywallPlanCard } from "./PaywallPlanCard";
 import { useSubscriptionPaywallStyles } from "./subscriptionPaywallStyles";
 import { trackPaywallViewed, trackPaywallDismissed, trackPurchaseCompleted } from "@/shared/lib/analytics/track";
@@ -82,7 +83,7 @@ export default function SubscriptionPaywallScreen() {
     resetVerificationState,
   } = useSubscription();
   const { balance, isIntroActive, introPeriodEndsAt, hasPaidPremium } = useBookingAccess();
-  const [selectedSku, setSelectedSku] = useState(getPixAiAnnualSubscriptionSku);
+  const [selectedSku, setSelectedSku] = useState(getPixAiMonthlySubscriptionSku);
   const { tourVisible, openTour, closeTour } = usePaywallTourAutoOpen();
 
   const paywallReason = route.params?.reason;
@@ -98,26 +99,36 @@ export default function SubscriptionPaywallScreen() {
   }, [verificationState.status, selectedSku]);
 
   const styles = useSubscriptionPaywallStyles(insets.top, insets.bottom);
+  const weeklyFeatures = getWeeklyPlanFeatures(t);
   const monthlyFeatures = getMonthlyPlanFeatures(t);
   const annualFeatures = getAnnualPlanFeatures(t);
 
+  const weeklyProduct = products.find((product) => product.id === getPixAiWeeklySubscriptionSku());
   const monthlyProduct = products.find((product) => product.id === getPixAiMonthlySubscriptionSku());
   const annualProduct = products.find((product) => product.id === getPixAiAnnualSubscriptionSku());
 
   const formatPrice = (product: (typeof products)[number] | undefined, fallback: string) =>
     product?.displayPrice ?? (product?.price != null ? String(product.price) : fallback);
 
+  const weeklyPrice = formatPrice(weeklyProduct, "");
   const monthlyPrice = formatPrice(monthlyProduct, "");
   const annualPrice = formatPrice(annualProduct, "");
 
-  const purchaseLabel =
-    selectedSku === getPixAiAnnualSubscriptionSku()
-      ? annualPrice
+  const purchaseLabel = (() => {
+    if (selectedSku === getPixAiAnnualSubscriptionSku()) {
+      return annualPrice
         ? t("subscriptionPaywall.ctaAnnual", { price: annualPrice })
-        : t("subscriptionPaywall.ctaAnnualFallback")
-      : monthlyPrice
-        ? t("subscriptionPaywall.ctaMonthly", { price: monthlyPrice })
-        : t("subscriptionPaywall.ctaMonthlyFallback");
+        : t("subscriptionPaywall.ctaAnnualFallback");
+    }
+    if (selectedSku === getPixAiWeeklySubscriptionSku()) {
+      return weeklyPrice
+        ? t("subscriptionPaywall.ctaWeekly", { price: weeklyPrice })
+        : t("subscriptionPaywall.ctaWeeklyFallback");
+    }
+    return monthlyPrice
+      ? t("subscriptionPaywall.ctaMonthly", { price: monthlyPrice })
+      : t("subscriptionPaywall.ctaMonthlyFallback");
+  })();
 
   const subtitle =
     paywallReason === "no_credits"
@@ -185,15 +196,31 @@ export default function SubscriptionPaywallScreen() {
         </View>
 
       <PaywallPlanCard
+        title={t("subscriptionPaywall.weeklyTitle")}
+        features={weeklyFeatures}
+        price={weeklyPrice || undefined}
+        priceSuffix={t("subscriptionPaywall.perWeek")}
+        selected={selectedSku === getPixAiWeeklySubscriptionSku()}
+        onPress={() => setSelectedSku(getPixAiWeeklySubscriptionSku())}
+        cardStyle={styles.card}
+        planStyle={styles.plan}
+        subtitleStyle={styles.subtitle}
+        selectedCardStyle={styles.planCardSelected}
+      />
+
+      <PaywallPlanCard
         title={t("subscriptionPaywall.monthlyTitle")}
         features={monthlyFeatures}
         price={monthlyPrice || undefined}
         priceSuffix={t("subscriptionPaywall.perMonth")}
         selected={selectedSku === getPixAiMonthlySubscriptionSku()}
+        highlighted
         onPress={() => setSelectedSku(getPixAiMonthlySubscriptionSku())}
         cardStyle={styles.card}
         planStyle={styles.plan}
         subtitleStyle={styles.subtitle}
+        highlightedCardStyle={styles.planCardHighlighted}
+        highlightedPlanStyle={styles.planTitleHighlighted}
         selectedCardStyle={styles.planCardSelected}
       />
 
@@ -203,13 +230,10 @@ export default function SubscriptionPaywallScreen() {
         price={annualPrice || undefined}
         priceSuffix={t("subscriptionPaywall.perYear")}
         selected={selectedSku === getPixAiAnnualSubscriptionSku()}
-        highlighted
         onPress={() => setSelectedSku(getPixAiAnnualSubscriptionSku())}
         cardStyle={styles.card}
         planStyle={styles.plan}
         subtitleStyle={styles.subtitle}
-        highlightedCardStyle={styles.planCardHighlighted}
-        highlightedPlanStyle={styles.planTitleHighlighted}
         selectedCardStyle={styles.planCardSelected}
       />
 

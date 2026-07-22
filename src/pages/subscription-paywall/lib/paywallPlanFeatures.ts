@@ -30,6 +30,34 @@ const POST_BOOST = {
   iconBackground: "rgba(245,158,11,0.2)",
 } as const;
 
+const FAST_BOOKING = {
+  iconColor: "#3b82f6",
+  iconBackground: "rgba(59,130,246,0.18)",
+} as const;
+
+export function getWeeklyPlanFeatures(t: TFunction): PaywallPlanFeature[] {
+  return [
+    {
+      id: "credits",
+      icon: "ticket-outline",
+      ...CREDITS,
+      label: t("subscriptionPaywall.weeklyCredits"),
+    },
+    {
+      id: "aiBooking",
+      icon: "sparkles-outline",
+      ...AI_BOOKING,
+      label: t("subscriptionPaywall.featureAiBooking"),
+    },
+    {
+      id: "vibeMatch",
+      icon: "heart-outline",
+      ...VIBE_MATCH,
+      label: t("subscriptionPaywall.featureVibeMatch"),
+    },
+  ];
+}
+
 export function getMonthlyPlanFeatures(t: TFunction): PaywallPlanFeature[] {
   return [
     {
@@ -49,6 +77,12 @@ export function getMonthlyPlanFeatures(t: TFunction): PaywallPlanFeature[] {
       icon: "heart-outline",
       ...VIBE_MATCH,
       label: t("subscriptionPaywall.featureVibeMatch"),
+    },
+    {
+      id: "fastBooking",
+      icon: "flash-outline",
+      ...FAST_BOOKING,
+      label: t("subscriptionPaywall.featureFastBooking"),
     },
   ];
 }
@@ -78,6 +112,12 @@ export function getAnnualPlanFeatures(t: TFunction): PaywallPlanFeature[] {
       icon: "rocket-outline",
       ...POST_BOOST,
       label: t("subscriptionPaywall.featurePostBoost"),
+    },
+    {
+      id: "fastBooking",
+      icon: "flash-outline",
+      ...FAST_BOOKING,
+      label: t("subscriptionPaywall.featureFastBooking"),
     },
   ];
 }
