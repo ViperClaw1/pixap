@@ -10,6 +10,11 @@ export const cityPickerStaticStyles = StyleSheet.create({
     borderRadius: 9,
     borderWidth: 1,
   },
+  compactTriggerWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   compactTriggerText: { fontSize: 12, fontWeight: "600" },
   dropdownTrigger: {
     flexDirection: "row",

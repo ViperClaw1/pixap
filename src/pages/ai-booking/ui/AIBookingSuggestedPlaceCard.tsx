@@ -1,9 +1,12 @@
 import { AppPressable } from "@/shared/ui/app-pressable";
-import { memo, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { ActivityIndicator, PixelRatio, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { BrowseFlowParamList } from "@/app/navigation/types";
 import type { PixAIPlace } from "@/entities/pixai";
 import { PLACE_IMAGE_FALLBACK } from "@/shared/assets/placeImageFallback";
 import { SmartImage } from "@/shared/ui/smart-image/SmartImage";
@@ -36,6 +39,8 @@ function placeThumbUris(
   const uri = getBusinessCardDisplayUrl(raw, { layoutPx: edge, layoutPxHeight: edge });
   return { uri, fallbackUri: businessCardDisplayFallback(uri, raw) ?? null };
 }
+
+type Nav = NativeStackNavigationProp<BrowseFlowParamList, "PlaceDetail">;
 
 type TagItem = { key: string; label: string; tint: string };
 
@@ -100,6 +105,7 @@ function AIBookingSuggestedPlaceCardInner({
   const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const { width: windowWidth } = useWindowDimensions();
+  const navigation = useNavigation<Nav>();
   const thumbSize = windowWidth <= COMPACT_CARD_WIDTH ? THUMB_SIZE_COMPACT : THUMB_SIZE_DEFAULT;
   const { uri, fallbackUri } = placeThumbUris(place.images, thumbSize);
   const coverBlurhash = getBusinessCardCoverBlurhash(place.blurhashes);
@@ -108,8 +114,17 @@ function AIBookingSuggestedPlaceCardInner({
   const visibleTags = useMemo(() => buildVisibleTags(place.tags), [place.tags]);
   const addressLine = place.address?.trim() ?? "";
 
+  const openDetail = useCallback(() => {
+    navigation.navigate("PlaceDetail", { id: place.id });
+  }, [navigation, place.id]);
+
   return (
-    <View style={[s.placeCard, selected && s.placeCardSelected]}>
+    <AppPressable
+      style={[s.placeCard, selected && s.placeCardSelected]}
+      onPress={openDetail}
+      accessibilityRole="button"
+      accessibilityLabel={place.name}
+    >
       <View style={s.placeRow}>
         <SmartImage
           uri={uri}
@@ -205,7 +220,7 @@ function AIBookingSuggestedPlaceCardInner({
           </View>
         </View>
       </View>
-    </View>
+    </AppPressable>
   );
 }
 

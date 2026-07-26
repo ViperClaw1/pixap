@@ -15,7 +15,7 @@ import {
 import { useScrollToFocusedInput } from "@/shared/lib/keyboard";
 import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CommonActions, useFocusEffect, useNavigation } from "@react-navigation/native";
+import { CommonActions, useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { useQueries } from "@tanstack/react-query";
@@ -199,12 +199,15 @@ type VibeBookingAction = "all" | "partial" | "retry";
 type BookRowResult = { stop: VibePlanStop; ok: true } | { stop: VibePlanStop; ok: false; message: string };
 
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "VibeMatch">;
+type VibeMatchRoute = RouteProp<BrowseFlowParamList, "VibeMatch">;
 
 function VibeMatchPageContent() {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const navigation = useNavigation<Nav>();
+  const route = useRoute<VibeMatchRoute>();
+  const { prefillCity, prefillMood, sourceFlow } = route.params ?? {};
   useDisableGestureDuringTransition();
   const androidSwipeBackPanHandlers = useAndroidFullSwipeBackPanHandlers(navigation);
   const { user, session, loading: authLoading } = useAuth();
@@ -267,6 +270,7 @@ function VibeMatchPageContent() {
     city: string;
   } | null>(null);
   const selectionSeededForPlanRef = useRef("");
+  const autoGenerateTriggeredRef = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const scrollYRef = useRef(0);
   const { onInputFocus, onScroll: onKeyboardScroll } = useScrollToFocusedInput(scrollRef, {
@@ -373,9 +377,14 @@ function VibeMatchPageContent() {
   }, [concreteCities, citySearchQuery]);
 
   useEffect(() => {
-    const c = profile?.city?.trim();
+    const c = prefillCity?.trim() || profile?.city?.trim();
     if (c) setCity((prev) => (prev.trim() ? prev : c));
-  }, [profile?.city]);
+  }, [prefillCity, profile?.city]);
+
+  useEffect(() => {
+    const m = prefillMood?.trim();
+    if (m) setMood((prev) => (prev.trim() ? prev : m));
+  }, [prefillMood]);
 
   useEffect(() => {
     if (!profile) return;
@@ -648,6 +657,13 @@ function VibeMatchPageContent() {
       /* surfaced via vibeError */
     }
   }, [city, draftTimeSelection, draftTimeWindowContext, resolveMoodDisplay, resolveMoodSlugs, runVibePlan, searchTimeline, t]);
+
+  useEffect(() => {
+    if (sourceFlow !== "ai_concierge" || autoGenerateTriggeredRef.current) return;
+    if (!city.trim() || !resolveMoodSlugs()) return;
+    autoGenerateTriggeredRef.current = true;
+    void onGenerate();
+  }, [sourceFlow, city, resolveMoodSlugs, onGenerate]);
 
   const onClearPlan = useCallback(() => {
     resetVibePlan();

@@ -13,6 +13,7 @@ type Props = {
   inputRef?: Ref<TextInput>;
   onInputFocus?: () => void;
   onInputBlur?: () => void;
+  placeholder?: string;
 };
 
 export function BookingChatComposer({
@@ -22,6 +23,7 @@ export function BookingChatComposer({
   inputRef,
   onInputFocus,
   onInputBlur,
+  placeholder,
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -46,7 +48,7 @@ export function BookingChatComposer({
         <TextInput
           ref={inputRef}
           style={[styles.input, { color: colors.text }]}
-          placeholder={t("aiBooking.chatComposerPlaceholder")}
+          placeholder={placeholder ?? t("aiBooking.chatComposerPlaceholder")}
           placeholderTextColor={colors.textMuted}
           value={text}
           onChangeText={(value) => {

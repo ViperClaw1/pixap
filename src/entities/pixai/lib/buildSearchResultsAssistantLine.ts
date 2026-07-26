@@ -10,6 +10,9 @@ export function buildSearchResultsAssistantLine(params: {
   return i18n.t("aiBooking.searchResultsLine", params);
 }
 
+/** Bookings need at least 2 stops to be worth stringing into a route. */
+const MIN_PLACE_COUNT_FOR_ROUTE_NUDGE = 2;
+
 export function buildSearchResultsLineFromFlow(flow: PixAIFlowPayload, placeCount: number): string {
   if (placeCount === 0) {
     return i18n.t("aiBooking.searchNoMatchingPlaces");
@@ -26,7 +29,9 @@ export function buildSearchResultsLineFromFlow(flow: PixAIFlowPayload, placeCoun
       ? i18n.t("bookingCommon.nearMe5Miles")
       : i18n.t("bookingCommon.allPlacesInMyCity");
 
-  return buildSearchResultsAssistantLine({ count: placeCount, requestType, scopeText });
+  const line = buildSearchResultsAssistantLine({ count: placeCount, requestType, scopeText });
+  if (placeCount < MIN_PLACE_COUNT_FOR_ROUTE_NUDGE) return line;
+  return `${line}\n\n${i18n.t("aiBooking.searchResultsRouteNudge")}`;
 }
 
 /** Legacy English assistant lines stored before i18n (or from orchestrator fallback). */

@@ -1224,6 +1224,12 @@ export type Database = {
           created_at: string
         }[]
       }
+      admin_confirm_booking: {
+        Args: {
+          p_booking_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "buyer" | "partner" | "admin"

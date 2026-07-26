@@ -5,6 +5,13 @@ import { shouldEnforceSubscriptionPaywall } from "./shouldEnforceSubscriptionPay
 
 type GatedScreen = "AIBooking" | "VibeMatch" | "BookingFlow";
 
+type GatedScreenParams = {
+  id?: string;
+  prefillCity?: string;
+  prefillMood?: string;
+  sourceFlow?: "ai_concierge";
+};
+
 export function useSubscriptionGatedNavigation(navigation: NavigationProp<ParamListBase>) {
   const {
     isLoading: accessLoading,
@@ -16,7 +23,7 @@ export function useSubscriptionGatedNavigation(navigation: NavigationProp<ParamL
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
 
   const openGatedScreen = useCallback(
-    (screen: GatedScreen, params?: { id?: string }) => {
+    (screen: GatedScreen, params?: GatedScreenParams) => {
       const allowed =
         screen === "BookingFlow"
           ? canAccessBookingFlow
@@ -49,7 +56,10 @@ export function useSubscriptionGatedNavigation(navigation: NavigationProp<ParamL
     [openGatedScreen],
   );
 
-  const openVibeMatch = useCallback(() => openGatedScreen("VibeMatch"), [openGatedScreen]);
+  const openVibeMatch = useCallback(
+    (params?: Omit<GatedScreenParams, "id">) => openGatedScreen("VibeMatch", params),
+    [openGatedScreen],
+  );
 
   const openBookingFlow = useCallback(
     (params: { id: string }) => openGatedScreen("BookingFlow", params),

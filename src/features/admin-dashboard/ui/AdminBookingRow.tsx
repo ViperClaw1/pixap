@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import Toast from "react-native-toast-message";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { localizeWaStatusLine } from "@/entities/cart";
 import {
@@ -11,6 +12,8 @@ import {
 } from "@/entities/shopping";
 import { openPhoneDialer } from "@/shared/lib/openPhoneDialer";
 import { useThemeStyles } from "@/shared/theme/useThemeStyles";
+import { devWarn } from "@/shared/lib/devLog";
+import { useConfirmAdminBooking } from "@/entities/admin-analytics";
 import type { AdminWhatsappBookingRow } from "@/entities/admin-analytics";
 
 function formatDateTime(value: string): string {
@@ -25,6 +28,7 @@ type Props = {
 export function AdminBookingRow({ booking }: Props) {
   const { t } = useTranslation();
   const styles = useThemeStyles(createStyles);
+  const confirmBooking = useConfirmAdminBooking();
   const lines = Array.isArray(booking.wa_status_lines) ? (booking.wa_status_lines as unknown[]) : [];
   const lastLine = lines.length ? localizeWaStatusLine(String(lines[lines.length - 1]), t) : null;
 
@@ -53,6 +57,32 @@ export function AdminBookingRow({ booking }: Props) {
     void openWhatsAppAvailability(phone, message);
   };
 
+  const handleApprove = () => {
+    Alert.alert(
+      t("adminDashboard.whatsapp.approveConfirmTitle"),
+      t("adminDashboard.whatsapp.approveConfirmBody", { venue: booking.venue_name }),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("adminDashboard.whatsapp.approveBtn"),
+          onPress: async () => {
+            try {
+              await confirmBooking.mutateAsync(booking.id);
+              Toast.show({ type: "success", text1: t("adminDashboard.whatsapp.toastApproved") });
+            } catch (error) {
+              devWarn("admin confirm booking failed", error);
+              Toast.show({
+                type: "error",
+                text1: t("adminDashboard.whatsapp.toastApproveError"),
+                text2: error instanceof Error ? error.message : t("common.unknownError"),
+              });
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={styles.row}>
       <View style={styles.rowHead}>
@@ -78,6 +108,16 @@ export function AdminBookingRow({ booking }: Props) {
           <Ionicons name="logo-whatsapp" size={14} color="#fff" />
           <Text style={styles.actionBtnText}>{t("adminDashboard.whatsapp.waBtn")}</Text>
         </AppPressable>
+        {!booking.wa_confirmable ? (
+          <AppPressable
+            style={[styles.actionBtn, styles.approveBtn, confirmBooking.isPending && styles.actionBtnDisabled]}
+            onPress={handleApprove}
+            disabled={confirmBooking.isPending}
+          >
+            <Ionicons name="checkmark-circle-outline" size={14} color="#fff" />
+            <Text style={styles.actionBtnText}>{t("adminDashboard.whatsapp.approveBtn")}</Text>
+          </AppPressable>
+        ) : null}
       </View>
     </View>
   );
@@ -110,6 +150,8 @@ function createStyles({
     },
     callBtn: { backgroundColor: "#2563eb" },
     waBtn: { backgroundColor: "#16a34a" },
+    approveBtn: { backgroundColor: "#7c3aed" },
+    actionBtnDisabled: { opacity: 0.6 },
     actionBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
   });
 }
