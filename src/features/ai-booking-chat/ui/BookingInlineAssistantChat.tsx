@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, type Ref } from "react";
+import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { Keyboard, Pressable, Text, TextInput, View } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -28,7 +29,16 @@ type Props = {
   onScopeSelected: (scope: "nearby" | "city") => void;
   onOnboardingTypewriterComplete: (messageId: string) => void;
   openingTypewriterEpoch?: number;
+  /** Free-form query typed before a search has run yet — bypasses city/category/scope prompts. */
+  onFreeTextQuery: (text: string) => void;
 };
+
+const PRE_SEARCH_COMPOSER_PHASES: BookingOnboardingPhase[] = [
+  "greeting",
+  "await_city",
+  "await_category",
+  "await_scope",
+];
 
 export function BookingInlineAssistantChat({
   catalogRevision,
@@ -47,7 +57,9 @@ export function BookingInlineAssistantChat({
   onScopeSelected,
   onOnboardingTypewriterComplete,
   openingTypewriterEpoch = 0,
+  onFreeTextQuery,
 }: Props) {
+  const { t } = useTranslation();
   const { colors } = useAppTheme();
   const isSending = useBookingChatStore((s) => s.isSending);
   const sendError = useBookingChatStore((s) => s.sendError);
@@ -84,9 +96,15 @@ export function BookingInlineAssistantChat({
     useBookingChatStore.getState().ensureActiveTab(catalogRevision);
   }, [catalogRevision]);
 
+  const preSearchComposerPhase = PRE_SEARCH_COMPOSER_PHASES.includes(onboardingPhase);
+
   const onSend = useCallback(
     async (text: string) => {
-      if (!bookingContext || !geminiPhase) return;
+      if (!geminiPhase) {
+        if (preSearchComposerPhase) onFreeTextQuery(text);
+        return;
+      }
+      if (!bookingContext) return;
       const st = useBookingChatStore.getState();
       const tabId = st.activeTabId;
       if (!tabId) return;
@@ -110,7 +128,16 @@ export function BookingInlineAssistantChat({
         searchMeta,
       });
     },
-    [bookingContext, catalogRevision, geminiPhase, orderedIds, placeLite, searchMeta],
+    [
+      bookingContext,
+      catalogRevision,
+      geminiPhase,
+      onFreeTextQuery,
+      orderedIds,
+      placeLite,
+      preSearchComposerPhase,
+      searchMeta,
+    ],
   );
 
   return (
@@ -145,14 +172,15 @@ export function BookingInlineAssistantChat({
           onScopeSelected={onScopeSelected}
         />
       </Pressable>
-      {geminiPhase ? (
+      {geminiPhase || preSearchComposerPhase ? (
         <BookingChatComposer
-          disabled={places.length === 0 || !bookingContext}
-          sending={isSending}
+          disabled={geminiPhase ? places.length === 0 || !bookingContext : searchPlacesBusy}
+          sending={geminiPhase ? isSending : searchPlacesBusy}
           onSend={onSend}
           inputRef={composerInputRef}
           onInputFocus={onComposerInputFocus}
           onInputBlur={onComposerInputBlur}
+          placeholder={geminiPhase ? undefined : t("aiBooking.freeTextComposerPlaceholder")}
         />
       ) : null}
     </View>

@@ -280,6 +280,16 @@ PRICE REQUESTS:
 - "mid-range"/"средний чек" → prefer price_tier=2
 - "premium"/"luxury"/"дорого"/"премиум" → prefer price_tier=3
 
+COMPLEMENTARY PAIRING (optional, opportunistic — never invent a venue):
+- ONLY the "places" JSON field exists — there is no other catalog. If it contains a mix of
+  venue types (e.g. an event/attraction plus a bar, café, or restaurant among the SAME list),
+  you may name the pairing in "explanation": recommend the top pick for the main request, then
+  mention the complementary one from the list as a nice-to-pair option.
+- Do this only when a genuinely different, complementary venue type is already present in
+  "places" — never suggest a venue, cuisine, or category that is not one of the given ids.
+- If "places" is a single category with nothing to pair, omit this — do not force it.
+- Keep it to one added sentence in "explanation", never inflate "message".
+
 Output: JSON { message, filters, rerankedPlaceIds, excludedPlaceIds, explanation? }`;
 }
 

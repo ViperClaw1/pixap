@@ -146,7 +146,7 @@
     "noCitiesMatch": "Keine Stadt entspricht Ihrer Suche.",
     "allCities": "Alle Städte",
     "pixAiBooking": "Pix AI Concierge",
-    "vibeMatching": "Vibe Matching",
+    "vibeMatching": "Meine Route erstellen",
     "alerts": {
       "citySaveTitle": "Stadt konnte nicht gespeichert werden",
       "citySaveBody": "Bitte versuchen Sie es erneut."
@@ -259,6 +259,7 @@
     "listUpdatedMessage": "Der Assistent hat Orte entfernt oder neu sortiert. Ihre vorherige Auswahl ist nicht mehr verfügbar. Wählen Sie einen anderen Ort.",
     "searchFailed": "Orte konnten nicht gesucht werden.",
     "searchResultsLine": "Ich habe {{count}} {{requestType}} {{scopeText}} gefunden. Wählen Sie eines — ich schlage die besten verfügbaren Slots vor.",
+    "searchResultsRouteNudge": "Willst du einen ganzen Abend daraus machen? Tippe unten auf \"Meine Route erstellen\", um mehrere Orte mit Zeitplan zu verbinden.",
     "searchNoMatchingPlaces": "Keine passenden Orte gefunden. Versuchen Sie, Stadt, Kategorie oder Suchbereich zu ändern.",
     "searchOrchestratorFailed": "Beim Buchungsassistenten ist ein Fehler aufgetreten, es wurden keine passenden Orte gefunden. Prüfen Sie die Verbindung und versuchen Sie es erneut.",
     "scopeInCity": "in {{city}}",
@@ -283,9 +284,11 @@
     "selectDateForSlots": "Wählen Sie ein Datum, um Zeitslots zu laden.",
     "couldNotLoadSlots": "Slots konnten nicht geladen werden.",
     "noTimeSlotsForDate": "Keine Zeitslots für dieses Datum.",
-    "assistantGreeting": "Hallo, ich bin Pix AI. Sagen Sie mir, was Sie wollen — den Rest übernehme ich.",
+    "assistantGreeting": "Sag mir, was du willst, den Rest erledige ich",
+    "buildRouteTitle": "Meine Route erstellen",
+    "buildRouteSub": "Erhalte einen personalisierten Mehrstopp-Plan",
     "askCity": "In welcher Stadt sind Sie?",
-    "askCategory": "Welche Art von Ort suchen Sie?",
+    "askCategory": "Sag mir, wonach du suchst — Stimmung, Küche, Event oder Ortstyp.",
     "askScope": "Soll ich in Ihrer Nähe oder in der ganzen Stadt suchen?",
     "bookPlace": "Buchen",
     "requestHistoryTitle": "Anfrageverlauf",
@@ -298,10 +301,11 @@
     "flowFindSummary": "Suchen: {{city}} | {{category}} | {{scope}}",
     "flowFindComment": "Kommentar: {{text}}",
     "chatComposerPlaceholder": "Fragen Sie nach Stimmung, Budget, Musik…",
+    "freeTextComposerPlaceholder": "Oder sag einfach, was du willst, z. B. \"Rockkonzert heute Abend\"…",
     "chatSendA11y": "Nachricht senden"
   },
   "vibeMatch": {
-    "title": "PixAI Vibe Match",
+    "title": "Meine Route erstellen",
     "subtitle": "Stimmung + Abendroute → Multi-Stop-Warenkorb mit einem Tipp.",
     "cityLabel": "Stadt",
     "cityRequiredMessage": "Wählen Sie eine Stadt für Ihre Route.",

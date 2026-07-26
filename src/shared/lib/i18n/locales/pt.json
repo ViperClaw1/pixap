@@ -149,7 +149,7 @@
     "noCitiesMatch": "Nenhuma cidade corresponde à pesquisa.",
     "allCities": "Todas as cidades",
     "pixAiBooking": "Pix AI Concierge",
-    "vibeMatching": "Vibe Matching",
+    "vibeMatching": "Criar minha rota",
     "alerts": {
       "citySaveTitle": "Não foi possível guardar a cidade",
       "citySaveBody": "Tenta novamente."
@@ -262,6 +262,7 @@
     "listUpdatedMessage": "O assistente removeu ou reordenou locais e a tua escolha anterior já não está disponível. Escolhe outro local.",
     "searchFailed": "Não foi possível pesquisar locais.",
     "searchResultsLine": "Encontrei {{count}} {{requestType}} {{scopeText}}. Escolhe um e sugerirei os melhores horários disponíveis.",
+    "searchResultsRouteNudge": "Queres fazer disto uma noite completa? Toca em \"Criar minha rota\" abaixo para juntar alguns destes locais com horários.",
     "searchNoMatchingPlaces": "Não encontrei locais correspondentes. Tenta alterar a cidade, a categoria ou a área de pesquisa.",
     "searchOrchestratorFailed": "Ocorreu um erro no assistente de reservas e não foram encontrados locais. Verifica a ligação e tenta novamente.",
     "scopeInCity": "em {{city}}",
@@ -286,9 +287,11 @@
     "selectDateForSlots": "Seleciona uma data para carregar horários.",
     "couldNotLoadSlots": "Não foi possível carregar horários.",
     "noTimeSlotsForDate": "Sem horários para esta data.",
-    "assistantGreeting": "Olá, sou Pix AI. Diga o que você quer — eu cuido do resto.",
+    "assistantGreeting": "Diz-me o que queres, eu trato do resto",
+    "buildRouteTitle": "Criar minha rota",
+    "buildRouteSub": "Obtenha um plano personalizado com várias paradas",
     "askCity": "De qual cidade você é?",
-    "askCategory": "Que tipo de lugar você procura?",
+    "askCategory": "Diz-me o que procuras: um ambiente, uma cozinha, um evento ou um tipo de lugar.",
     "askScope": "Devo buscar perto de você ou em toda a cidade?",
     "bookPlace": "Reservar",
     "requestHistoryTitle": "Histórico de solicitações",
@@ -301,10 +304,11 @@
     "flowFindSummary": "Procurar: {{city}} | {{category}} | {{scope}}",
     "flowFindComment": "Comentário: {{text}}",
     "chatComposerPlaceholder": "Pergunta sobre ambiente, orçamento, música…",
+    "freeTextComposerPlaceholder": "Ou diz-me o que queres, por exemplo \"concerto de rock hoje à noite\"…",
     "chatSendA11y": "Enviar mensagem"
   },
   "vibeMatch": {
-    "title": "PixAI Vibe Match",
+    "title": "Criar minha rota",
     "subtitle": "Humor + rota noturna → carrinho multi-paragem num toque.",
     "cityLabel": "Cidade",
     "cityRequiredMessage": "Escolhe uma cidade para a tua rota.",

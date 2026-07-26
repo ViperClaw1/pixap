@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { Pressable, Text, TextInput, View, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, Text, TextInput, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
-import { ALL_CITIES_OPTION } from "@/entities/business-card";
+import { ALL_CITIES_OPTION, cityNameWithoutCountry } from "@/entities/business-card";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
 import { mergeStaticAndThemed } from "@/shared/theme/mergeThemeStyles";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
@@ -14,9 +14,14 @@ type CityPickerFieldProps = {
   onChange: (city: string) => void | Promise<void>;
   showAllCitiesOption?: boolean;
   triggerStyle?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
   variant?: "compact" | "dropdown";
   placeholder?: string;
   onOpen?: () => boolean | void;
+  /** Shows a location pin before the text (compact variant only). */
+  showLocationIcon?: boolean;
+  /** Strips a ", Country" suffix from the displayed value, e.g. "Almaty, Kazakhstan" -> "Almaty". */
+  hideCountry?: boolean;
 };
 
 export function CityPickerField({
@@ -24,9 +29,12 @@ export function CityPickerField({
   onChange,
   showAllCitiesOption = true,
   triggerStyle,
+  textStyle,
   variant = "compact",
   placeholder,
   onOpen,
+  showLocationIcon = false,
+  hideCountry = false,
 }: CityPickerFieldProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -44,8 +52,8 @@ export function CityPickerField({
     if (value === ALL_CITIES_OPTION) {
       return t("home.allCities");
     }
-    return value;
-  }, [placeholder, t, value]);
+    return hideCountry ? cityNameWithoutCountry(value) : value;
+  }, [hideCountry, placeholder, t, value]);
 
   const handleSelect = (city: string) => {
     picker.close();
@@ -66,6 +74,7 @@ export function CityPickerField({
         accessibilityLabel={t("bookingCommon.chooseCity")}
         style={[
           isDropdown ? styles.dropdownTrigger : styles.compactTrigger,
+          !isDropdown && showLocationIcon && styles.compactTriggerWithIcon,
           triggerStyle,
         ]}
         onPress={handleOpen}
@@ -84,9 +93,14 @@ export function CityPickerField({
             <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
           </>
         ) : (
-          <Text style={styles.compactTriggerText} numberOfLines={1}>
-            {displayValue}
-          </Text>
+          <>
+            {showLocationIcon ? (
+              <Ionicons name="location-sharp" size={14} color={colors.textMuted} />
+            ) : null}
+            <Text style={[styles.compactTriggerText, textStyle]} numberOfLines={1}>
+              {displayValue}
+            </Text>
+          </>
         )}
       </Pressable>
 

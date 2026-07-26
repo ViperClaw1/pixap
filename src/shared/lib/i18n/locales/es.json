@@ -149,7 +149,7 @@
     "noCitiesMatch": "Ninguna ciudad coincide con tu búsqueda.",
     "allCities": "Todas las ciudades",
     "pixAiBooking": "Pix AI Concierge",
-    "vibeMatching": "Vibe Matching",
+    "vibeMatching": "Crear mi ruta",
     "alerts": {
       "citySaveTitle": "No se pudo guardar la ciudad",
       "citySaveBody": "Inténtalo de nuevo."
@@ -262,6 +262,7 @@
     "listUpdatedMessage": "El asistente eliminó o reordenó lugares y tu selección anterior ya no está disponible. Elige otro lugar.",
     "searchFailed": "No se pudieron buscar lugares.",
     "searchResultsLine": "Encontré {{count}} {{requestType}} {{scopeText}}. Elige uno y te sugeriré las mejores franjas disponibles.",
+    "searchResultsRouteNudge": "¿Quieres hacer de esto toda una noche? Toca \"Crear mi ruta\" abajo para combinar varios de estos lugares con horarios.",
     "searchNoMatchingPlaces": "No se encontraron lugares coincidentes. Prueba a cambiar la ciudad, la categoría o el ámbito de búsqueda.",
     "searchOrchestratorFailed": "Algo falló con el asistente de reservas y no se encontraron lugares. Comprueba la conexión e inténtalo de nuevo.",
     "scopeInCity": "en {{city}}",
@@ -286,9 +287,11 @@
     "selectDateForSlots": "Selecciona una fecha para cargar franjas horarias.",
     "couldNotLoadSlots": "No se pudieron cargar las franjas.",
     "noTimeSlotsForDate": "No hay franjas para esta fecha.",
-    "assistantGreeting": "Hola, soy Pix AI. Dime qué quieres y me encargo del resto.",
+    "assistantGreeting": "Dime qué quieres, yo hago el resto",
+    "buildRouteTitle": "Crear mi ruta",
+    "buildRouteSub": "Obtén un plan personalizado con varias paradas",
     "askCity": "¿De qué ciudad eres?",
-    "askCategory": "¿Qué tipo de lugar buscas?",
+    "askCategory": "Dime qué buscas: un ambiente, una cocina, un evento o un tipo de lugar.",
     "askScope": "¿Busco cerca de ti o en toda la ciudad?",
     "bookPlace": "Reservar",
     "requestHistoryTitle": "Historial de solicitudes",
@@ -301,10 +304,11 @@
     "flowFindSummary": "Buscar: {{city}} | {{category}} | {{scope}}",
     "flowFindComment": "Comentario: {{text}}",
     "chatComposerPlaceholder": "Pregunta por ambiente, presupuesto, música…",
+    "freeTextComposerPlaceholder": "O simplemente dime qué quieres, ej. \"concierto de rock esta noche\"…",
     "chatSendA11y": "Enviar mensaje"
   },
   "vibeMatch": {
-    "title": "PixAI Vibe Match",
+    "title": "Crear mi ruta",
     "subtitle": "Estado de ánimo + ruta nocturna → carrito multilocal en un toque.",
     "cityLabel": "Ciudad",
     "cityRequiredMessage": "Elige una ciudad para tu ruta.",

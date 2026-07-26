@@ -60,7 +60,7 @@ import {
   RECOMMENDED_ITEM_ESTIMATED_SIZE,
 } from "../model/constants";
 import { buildHomeCategoryList, type HomeCategoryListItem } from "../lib/buildHomeCategoryList";
-import { AnimatedHomeSparklesIcon, AnimatedHomeVibeIcon } from "@/shared/ui/animated-home-header-icons";
+import { AnimatedHomeSparklesIcon } from "@/shared/ui/animated-home-header-icons";
 import { useSubscriptionGatedNavigation } from "@/features/subscription-paywall-redirect";
 import { useBookingAccess } from "@/features/booking-access";
 import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
@@ -76,8 +76,11 @@ import { hasTrialBannerDismissed, setTrialBannerDismissed } from "../lib/trialBa
 
 import { categoryAccentColor } from "../lib/categoryAccentColors";
 
-const VIBE_TOOLBAR_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
 const RECOMMENDED_THUMB_SIZE = 96;
+const PIX_AI_PLACEHOLDER_CYCLE_MS = 10000;
+const PIX_AI_PLACEHOLDER_TYPE_MS = 1800;
+const PIX_AI_FIELD_GRADIENT_LIGHT = ["#9333ea26", "#db277726", "#f9731626"] as const;
+const PIX_AI_FIELD_GRADIENT_DARK = ["#9333ea40", "#db277740", "#f9731640"] as const;
 
 function thumbUriForCard(place: BusinessCard, layoutW: number, layoutH: number): string | null {
   const dpr = Math.min(2, PixelRatio.get());
@@ -86,7 +89,42 @@ function thumbUriForCard(place: BusinessCard, layoutW: number, layoutH: number):
     layoutPxHeight: layoutH * dpr,
   }).uri;
 }
-const VIBE_TOOLBAR_GRADIENT_DARK = ["#6d28d9", "#be185d", "#ea580c"] as const;
+
+/** Types `fullText` out, holds it, then restarts — looping every ~10s. */
+function usePixAiPlaceholderTypewriter(fullText: string): string {
+  const [visible, setVisible] = useState("");
+
+  useEffect(() => {
+    if (!fullText) {
+      setVisible("");
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const tickMs = Math.max(18, PIX_AI_PLACEHOLDER_TYPE_MS / fullText.length);
+    const holdMs = Math.max(500, PIX_AI_PLACEHOLDER_CYCLE_MS - PIX_AI_PLACEHOLDER_TYPE_MS);
+
+    const runCycle = () => {
+      let i = 0;
+      setVisible("");
+      const typeStep = () => {
+        if (cancelled) return;
+        i += 1;
+        setVisible(fullText.slice(0, i));
+        timer = setTimeout(i < fullText.length ? typeStep : runCycle, i < fullText.length ? tickMs : holdMs);
+      };
+      timer = setTimeout(typeStep, tickMs);
+    };
+    runCycle();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [fullText]);
+
+  return visible;
+}
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, "HomeMain">,
@@ -120,8 +158,9 @@ export default function HomeScreen() {
   const trackRecommendationEvent = useTrackRecommendationEvent();
   const trackRecommendationInteraction = useTrackRecommendationInteraction();
   const unread = useUnreadCount();
-  const { openAIBooking, openVibeMatch } = useSubscriptionGatedNavigation(navigation);
+  const { openAIBooking } = useSubscriptionGatedNavigation(navigation);
   const { isIntroActive, hasPaidPremium, balance, introPeriodEndsAt } = useBookingAccess();
+  const pixAiPlaceholder = usePixAiPlaceholderTypewriter(t("aiBooking.assistantGreeting"));
   const [trialBannerDismissed, setTrialBannerDismissedState] = useState(false);
   const showTrialBanner = !!user && isIntroActive && !hasPaidPremium && !trialBannerDismissed;
 
@@ -160,7 +199,7 @@ export default function HomeScreen() {
   }, [recommended, selectedCity]);
 
   const themed = useThemeStyles(
-    ({ colors: c, isDark: dark }) => homePageThemeStyles(c, dark),
+    ({ colors: c }) => homePageThemeStyles(c),
     [],
   );
   const styles = useMemo(
@@ -262,14 +301,6 @@ export default function HomeScreen() {
     openAIBooking();
   }, [navigation, openAIBooking, user]);
 
-  const handleOpenVibeMatch = useCallback(() => {
-    if (!user) {
-      navigateToProfileAuth(navigation);
-      return;
-    }
-    openVibeMatch();
-  }, [navigation, openVibeMatch, user]);
-
   const renderCategoryRow = useCallback<ListRenderItem<HomeCategoryListItem>>(
     ({ item }) => {
       const iconSpec = resolveCategoryIconSpec(item.name);
@@ -367,21 +398,15 @@ export default function HomeScreen() {
       <>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <AppPressable
-              style={styles.aiBookingBtn}
-              accessibilityRole="button"
-              accessibilityLabel={t("home.a11y.openPixaiBooking")}
-              onPress={handleOpenAIBooking}
-            >
-              <AnimatedHomeSparklesIcon size={16} color={colors.onPrimary} />
-              <Text
-                style={styles.headerActionLabel}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {t("home.pixAiBooking")}
-              </Text>
-            </AppPressable>
+            <CityPickerField
+              value={selectedCity}
+              onChange={handleCityChange}
+              onOpen={handleCityPickerOpen}
+              triggerStyle={styles.cityHeaderSelector}
+              textStyle={styles.cityHeaderSelectorText}
+              showLocationIcon
+              hideCountry
+            />
           </View>
           <Text style={styles.logo}>Pixap</Text>
           <View style={styles.headerRight}>
@@ -411,47 +436,24 @@ export default function HomeScreen() {
         </View>
         <LanguagePickerModal visible={languageOpen} onClose={() => setLanguageOpen(false)} />
         <NotificationsSheetModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
-        <View style={styles.cityToolbarRow}>
-          <CityPickerField
-            value={selectedCity}
-            onChange={handleCityChange}
-            onOpen={handleCityPickerOpen}
-            triggerStyle={styles.citySelector}
-          />
-          <AppPressable
-            accessibilityRole="button"
-            accessibilityLabel={t("home.a11y.openPixaiVibeMatch")}
-            onPress={handleOpenVibeMatch}
-            style={styles.vibeToolbarPressable}
-          >
-            <LinearGradient
-              colors={isDark ? [...VIBE_TOOLBAR_GRADIENT_DARK] : [...VIBE_TOOLBAR_GRADIENT_LIGHT]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.vibeToolbarGradient}
-            >
-              <AnimatedHomeVibeIcon size={16} color="#ffffff" />
-              <Text style={styles.vibeToolbarLabel} numberOfLines={1} ellipsizeMode="tail">
-                {t("home.vibeMatching", { defaultValue: "Vibe Matching" })}
-              </Text>
-            </LinearGradient>
-          </AppPressable>
-        </View>
 
         <AppPressable
-          style={[
-            homePageStaticStyles.searchBtn,
-            {
-              backgroundColor: colors.card,
-              borderColor: `${colors.primary}66`,
-            },
-          ]}
-          onPress={() => navigation.navigate("SearchMain")}
+          style={styles.searchBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t("home.a11y.openPixaiBooking")}
+          onPress={handleOpenAIBooking}
         >
-          <Ionicons name="search" size={20} color={colors.primary} />
-          <Text style={[homePageStaticStyles.searchBtnText, { color: colors.textMuted }]}>
-            {t("home.searchPlaceholder")}
-          </Text>
+          <LinearGradient
+            colors={isDark ? [...PIX_AI_FIELD_GRADIENT_DARK] : [...PIX_AI_FIELD_GRADIENT_LIGHT]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.searchBtnGradientFill}
+          >
+            <AnimatedHomeSparklesIcon size={18} color={colors.primary} />
+            <Text style={styles.searchBtnText} numberOfLines={1} ellipsizeMode="tail">
+              {pixAiPlaceholder}
+            </Text>
+          </LinearGradient>
         </AppPressable>
 
         {showTrialBanner ? (
@@ -553,7 +555,6 @@ export default function HomeScreen() {
       isDailyPicksHeroPending,
       featured,
       handleOpenAIBooking,
-      handleOpenVibeMatch,
       handleCityChange,
       handleCityPickerOpen,
       isDark,
@@ -565,6 +566,7 @@ export default function HomeScreen() {
       navigation,
       notificationsOpen,
       openDailyPicksHero,
+      pixAiPlaceholder,
       recommendedCardWidth,
       renderCategoryRow,
       renderFeaturedRow,

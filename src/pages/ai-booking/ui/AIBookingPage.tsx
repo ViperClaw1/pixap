@@ -17,6 +17,7 @@ import { CommonActions, useFocusEffect, useNavigation, useRoute, type RouteProp 
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BrowseFlowParamList } from "@/app/navigation/types";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -41,6 +42,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { useAuthSessionRedirect } from "@/features/auth-session-redirect";
 import {
   shouldEnforceSubscriptionPaywall,
+  useSubscriptionGatedNavigation,
   useSubscriptionPaywallRedirect,
 } from "@/features/subscription-paywall-redirect";
 import {
@@ -125,7 +127,6 @@ import {
   onboardingAssistantMessageId,
   seedOnboardingCategoryQuestion,
   seedOnboardingGreetingMessage,
-  seedOnboardingScopeQuestion,
   seedOnboardingSearchResultsMessage,
   syncOnboardingGreetingMessage,
 } from "@/features/ai-booking-onboarding";
@@ -156,6 +157,13 @@ type DraftForm = AIBookingDraftForm;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESTAURANT_TABLE_KEY = "restaurant-table";
 const DEFAULT_RADIUS_MILES = 5;
+const BUILD_ROUTE_GRADIENT_LIGHT = ["#9333ea", "#db2777", "#f97316"] as const;
+const BUILD_ROUTE_GRADIENT_DARK = ["#6d28d9", "#be185d", "#ea580c"] as const;
+
+/** A quick-search request captured before the city is known — resumed once city resolves. */
+type PendingQuickSearch =
+  | { kind: "text"; query: string }
+  | { kind: "category"; categoryId: string; categoryName: string; isRestaurantTable: boolean };
 
 type FlowStep = "assistant" | "booking";
 type Nav = NativeStackNavigationProp<BrowseFlowParamList, "AIBooking">;
@@ -240,6 +248,7 @@ function AIBookingPageContent() {
   const keyboardTopScreenRef = useRef<number | null>(null);
   const greetingBootstrappedRef = useRef(new Set<string>());
   const manualCitySelectionRef = useRef(false);
+  const pendingQuickSearchRef = useRef<PendingQuickSearch | null>(null);
   const [openingTypewriterEpoch, setOpeningTypewriterEpoch] = useState(0);
   const [flow, setFlow] = useState<AIBookingFlowState>(() => ({
     step: initialStepRef.current,
@@ -398,7 +407,7 @@ function AIBookingPageContent() {
     }, []),
   );
 
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const { user, session, loading: authLoading } = useAuth();
 
   useFocusEffect(
@@ -426,6 +435,7 @@ function AIBookingPageContent() {
   } = useBookingAccess();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
   const navigation = useNavigation<Nav>();
+  const { openVibeMatch } = useSubscriptionGatedNavigation(navigation);
   useAuthSessionRedirect({
     authLoading: authLoading,
     hasUser: Boolean(user),
@@ -461,6 +471,14 @@ function AIBookingPageContent() {
     assistantScrollYRef.current = bookingScrollYRef.current;
     setFlow((prev) => ({ ...prev, step: "booking", direction: 1 }));
   }, []);
+
+  const handleOpenBuildRoute = useCallback(() => {
+    openVibeMatch({
+      prefillCity: selectedCity?.trim() || undefined,
+      prefillMood: selectedCategoryName ? localizeCategoryName(selectedCategoryName, t) : undefined,
+      sourceFlow: "ai_concierge",
+    });
+  }, [openVibeMatch, selectedCity, selectedCategoryName, t]);
 
   useLayoutEffect(() => {
     currentStepRef.current = currentStep;
@@ -911,11 +929,14 @@ function AIBookingPageContent() {
             store.setTabOnboardingPhase(tabId, "await_scope");
           }
           break;
-        case "results":
-          if (currentPhase !== "gemini") {
-            store.setTabOnboardingPhase(tabId, "gemini");
+        case "results": {
+          const hasPlaces = (tab?.searchSnapshot?.catalogPlaces.length ?? 0) > 0;
+          const nextPhase = hasPlaces ? "gemini" : "await_category";
+          if (currentPhase !== nextPhase) {
+            store.setTabOnboardingPhase(tabId, nextPhase);
           }
           break;
+        }
       }
     },
     [profile?.city, selectedCity],
@@ -1026,6 +1047,159 @@ function AIBookingPageContent() {
   };
 
   const searchPlacesBusy = isSearchingPlaces || isLoading;
+
+  /**
+   * Shared runner for the two "quick search" shortcuts below (free text + category tap).
+   * Kept separate from onSearchPlaces (the structured city/category/scope path) so neither
+   * shortcut can ever affect that primary search flow.
+   */
+  const executeQuickSearch = useCallback(
+    async (
+      payload: PixAIFlowPayload,
+      snapshotFields: Pick<BookingSearchSnapshot, "categoryId" | "categoryName" | "isRestaurantTable" | "requestComment">,
+    ) => {
+      setUiState((prev) => ({ ...prev, isSearchingPlaces: true }));
+      resetFlowSearchTranscript();
+      setSelection((prev) => ({ ...prev, place: null, bookingTime: null, bookingDateYmd: null }));
+
+      const tabId = useBookingChatStore.getState().activeTabId;
+      if (tabId) useBookingChatStore.getState().setTabOnboardingPhase(tabId, "searching");
+
+      try {
+        const result = await runFlow(payload);
+        const catalogPlaces = result.places ?? [];
+
+        setSelection((prev) => ({ ...prev, hasSearched: true }));
+        setFlow((prev) => ({ ...prev, step: "assistant" }));
+        let nextRev = 0;
+        setCatalogRevision((prev) => {
+          nextRev = prev + 1;
+          return nextRev;
+        });
+        const snapshot: BookingSearchSnapshot = {
+          city: payload.city,
+          scope: "city",
+          catalogPlaces,
+          persons: Number(form.persons) || Number(AI_BOOKING_DEFAULT_PERSONS),
+          searchedAt: Date.now(),
+          searchMeta: result.meta ?? null,
+          ...snapshotFields,
+        };
+        const resultsLine = buildSearchResultsLineFromFlow(payload, catalogPlaces.length);
+        if (tabId) seedOnboardingSearchResultsMessage(tabId, resultsLine);
+        setTimeout(() => {
+          useBookingChatStore.getState().applySearchResults(nextRev, snapshot);
+        }, 0);
+      } catch (error) {
+        if (isAuthRequiredError(error)) {
+          navigateToAuthScreen(navigation);
+          return;
+        }
+        Alert.alert(t("bookingCommon.failed"), error instanceof Error ? error.message : t("aiBooking.searchFailed"));
+        if (tabId) useBookingChatStore.getState().setTabOnboardingPhase(tabId, "greeting");
+      } finally {
+        setUiState((prev) => ({ ...prev, isSearchingPlaces: false }));
+      }
+    },
+    [form.persons, navigation, resetFlowSearchTranscript, runFlow, t],
+  );
+
+  /** Free-form query typed before (or instead of) the structured prompts — searches immediately. */
+  const runFreeTextSearch = useCallback(
+    async (rawQuery: string, cityOverride?: string) => {
+      const query = rawQuery.trim();
+      if (!query || isSearchingPlaces || isLoading) return;
+      const cityValue = (cityOverride ?? selectedCity).trim();
+      if (!cityValue || cityValue === ALL_CITIES_OPTION) {
+        pendingQuickSearchRef.current = { kind: "text", query };
+        setUiState((prev) => ({ ...prev, citySearchQuery: "", cityPickerVisible: true }));
+        return;
+      }
+
+      const truncatedQuery = query.length > 40 ? `${query.slice(0, 40)}…` : query;
+      setSearchForm((prev) => ({
+        ...prev,
+        city: cityValue,
+        categoryId: "",
+        categoryName: "",
+        scope: "city",
+        comment: query,
+      }));
+
+      await executeQuickSearch(
+        {
+          city: cityValue,
+          comment: query,
+          mode: "city",
+          radiusMiles: DEFAULT_RADIUS_MILES,
+          limit: 8,
+        },
+        {
+          categoryId: "",
+          categoryName: truncatedQuery,
+          isRestaurantTable: false,
+          requestComment: query,
+        },
+      );
+    },
+    [executeQuickSearch, isLoading, isSearchingPlaces, selectedCity],
+  );
+
+  /** Category tap during onboarding — searches immediately, skipping the scope question. */
+  const runCategorySearch = useCallback(
+    async (
+      category: { categoryId: string; categoryName: string; isRestaurantTable: boolean },
+      cityOverride?: string,
+    ) => {
+      if (isSearchingPlaces || isLoading) return;
+      const cityValue = (cityOverride ?? selectedCity).trim();
+      if (!cityValue || cityValue === ALL_CITIES_OPTION) {
+        pendingQuickSearchRef.current = { kind: "category", ...category };
+        setUiState((prev) => ({ ...prev, citySearchQuery: "", cityPickerVisible: true }));
+        return;
+      }
+
+      const categoryLabel = category.isRestaurantTable ? restaurantTableLabel : category.categoryName;
+      setSearchForm((prev) => ({
+        ...prev,
+        city: cityValue,
+        categoryId: category.isRestaurantTable ? RESTAURANT_TABLE_KEY : category.categoryId,
+        categoryName: categoryLabel,
+        scope: "city",
+        comment: "",
+      }));
+
+      await executeQuickSearch(
+        {
+          city: cityValue,
+          categoryId: category.isRestaurantTable ? undefined : category.categoryId,
+          categoryName: categoryLabel,
+          isRestaurantTable: category.isRestaurantTable,
+          mode: "city",
+          radiusMiles: DEFAULT_RADIUS_MILES,
+          limit: 8,
+        },
+        {
+          categoryId: category.isRestaurantTable ? RESTAURANT_TABLE_KEY : category.categoryId,
+          categoryName: categoryLabel,
+          isRestaurantTable: category.isRestaurantTable,
+          requestComment: "",
+        },
+      );
+    },
+    [executeQuickSearch, isLoading, isSearchingPlaces, restaurantTableLabel, selectedCity],
+  );
+
+  const handleFreeTextQuery = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const tabId = useBookingChatStore.getState().activeTabId;
+      if (tabId) useBookingChatStore.getState().appendUserMessage(tabId, trimmed);
+      void runFreeTextSearch(trimmed);
+    },
+    [runFreeTextSearch],
+  );
 
   const onBookPlace = useCallback(
     (place: PixAIPlace) => {
@@ -1374,6 +1548,7 @@ function AIBookingPageContent() {
                 }}
                 onOpenCategoryPicker={() => setUiState((prev) => ({ ...prev, categoryPickerVisible: true }))}
                 onScopeSelected={onScopeSelected}
+                onFreeTextQuery={handleFreeTextQuery}
               />
               </AiBookingAssistantGate>
             )}
@@ -1382,6 +1557,27 @@ function AIBookingPageContent() {
 
         {currentStep === "assistant" && hasSearched && placeOptions.length > 0 ? (
           <>
+            <AppPressable
+              style={styles.buildRouteBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t("aiBooking.buildRouteTitle")}
+              onPress={handleOpenBuildRoute}
+            >
+              <LinearGradient
+                colors={isDark ? [...BUILD_ROUTE_GRADIENT_DARK] : [...BUILD_ROUTE_GRADIENT_LIGHT]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.buildRouteBtnGradient}
+              >
+                <Ionicons name="map-outline" size={18} color="#ffffff" />
+                <View style={styles.buildRouteBtnTextCol}>
+                  <Text style={styles.buildRouteBtnTitle}>{t("aiBooking.buildRouteTitle")}</Text>
+                  <Text style={styles.buildRouteBtnSub}>{t("aiBooking.buildRouteSub")}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#ffffff88" />
+              </LinearGradient>
+            </AppPressable>
+
             {searchMeta?.is_fallback && searchMeta.original_query ? (
               <View style={[styles.fallbackBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
@@ -1484,6 +1680,7 @@ function AIBookingPageContent() {
       <BottomSheetPickerModal
         visible={cityPickerVisible}
         onClose={() => {
+          pendingQuickSearchRef.current = null;
           setUiState((prev) => ({ ...prev, citySearchQuery: "", cityPickerVisible: false }));
         }}
         title={t("bookingCommon.chooseCity")}
@@ -1515,9 +1712,26 @@ function AIBookingPageContent() {
                 key={city}
                 style={styles.pickerRow}
                 onPress={() => {
+                  setUiState((prev) => ({ ...prev, citySearchQuery: "", cityPickerVisible: false }));
+                  const pending = pendingQuickSearchRef.current;
+                  if (pending) {
+                    pendingQuickSearchRef.current = null;
+                    if (pending.kind === "text") {
+                      void runFreeTextSearch(pending.query, city);
+                    } else {
+                      void runCategorySearch(
+                        {
+                          categoryId: pending.categoryId,
+                          categoryName: pending.categoryName,
+                          isRestaurantTable: pending.isRestaurantTable,
+                        },
+                        city,
+                      );
+                    }
+                    return;
+                  }
                   manualCitySelectionRef.current = true;
                   setSearchForm((prev) => ({ ...prev, city }));
-                  setUiState((prev) => ({ ...prev, citySearchQuery: "", cityPickerVisible: false }));
                   const tabId = useBookingChatStore.getState().activeTabId;
                   if (tabId) {
                     useBookingChatStore.getState().appendUserMessage(tabId, city);
@@ -1565,29 +1779,18 @@ function AIBookingPageContent() {
               }
               onPress={() => {
                 if (!isSelectable) return;
-                let categoryLabel: string;
-                if (isRestaurantCategoryName(category.name)) {
-                  setSearchForm((prev) => ({
-                    ...prev,
-                    categoryId: RESTAURANT_TABLE_KEY,
-                    categoryName: restaurantTableLabel,
-                  }));
-                  categoryLabel = restaurantTableLabel;
-                } else {
-                  setSearchForm((prev) => ({
-                    ...prev,
-                    categoryId: category.id,
-                    categoryName: category.name,
-                  }));
-                  categoryLabel = localizeCategoryName(category.name, t);
-                }
+                const isRestaurantTableCategory = isRestaurantCategoryName(category.name);
+                const categoryLabel = isRestaurantTableCategory
+                  ? restaurantTableLabel
+                  : localizeCategoryName(category.name, t);
                 setUiState((prev) => ({ ...prev, categoryPickerVisible: false }));
                 const tabId = useBookingChatStore.getState().activeTabId;
-                if (tabId) {
-                  useBookingChatStore.getState().appendUserMessage(tabId, categoryLabel);
-                  seedOnboardingScopeQuestion(tabId);
-                  useBookingChatStore.getState().setTabOnboardingPhase(tabId, "assistant_typing");
-                }
+                if (tabId) useBookingChatStore.getState().appendUserMessage(tabId, categoryLabel);
+                void runCategorySearch({
+                  categoryId: category.id,
+                  categoryName: category.name,
+                  isRestaurantTable: isRestaurantTableCategory,
+                });
               }}
             >
               <View style={styles.pickerRowLeft}>

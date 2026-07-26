@@ -76,6 +76,12 @@ export function countryLabelForCity(city: string): string {
   return CITY_TO_COUNTRY[normalizeCityKey(city)] ?? "Other";
 }
 
+/** Strips a ", Country" suffix, e.g. "Almaty, Kazakhstan" -> "Almaty". */
+export function cityNameWithoutCountry(city: string): string {
+  const [name] = city.split(",");
+  return (name ?? city).trim();
+}
+
 export type CityCountryGroup = { country: string; cities: string[] };
 
 export function groupCitiesByCountry(cityNames: string[]): CityCountryGroup[] {

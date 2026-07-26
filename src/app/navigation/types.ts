@@ -53,7 +53,13 @@ export type BrowseFlowParamList = {
   ShoppingItems: { id: string };
   BookingFlow: { id: string };
   AIBooking: { id?: string } | undefined;
-  VibeMatch: undefined;
+  VibeMatch:
+    | {
+        prefillCity?: string;
+        prefillMood?: string;
+        sourceFlow?: "ai_concierge";
+      }
+    | undefined;
   SubscriptionPaywall: { reason?: "no_credits" | "upgrade" } | undefined;
   EditProfile: undefined;
   PublicProfile: PublicProfileRouteParams;

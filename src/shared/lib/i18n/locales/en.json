@@ -283,7 +283,7 @@
     "noCitiesMatch": "No cities match your search.",
     "allCities": "All cities",
     "pixAiBooking": "Pix AI Concierge",
-    "vibeMatching": "Vibe Matching",
+    "vibeMatching": "Build my Route",
     "alerts": {
       "citySaveTitle": "Could not save city",
       "citySaveBody": "Please try again."
@@ -429,6 +429,7 @@
     "listUpdatedMessage": "The assistant removed or re-ranked places and your previous pick is no longer available. Choose another place.",
     "searchFailed": "Could not search places.",
     "searchResultsLine": "I found {{count}} {{requestType}} {{scopeText}}. Pick one and I will suggest the best available slots.",
+    "searchResultsRouteNudge": "Want to make a night of it? Tap Build my Route below to string a few of these together with timing.",
     "searchNoMatchingPlaces": "Could not find matching places. Try changing city, category, or search scope.",
     "searchOrchestratorFailed": "Something went wrong with the booking assistant and no matching places were found. Check your connection, try again, or adjust city and category.",
     "searchFallbackBanner": "Exact menu data isn't available for \"{{query}}\" yet — showing top-rated venues in the city.",
@@ -454,9 +455,11 @@
     "selectDateForSlots": "Select a date to load time slots.",
     "couldNotLoadSlots": "Could not load slots.",
     "noTimeSlotsForDate": "No time slots for this date.",
-    "assistantGreeting": "Hi, I am Pix AI. Tell me what you want and I'll handle the rest.",
+    "assistantGreeting": "Tell me what you want, I'll do the rest",
+    "buildRouteTitle": "Build my Route",
+    "buildRouteSub": "Get a personalized multi-stop plan",
     "askCity": "Which city are you in?",
-    "askCategory": "What type of place are you looking for?",
+    "askCategory": "Tell me what you're looking for — a vibe, a cuisine, an event, or a place type.",
     "askScope": "Should I search near you or across your whole city?",
     "bookPlace": "Book",
     "requestHistoryTitle": "Request history",
@@ -472,10 +475,11 @@
     "flowFindSummary": "Find: {{city}} | {{category}} | {{scope}}",
     "flowFindComment": "Comment: {{text}}",
     "chatComposerPlaceholder": "Ask about vibe, budget, music…",
+    "freeTextComposerPlaceholder": "Or just tell me what you want, e.g. \"rock concert tonight\"…",
     "chatSendA11y": "Send message"
   },
   "vibeMatch": {
-    "title": "PixAI Vibe Match",
+    "title": "Build my Route",
     "subtitle": "Mood + evening flow → one-tap multi-stop cart.",
     "cityLabel": "City",
     "cityRequiredMessage": "Choose a city for your route.",
@@ -1135,7 +1139,12 @@
       "callBtn": "Call",
       "waBtn": "WhatsApp",
       "callUnavailableTitle": "Unavailable",
-      "callUnavailableBody": "Could not start call"
+      "callUnavailableBody": "Could not start call",
+      "approveBtn": "Approve",
+      "approveConfirmTitle": "Approve booking",
+      "approveConfirmBody": "Confirm this booking at {{venue}}? The customer will be notified.",
+      "toastApproved": "Booking confirmed",
+      "toastApproveError": "Failed to approve booking"
     },
     "subscriptions": {
       "total": "Purchases in period",
