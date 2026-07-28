@@ -72,7 +72,6 @@ import {
 } from "@/features/booking-personal-data-notice";
 import { isPersonalDataComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
-import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
 import { useBookingAccess } from "@/features/booking-access";
 import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import { useTranslation } from "react-i18next";
@@ -1326,10 +1325,6 @@ function AIBookingPageContent() {
 
   const onCreateDraft = async () => {
     if (confirmingBooking) return;
-    if (!canUseBookingCredits) {
-      Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
-      return;
-    }
     if (!selectedPlace) {
       appAlert(t("aiBooking.missingSelectionTitle"), t("aiBooking.missingSelectionMessage"), undefined, "info");
       return;
@@ -1406,10 +1401,6 @@ function AIBookingPageContent() {
     } catch (error) {
       if (isAuthRequiredError(error)) {
         navigateToAuthScreen(navigation);
-        return;
-      }
-      if (isInsufficientBookingCreditsError(error)) {
-        Alert.alert(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
         return;
       }
       Alert.alert(t("bookingCommon.failed"), t("bookingCommon.couldNotCreateDraft"));

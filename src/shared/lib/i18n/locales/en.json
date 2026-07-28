@@ -939,14 +939,14 @@
     "openPlatform": "Open {{platform}}"
   },
   "bookingCredits": {
-    "balanceBadge": "{{count}} booking credits left",
-    "introBadge": "{{count}} free bookings · {{days}} days left",
-    "introBadgeLast": "Last free booking! · {{days}} days left",
-    "noCreditsTitle": "No booking credits",
-    "noCreditsMessage": "Subscribe to Premium to get more booking credits, or wait for your next billing cycle.",
+    "balanceBadge": "{{count}} AI credits left",
+    "introBadge": "{{count}} free AI credits · {{days}}d trial left",
+    "introBadgeLast": "Last AI credit! · {{days}}d trial left",
+    "noCreditsTitle": "No AI credits",
+    "noCreditsMessage": "Subscribe to Premium to get more AI credits, or wait for your next billing cycle.",
     "insufficientForStops": "You need {{count}} credits for this route but have fewer left.",
-    "trialWelcomeTitle": "3 free bookings included!",
-    "trialWelcomeBody": "Your 7-day trial is active. Use PixAI Booking or Vibe Match — completely free, no card needed. After your trial, continue with PixAI Premium.",
+    "trialWelcomeTitle": "10 free AI credits included!",
+    "trialWelcomeBody": "Your 1-day trial is active. Use PixAI Booking or Vibe Match — completely free, no card needed. After your trial, continue with PixAI Premium.",
     "trialWelcomeCta": "Start exploring",
     "trialBannerDismiss": "Dismiss"
   },

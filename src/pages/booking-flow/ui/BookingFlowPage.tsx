@@ -58,7 +58,6 @@ import { isPersonalDataComplete } from "@/shared/lib/profileCompletion";
 import { useAndroidFullSwipeBackPanHandlers } from "@/shared/lib/useAndroidFullSwipeBackPanHandlers";
 import { useDisableGestureDuringTransition } from "@/shared/lib/navigation/useDisableGestureDuringTransition";
 import { devWarn } from "@/shared/lib/devLog";
-import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
 import { useBookingAccess } from "@/features/booking-access";
 import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import {
@@ -336,10 +335,6 @@ export default function BookingFlowPage() {
 
   const handleConfirm = async () => {
     if (confirmingRef.current) return;
-    if (!canUseBookingCredits) {
-      showErrorToast(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
-      return;
-    }
     if (!selectedBookingTime) {
       showMissingBookingSlotPopup(t);
       return;
@@ -407,10 +402,6 @@ export default function BookingFlowPage() {
       setConfirming(false);
       if (isAuthRequiredError(error)) {
         navigateToAuthScreen(navigation);
-        return;
-      }
-      if (isInsufficientBookingCreditsError(error)) {
-        showErrorToast(t("bookingCredits.noCreditsTitle"), t("bookingCredits.noCreditsMessage"));
         return;
       }
       showErrorToast(t("bookingCommon.couldNotCreateDraft"));

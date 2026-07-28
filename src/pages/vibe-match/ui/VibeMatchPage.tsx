@@ -39,7 +39,6 @@ import {
   shouldEnforceSubscriptionPaywall,
   useSubscriptionPaywallRedirect,
 } from "@/features/subscription-paywall-redirect";
-import { isInsufficientBookingCreditsError } from "@/entities/booking-credits";
 import { useBookingAccess } from "@/features/booking-access";
 import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import { appAlert } from "@/shared/ui/app-popup";
@@ -215,7 +214,6 @@ function VibeMatchPageContent() {
     canAccessVibeMatch,
     isLoading: accessLoading,
     balance,
-    bookingSelectionLimit,
     exemptFromBookingCredits,
     isIntroActive,
     introPeriodEndsAt,
@@ -481,26 +479,14 @@ function VibeMatchPageContent() {
   }, [planSelectionKey, resetRouteSelection]);
 
   useEffect(() => {
-    if (exemptFromBookingCredits) return;
-    setSelectedVenueIds((prev) =>
-      prev.length <= bookingSelectionLimit ? prev : prev.slice(0, bookingSelectionLimit),
-    );
-  }, [bookingSelectionLimit, exemptFromBookingCredits]);
-
-  useEffect(() => {
     if (!slotsAvailabilityReady || suggestedVenueIds.length === 0) return;
     if (selectionSeededForPlanRef.current === suggestedPlanKey) return;
     selectionSeededForPlanRef.current = suggestedPlanKey;
-    const initial = suggestedVenueIds.slice(0, Math.max(0, bookingSelectionLimit));
-    setSelectedVenueIds(initial);
-    syncRouteSelectionNow(initial);
-  }, [
-    suggestedPlanKey,
-    suggestedVenueIds,
-    bookingSelectionLimit,
-    slotsAvailabilityReady,
-    syncRouteSelectionNow,
-  ]);
+    // Selecting venues is free — only building the route (Google Maps) and the AI concierge
+    // consume credits, so venue selection is no longer capped by wallet balance.
+    setSelectedVenueIds(suggestedVenueIds);
+    syncRouteSelectionNow(suggestedVenueIds);
+  }, [suggestedPlanKey, suggestedVenueIds, slotsAvailabilityReady, syncRouteSelectionNow]);
 
   const selectedVenueIdSet = useMemo(() => new Set(selectedVenueIds), [selectedVenueIds]);
 
@@ -512,6 +498,7 @@ function VibeMatchPageContent() {
     durationText: routeDurationText,
     distanceText: routeDistanceText,
     usesStraightFallback: routeUsesStraightFallback,
+    insufficientRouteCredits,
   } = useVibePlanRoute(routeMapPoints, routeTravelMode);
 
   const initialRouteMapReady = useInitialVibeRouteMapReady({
@@ -548,13 +535,6 @@ function VibeMatchPageContent() {
   const showProfileCompleteTip = !isPersonalDataComplete(profile);
   const bookAllEnabled = selectedBookableStops.length > 0;
   const showPaywallCta = !exemptFromBookingCredits && !canUseBookingCredits;
-  const showCreditsLimitInfo =
-    !exemptFromBookingCredits &&
-    !showPaywallCta &&
-    balance > 0 &&
-    selectedVenueIds.length === balance &&
-    suggestedPlan.length > 0 &&
-    slotsAvailabilityReady;
 
   const openSubscriptionPaywall = useCallback(
     (reason: "no_credits" | "upgrade" = "no_credits") => {
@@ -573,31 +553,26 @@ function VibeMatchPageContent() {
     suggestedVenueIds.length > 1 &&
     selectedBookableStops.length === 0;
 
-  const showInsufficientCreditsToast = useCallback(
-    (requiredCount: number) => {
-      Toast.show({
-        type: "error",
-        text1: t("bookingCredits.noCreditsTitle"),
-        text2: t("bookingCredits.insufficientForStops", { count: requiredCount }),
-      });
-    },
-    [t],
-  );
+  const showInsufficientRouteCreditsToast = useCallback(() => {
+    Toast.show({
+      type: "error",
+      text1: t("bookingCredits.noCreditsTitle"),
+      text2: t("bookingCredits.noCreditsMessage"),
+    });
+  }, [t]);
 
-  const toggleVenueSelection = useCallback(
-    (venueId: string, bookable: boolean) => {
-      if (!bookable) return;
-      setSelectedVenueIds((prev) => {
-        if (prev.includes(venueId)) return prev.filter((id) => id !== venueId);
-        if (prev.length >= bookingSelectionLimit) {
-          showInsufficientCreditsToast(prev.length + 1);
-          return prev;
-        }
-        return [...prev, venueId];
-      });
-    },
-    [bookingSelectionLimit, showInsufficientCreditsToast],
-  );
+  useEffect(() => {
+    if (insufficientRouteCredits && !exemptFromBookingCredits) {
+      showInsufficientRouteCreditsToast();
+    }
+  }, [insufficientRouteCredits, exemptFromBookingCredits, showInsufficientRouteCreditsToast]);
+
+  const toggleVenueSelection = useCallback((venueId: string, bookable: boolean) => {
+    if (!bookable) return;
+    setSelectedVenueIds((prev) =>
+      prev.includes(venueId) ? prev.filter((id) => id !== venueId) : [...prev, venueId],
+    );
+  }, []);
 
   const themed = useThemeStyles(
     ({ colors: c }) => vibeMatchThemeStyles(c, insets.top, insets.bottom),
@@ -692,10 +667,6 @@ function VibeMatchPageContent() {
         showGuestFormValidationPopup({ error: formError, t });
         return;
       }
-      if (!exemptFromBookingCredits && balance < stops.length) {
-        showInsufficientCreditsToast(stops.length);
-        return;
-      }
       const stopWithoutSlot = stops.find((stop) => {
         const stopIndex = plan.findIndex((item) => item.venue_id === stop.venue_id);
         return stopIndex < 0 || !stopAvailability[stopIndex]?.dateTime;
@@ -755,11 +726,6 @@ function VibeMatchPageContent() {
               navigateToAuthScreen(navigation);
               return;
             }
-            if (isInsufficientBookingCreditsError(e)) {
-              showInsufficientCreditsToast(stops.length);
-              setLastBookResults(results);
-              return;
-            }
             const message = e instanceof Error ? e.message : String(e);
             results.push({ stop, ok: false, message });
           }
@@ -804,10 +770,7 @@ function VibeMatchPageContent() {
       navigation,
       persons,
       plan,
-      balance,
-      exemptFromBookingCredits,
       session?.access_token,
-      showInsufficientCreditsToast,
       stopAvailability,
       getGuestFormError,
       bookingAction,
@@ -1095,30 +1058,6 @@ function VibeMatchPageContent() {
                 );
               })}
             </View>
-            {showCreditsLimitInfo ? (
-              <>
-                <View style={[styles.creditsLimitInfo, { marginTop: 12 }]}>
-                  <Ionicons name="information-circle-outline" size={22} color={colors.primary} />
-                  <Text style={styles.creditsLimitInfoText}>
-                    {t("vibeMatch.creditsLimitMessage", { count: balance })}
-                  </Text>
-                </View>
-                <AppPressable
-                  style={[
-                    primaryPressableStyle,
-                    {
-                      height: SHARED_PRESSABLE_HEIGHT,
-                      borderRadius: SHARED_PRESSABLE_RADIUS,
-                      marginTop: 12,
-                    },
-                  ]}
-                  onPress={() => openSubscriptionPaywall("upgrade")}
-                  accessibilityLabel={t("vibeMatch.creditsLimitCtaA11y")}
-                >
-                  <Text style={primaryPressableTextStyle}>{t("vibeMatch.creditsLimitCta")}</Text>
-                </AppPressable>
-              </>
-            ) : null}
             {showPaywallCta ? (
               <>
                 <Text style={[styles.emptyText, { marginTop: 12, marginBottom: 0 }]}>

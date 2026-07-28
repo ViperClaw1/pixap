@@ -23,8 +23,12 @@ export function BookingCreditsBadge({
   const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
 
+  // Balance is numeric(10,2) now (0.1–0.25 route-build charges, 0.25–0.5 AI chat turns), so
+  // display it rounded to 1 decimal and only show that decimal when it's non-zero.
+  const displayBalance = Math.round(balance * 10) / 10;
+  const isLastCredit = balance > 0 && balance < 1;
+
   const showIntroBadge = isIntroActive && !hasPaidPremium;
-  const isLastCredit = showIntroBadge && balance === 1;
 
   const surface = isLastCredit
     ? resolveBookingCreditsBadgeUrgentSurface(colors)
@@ -39,8 +43,8 @@ export function BookingCreditsBadge({
     showIntroBadge && introDaysLeft != null
       ? isLastCredit
         ? t("bookingCredits.introBadgeLast", { days: introDaysLeft })
-        : t("bookingCredits.introBadge", { count: balance, days: introDaysLeft })
-      : t("bookingCredits.balanceBadge", { count: balance });
+        : t("bookingCredits.introBadge", { count: displayBalance, days: introDaysLeft })
+      : t("bookingCredits.balanceBadge", { count: displayBalance });
 
   return (
     <View

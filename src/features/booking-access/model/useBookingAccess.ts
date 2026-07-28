@@ -22,6 +22,8 @@ export function useBookingAccess() {
     credits?.hasPremiumPlus === true ||
     (isActive && isPremiumPlusProduct(entitlement?.product_id));
   const isIntroActive = credits?.isIntroActive === true;
+  // "Credits" now pay for Pix AI concierge (Gemini) turns and route-building (Google Maps)
+  // calls, not for bookings themselves — booking a table is always free.
   const hasCreditsBalance = balance > 0 || (creditsError && hasPaidPremium);
   const canUseBookingCredits = exemptFromBookingCredits || hasCreditsBalance;
 
@@ -29,7 +31,8 @@ export function useBookingAccess() {
 
   const access = useMemo(
     () => ({
-      canAccessBookingFlow: exemptFromBookingCredits || standardPaidBookingAccess,
+      // Bookings are never credit-gated — only AI concierge / route building consume credits.
+      canAccessBookingFlow: true,
       canAccessAIBooking: exemptFromBookingCredits || standardPaidBookingAccess,
       canAccessVibeMatch: exemptFromBookingCredits || standardPaidBookingAccess,
       hasPostBoostFeature: exemptFromBookingCredits || hasPremiumPlus,
@@ -44,9 +47,7 @@ export function useBookingAccess() {
     (!!user && profileLoading);
 
   const needsPaywall =
-    !isLoading && !exemptFromBookingCredits && !access.canAccessBookingFlow && !access.canAccessVibeMatch;
-
-  const bookingSelectionLimit = exemptFromBookingCredits ? Number.MAX_SAFE_INTEGER : balance;
+    !isLoading && !exemptFromBookingCredits && !access.canAccessVibeMatch && !access.canAccessAIBooking;
 
   return {
     ...access,
@@ -59,7 +60,6 @@ export function useBookingAccess() {
     canUseBookingCredits,
     isProfileAdmin: isProfileAdminUser,
     exemptFromBookingCredits,
-    bookingSelectionLimit,
     isLoading,
     needsPaywall,
     introPeriodEndsAt: credits?.introPeriodEndsAt ?? null,
