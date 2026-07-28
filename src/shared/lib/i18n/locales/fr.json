@@ -690,14 +690,14 @@
     "checkInError": "Impossible d'enregistrer votre présence."
   },
   "bookingCredits": {
-    "balanceBadge": "{{count}} crédits de réservation",
-    "introBadge": "{{count}} réservations gratuites · {{days}} j",
-    "introBadgeLast": "Dernière réservation gratuite ! · {{days}} j",
-    "noCreditsTitle": "Plus de crédits",
+    "balanceBadge": "{{count}} crédits IA",
+    "introBadge": "{{count}} crédits IA gratuits · essai : {{days}} j restant(s)",
+    "introBadgeLast": "Dernier crédit IA ! · essai : {{days}} j restant(s)",
+    "noCreditsTitle": "Plus de crédits IA",
     "noCreditsMessage": "Abonnez-vous à Premium ou attendez le prochain cycle.",
     "insufficientForStops": "Il faut {{count}} crédits pour cet itinéraire.",
-    "trialWelcomeTitle": "3 réservations gratuites incluses !",
-    "trialWelcomeBody": "Votre essai de 7 jours est actif. Utilisez PixAI Booking ou Vibe Match — gratuitement, sans carte.",
+    "trialWelcomeTitle": "10 crédits IA gratuits inclus !",
+    "trialWelcomeBody": "Votre essai d'1 jour est actif. Utilisez PixAI Booking ou Vibe Match — gratuitement, sans carte.",
     "trialWelcomeCta": "Commencer",
     "trialBannerDismiss": "Fermer"
   },

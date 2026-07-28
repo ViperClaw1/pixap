@@ -687,14 +687,14 @@
     "checkInError": "Check-in konnte nicht gespeichert werden."
   },
   "bookingCredits": {
-    "balanceBadge": "{{count}} Buchungsguthaben übrig",
-    "introBadge": "{{count}} gratis Buchungen · {{days}} Tage",
-    "introBadgeLast": "Letzte gratis Buchung! · {{days}} Tage",
-    "noCreditsTitle": "Keine Buchungsguthaben",
+    "balanceBadge": "{{count}} KI-Guthaben übrig",
+    "introBadge": "{{count}} gratis KI-Guthaben · noch {{days}} Tag(e) Testphase",
+    "introBadgeLast": "Letztes KI-Guthaben! · noch {{days}} Tag(e) Testphase",
+    "noCreditsTitle": "Kein KI-Guthaben",
     "noCreditsMessage": "Abonnieren Sie Premium für mehr Guthaben oder warten Sie auf den nächsten Abrechnungszeitraum.",
     "insufficientForStops": "Für diese Route brauchen Sie {{count}} Guthaben.",
-    "trialWelcomeTitle": "3 kostenlose Buchungen inklusive!",
-    "trialWelcomeBody": "Ihr 7-tägiger Test ist aktiv. Nutzen Sie PixAI Booking oder Vibe Match — kostenlos, keine Karte nötig.",
+    "trialWelcomeTitle": "10 kostenlose KI-Guthaben inklusive!",
+    "trialWelcomeBody": "Ihre 1-tägige Testphase ist aktiv. Nutzen Sie PixAI Booking oder Vibe Match — kostenlos, keine Karte nötig.",
     "trialWelcomeCta": "Loslegen",
     "trialBannerDismiss": "Schließen"
   },

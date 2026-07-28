@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useMemo, type Ref } from "react";
+import { useCallback, useEffect, useMemo, useRef, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigation } from "@react-navigation/native";
 import { Keyboard, Pressable, Text, TextInput, View } from "react-native";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { queryKeys } from "@/shared/api/queryKeys";
 import type { BookingChatContext, BookingChatMessage } from "../model/types";
 import type { PixAIPlace, PixAISearchMeta } from "@/entities/pixai";
 import { useBookingChatStore } from "../model/bookingChatStore";
 import { executeBookingAssistantTurn } from "../lib/executeBookingAssistantTurn";
+import { INSUFFICIENT_AI_CREDITS_ERROR } from "../api/geminiBookingChatAdapter";
 import { BookingChatComposer } from "./BookingChatComposer";
 import { BookingChatMessageList } from "./BookingChatMessageList";
 import { BookingOnboardingControls } from "@/features/ai-booking-onboarding/ui/BookingOnboardingControls";
@@ -61,8 +65,25 @@ export function BookingInlineAssistantChat({
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
+  const queryClient = useQueryClient();
+  const navigation = useNavigation<{ navigate: (name: "SubscriptionPaywall", params?: { reason?: "no_credits" | "upgrade" }) => void }>();
   const isSending = useBookingChatStore((s) => s.isSending);
   const sendError = useBookingChatStore((s) => s.sendError);
+  const wasSendingRef = useRef(false);
+
+  // Every AI turn (success or failure) may have changed the credits balance server-side —
+  // refresh it once the turn settles rather than polling.
+  useEffect(() => {
+    if (wasSendingRef.current && !isSending) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bookingCredits.prefix });
+    }
+    wasSendingRef.current = isSending;
+  }, [isSending, queryClient]);
+
+  useEffect(() => {
+    if (sendError !== INSUFFICIENT_AI_CREDITS_ERROR) return;
+    navigation.navigate("SubscriptionPaywall", { reason: "no_credits" });
+  }, [sendError, navigation]);
 
   const activeMessages = useBookingChatStore(
     useShallow((s) => {
@@ -153,7 +174,7 @@ export function BookingInlineAssistantChat({
         paddingBottom: 8,
       }}
     >
-      {sendError ? (
+      {sendError && sendError !== INSUFFICIENT_AI_CREDITS_ERROR ? (
         <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>{sendError}</Text>
       ) : null}
       <Pressable onPress={Keyboard.dismiss} style={{ paddingVertical: 8, gap: 6 }}>

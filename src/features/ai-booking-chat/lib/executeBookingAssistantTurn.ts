@@ -1,4 +1,4 @@
-import { defaultBookingChatProvider } from "../api/geminiBookingChatAdapter";
+import { defaultBookingChatProvider, INSUFFICIENT_AI_CREDITS_ERROR } from "../api/geminiBookingChatAdapter";
 import type { BookingChatContext, PlaceLite } from "../model/types";
 import type { PixAISearchMeta } from "@/entities/pixai";
 import { useBookingChatStore } from "../model/bookingChatStore";
@@ -70,7 +70,9 @@ export async function executeBookingAssistantTurn(input: {
     useBookingChatStore.getState().finalizeAssistantStream(tabId, messageId, safe, catalogRevision);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Request failed";
-    useBookingChatStore.getState().appendAssistantMessage(tabId, `Sorry — ${msg}. Your place list was not changed.`);
+    if (msg !== INSUFFICIENT_AI_CREDITS_ERROR) {
+      useBookingChatStore.getState().appendAssistantMessage(tabId, `Sorry — ${msg}. Your place list was not changed.`);
+    }
     useBookingChatStore.getState().setSendState({ sendError: msg });
   } finally {
     useBookingChatStore.getState().setSendState({ isSending: false });

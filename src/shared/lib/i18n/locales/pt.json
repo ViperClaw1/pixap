@@ -690,14 +690,14 @@
     "checkInError": "Não foi possível registrar o check-in."
   },
   "bookingCredits": {
-    "balanceBadge": "{{count}} créditos de reserva",
-    "introBadge": "{{count}} reservas grátis · {{days}} dias",
-    "introBadgeLast": "Última reserva grátis! · {{days}} dias",
-    "noCreditsTitle": "Sem créditos de reserva",
+    "balanceBadge": "{{count}} créditos de IA",
+    "introBadge": "{{count}} créditos de IA grátis · faltam {{days}} dias de teste",
+    "introBadgeLast": "Último crédito de IA! · faltam {{days}} dias de teste",
+    "noCreditsTitle": "Sem créditos de IA",
     "noCreditsMessage": "Assine o Premium para mais créditos ou aguarde o próximo ciclo.",
     "insufficientForStops": "São necessários {{count}} créditos para esta rota.",
-    "trialWelcomeTitle": "3 reservas gratuitas incluídas!",
-    "trialWelcomeBody": "Seu período de 7 dias está ativo. Use PixAI Booking ou Vibe Match — de graça, sem cartão.",
+    "trialWelcomeTitle": "10 créditos de IA grátis incluídos!",
+    "trialWelcomeBody": "Seu período de teste de 1 dia está ativo. Use PixAI Booking ou Vibe Match — de graça, sem cartão.",
     "trialWelcomeCta": "Explorar",
     "trialBannerDismiss": "Fechar"
   },

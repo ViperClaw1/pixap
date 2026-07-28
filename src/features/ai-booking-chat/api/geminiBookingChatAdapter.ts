@@ -1,6 +1,17 @@
 import type { AiBookingChatProvider, BookingChatTurnInput } from "./aiBookingChatProvider";
 import { invokePixaiBookingChatWithAuth, parseAiBookingChatResponse } from "./invokePixaiBookingChat";
 
+/** Sentinel thrown by sendTurn when the pixai-booking-chat function returns 402 (out of AI credits). */
+export const INSUFFICIENT_AI_CREDITS_ERROR = "insufficient_ai_credits";
+
+function isInsufficientCreditsHttpError(error: unknown): boolean {
+  const ctx =
+    error && typeof error === "object" && "context" in error
+      ? (error as { context: unknown }).context
+      : undefined;
+  return ctx instanceof Response && ctx.status === 402;
+}
+
 function toWireBody(input: BookingChatTurnInput) {
   return {
     booking_context: input.bookingContext,
@@ -17,11 +28,17 @@ export function createGeminiBookingChatAdapter(): AiBookingChatProvider {
     async sendTurn(input: BookingChatTurnInput) {
       const { data, error } = await invokePixaiBookingChatWithAuth(toWireBody(input));
       if (error) {
+        if (isInsufficientCreditsHttpError(error)) {
+          throw new Error(INSUFFICIENT_AI_CREDITS_ERROR);
+        }
         const msg = error instanceof Error ? error.message : String(error);
         throw new Error(msg || "Assistant request failed");
       }
       if (data && typeof data === "object" && "error" in data) {
         const errMsg = (data as { error?: unknown }).error;
+        if (errMsg === "insufficient_credits") {
+          throw new Error(INSUFFICIENT_AI_CREDITS_ERROR);
+        }
         throw new Error(typeof errMsg === "string" ? errMsg : "Assistant request failed");
       }
       return parseAiBookingChatResponse(data);

@@ -114,7 +114,8 @@ function buildCandidateModels(): string[] {
   return out;
 }
 
-type GeminiTryOk = { kind: "ok"; modelUsed: string; data: unknown };
+type UsageMetadata = { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+type GeminiTryOk = { kind: "ok"; modelUsed: string; data: unknown; usageMetadata: UsageMetadata | null };
 type GeminiTryHttp = { kind: "http"; modelId: string; status: number; body: string };
 
 async function tryGeminiGenerate(args: {
@@ -172,7 +173,8 @@ async function tryGeminiGenerate(args: {
   }
   try {
     const data = extractJsonObject(t);
-    return { kind: "ok", modelUsed: args.modelId, data };
+    const usageMetadata = (p.usageMetadata as UsageMetadata | undefined) ?? null;
+    return { kind: "ok", modelUsed: args.modelId, data, usageMetadata };
   } catch {
     return { kind: "http", modelId: args.modelId, status: 502, body: "Model text was not valid JSON" };
   }
@@ -182,7 +184,7 @@ async function callGeminiJsonWithModelFallback(args: {
   system: string;
   userPayload: string;
   apiKey: string;
-}): Promise<unknown> {
+}): Promise<{ data: unknown; usageMetadata: UsageMetadata | null }> {
   const models = buildCandidateModels();
   let lastHttp: GeminiTryHttp | null = null;
   for (const modelId of models) {
@@ -191,7 +193,7 @@ async function callGeminiJsonWithModelFallback(args: {
       if (modelId !== models[0]) {
         console.info("[pixai-booking-chat] Gemini model in use:", r.modelUsed);
       }
-      return r.data;
+      return { data: r.data, usageMetadata: r.usageMetadata };
     }
     lastHttp = r;
     if (r.status !== 404 && r.status !== 403) {
@@ -381,8 +383,9 @@ Deno.serve(async (req) => {
     });
 
     let rawModel: unknown;
+    let usageMetadata: UsageMetadata | null;
     try {
-      rawModel = await callGeminiJsonWithModelFallback({ system, userPayload, apiKey });
+      ({ data: rawModel, usageMetadata } = await callGeminiJsonWithModelFallback({ system, userPayload, apiKey }));
     } catch (e) {
       console.error("[pixai-booking-chat] Gemini failed:", (e as Error)?.message ?? e);
       return new Response(
@@ -407,6 +410,35 @@ Deno.serve(async (req) => {
     if (repaired.explanation) {
       repaired.explanation = softenAssistantFallbackTone(repaired.explanation, softenOpts);
     }
+
+    // Deduct AI credits for this turn: 0.25 base, scaling to 0.50 for longer/more complex
+    // prompt+response pairs (measured by total Gemini token usage for this turn).
+    const inputTokens = usageMetadata?.promptTokenCount ?? 0;
+    const outputTokens = usageMetadata?.candidatesTokenCount ?? 0;
+    const totalTokens = inputTokens + outputTokens;
+    const rawDelta =
+      totalTokens <= 500 ? 0.25 : totalTokens >= 1500 ? 0.5 : 0.25 + ((totalTokens - 500) / 1000) * 0.25;
+    const delta = Math.round(rawDelta * 100) / 100;
+
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const adminClient = createClient(url, serviceKey, { auth: { persistSession: false } });
+    const { error: creditError } = await adminClient.rpc("consume_ai_query_credit", {
+      p_user_id: userData.user.id,
+      p_delta: -delta,
+      p_input_tokens: inputTokens,
+      p_output_tokens: outputTokens,
+    });
+
+    if (creditError?.message?.includes("insufficient_ai_credits")) {
+      return new Response(JSON.stringify({ error: "insufficient_credits" }), {
+        status: 402,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (creditError) {
+      console.error("[pixai-booking-chat] credit deduction failed:", creditError.message);
+    }
+
     return new Response(JSON.stringify(repaired), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
