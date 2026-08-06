@@ -238,6 +238,9 @@
       "house": "House",
       "hip_hop": "Hip-hop",
       "jazz": "Jazz",
+      "rock": "Rock",
+      "metal": "Metal",
+      "alternative": "Alternative",
       "afro": "Afro",
       "indie": "Indie",
       "pop": "Pop",
@@ -948,6 +951,7 @@
     "trialWelcomeTitle": "10 free AI credits included!",
     "trialWelcomeBody": "Your 1-day trial is active. Use PixAI Booking or Vibe Match — completely free, no card needed. After your trial, continue with PixAI Premium.",
     "trialWelcomeCta": "Start exploring",
+    "trialWelcomeNotNow": "Not now",
     "trialBannerDismiss": "Dismiss"
   },
   "subscriptionPaywall": {

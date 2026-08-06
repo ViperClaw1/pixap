@@ -700,6 +700,7 @@
     "trialWelcomeTitle": "¡10 créditos de IA gratis incluidos!",
     "trialWelcomeBody": "Tu prueba de 1 día está activa. Usa PixAI Booking o Vibe Match — gratis, sin tarjeta.",
     "trialWelcomeCta": "Explorar",
+    "trialWelcomeNotNow": "Ahora no",
     "trialBannerDismiss": "Cerrar"
   },
   "subscriptionPaywall": {
@@ -879,6 +880,11 @@
       "intimate": "Íntimo",
       "loud": "Animado",
       "cozy": "Acogedor"
+    },
+    "music": {
+      "rock": "Rock",
+      "metal": "Metal",
+      "alternative": "Alternativa"
     }
   },
   "publicProfile": {

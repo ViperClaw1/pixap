@@ -697,6 +697,7 @@
     "trialWelcomeTitle": "10 kostenlose KI-Guthaben inklusive!",
     "trialWelcomeBody": "Ihre 1-tägige Testphase ist aktiv. Nutzen Sie PixAI Booking oder Vibe Match — kostenlos, keine Karte nötig.",
     "trialWelcomeCta": "Loslegen",
+    "trialWelcomeNotNow": "Nicht jetzt",
     "trialBannerDismiss": "Schließen"
   },
   "subscriptionPaywall": {
@@ -876,6 +877,11 @@
       "intimate": "Intim",
       "loud": "Laut",
       "cozy": "Gemütlich"
+    },
+    "music": {
+      "rock": "Rock",
+      "metal": "Metal",
+      "alternative": "Alternative"
     }
   },
   "publicProfile": {

@@ -238,6 +238,9 @@
       "house": "Хаус",
       "hip_hop": "Хип-хоп",
       "jazz": "Джаз",
+      "rock": "Рок",
+      "metal": "Метал",
+      "alternative": "Альтернатива",
       "afro": "Афро",
       "indie": "Инди",
       "pop": "Поп",
@@ -948,6 +951,7 @@
     "trialWelcomeTitle": "10 бесплатных AI-кредитов включено!",
     "trialWelcomeBody": "Ваш 1-дневный пробный период активен. Используйте PixAI Booking или Vibe Match — совершенно бесплатно, без карты. После триала — продолжайте с PixAI Premium.",
     "trialWelcomeCta": "Начать",
+    "trialWelcomeNotNow": "Не сейчас",
     "trialBannerDismiss": "Скрыть"
   },
   "subscriptionPaywall": {
