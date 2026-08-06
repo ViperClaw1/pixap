@@ -137,6 +137,20 @@ function skipVenue(name, reason, details = "") {
 
 const INSERT_CHUNK_SIZE = 5;
 
+async function assertSeedCategoriesExist(supabase, definitions) {
+  const expectedIds = [...new Set(definitions.map((venue) => venue.categoryId))];
+  const { data, error } = await supabase.from("categories").select("id, name").in("id", expectedIds);
+  if (error) throw new Error(`category preflight failed: ${error.message}`);
+
+  const existingIds = new Set((data ?? []).map((category) => category.id));
+  const missingIds = expectedIds.filter((id) => !existingIds.has(id));
+  if (missingIds.length) {
+    throw new Error(
+      `category preflight failed: missing public.categories id(s): ${missingIds.join(", ")}. Apply the category migration before seeding.`,
+    );
+  }
+}
+
 async function insertBusinessCardsWithRetry(supabase, rows) {
   const inserted = [];
   const select =
@@ -483,6 +497,7 @@ async function main() {
 
   if (!cli.dryRun) {
     supabase = createSupabaseAdmin();
+    await assertSeedCategoriesExist(supabase, venueDefinitions);
   }
 
   const LINK_CITY_PLACEHOLDER = {

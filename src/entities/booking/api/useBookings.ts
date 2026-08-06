@@ -10,6 +10,7 @@ import { normalizeBusinessCardImages } from "@/shared/lib/business-card/business
 import { normalizeBusinessCardBlurhashes } from "@/shared/lib/business-card/businessCardBlurhash";
 import { suppressBookingStatusNotification } from "../lib/bookingDisplayStatusTracker";
 import { isWaVenueUnavailable } from "../lib/waVenueStatus";
+import { assertBusinessCardBookingAllowed } from "./assertBusinessCardBookingAllowed";
 
 export interface Booking {
   id: string;
@@ -160,6 +161,8 @@ export const useCreateBooking = () => {
       payment_status?: "pending" | "paid";
       status?: "upcoming" | "completed" | "expired";
     }) => {
+      await assertBusinessCardBookingAllowed(booking.business_card_id);
+
       const { data, error } = await supabase
         .from("bookings")
         .insert({

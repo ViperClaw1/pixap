@@ -163,6 +163,7 @@ Unknown cities require `EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY` (or `EXPO_PUBLIC_GO
 |------|----------|
 | `--type Restaurants` | Only venues with `category_id` for **Restaurants**; Google search biased to upscale (`fine dining`). |
 | `--type Bars` | Bars category, Places type `bar`. |
+| `--type Tourism` | Tourism category, Places type `tourist_attraction`; generated cards are browse-only in the app. |
 | *(omitted)* | All 10 mixed templates from `venues.mjs` (default). |
 
 Aliases: display name (`Restaurants`), key (`restaurants`), or photo pool (`restaurant`).  

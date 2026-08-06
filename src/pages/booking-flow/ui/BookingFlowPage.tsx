@@ -37,7 +37,7 @@ import { useThemeStyles } from "@/shared/theme/useThemeStyles";
 import { bookingFlowThemedStaticStyles, bookingFlowThemedThemeStyles } from "./bookingFlowThemeStyles";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
 import { countryLabelForCity } from "@/entities/business-card";
-import { isRestaurantCategoryName } from "@/entities/category";
+import { isCategoryBookingAllowed, isRestaurantCategoryName } from "@/entities/category";
 import { BookingFlowPlacePanel } from "@/shared/ui/booking-place-panel";
 import {
   BookingProfileCompleteTip,
@@ -171,6 +171,7 @@ export default function BookingFlowPage() {
     [visibleCalendarMonth],
   );
   const isRestaurantVenue = isRestaurantCategoryName(place?.category?.name ?? "");
+  const isBookingAllowed = isCategoryBookingAllowed(place?.category?.name);
   const {
     data: slotsForDate = [],
     isFetching: slotsFetching,
@@ -198,6 +199,12 @@ export default function BookingFlowPage() {
   useEffect(() => {
     setSelectedBookingTime(defaultBookingDateTime(selectedDateYmd));
   }, [selectedDateYmd]);
+
+  useEffect(() => {
+    if (place && !isBookingAllowed) {
+      navigation.replace("PlaceDetail", { id: place.id, hideBookingActions: true });
+    }
+  }, [isBookingAllowed, navigation, place]);
 
   useEffect(() => {
     if (!profile) return;
@@ -301,6 +308,14 @@ export default function BookingFlowPage() {
   }
 
   if (!place) return null;
+
+  if (!isBookingAllowed) {
+    return (
+      <View style={[styles.root, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   if (accessLoading) {
     return (

@@ -19,6 +19,7 @@ export const VENUE_PLACE_QUERIES = {
   coworking: "coworking space",
   club: "night club",
   hookah: "hookah lounge",
+  tourism: "tourist attraction",
 };
 
 /** Legacy Nearby Search `type` (see Google Place Types). */
@@ -32,6 +33,7 @@ const NEARBY_PLACE_TYPE = {
   club: "night_club",
   coworking: null,
   hookah: null,
+  tourism: "tourist_attraction",
 };
 
 /** Used when Nearby `type` is not available, or to bias restaurant results. */
@@ -39,6 +41,7 @@ const NEARBY_KEYWORD = {
   restaurant: "fine dining",
   coworking: "coworking",
   hookah: "hookah lounge",
+  tourism: "tourist attraction",
 };
 
 async function mapsGet(path, params, label) {

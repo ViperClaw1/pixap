@@ -14,7 +14,6 @@ export const HOME_CATEGORY_ORDER = [
 export const HOME_EXCLUDED_CATEGORY_NAMES = new Set(["fitness", "shopping"]);
 
 export const HOME_COMING_SOON_CATEGORY_NAMES = new Set([
-  "tourism",
   "entertainment",
   "events",
   "beauty",

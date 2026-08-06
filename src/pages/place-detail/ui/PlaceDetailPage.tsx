@@ -17,6 +17,7 @@ import { useRoute, useNavigation, useIsFocused, type RouteProp } from "@react-na
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBusinessCard } from "@/entities/business-card";
+import { isCategoryBookingAllowed } from "@/entities/category";
 import { useReviews } from "@/entities/review";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useIsFavorite, useToggleFavorite } from "@/entities/favorite";
@@ -87,6 +88,8 @@ export default function PlaceDetailScreen() {
   const isScreenFocused = useIsFocused();
   const { colors, isDark } = useAppTheme();
   const { data: place, isLoading } = useBusinessCard(id);
+  const bookingActionsHidden =
+    Boolean(hideBookingActions) || !isCategoryBookingAllowed(place?.category?.name);
   const { width: windowWidth } = useStaticWindowSize();
   const { data: reviews = [] } = useReviews(id);
   const {
@@ -699,7 +702,7 @@ export default function PlaceDetailScreen() {
       />
     </Animated.ScrollView>
 
-      {!hideBookingActions ? (
+      {!bookingActionsHidden ? (
         <View
           style={[
             styles.stickyBookingBar,

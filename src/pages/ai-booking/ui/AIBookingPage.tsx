@@ -62,6 +62,7 @@ import {
   buildHomeCategoryList,
   isRestaurantCategoryName,
   isHomeCategorySelectable,
+  isCategoryBookingAllowed,
 } from "@/entities/category";
 import { useProfile } from "@/entities/user";
 import {
@@ -494,7 +495,6 @@ function AIBookingPageContent() {
       trackBookingScreenOpened("ai_booking", selectedPlace.id);
     }
     // intentionally omit selectedPlace — track once per step transition
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep]);
 
   useLayoutEffect(() => {
@@ -1757,12 +1757,16 @@ function AIBookingPageContent() {
           const isSelected = isRestaurantCategoryName(category.name)
             ? isRestaurantTable
             : selectedCategoryId === category.id;
-          const isSelectable = !category.isComingSoon && (isRestaurantCategoryName(category.name) || isHomeCategorySelectable(category));
+          const bookingAllowed = isCategoryBookingAllowed(category.name);
+          const isSelectable =
+            bookingAllowed &&
+            !category.isComingSoon &&
+            (isRestaurantCategoryName(category.name) || isHomeCategorySelectable(category));
 
           return (
             <AppPressable
               key={category.id}
-              style={[styles.pickerRow, category.isComingSoon && styles.pickerRowComingSoon]}
+              style={[styles.pickerRow, !isSelectable && styles.pickerRowComingSoon]}
               disabled={!isSelectable}
               accessibilityRole="button"
               accessibilityState={{ disabled: !isSelectable, selected: isSelected }}

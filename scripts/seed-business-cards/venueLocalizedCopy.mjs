@@ -130,6 +130,20 @@ const DESCRIPTION_BY_POOL = {
     de: ({ placeName, cityShort }) =>
       `${placeName} — Lounge in ${cityShort}. Shisha, Drinks und entspannte Sitzplätze.`,
   },
+  tourism: {
+    en: ({ placeName, cityShort }) =>
+      `${placeName} — attraction in ${cityShort}. Discover local history, culture, and memorable views.`,
+    ru: ({ placeName, cityShort }) =>
+      `«${placeName}» — достопримечательность в ${cityShort}. Познакомьтесь с историей, культурой и знаковыми видами города.`,
+    es: ({ placeName, cityShort }) =>
+      `${placeName}: atracción en ${cityShort}. Descubre la historia, la cultura y vistas memorables.`,
+    pt: ({ placeName, cityShort }) =>
+      `${placeName} — atração em ${cityShort}. Descubra a história, a cultura e vistas memoráveis.`,
+    fr: ({ placeName, cityShort }) =>
+      `${placeName} — attraction à ${cityShort}. Découvrez l'histoire, la culture et des vues mémorables.`,
+    de: ({ placeName, cityShort }) =>
+      `${placeName} — Sehenswürdigkeit in ${cityShort}. Entdecke Geschichte, Kultur und besondere Ausblicke.`,
+  },
 };
 
 /** @type {Record<string, Record<string, string[]>>} */
@@ -205,6 +219,14 @@ const TAGS_BY_POOL = {
     pt: ["lounge", "hookah", "bebidas", "relax"],
     fr: ["lounge", "chicha", "boissons", "détente"],
     de: ["lounge", "shisha", "drinks", "entspannung"],
+  },
+  tourism: {
+    en: ["tourism", "attraction", "sightseeing", "culture"],
+    ru: ["туризм", "достопримечательность", "экскурсия", "культура"],
+    es: ["turismo", "atracción", "visitas", "cultura"],
+    pt: ["turismo", "atração", "passeio", "cultura"],
+    fr: ["tourisme", "attraction", "visite", "culture"],
+    de: ["tourismus", "sehenswürdigkeit", "besichtigung", "kultur"],
   },
 };
 
