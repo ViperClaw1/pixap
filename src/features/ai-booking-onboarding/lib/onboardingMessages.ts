@@ -1,7 +1,7 @@
 import { i18n } from "@/shared/lib/i18n";
 
-export function getOnboardingSelectedCityGreetingText(): string {
-  return i18n.t("aiBooking.assistantGreetingWithSelectedCity");
+export function getOnboardingGreetingText(): string {
+  return i18n.t("aiBooking.assistantGreeting");
 }
 
 export function getOnboardingAskCategoryText(): string {

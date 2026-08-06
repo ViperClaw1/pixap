@@ -27,7 +27,9 @@ export function buildSearchResultsLineFromFlow(flow: PixAIFlowPayload, placeCoun
   const scopeText =
     flow.mode === "nearby"
       ? i18n.t("bookingCommon.nearMe5Miles")
-      : i18n.t("bookingCommon.allPlacesInMyCity");
+      : flow.city.trim()
+        ? i18n.t("bookingCommon.allPlacesInMyCity")
+        : i18n.t("aiBooking.scopeAcrossAllCities");
 
   const line = buildSearchResultsAssistantLine({ count: placeCount, requestType, scopeText });
   if (placeCount < MIN_PLACE_COUNT_FOR_ROUTE_NUDGE) return line;

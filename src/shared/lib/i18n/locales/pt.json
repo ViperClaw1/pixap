@@ -149,6 +149,7 @@
     "noCitiesMatch": "Nenhuma cidade corresponde à pesquisa.",
     "allCities": "Todas as cidades",
     "pixAiBooking": "Pix AI Concierge",
+    "pixAiSearchPlaceholder": "Diz-me o que queres, eu trato do resto!",
     "vibeMatching": "Criar minha rota",
     "alerts": {
       "citySaveTitle": "Não foi possível guardar a cidade",
@@ -266,6 +267,7 @@
     "searchNoMatchingPlaces": "Não encontrei locais correspondentes. Tenta alterar a cidade, a categoria ou a área de pesquisa.",
     "searchOrchestratorFailed": "Ocorreu um erro no assistente de reservas e não foram encontrados locais. Verifica a ligação e tenta novamente.",
     "scopeInCity": "em {{city}}",
+    "scopeAcrossAllCities": "em todas as cidades",
     "yourCity": "a tua cidade",
     "placesFallback": "locais",
     "summaryCity": "Cidade: {{value}}",
@@ -287,8 +289,7 @@
     "selectDateForSlots": "Seleciona uma data para carregar horários.",
     "couldNotLoadSlots": "Não foi possível carregar horários.",
     "noTimeSlotsForDate": "Sem horários para esta data.",
-    "assistantGreeting": "Diz-me o que queres, eu trato do resto!",
-    "assistantGreetingWithSelectedCity": "Diz-me o que queres, eu trato do resto!\n\nDiz-me o que procuras: um ambiente, uma cozinha, um evento ou um tipo de lugar.",
+    "assistantGreeting": "Diz-me o que queres ou o que procuras, eu trato do resto!",
     "buildRouteTitle": "Criar minha rota",
     "buildRouteSub": "Obtenha um plano personalizado com várias paradas",
     "askCategory": "Diz-me o que procuras: um ambiente, uma cozinha, um evento ou um tipo de lugar.",
@@ -304,7 +305,7 @@
     "flowFindSummary": "Procurar: {{city}} | {{category}} | {{scope}}",
     "flowFindComment": "Comentário: {{text}}",
     "chatComposerPlaceholder": "Pergunta sobre ambiente, orçamento, música…",
-    "freeTextComposerPlaceholder": "Ou diz-me o que queres, por exemplo \"concerto de rock hoje à noite\"…",
+    "freeTextComposerPlaceholder": "Diz-me o que queres, por exemplo: «um lugar com vista para o pôr do sol», «música ao vivo esta noite», «um café escondido»…",
     "chatSendA11y": "Enviar mensagem"
   },
   "vibeMatch": {

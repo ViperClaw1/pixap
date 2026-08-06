@@ -146,6 +146,7 @@
     "noCitiesMatch": "Keine Stadt entspricht Ihrer Suche.",
     "allCities": "Alle Städte",
     "pixAiBooking": "Pix AI Concierge",
+    "pixAiSearchPlaceholder": "Sag mir, was du möchtest, den Rest erledige ich!",
     "vibeMatching": "Meine Route erstellen",
     "alerts": {
       "citySaveTitle": "Stadt konnte nicht gespeichert werden",
@@ -263,6 +264,7 @@
     "searchNoMatchingPlaces": "Keine passenden Orte gefunden. Versuchen Sie, Stadt, Kategorie oder Suchbereich zu ändern.",
     "searchOrchestratorFailed": "Beim Buchungsassistenten ist ein Fehler aufgetreten, es wurden keine passenden Orte gefunden. Prüfen Sie die Verbindung und versuchen Sie es erneut.",
     "scopeInCity": "in {{city}}",
+    "scopeAcrossAllCities": "in allen Städten",
     "yourCity": "Ihrer Stadt",
     "placesFallback": "Orte",
     "summaryCity": "Stadt: {{value}}",
@@ -284,8 +286,7 @@
     "selectDateForSlots": "Wählen Sie ein Datum, um Zeitslots zu laden.",
     "couldNotLoadSlots": "Slots konnten nicht geladen werden.",
     "noTimeSlotsForDate": "Keine Zeitslots für dieses Datum.",
-    "assistantGreeting": "Sag mir, was du willst, den Rest erledige ich!",
-    "assistantGreetingWithSelectedCity": "Sag mir, was du willst, den Rest erledige ich!\n\nSag mir, wonach du suchst — eine Stimmung, eine Küche, eine Veranstaltung oder eine Art von Ort.",
+    "assistantGreeting": "Sag mir, was du möchtest oder wonach du suchst, den Rest erledige ich!",
     "buildRouteTitle": "Meine Route erstellen",
     "buildRouteSub": "Erhalte einen personalisierten Mehrstopp-Plan",
     "askCategory": "Sag mir, wonach du suchst — Stimmung, Küche, Event oder Ortstyp.",
@@ -301,7 +302,7 @@
     "flowFindSummary": "Suchen: {{city}} | {{category}} | {{scope}}",
     "flowFindComment": "Kommentar: {{text}}",
     "chatComposerPlaceholder": "Fragen Sie nach Stimmung, Budget, Musik…",
-    "freeTextComposerPlaceholder": "Oder sag einfach, was du willst, z. B. \"Rockkonzert heute Abend\"…",
+    "freeTextComposerPlaceholder": "Sag mir einfach, was du möchtest, z. B. „Ort mit Sonnenuntergangsblick“, „Live-Musik heute Abend“, „verstecktes Café“…",
     "chatSendA11y": "Nachricht senden"
   },
   "vibeMatch": {

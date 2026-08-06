@@ -93,9 +93,9 @@ async function fetchPlacesInCityLegacy(
   let query = supabase
     .from("business_cards")
     .select(BUSINESS_CARD_SELECT)
-    .ilike("city", city)
     .order("rating", { ascending: false })
     .limit(limit);
+  if (city) query = query.ilike("city", city);
   const categoryId = normalizeCategoryId(flow);
   if (categoryId) query = query.eq("category_id", categoryId);
   if (flow.isRestaurantTable) {
@@ -118,6 +118,8 @@ async function fetchPlacesInCityRpc(
   city: string,
   limit: number,
 ): Promise<Array<Record<string, unknown>>> {
+  if (!city) return fetchPlacesInCityLegacy(supabase, flow, city, limit);
+
   const comment = expandedSearchQuery(flow);
   const { data, error } = await pixaiRpc(supabase, "search_business_cards_in_city", {
     p_city: city,
@@ -140,7 +142,7 @@ function buildAssistant(
   if (placeCount === 0) {
     return "I could not find matching places. Try changing city, category, or search scope.";
   }
-  const cityLabel = normalizeCity(flow) || "your city";
+  const cityLabel = normalizeCity(flow) || "all cities";
   const query = (flow.comment ?? "").trim();
   if (isFallback && query) {
     return (
@@ -414,7 +416,7 @@ Deno.serve(async (req) => {
 
     const flow = body.flow;
     const city = flow ? normalizeCity(flow) : "";
-    if (!flow || !city || !flow.mode) {
+    if (!flow || !flow.mode) {
       return new Response(JSON.stringify({ error: "Missing required flow fields" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

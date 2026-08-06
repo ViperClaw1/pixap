@@ -283,6 +283,7 @@
     "noCitiesMatch": "No cities match your search.",
     "allCities": "All cities",
     "pixAiBooking": "Pix AI Concierge",
+    "pixAiSearchPlaceholder": "Tell me what you want, I'll do the rest!",
     "vibeMatching": "Build my Route",
     "alerts": {
       "citySaveTitle": "Could not save city",
@@ -433,6 +434,7 @@
     "searchNoMatchingPlaces": "Could not find matching places. Try changing city, category, or search scope.",
     "searchOrchestratorFailed": "Something went wrong with the booking assistant and no matching places were found. Check your connection, try again, or adjust city and category.",
     "scopeInCity": "in {{city}}",
+    "scopeAcrossAllCities": "across all cities",
     "yourCity": "your city",
     "placesFallback": "places",
     "summaryCity": "City: {{value}}",
@@ -454,8 +456,7 @@
     "selectDateForSlots": "Select a date to load time slots.",
     "couldNotLoadSlots": "Could not load slots.",
     "noTimeSlotsForDate": "No time slots for this date.",
-    "assistantGreeting": "Tell me what you want, I'll do the rest!",
-    "assistantGreetingWithSelectedCity": "Tell me what you want, I'll do the rest!\n\nTell me what you're looking for — a vibe, a cuisine, an event, or a place type.",
+    "assistantGreeting": "Tell me what you want or what you're looking for, I'll do the rest!",
     "buildRouteTitle": "Build my Route",
     "buildRouteSub": "Get a personalized multi-stop plan",
     "askCategory": "Tell me what you're looking for — a vibe, a cuisine, an event, or a place type.",
@@ -474,7 +475,7 @@
     "flowFindSummary": "Find: {{city}} | {{category}} | {{scope}}",
     "flowFindComment": "Comment: {{text}}",
     "chatComposerPlaceholder": "Ask about vibe, budget, music…",
-    "freeTextComposerPlaceholder": "Or just tell me what you want, e.g. \"rock concert tonight\"…",
+    "freeTextComposerPlaceholder": "Just tell me what you want, e.g. \"sunset view spot\", \"live music tonight\", \"hidden gem cafe\"…",
     "chatSendA11y": "Send message"
   },
   "vibeMatch": {

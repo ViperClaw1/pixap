@@ -149,6 +149,7 @@
     "noCitiesMatch": "Ninguna ciudad coincide con tu búsqueda.",
     "allCities": "Todas las ciudades",
     "pixAiBooking": "Pix AI Concierge",
+    "pixAiSearchPlaceholder": "¡Dime qué quieres, yo hago el resto!",
     "vibeMatching": "Crear mi ruta",
     "alerts": {
       "citySaveTitle": "No se pudo guardar la ciudad",
@@ -266,6 +267,7 @@
     "searchNoMatchingPlaces": "No se encontraron lugares coincidentes. Prueba a cambiar la ciudad, la categoría o el ámbito de búsqueda.",
     "searchOrchestratorFailed": "Algo falló con el asistente de reservas y no se encontraron lugares. Comprueba la conexión e inténtalo de nuevo.",
     "scopeInCity": "en {{city}}",
+    "scopeAcrossAllCities": "en todas las ciudades",
     "yourCity": "tu ciudad",
     "placesFallback": "lugares",
     "summaryCity": "Ciudad: {{value}}",
@@ -287,8 +289,7 @@
     "selectDateForSlots": "Selecciona una fecha para cargar franjas horarias.",
     "couldNotLoadSlots": "No se pudieron cargar las franjas.",
     "noTimeSlotsForDate": "No hay franjas para esta fecha.",
-    "assistantGreeting": "¡Dime qué quieres, yo hago el resto!",
-    "assistantGreetingWithSelectedCity": "¡Dime qué quieres, yo hago el resto!\n\nDime qué buscas: un ambiente, una cocina, un evento o un tipo de lugar.",
+    "assistantGreeting": "¡Dime qué quieres o qué estás buscando, yo hago el resto!",
     "buildRouteTitle": "Crear mi ruta",
     "buildRouteSub": "Obtén un plan personalizado con varias paradas",
     "askCategory": "Dime qué buscas: un ambiente, una cocina, un evento o un tipo de lugar.",
@@ -304,7 +305,7 @@
     "flowFindSummary": "Buscar: {{city}} | {{category}} | {{scope}}",
     "flowFindComment": "Comentario: {{text}}",
     "chatComposerPlaceholder": "Pregunta por ambiente, presupuesto, música…",
-    "freeTextComposerPlaceholder": "O simplemente dime qué quieres, ej. \"concierto de rock esta noche\"…",
+    "freeTextComposerPlaceholder": "Solo dime qué quieres, p. ej., «un lugar con vistas al atardecer», «música en vivo esta noche», «una cafetería secreta»…",
     "chatSendA11y": "Enviar mensaje"
   },
   "vibeMatch": {

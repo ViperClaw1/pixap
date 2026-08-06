@@ -2,7 +2,7 @@ import { ALL_CITIES_OPTION } from "@/entities/business-card";
 import {
   getOnboardingAskCategoryText,
   getOnboardingAskScopeText,
-  getOnboardingSelectedCityGreetingText,
+  getOnboardingGreetingText,
 } from "./onboardingMessages";
 import { useBookingChatStore } from "@/features/ai-booking-chat/model/bookingChatStore";
 
@@ -31,7 +31,7 @@ export function seedOnboardingGreetingMessage(tabId: string): void {
     .appendAssistantMessageOnce(
       tabId,
       onboardingAssistantMessageId(tabId, "greeting"),
-      getOnboardingSelectedCityGreetingText(),
+      getOnboardingGreetingText(),
     );
 }
 
@@ -43,7 +43,7 @@ export function syncOnboardingGreetingMessage(tabId: string): boolean {
   const existing = tab?.messages.find((m) => m.id === messageId);
   if (!existing) return false;
 
-  const content = getOnboardingSelectedCityGreetingText();
+  const content = getOnboardingGreetingText();
   if (existing.content === content) return false;
 
   store.patchAssistantMessageContent(tabId, messageId, content);

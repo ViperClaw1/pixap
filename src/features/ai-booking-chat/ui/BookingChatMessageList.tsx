@@ -1,4 +1,5 @@
 import { Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { BookingChatMessage } from "../model/types";
 import { isPixBookingAssistantGreeting } from "../model/constants";
 import { resolveBookingTranscriptDisplay } from "@/entities/pixai/lib/bookingAssistantCopy";
@@ -31,6 +32,7 @@ export function BookingChatMessageList({
   openingTypewriterEpoch = 0,
   onOnboardingTypewriterComplete,
 }: Props) {
+  const { t } = useTranslation();
   const ts = useBookingInlineThreadStyles();
 
   return (
@@ -39,6 +41,7 @@ export function BookingChatMessageList({
         const isUser = item.role === "user";
         const greetingTw = !isUser && isPixBookingAssistantGreeting(item);
         const onboardingTw = !isUser && isOnboardingAssistantMessage(item.id);
+        const isOnboardingGreeting = onboardingTw && item.id.endsWith("-greeting");
 
         return (
           <View key={item.id}>
@@ -52,13 +55,9 @@ export function BookingChatMessageList({
                 ) : onboardingTw ? (
                   <BookingTypewriterText
                     runOnceKey={onboardingRunKey(item.id)}
-                    fullText={item.content}
+                    fullText={isOnboardingGreeting ? t("aiBooking.assistantGreeting") : item.content}
                     textStyle={isUser ? ts.bubbleTextMine : ts.bubbleTextPeer}
-                    tickMs={
-                      item.id.endsWith("-greeting")
-                        ? GREETING_ASSISTANT_TYPEWRITER_TICK_MS
-                        : undefined
-                    }
+                    tickMs={isOnboardingGreeting ? GREETING_ASSISTANT_TYPEWRITER_TICK_MS : undefined}
                     onComplete={() => onOnboardingTypewriterComplete?.(item.id)}
                   />
                 ) : (
