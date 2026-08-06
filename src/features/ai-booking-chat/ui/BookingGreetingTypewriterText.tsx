@@ -1,5 +1,6 @@
 import type { StyleProp, TextStyle } from "react-native";
 import { useTranslation } from "react-i18next";
+import { GREETING_ASSISTANT_TYPEWRITER_TICK_MS } from "../lib/revealAssistantText";
 import { BookingTypewriterText } from "./BookingTypewriterText";
 
 type Props = {
@@ -18,6 +19,7 @@ export function BookingGreetingTypewriterText({ textStyle, runOnceKey }: Props) 
       fullText={t("aiBooking.assistantGreeting")}
       textStyle={textStyle}
       runOnceKey={runOnceKey}
+      tickMs={GREETING_ASSISTANT_TYPEWRITER_TICK_MS}
     />
   );
 }

@@ -31,20 +31,6 @@ export const aiBookingStaticStyles = StyleSheet.create({
     padding: 12,
     gap: 10,
   },
-  fallbackBanner: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  fallbackBannerText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-  },
   buildRouteBtn: {
     borderRadius: SHARED_PRESSABLE_RADIUS,
     overflow: "hidden",

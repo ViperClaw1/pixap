@@ -1,5 +1,6 @@
 /** Same cadence as `executeBookingAssistantTurn` streaming (default `revealAssistantText` tick). */
-export const DEFAULT_ASSISTANT_TYPEWRITER_TICK_MS = 9;
+export const DEFAULT_ASSISTANT_TYPEWRITER_TICK_MS = 16;
+export const GREETING_ASSISTANT_TYPEWRITER_TICK_MS = 24;
 
 export type RevealAssistantTextResult = {
   promise: Promise<void>;
@@ -22,7 +23,7 @@ export function revealAssistantText(options: {
     return { promise: Promise.resolve(), cancel: () => {} };
   }
 
-  const baseChunk = Math.max(1, Math.min(5, Math.ceil(total / 140)));
+  const baseChunk = Math.max(1, Math.min(6, Math.ceil(total / 45)));
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let cancelled = false;
 

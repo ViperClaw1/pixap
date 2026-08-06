@@ -59,5 +59,16 @@ export function parseAiBookingChatResponse(data: unknown): AiBookingChatResult {
     ? (o.excludedPlaceIds as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
   const explanation = typeof o.explanation === "string" ? o.explanation : undefined;
-  return { message, filters, rerankedPlaceIds, excludedPlaceIds, explanation };
+  const creditsRaw =
+    o.credits != null && typeof o.credits === "object" && !Array.isArray(o.credits)
+      ? (o.credits as Record<string, unknown>)
+      : null;
+  const credits =
+    creditsRaw && typeof creditsRaw.charged === "number"
+      ? {
+          balance: typeof creditsRaw.balance === "number" ? creditsRaw.balance : null,
+          charged: creditsRaw.charged,
+        }
+      : undefined;
+  return { message, filters, rerankedPlaceIds, excludedPlaceIds, explanation, credits };
 }

@@ -14,6 +14,7 @@ function isInsufficientCreditsHttpError(error: unknown): boolean {
 
 function toWireBody(input: BookingChatTurnInput) {
   return {
+    request_id: input.requestId,
     booking_context: input.bookingContext,
     places: input.places,
     messages: input.history,

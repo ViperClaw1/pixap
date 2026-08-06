@@ -30,14 +30,6 @@ export function useSequentialTypewriterReveal(
 
     let cancelled = false;
     let cancelReveal: (() => void) | null = null;
-    let lastLayoutAt = 0;
-    const maybeScheduleLayout = () => {
-      const now = Date.now();
-      if (now - lastLayoutAt > 110) {
-        lastLayoutAt = now;
-        scheduleBookingChatLayoutAnimation();
-      }
-    };
 
     setFirstVisible("");
     setSecondVisible("");
@@ -48,7 +40,6 @@ export function useSequentialTypewriterReveal(
         fullText: firstText,
         onUpdate: (partial) => {
           if (cancelled) return;
-          maybeScheduleLayout();
           setFirstVisible(partial);
         },
       });
@@ -61,7 +52,6 @@ export function useSequentialTypewriterReveal(
         fullText: secondText,
         onUpdate: (partial) => {
           if (cancelled) return;
-          maybeScheduleLayout();
           setSecondVisible(partial);
         },
       });

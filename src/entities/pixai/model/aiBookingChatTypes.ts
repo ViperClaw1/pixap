@@ -4,4 +4,8 @@ export type AiBookingChatResult = {
   rerankedPlaceIds: string[];
   excludedPlaceIds: string[];
   explanation?: string;
+  credits?: {
+    balance: number | null;
+    charged: number;
+  };
 };

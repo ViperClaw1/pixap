@@ -1,4 +1,5 @@
 export * from "./api/usePixAI";
+export { isPixaiOrchestrateInsufficientCreditsError } from "./api/invokePixaiOrchestrate";
 export * from "./api/invokePixaiBookingChat";
 export * from "./api/usePixaiBookingChat";
 export * from "./api/useAiGenerationJob";

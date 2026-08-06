@@ -8,7 +8,11 @@ import type { BusinessCard } from "@/entities/business-card";
 import { PIXAI_BUSINESS_CARD_SELECT, localizeBusinessCard } from "@/entities/business-card";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { normalizeBusinessCardBlurhashes } from "@/shared/lib/business-card/businessCardBlurhash";
-import { invokePixaiOrchestrateWithAuth, logPixaiOrchestrateInvokeFailure } from "./invokePixaiOrchestrate";
+import {
+  invokePixaiOrchestrateWithAuth,
+  isPixaiOrchestrateCreditError,
+  logPixaiOrchestrateInvokeFailure,
+} from "./invokePixaiOrchestrate";
 import {
   getBookingAssistantGreetingText,
   PIXAI_WELCOME_MESSAGE_ID,
@@ -100,9 +104,23 @@ type OrchestratorResponse = {
   draft?: PixAIBookingDraft;
   plan?: unknown;
   meta?: PixAISearchMeta;
+  credits?: {
+    balance: number | null;
+    charged: number;
+  };
 };
 
 export type FlowRunResult = OrchestratorResponse & { catalogFallback?: boolean };
+
+function createRequestId(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const value = Math.floor(Math.random() * 16);
+    return (char === "x" ? value : (value & 0x3) | 0x8).toString(16);
+  });
+}
 
 function parseVibeStops(raw: unknown): VibePlanStop[] {
   if (!Array.isArray(raw)) return [];
@@ -325,6 +343,7 @@ export function usePixAI() {
   const flowMutation = useMutation({
     mutationFn: async (flow: PixAIFlowPayload): Promise<FlowRunResult> => {
       const { data, error } = await invokePixaiOrchestrateWithAuth({
+        request_id: createRequestId(),
         flow,
         user_id: user?.id ?? null,
         history: messages.map((m) => ({ role: m.role, content: m.content })),
@@ -342,6 +361,7 @@ export function usePixAI() {
           catalogFallback: false,
         };
       }
+      if (isPixaiOrchestrateCreditError(error)) throw error;
       await logPixaiOrchestrateInvokeFailure(error);
       const places = await fetchPlacesWhenOrchestratorFails(flow, i18n.language);
       if (places.length > 0) {

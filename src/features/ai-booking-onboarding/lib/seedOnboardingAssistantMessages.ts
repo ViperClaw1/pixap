@@ -1,9 +1,8 @@
 import { ALL_CITIES_OPTION } from "@/entities/business-card";
 import {
   getOnboardingAskCategoryText,
-  getOnboardingAskCityText,
   getOnboardingAskScopeText,
-  getOnboardingGreetingText,
+  getOnboardingSelectedCityGreetingText,
 } from "./onboardingMessages";
 import { useBookingChatStore } from "@/features/ai-booking-chat/model/bookingChatStore";
 
@@ -11,14 +10,6 @@ export type OnboardingAssistantStep = "greeting" | "category" | "scope" | "resul
 
 export function onboardingAssistantMessageId(tabId: string, step: OnboardingAssistantStep): string {
   return `onb-${tabId}-${step}`;
-}
-
-export function getOnboardingGreetingWithCityPromptText(): string {
-  return `${getOnboardingGreetingText()}\n\n${getOnboardingAskCityText()}`;
-}
-
-export function getOnboardingGreetingWithCategoryPromptText(): string {
-  return `${getOnboardingGreetingText()}\n\n${getOnboardingAskCategoryText()}`;
 }
 
 /** City from page state or profile — whichever is available first. */
@@ -34,31 +25,25 @@ export function hasOnboardingPrefilledCity(
   return Boolean(city && city !== ALL_CITIES_OPTION);
 }
 
-export function onboardingGreetingContent(skipCityPrompt: boolean): string {
-  return skipCityPrompt
-    ? getOnboardingGreetingWithCategoryPromptText()
-    : getOnboardingGreetingWithCityPromptText();
-}
-
-export function seedOnboardingGreetingMessage(tabId: string, skipCityPrompt: boolean): void {
+export function seedOnboardingGreetingMessage(tabId: string): void {
   useBookingChatStore
     .getState()
     .appendAssistantMessageOnce(
       tabId,
       onboardingAssistantMessageId(tabId, "greeting"),
-      onboardingGreetingContent(skipCityPrompt),
+      getOnboardingSelectedCityGreetingText(),
     );
 }
 
-/** Align stored greeting with city/profile when the first seed ran before profile loaded. */
-export function syncOnboardingGreetingMessage(tabId: string, skipCityPrompt: boolean): boolean {
+/** Align an existing greeting with the current locale. */
+export function syncOnboardingGreetingMessage(tabId: string): boolean {
   const messageId = onboardingAssistantMessageId(tabId, "greeting");
   const store = useBookingChatStore.getState();
   const tab = store.tabs.find((t) => t.id === tabId);
   const existing = tab?.messages.find((m) => m.id === messageId);
   if (!existing) return false;
 
-  const content = onboardingGreetingContent(skipCityPrompt);
+  const content = getOnboardingSelectedCityGreetingText();
   if (existing.content === content) return false;
 
   store.patchAssistantMessageContent(tabId, messageId, content);
