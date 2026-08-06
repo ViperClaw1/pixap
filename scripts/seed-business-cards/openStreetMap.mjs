@@ -133,10 +133,16 @@ function buildAddressFromTags(tags, displayName) {
   return displayName?.trim() ?? tags.name?.trim() ?? "";
 }
 
-function cityLabelFromNominatimResult(result) {
+export function cityLabelFromNominatimResult(result) {
   const addr = result.address ?? {};
+  const isTurkey =
+    addr.country_code?.toUpperCase() === "TR" || /^(turkey|türkiye)$/i.test(addr.country ?? "");
   const locality =
-    addr.city ?? addr.town ?? addr.village ?? addr.municipality ?? addr.county ?? addr.state;
+    addr.city ??
+    addr.town ??
+    addr.village ??
+    addr.municipality ??
+    (isTurkey ? addr.state ?? addr.county : addr.county ?? addr.state);
   const country = addr.country;
   if (locality && country) return `${locality}, ${country}`;
   if (result.display_name) {
