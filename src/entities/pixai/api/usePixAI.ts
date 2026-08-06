@@ -263,23 +263,25 @@ async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload, language
   }
 
   if (places.length === 0) {
-    const { data, error } = await rpc.rpc("search_business_cards_in_city", {
-      p_city: city,
-      p_category_id: categoryId,
-      p_is_restaurant_table: flow.isRestaurantTable ?? false,
-      p_limit: limit,
-      p_category_name: categoryName,
-      p_query: query,
-    });
-    if (!error) {
-      places = mapRowsToPlaces(data, language);
-    } else {
+    if (city) {
+      const { data, error } = await rpc.rpc("search_business_cards_in_city", {
+        p_city: city,
+        p_category_id: categoryId,
+        p_is_restaurant_table: flow.isRestaurantTable ?? false,
+        p_limit: limit,
+        p_category_name: categoryName,
+        p_query: query,
+      });
+      if (!error) places = mapRowsToPlaces(data, language);
+    }
+
+    if (places.length === 0) {
       let q = supabase
         .from("business_cards")
         .select(PIXAI_BUSINESS_CARD_SELECT as never)
-        .ilike("city", city)
         .order("rating", { ascending: false })
         .limit(limit);
+      if (city) q = q.ilike("city", city);
       if (categoryId) q = q.eq("category_id", categoryId);
       if (flow.isRestaurantTable) {
         q = q.or("name.ilike.%restaurant%,tags.cs.{restaurant},tags.cs.{table}");

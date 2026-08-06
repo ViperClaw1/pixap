@@ -149,6 +149,7 @@
     "noCitiesMatch": "Aucune ville ne correspond à votre recherche.",
     "allCities": "Toutes les villes",
     "pixAiBooking": "Pix AI Concierge",
+    "pixAiSearchPlaceholder": "Dis-moi ce que tu veux, je m’occupe du reste !",
     "vibeMatching": "Créer mon itinéraire",
     "alerts": {
       "citySaveTitle": "Impossible d'enregistrer la ville",
@@ -266,6 +267,7 @@
     "searchNoMatchingPlaces": "Aucun lieu correspondant trouvé. Essayez de changer la ville, la catégorie ou la zone de recherche.",
     "searchOrchestratorFailed": "Une erreur s'est produite avec l'assistant de réservation et aucun lieu n'a été trouvé. Vérifiez la connexion et réessayez.",
     "scopeInCity": "à {{city}}",
+    "scopeAcrossAllCities": "dans toutes les villes",
     "yourCity": "votre ville",
     "placesFallback": "lieux",
     "summaryCity": "Ville : {{value}}",
@@ -287,8 +289,7 @@
     "selectDateForSlots": "Sélectionnez une date pour charger les créneaux.",
     "couldNotLoadSlots": "Impossible de charger les créneaux.",
     "noTimeSlotsForDate": "Aucun créneau pour cette date.",
-    "assistantGreeting": "Dis-moi ce que tu veux, je fais le reste !",
-    "assistantGreetingWithSelectedCity": "Dis-moi ce que tu veux, je fais le reste !\n\nDis-moi ce que tu cherches : une ambiance, une cuisine, un événement ou un type de lieu.",
+    "assistantGreeting": "Dis-moi ce que tu veux ou ce que tu cherches, je m’occupe du reste !",
     "buildRouteTitle": "Créer mon itinéraire",
     "buildRouteSub": "Obtenez un plan personnalisé en plusieurs étapes",
     "askCategory": "Dis-moi ce que tu cherches : une ambiance, une cuisine, un événement ou un type de lieu.",
@@ -304,7 +305,7 @@
     "flowFindSummary": "Rechercher : {{city}} | {{category}} | {{scope}}",
     "flowFindComment": "Commentaire : {{text}}",
     "chatComposerPlaceholder": "Demandez l'ambiance, le budget, la musique…",
-    "freeTextComposerPlaceholder": "Ou dis-moi simplement ce que tu veux, ex. « concert de rock ce soir »…",
+    "freeTextComposerPlaceholder": "Dis-moi simplement ce que tu veux, par ex. « un endroit avec vue sur le coucher de soleil », « de la musique live ce soir », « un café caché »…",
     "chatSendA11y": "Envoyer le message"
   },
   "vibeMatch": {

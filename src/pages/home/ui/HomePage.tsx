@@ -4,9 +4,10 @@ import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
+  Platform,
   PixelRatio,
   InteractionManager,
-  useWindowDimensions
+  useWindowDimensions,
 } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
@@ -90,11 +91,15 @@ function thumbUriForCard(place: BusinessCard, layoutW: number, layoutH: number):
   }).uri;
 }
 
-/** Types `fullText` out, holds it, then restarts — looping every ~10s. */
+/** Types `fullText` out, holds it, then restarts — looping every ~10s. Android: static full text. */
 function usePixAiPlaceholderTypewriter(fullText: string): string {
-  const [visible, setVisible] = useState("");
+  const [visible, setVisible] = useState(() => (Platform.OS === "android" ? fullText : ""));
 
   useEffect(() => {
+    if (Platform.OS === "android") {
+      setVisible(fullText);
+      return;
+    }
     if (!fullText) {
       setVisible("");
       return;
@@ -160,7 +165,7 @@ export default function HomeScreen() {
   const unread = useUnreadCount();
   const { openAIBooking } = useSubscriptionGatedNavigation(navigation);
   const { isIntroActive, hasPaidPremium, balance, introPeriodEndsAt } = useBookingAccess();
-  const pixAiPlaceholder = usePixAiPlaceholderTypewriter(t("aiBooking.assistantGreeting"));
+  const pixAiPlaceholder = usePixAiPlaceholderTypewriter(t("home.pixAiSearchPlaceholder"));
   const [trialBannerDismissed, setTrialBannerDismissedState] = useState(false);
   const showTrialBanner = !!user && isIntroActive && !hasPaidPremium && !trialBannerDismissed;
 
@@ -450,9 +455,17 @@ export default function HomeScreen() {
             style={styles.searchBtnGradientFill}
           >
             <AnimatedHomeSparklesIcon size={18} color={colors.primary} />
-            <Text style={styles.searchBtnText} numberOfLines={1} ellipsizeMode="tail">
+            <Text
+              style={[
+                styles.searchBtnText,
+                windowWidth < 380 ? { fontSize: 13 } : windowWidth < 400 ? { fontSize: 14 } : null,
+              ]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {pixAiPlaceholder}
             </Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </LinearGradient>
         </AppPressable>
 
@@ -580,6 +593,7 @@ export default function HomeScreen() {
       styles,
       t,
       unread,
+      windowWidth,
     ],
   );
 

@@ -52,7 +52,6 @@ import {
   groupCitiesByCountry,
   filterCityGroups,
   countryLabelForCity,
-  extractCityFromQuery,
 } from "@/entities/business-card";
 import {
   useCategories,
@@ -116,6 +115,7 @@ import {
   type BookingSearchSnapshot,
 } from "@/features/ai-booking-chat";
 import { markBookingOpeningTypewriterComplete } from "@/features/ai-booking-chat/lib/bookingOpeningTypewriterRegistry";
+import { resolvePixAIBookingCity } from "@/features/ai-booking-chat/lib/resolvePixAIBookingCity";
 import {
   BookingRequestHistoryDrawer,
   buildHistoryItemFromTab,
@@ -839,8 +839,6 @@ function AIBookingPageContent() {
     if (aiConsentStatus === "loading" || needsAiConsentPrompt) return;
 
     const tabId = activeTabId;
-    const hasPrefilledCity = hasOnboardingPrefilledCity(selectedCity, profile?.city);
-    if (!hasPrefilledCity) return;
     greetingBootstrappedRef.current.add(tabId);
     seedOnboardingGreetingMessage(tabId);
   }, [
@@ -848,9 +846,7 @@ function AIBookingPageContent() {
     activeTabId,
     aiConsentStatus,
     needsAiConsentPrompt,
-    profile?.city,
     profilePending,
-    selectedCity,
   ]);
 
   useEffect(() => {
@@ -859,10 +855,12 @@ function AIBookingPageContent() {
     if (activeTab.searchSnapshot) return;
     if (activeTab.onboardingPhase === "gemini" || activeTab.onboardingPhase === "search_results") return;
 
+    // Keep greeting copy current for both city/no-city sessions (persisted chats included).
+    const patched = syncOnboardingGreetingMessage(activeTabId);
+
     const hasPrefilledCity = hasOnboardingPrefilledCity(selectedCity, profile?.city);
     if (!hasPrefilledCity) return;
 
-    const patched = syncOnboardingGreetingMessage(activeTabId);
     const store = useBookingChatStore.getState();
     const tab = store.tabs.find((t) => t.id === activeTabId);
     const phase = tab?.onboardingPhase;
@@ -1116,22 +1114,22 @@ function AIBookingPageContent() {
     async (rawQuery: string, cityOverride?: string) => {
       const query = rawQuery.trim();
       if (!query || isSearchingPlaces || isLoading) return;
-      const mentionedCity = extractCityFromQuery(query, availableCities);
-      const cityValue = (mentionedCity ?? cityOverride ?? selectedCity).trim();
-      if (!cityValue || cityValue === ALL_CITIES_OPTION) {
-        pendingQuickSearchRef.current = { kind: "text", query };
-        setUiState((prev) => ({ ...prev, citySearchQuery: "", cityPickerVisible: true }));
-        return;
-      }
+      const resolvedCity = await resolvePixAIBookingCity({
+        selectedCity: cityOverride ?? selectedCity,
+        availableCities,
+        coords: locationCoords,
+      });
+      const cityValue = resolvedCity.city;
 
       const truncatedQuery = query.length > 40 ? `${query.slice(0, 40)}…` : query;
       setSearchForm((prev) => ({
         ...prev,
-        city: cityValue,
+        city: resolvedCity.source === "selected" ? cityValue : prev.city,
         categoryId: "",
         categoryName: "",
         scope: "city",
         comment: query,
+        locationCoords: resolvedCity.coords ?? prev.locationCoords,
       }));
 
       await executeQuickSearch(
@@ -1150,7 +1148,7 @@ function AIBookingPageContent() {
         },
       );
     },
-    [availableCities, executeQuickSearch, isLoading, isSearchingPlaces, selectedCity],
+    [availableCities, executeQuickSearch, isLoading, isSearchingPlaces, locationCoords, selectedCity],
   );
 
   /** Category tap during onboarding — searches immediately, skipping the scope question. */
@@ -1160,21 +1158,22 @@ function AIBookingPageContent() {
       cityOverride?: string,
     ) => {
       if (isSearchingPlaces || isLoading) return;
-      const cityValue = (cityOverride ?? selectedCity).trim();
-      if (!cityValue || cityValue === ALL_CITIES_OPTION) {
-        pendingQuickSearchRef.current = { kind: "category", ...category };
-        setUiState((prev) => ({ ...prev, citySearchQuery: "", cityPickerVisible: true }));
-        return;
-      }
+      const resolvedCity = await resolvePixAIBookingCity({
+        selectedCity: cityOverride ?? selectedCity,
+        availableCities,
+        coords: locationCoords,
+      });
+      const cityValue = resolvedCity.city;
 
       const categoryLabel = category.isRestaurantTable ? restaurantTableLabel : category.categoryName;
       setSearchForm((prev) => ({
         ...prev,
-        city: cityValue,
+        city: resolvedCity.source === "selected" ? cityValue : prev.city,
         categoryId: category.isRestaurantTable ? RESTAURANT_TABLE_KEY : category.categoryId,
         categoryName: categoryLabel,
         scope: "city",
         comment: "",
+        locationCoords: resolvedCity.coords ?? prev.locationCoords,
       }));
 
       await executeQuickSearch(
@@ -1195,7 +1194,15 @@ function AIBookingPageContent() {
         },
       );
     },
-    [executeQuickSearch, isLoading, isSearchingPlaces, restaurantTableLabel, selectedCity],
+    [
+      availableCities,
+      executeQuickSearch,
+      isLoading,
+      isSearchingPlaces,
+      locationCoords,
+      restaurantTableLabel,
+      selectedCity,
+    ],
   );
 
   const handleFreeTextQuery = useCallback(
