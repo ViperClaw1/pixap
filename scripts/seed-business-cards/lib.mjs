@@ -30,6 +30,7 @@ export const CATEGORY_IDS = {
   entertainment: "87ecac2f-4edf-4e20-bba1-d1f034f98da3",
   fitness: "2cecadb0-d31e-4dd5-bcf9-72a047fc5430",
   hotels: "9689cf5e-cf27-4b93-8a24-901d2d1000e4",
+  tourism: "c7feef80-2984-49fd-85f1-d615f5a3ce9c",
 };
 
 export const LOCALES = ["ru", "es", "pt", "fr", "de"];
@@ -726,6 +727,7 @@ export const PHOTO_POOLS = {
   coworking: poolSlice(25),
   club: poolSlice(29),
   hookah: poolSlice(11),
+  tourism: poolSlice(32),
 };
 
 /** Lorem Picsum numeric IDs that resolve (avoid 1000+ — often 404). */

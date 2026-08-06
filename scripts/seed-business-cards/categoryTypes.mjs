@@ -40,6 +40,11 @@ export const SEED_CATEGORY_TYPES = {
     categoryId: CATEGORY_IDS.hotels,
     photoPool: "hotel",
   },
+  Tourism: {
+    key: "tourism",
+    categoryId: CATEGORY_IDS.tourism,
+    photoPool: "tourism",
+  },
 };
 
 const ALIASES = Object.entries(SEED_CATEGORY_TYPES).flatMap(([displayName, spec]) => [
