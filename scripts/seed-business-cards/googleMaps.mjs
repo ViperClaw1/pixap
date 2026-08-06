@@ -480,12 +480,19 @@ async function loadPlaceDetails(placeId, apiKey, label) {
 
 export function cityLabelFromAddressComponents(components) {
   if (!Array.isArray(components) || !components.length) return null;
+  const component = (type) => components.find((c) => c.types?.includes(type));
+  const countryComponent = component("country");
+  const country = countryComponent?.long_name;
+  const countryCode = countryComponent?.short_name?.toUpperCase();
+  const isTurkey = countryCode === "TR" || /^(turkey|türkiye)$/i.test(country ?? "");
   const locality =
-    components.find((c) => c.types?.includes("locality"))?.long_name ??
-    components.find((c) => c.types?.includes("postal_town"))?.long_name ??
-    components.find((c) => c.types?.includes("administrative_area_level_2"))?.long_name ??
-    components.find((c) => c.types?.includes("administrative_area_level_1"))?.long_name;
-  const country = components.find((c) => c.types?.includes("country"))?.long_name;
+    component("locality")?.long_name ??
+    component("postal_town")?.long_name ??
+    (isTurkey
+      ? component("administrative_area_level_1")?.long_name ??
+        component("administrative_area_level_2")?.long_name
+      : component("administrative_area_level_2")?.long_name ??
+        component("administrative_area_level_1")?.long_name);
   if (locality && country) return `${locality}, ${country}`;
   return null;
 }
