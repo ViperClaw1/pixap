@@ -89,6 +89,20 @@ function PreferenceOnboardingContent() {
     navigation.reset({ index: 0, routes: [{ name: "ProfileMain" }] });
   }, [navigation]);
 
+  const goToSubscriptionPaywall = useCallback(() => {
+    navigation.reset({
+      index: 1,
+      routes: [
+        { name: "ProfileMain" },
+        { name: "SubscriptionPaywall", params: { reason: "upgrade" } },
+      ],
+    });
+  }, [navigation]);
+
+  const dismissTrialPopup = useCallback(() => {
+    setTrialPopupVisible(false);
+  }, []);
+
   const leaveOnboardingToProfile = useCallback(() => {
     Alert.alert(
       t("onboarding.exitSetupTitle"),
@@ -321,8 +335,11 @@ function PreferenceOnboardingContent() {
           variant="success"
           title={t("bookingCredits.trialWelcomeTitle")}
           message={t("bookingCredits.trialWelcomeBody")}
-          onClose={resetToProfileMain}
-          buttons={[{ text: t("bookingCredits.trialWelcomeCta"), onPress: resetToProfileMain }]}
+          onClose={dismissTrialPopup}
+          buttons={[
+            { text: t("bookingCredits.trialWelcomeNotNow"), style: "cancel", onPress: resetToProfileMain },
+            { text: t("bookingCredits.trialWelcomeCta"), onPress: goToSubscriptionPaywall },
+          ]}
         />
       </Modal>
     </View>
