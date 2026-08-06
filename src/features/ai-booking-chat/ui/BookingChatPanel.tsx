@@ -25,6 +25,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { FLASH_LIST_ESTIMATED_SIZE } from "@/shared/lib/flashListEstimatedSizes";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
+import { useBookingCreditsSync } from "@/entities/booking-credits";
 import type { BookingChatContext, BookingChatMessage } from "../model/types";
 import type { PixAIPlace } from "@/entities/pixai";
 import { useBookingChatStore } from "../model/bookingChatStore";
@@ -49,6 +50,7 @@ const SPRING_OPEN = { damping: 22, stiffness: 220, mass: 0.75 } as const;
 
 function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, places }: PanelProps) {
   const { colors } = useAppTheme();
+  const { syncBalance } = useBookingCreditsSync();
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const panelH = Math.min(winH * 0.48, 420);
@@ -173,9 +175,10 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
         orderedIds,
         prior,
         searchMeta,
+        onCreditsChanged: syncBalance,
       });
     },
-    [bookingContext, catalogRevision, orderedIds, placeLite, searchMeta],
+    [bookingContext, catalogRevision, orderedIds, placeLite, searchMeta, syncBalance],
   );
 
   const requestClose = useCallback(() => {

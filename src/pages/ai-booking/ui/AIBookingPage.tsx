@@ -32,6 +32,7 @@ import {
   RESTAURANT_BOOKING_TIME_WINDOWS,
 } from "@/entities/booking";
 import {
+  isPixaiOrchestrateInsufficientCreditsError,
   usePixAI,
   type PixAIFlowPayload,
   type PixAIPlace,
@@ -51,6 +52,7 @@ import {
   groupCitiesByCountry,
   filterCityGroups,
   countryLabelForCity,
+  extractCityFromQuery,
 } from "@/entities/business-card";
 import {
   useCategories,
@@ -73,6 +75,7 @@ import {
 import { isPersonalDataComplete } from "@/shared/lib/profileCompletion";
 import { BottomSheetPickerModal } from "@/shared/ui/bottom-sheet-picker/BottomSheetPickerModal";
 import { useBookingAccess } from "@/features/booking-access";
+import { useBookingCreditsSync } from "@/entities/booking-credits";
 import { BookingCreditsBadge } from "@/shared/ui/booking-credits-badge/BookingCreditsBadge";
 import { useTranslation } from "react-i18next";
 import { PageI18nProvider } from "@/shared/lib/i18n";
@@ -111,10 +114,7 @@ import {
   type BookingRecommendationView,
   type BookingSearchSnapshot,
 } from "@/features/ai-booking-chat";
-import {
-  clearBookingOpeningTypewriterKeys,
-  markBookingOpeningTypewriterComplete,
-} from "@/features/ai-booking-chat/lib/bookingOpeningTypewriterRegistry";
+import { markBookingOpeningTypewriterComplete } from "@/features/ai-booking-chat/lib/bookingOpeningTypewriterRegistry";
 import {
   BookingRequestHistoryDrawer,
   buildHistoryItemFromTab,
@@ -265,6 +265,7 @@ function AIBookingPageContent() {
   });
   const selectedCity = searchForm.city;
   const selectedCategoryId = searchForm.categoryId;
+  const isRestaurantTable = selectedCategoryId === RESTAURANT_TABLE_KEY;
   const selectedCategoryName = searchForm.categoryName;
   const scope = searchForm.scope;
   const requestComment = searchForm.comment;
@@ -432,6 +433,7 @@ function AIBookingPageContent() {
     hasPaidPremium,
     introPeriodEndsAt,
   } = useBookingAccess();
+  const { syncBalance, refreshBalance } = useBookingCreditsSync();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
   const navigation = useNavigation<Nav>();
   const { openVibeMatch } = useSubscriptionGatedNavigation(navigation);
@@ -747,8 +749,6 @@ function AIBookingPageContent() {
     [visibleCalendarMonth],
   );
 
-  const isRestaurantTable = selectedCategoryId === RESTAURANT_TABLE_KEY;
-
   const bookingChatContext = useMemo(() => {
     if (!selectedCity?.trim() || selectedCity === ALL_CITIES_OPTION) return null;
     return buildBookingContextFromPage({
@@ -840,8 +840,9 @@ function AIBookingPageContent() {
 
     const tabId = activeTabId;
     const hasPrefilledCity = hasOnboardingPrefilledCity(selectedCity, profile?.city);
+    if (!hasPrefilledCity) return;
     greetingBootstrappedRef.current.add(tabId);
-    seedOnboardingGreetingMessage(tabId, hasPrefilledCity);
+    seedOnboardingGreetingMessage(tabId);
   }, [
     activeTab,
     activeTabId,
@@ -861,7 +862,7 @@ function AIBookingPageContent() {
     const hasPrefilledCity = hasOnboardingPrefilledCity(selectedCity, profile?.city);
     if (!hasPrefilledCity) return;
 
-    const patched = syncOnboardingGreetingMessage(activeTabId, true);
+    const patched = syncOnboardingGreetingMessage(activeTabId);
     const store = useBookingChatStore.getState();
     const tab = store.tabs.find((t) => t.id === activeTabId);
     const phase = tab?.onboardingPhase;
@@ -877,16 +878,11 @@ function AIBookingPageContent() {
     }
 
     const greetingId = onboardingAssistantMessageId(activeTabId, "greeting");
-    if (manualCitySelectionRef.current) {
-      manualCitySelectionRef.current = false;
-      markBookingOpeningTypewriterComplete(greetingId);
-      return;
+    manualCitySelectionRef.current = false;
+    markBookingOpeningTypewriterComplete(greetingId);
+    if (phase === "greeting" || phase === "await_city" || phase === "assistant_typing") {
+      store.setTabOnboardingPhase(activeTabId, "await_category");
     }
-    clearBookingOpeningTypewriterKeys([greetingId]);
-    if (phase !== "assistant_typing") {
-      store.setTabOnboardingPhase(activeTabId, "assistant_typing");
-    }
-    setOpeningTypewriterEpoch((epoch) => epoch + 1);
   }, [
     activeTab,
     activeTabId,
@@ -1003,6 +999,7 @@ function AIBookingPageContent() {
 
     try {
       const result = await runFlow(payload);
+      if (result.credits) syncBalance(result.credits);
       const catalogPlaces = result.places ?? [];
 
       setSelection((prev) => ({ ...prev, hasSearched: true }));
@@ -1033,6 +1030,11 @@ function AIBookingPageContent() {
         useBookingChatStore.getState().applySearchResults(nextRev, snapshot);
       }, 0);
     } catch (error) {
+      if (isPixaiOrchestrateInsufficientCreditsError(error)) {
+        void refreshBalance();
+        navigation.replace("SubscriptionPaywall", { reason: "no_credits" });
+        return;
+      }
       if (isAuthRequiredError(error)) {
         navigateToAuthScreen(navigation);
         return;
@@ -1066,6 +1068,7 @@ function AIBookingPageContent() {
 
       try {
         const result = await runFlow(payload);
+        if (result.credits) syncBalance(result.credits);
         const catalogPlaces = result.places ?? [];
 
         setSelection((prev) => ({ ...prev, hasSearched: true }));
@@ -1090,6 +1093,11 @@ function AIBookingPageContent() {
           useBookingChatStore.getState().applySearchResults(nextRev, snapshot);
         }, 0);
       } catch (error) {
+        if (isPixaiOrchestrateInsufficientCreditsError(error)) {
+          void refreshBalance();
+          navigation.replace("SubscriptionPaywall", { reason: "no_credits" });
+          return;
+        }
         if (isAuthRequiredError(error)) {
           navigateToAuthScreen(navigation);
           return;
@@ -1100,7 +1108,7 @@ function AIBookingPageContent() {
         setUiState((prev) => ({ ...prev, isSearchingPlaces: false }));
       }
     },
-    [form.persons, navigation, resetFlowSearchTranscript, runFlow, t],
+    [form.persons, navigation, refreshBalance, resetFlowSearchTranscript, runFlow, syncBalance, t],
   );
 
   /** Free-form query typed before (or instead of) the structured prompts — searches immediately. */
@@ -1108,7 +1116,8 @@ function AIBookingPageContent() {
     async (rawQuery: string, cityOverride?: string) => {
       const query = rawQuery.trim();
       if (!query || isSearchingPlaces || isLoading) return;
-      const cityValue = (cityOverride ?? selectedCity).trim();
+      const mentionedCity = extractCityFromQuery(query, availableCities);
+      const cityValue = (mentionedCity ?? cityOverride ?? selectedCity).trim();
       if (!cityValue || cityValue === ALL_CITIES_OPTION) {
         pendingQuickSearchRef.current = { kind: "text", query };
         setUiState((prev) => ({ ...prev, citySearchQuery: "", cityPickerVisible: true }));
@@ -1141,7 +1150,7 @@ function AIBookingPageContent() {
         },
       );
     },
-    [executeQuickSearch, isLoading, isSearchingPlaces, selectedCity],
+    [availableCities, executeQuickSearch, isLoading, isSearchingPlaces, selectedCity],
   );
 
   /** Category tap during onboarding — searches immediately, skipping the scope question. */
@@ -1483,7 +1492,7 @@ function AIBookingPageContent() {
             <Text style={styles.title}>{t("aiBooking.title")}</Text>
           </View>
           <Text style={styles.subtitle}>{t("aiBooking.subtitle")}</Text>
-          {isIntroActive && !hasPaidPremium ? (
+          {isIntroActive || hasPaidPremium ? (
             <BookingCreditsBadge
               balance={balance}
               isIntroActive={isIntroActive}
@@ -1569,14 +1578,6 @@ function AIBookingPageContent() {
               </LinearGradient>
             </AppPressable>
 
-            {searchMeta?.is_fallback && searchMeta.original_query ? (
-              <View style={[styles.fallbackBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
-                <Text style={[styles.fallbackBannerText, { color: colors.textMuted }]}>
-                  {t("aiBooking.searchFallbackBanner", { query: searchMeta.original_query })}
-                </Text>
-              </View>
-            ) : null}
             <AIBookingSuggestedPlaces
             styles={styles}
             places={effectivePlaces}

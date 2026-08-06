@@ -2,6 +2,7 @@ import type { BookingChatContext, PlaceLite, AiBookingChatResult } from "../mode
 import type { PixAISearchMeta } from "@/entities/pixai";
 
 export type BookingChatTurnInput = {
+  requestId: string;
   bookingContext: BookingChatContext;
   places: PlaceLite[];
   /** Prior turns (user + assistant), no system */

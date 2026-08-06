@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { consumeAiCredits } from "../_shared/consumeAiCredits.ts";
 import { expandQuery } from "./queryExpansion.ts";
 
 type PixaiRpcName = "search_business_cards_in_city" | "search_business_cards_nearby" | "search_by_vibe";
@@ -387,13 +388,25 @@ Deno.serve(async (req) => {
     const auth = req.headers.get("Authorization");
     if (!auth) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
 
-    const body = (await req.json()) as { flow?: Flow; vibe?: VibeInput };
+    const body = (await req.json()) as { flow?: Flow; vibe?: VibeInput; request_id?: string };
+    const requestId =
+      typeof body.request_id === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.request_id)
+        ? body.request_id
+        : crypto.randomUUID();
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: auth } } },
     );
+    const { data: userData, error: authError } = await supabase.auth.getUser();
+    if (authError || !userData.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (body.vibe && typeof body.vibe.mood === "string" && body.vibe.timeline) {
       return await handleVibe(supabase, body.vibe);
@@ -455,6 +468,41 @@ Deno.serve(async (req) => {
     ];
 
     const meta = buildSearchMeta(flow, places ?? []);
+    let credits: { balance: number | null; charged: number } | undefined;
+
+    if ((flow.comment ?? "").trim()) {
+      const adminClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+        { auth: { persistSession: false } },
+      );
+      const { data: creditData, error: creditError } = await consumeAiCredits(adminClient, {
+        userId: userData.user.id,
+        delta: 0.25,
+        requestId,
+      });
+      if (creditError?.message.includes("insufficient_ai_credits")) {
+        return new Response(JSON.stringify({ error: "insufficient_credits" }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (creditError) {
+        console.error("[pixai-orchestrate] credit deduction failed:", creditError.message);
+        return new Response(JSON.stringify({ error: "credit_deduction_failed" }), {
+          status: 503,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const creditResult =
+        creditData && typeof creditData === "object"
+          ? (creditData as Record<string, unknown>)
+          : {};
+      credits = {
+        balance: typeof creditResult.balance === "number" ? creditResult.balance : null,
+        charged: typeof creditResult.charged === "number" ? creditResult.charged : 0.25,
+      };
+    }
 
     return new Response(
       JSON.stringify({
@@ -462,6 +510,7 @@ Deno.serve(async (req) => {
         places,
         slots,
         meta,
+        credits,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

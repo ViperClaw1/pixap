@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { consumeAiCredits } from "../_shared/consumeAiCredits.ts";
 import { softenAssistantFallbackTone } from "../_shared/softenAssistantFallbackTone.ts";
 
 type PlaceIn = {
@@ -23,6 +24,7 @@ type ReqBody = {
   places?: PlaceIn[];
   messages?: Msg[];
   user_message?: string;
+  request_id?: string;
   locale?: string;
   meta?: {
     is_fallback?: boolean;
@@ -320,6 +322,11 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as ReqBody;
     const places = Array.isArray(body.places) ? body.places : [];
     const userMessage = typeof body.user_message === "string" ? body.user_message.trim() : "";
+    const requestId =
+      typeof body.request_id === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.request_id)
+        ? body.request_id
+        : crypto.randomUUID();
     if (!userMessage) {
       return new Response(JSON.stringify({ error: "user_message required" }), {
         status: 400,
@@ -422,11 +429,12 @@ Deno.serve(async (req) => {
 
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const adminClient = createClient(url, serviceKey, { auth: { persistSession: false } });
-    const { error: creditError } = await adminClient.rpc("consume_ai_query_credit", {
-      p_user_id: userData.user.id,
-      p_delta: -delta,
-      p_input_tokens: inputTokens,
-      p_output_tokens: outputTokens,
+    const { data: creditData, error: creditError } = await consumeAiCredits(adminClient, {
+      userId: userData.user.id,
+      delta,
+      inputTokens,
+      outputTokens,
+      requestId,
     });
 
     if (creditError?.message?.includes("insufficient_ai_credits")) {
@@ -437,9 +445,23 @@ Deno.serve(async (req) => {
     }
     if (creditError) {
       console.error("[pixai-booking-chat] credit deduction failed:", creditError.message);
+      return new Response(JSON.stringify({ error: "credit_deduction_failed" }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(JSON.stringify(repaired), {
+    const creditResult =
+      creditData && typeof creditData === "object"
+        ? (creditData as Record<string, unknown>)
+        : {};
+    const balance = typeof creditResult.balance === "number" ? creditResult.balance : null;
+    const charged = typeof creditResult.charged === "number" ? creditResult.charged : delta;
+
+    return new Response(JSON.stringify({
+      ...repaired,
+      credits: { balance, charged },
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

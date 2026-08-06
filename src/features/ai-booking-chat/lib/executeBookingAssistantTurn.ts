@@ -5,6 +5,7 @@ import { useBookingChatStore } from "../model/bookingChatStore";
 import { buildAssistantReplyText } from "./buildAssistantReplyText";
 import { revealAssistantText } from "./revealAssistantText";
 import { sanitizeAiBookingChatResult } from "./sanitizeAiBookingChatResult";
+import { randomizeUnchangedRanking } from "./randomizeUnchangedRanking";
 import { scheduleBookingChatLayoutAnimation } from "./scheduleBookingChatLayoutAnimation";
 import { isAiDataConsentGranted, ensureAiDataConsentHydrated } from "@/features/ai-data-consent/model/aiDataConsentState";
 import { i18n } from "@/shared/lib/i18n";
@@ -21,8 +22,20 @@ export async function executeBookingAssistantTurn(input: {
   prior: BookingChatTurnHistoryItem[];
   searchMeta?: PixAISearchMeta | null;
   signal?: AbortSignal;
+  onCreditsChanged?: (credits: { balance: number | null; charged: number }) => void;
 }): Promise<void> {
-  const { tabId, userText, catalogRevision, bookingContext, places, orderedIds, prior, searchMeta, signal } = input;
+  const {
+    tabId,
+    userText,
+    catalogRevision,
+    bookingContext,
+    places,
+    orderedIds,
+    prior,
+    searchMeta,
+    signal,
+    onCreditsChanged,
+  } = input;
   await ensureAiDataConsentHydrated();
   if (!isAiDataConsentGranted()) {
     useBookingChatStore.getState().setSendState({
@@ -37,7 +50,15 @@ export async function executeBookingAssistantTurn(input: {
   store.setSendState({ isSending: true, sendError: null });
 
   try {
+    const requestId =
+      typeof globalThis.crypto?.randomUUID === "function"
+        ? globalThis.crypto.randomUUID()
+        : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+            const value = Math.floor(Math.random() * 16);
+            return (char === "x" ? value : (value & 0x3) | 0x8).toString(16);
+          });
     const raw = await defaultBookingChatProvider.sendTurn({
+      requestId,
       bookingContext,
       places,
       history: prior,
@@ -45,21 +66,26 @@ export async function executeBookingAssistantTurn(input: {
       searchMeta,
       locale: i18n.language,
     });
+    onCreditsChanged?.(raw.credits ?? { balance: null, charged: 0 });
     const safe = sanitizeAiBookingChatResult(raw, orderedIds);
-    const fullText = buildAssistantReplyText(safe, { searchMeta });
+    const currentTab = useBookingChatStore.getState().tabs.find((tab) => tab.id === tabId);
+    const previousRanking =
+      currentTab?.recommendationView.rerankedPlaceIds.length
+        ? currentTab.recommendationView.rerankedPlaceIds
+        : orderedIds;
+    const rerankedPlaceIds = randomizeUnchangedRanking(safe.rerankedPlaceIds, previousRanking);
+    const result =
+      rerankedPlaceIds === safe.rerankedPlaceIds
+        ? safe
+        : { ...safe, rerankedPlaceIds };
+    const fullText = buildAssistantReplyText(result, { searchMeta });
     const messageId = useBookingChatStore.getState().appendAssistantShellForStream(tabId);
 
-    let lastLayoutAt = 0;
     const reveal = revealAssistantText({
       fullText,
       signal,
       onUpdate: (partial) => {
         if (signal?.aborted) return;
-        const now = Date.now();
-        if (now - lastLayoutAt > 110) {
-          lastLayoutAt = now;
-          scheduleBookingChatLayoutAnimation();
-        }
         useBookingChatStore.getState().patchAssistantMessageContent(tabId, messageId, partial);
       },
     });
@@ -67,7 +93,7 @@ export async function executeBookingAssistantTurn(input: {
     if (signal?.aborted) return;
 
     scheduleBookingChatLayoutAnimation();
-    useBookingChatStore.getState().finalizeAssistantStream(tabId, messageId, safe, catalogRevision);
+    useBookingChatStore.getState().finalizeAssistantStream(tabId, messageId, result, catalogRevision);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Request failed";
     if (msg !== INSUFFICIENT_AI_CREDITS_ERROR) {

@@ -30,8 +30,8 @@ export function BookingOnboardingControls({
     return null;
   }
 
-  const showCityPicker = phase === "await_city";
-  const showCategoryPicker = phase === "await_category";
+  const showCityPicker = false;
+  const showCategoryPicker = false;
   const showScopeChips = phase === "await_scope";
 
   return (

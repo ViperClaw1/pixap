@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Platform, Text, type StyleProp, type TextStyle } from "react-native";
+import { Text, type StyleProp, type TextStyle } from "react-native";
 import {
   isBookingOpeningTypewriterComplete,
   markBookingOpeningTypewriterComplete,
 } from "../lib/bookingOpeningTypewriterRegistry";
 import { revealAssistantText, DEFAULT_ASSISTANT_TYPEWRITER_TICK_MS } from "../lib/revealAssistantText";
-import { scheduleBookingChatLayoutAnimation } from "../lib/scheduleBookingChatLayoutAnimation";
 
 type Props = {
   fullText: string;
@@ -27,8 +26,6 @@ export function BookingTypewriterText({
   const [visible, setVisible] = useState(() =>
     runOnceKey && isBookingOpeningTypewriterComplete(runOnceKey) ? fullText : "",
   );
-  const lastLayoutAt = useRef(0);
-  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onCompleteRef = useRef(onComplete);
   const completionNotifiedForKeyRef = useRef<string | null>(null);
 
@@ -52,17 +49,10 @@ export function BookingTypewriterText({
     }
 
     completionNotifiedForKeyRef.current = null;
+    setVisible("");
 
     let cancelled = false;
     let cancelReveal: (() => void) | null = null;
-
-    if (Platform.OS === "android") {
-      fallbackTimerRef.current = setTimeout(() => {
-        if (!cancelled && fullText.length > 0) {
-          setVisible((current) => (current.length > 0 ? current : fullText));
-        }
-      }, 700);
-    }
 
     const run = async () => {
       const reveal = revealAssistantText({
@@ -70,18 +60,12 @@ export function BookingTypewriterText({
         tickMs,
         onUpdate: (partial) => {
           if (cancelled) return;
-          const now = Date.now();
-          if (now - lastLayoutAt.current > 110) {
-            lastLayoutAt.current = now;
-            scheduleBookingChatLayoutAnimation();
-          }
           setVisible(partial);
         },
       });
       cancelReveal = reveal.cancel;
       await reveal.promise;
       if (!cancelled) {
-        scheduleBookingChatLayoutAnimation();
         if (runOnceKey) {
           markBookingOpeningTypewriterComplete(runOnceKey);
         }
@@ -92,10 +76,6 @@ export function BookingTypewriterText({
     return () => {
       cancelled = true;
       cancelReveal?.();
-      if (fallbackTimerRef.current != null) {
-        clearTimeout(fallbackTimerRef.current);
-        fallbackTimerRef.current = null;
-      }
     };
   }, [fullText, tickMs, runOnceKey]);
 

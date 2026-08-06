@@ -10,6 +10,22 @@ function isFunctionsUnauthorized(error: unknown): boolean {
   return ctx instanceof Response && ctx.status === 401;
 }
 
+export function isPixaiOrchestrateCreditError(error: unknown): boolean {
+  const ctx =
+    error && typeof error === "object" && "context" in error
+      ? (error as { context: unknown }).context
+      : undefined;
+  return ctx instanceof Response && (ctx.status === 402 || ctx.status === 503);
+}
+
+export function isPixaiOrchestrateInsufficientCreditsError(error: unknown): boolean {
+  const ctx =
+    error && typeof error === "object" && "context" in error
+      ? (error as { context: unknown }).context
+      : undefined;
+  return ctx instanceof Response && ctx.status === 402;
+}
+
 /** Proactively refresh so the Functions gateway does not reject an expired access_token as Invalid JWT. */
 async function ensureFreshAccessTokenForFunctions(): Promise<void> {
   const {

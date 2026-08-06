@@ -1,3 +1,5 @@
+import { ALL_CITIES_OPTION } from "../api/useBusinessCards";
+
 /**
  * Maps business_cards.city strings to a display country. Cities not listed resolve to "Other".
  * Extend CITY_TO_COUNTRY when onboarding new regions.
@@ -109,6 +111,46 @@ export function matchesSearchTokens(haystack: string, query: string): boolean {
   if (tokens.length === 0) return true;
   const h = haystack.trim().toLowerCase();
   return tokens.every((t) => h.includes(t));
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  const dp = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = tmp;
+    }
+  }
+  return dp[b.length];
+}
+
+// ponytail: local fuzzy match against the known (small, finite) city list — swap for a
+// Gemini extraction call if abbreviations ("SF", "NYC") or transliteration need covering.
+/** Finds a known city mentioned in free text, typo-tolerant. Returns the full "City, Country" value or null. */
+export function extractCityFromQuery(query: string, knownCities: string[]): string | null {
+  const words = query
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return null;
+
+  for (const city of knownCities) {
+    if (city === ALL_CITIES_OPTION) continue;
+    const shortName = cityNameWithoutCountry(city).toLowerCase();
+    const cityWords = shortName.split(/\s+/).filter(Boolean);
+    if (cityWords.length === 0 || cityWords.length > words.length) continue;
+    for (let i = 0; i <= words.length - cityWords.length; i++) {
+      const window = words.slice(i, i + cityWords.length).join(" ");
+      const maxDist = window.length <= 4 ? 0 : window.length <= 8 ? 1 : 2;
+      if (levenshtein(window, shortName) <= maxDist) return city;
+    }
+  }
+  return null;
 }
 
 export function filterCityGroups(groups: CityCountryGroup[], query: string): CityCountryGroup[] {

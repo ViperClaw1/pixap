@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
+  clearBookingOpeningTypewriterKeys,
   clearBookingOpeningTypewriterRegistry,
   syncOpeningTypewriterRegistryFromTabs,
 } from "../lib/bookingOpeningTypewriterRegistry";
+import { collectOpeningTypewriterKeysFromMessages } from "../lib/collectOpeningTypewriterKeys";
 import { buildAssistantReplyText } from "../lib/buildAssistantReplyText";
 import { buildHistoryTitleFromSnapshot } from "@/features/ai-booking-request-history/lib/buildHistoryItem";
 import {
@@ -112,7 +114,7 @@ export type BookingChatStore = {
 
 export const useBookingChatStore = create<BookingChatStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       catalogRevision: 0,
       tabs: [],
       activeTabId: null,
@@ -212,7 +214,6 @@ export const useBookingChatStore = create<BookingChatStore>()(
       },
 
       addTab: (catalogRevision) => {
-        clearBookingOpeningTypewriterRegistry();
         const tab = createTab(catalogRevision);
         set((s) => ({
           tabs: [...s.tabs, tab],
@@ -266,7 +267,11 @@ export const useBookingChatStore = create<BookingChatStore>()(
       },
 
       resetActiveTabChat: () => {
-        clearBookingOpeningTypewriterRegistry();
+        const { tabs, activeTabId } = get();
+        const activeTab = tabs.find((tab) => tab.id === activeTabId);
+        if (activeTab) {
+          clearBookingOpeningTypewriterKeys(collectOpeningTypewriterKeysFromMessages(activeTab.messages));
+        }
         set((s) => {
           const tabId = s.activeTabId;
           if (!tabId) return { sendError: null };
