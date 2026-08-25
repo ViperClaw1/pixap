@@ -14,6 +14,8 @@
     "seed:business-cards:dry": "node scripts/seed-business-cards/seed.mjs --dry-run",
     "seed:posts": "node scripts/seed-posts/seed.mjs",
     "seed:posts:dry": "node scripts/seed-posts/seed.mjs --dry-run",
+    "seed:posts:reword": "node scripts/seed-posts/randomize-content.mjs",
+    "seed:posts:reword:dry": "node scripts/seed-posts/randomize-content.mjs --dry-run",
     "backfill:business-card-blurhashes": "node scripts/backfill-business-card-blurhashes.mjs",
     "backfill:business-card-blurhashes:dry": "node scripts/backfill-business-card-blurhashes.mjs --dry-run",
     "backfill:feed-media-blurhashes": "node scripts/backfill-feed-media-blurhashes.mjs",
