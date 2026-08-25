@@ -38,6 +38,10 @@ node scripts/seed-posts/seed.mjs --count 10 --likes 12
 
 # Create missing seed users, then add 500 unique likes to every post
 node scripts/seed-posts/seed.mjs --count 3 --city Almaty --images 2 --likes 500 --create-users
+
+# Rewrite content on all existing posts (varied templates)
+npm run seed:posts:reword:dry
+npm run seed:posts:reword
 ```
 
 Options:
@@ -48,6 +52,16 @@ Options:
 - `--create-users` — create enough Supabase Auth users and `profiles` rows to satisfy `--likes`. Existing profiles and previously created seed users are reused.
 - `--city <name>` — use only cards whose `city` contains this value case-insensitively (`Paris` matches `Paris, France`).
 - `--dry-run` — read and validate source data without Storage or database writes.
+
+Reword existing posts:
+
+```powershell
+npm run seed:posts:reword:dry
+npm run seed:posts:reword
+node scripts/seed-posts/randomize-content.mjs --limit 50
+```
+
+Uses a larger template pool (composite opener/middle/closer + full sentences) so feed copy stops repeating the same 12 lines.
 
 Uploaded objects use unique paths:
 

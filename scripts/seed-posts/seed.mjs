@@ -138,7 +138,7 @@ async function main() {
       cli.images ?? pickInt(rng, DEFAULT_IMAGE_MIN, DEFAULT_IMAGE_MAX);
     const imageCount = Math.min(requestedImages, card.seedImages.length);
     const sourceUrls = shuffled(card.seedImages, rng);
-    const content = buildPostContent(card, slot);
+    const content = buildPostContent(card, slot, rng);
     const createdAt = createdAtForSlot(slot, rng);
 
     if (cli.dryRun) {
