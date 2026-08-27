@@ -4,8 +4,6 @@ import type { PixAISearchMeta } from "@/entities/pixai";
 import { useBookingChatStore } from "../model/bookingChatStore";
 import { buildAssistantReplyText } from "./buildAssistantReplyText";
 import { revealAssistantText } from "./revealAssistantText";
-import { sanitizeAiBookingChatResult } from "./sanitizeAiBookingChatResult";
-import { randomizeUnchangedRanking } from "./randomizeUnchangedRanking";
 import { scheduleBookingChatLayoutAnimation } from "./scheduleBookingChatLayoutAnimation";
 import { isAiDataConsentGranted, ensureAiDataConsentHydrated } from "@/features/ai-data-consent/model/aiDataConsentState";
 import { i18n } from "@/shared/lib/i18n";
@@ -57,6 +55,7 @@ export async function executeBookingAssistantTurn(input: {
             const value = Math.floor(Math.random() * 16);
             return (char === "x" ? value : (value & 0x3) | 0x8).toString(16);
           });
+    const tabBefore = useBookingChatStore.getState().tabs.find((tab) => tab.id === tabId);
     const raw = await defaultBookingChatProvider.sendTurn({
       requestId,
       bookingContext,
@@ -65,19 +64,13 @@ export async function executeBookingAssistantTurn(input: {
       userText,
       searchMeta,
       locale: i18n.language,
+      previousRerankedPlaceIds:
+        tabBefore?.recommendationView.rerankedPlaceIds.length
+          ? tabBefore.recommendationView.rerankedPlaceIds
+          : orderedIds,
     });
     onCreditsChanged?.(raw.credits ?? { balance: null, charged: 0 });
-    const safe = sanitizeAiBookingChatResult(raw, orderedIds);
-    const currentTab = useBookingChatStore.getState().tabs.find((tab) => tab.id === tabId);
-    const previousRanking =
-      currentTab?.recommendationView.rerankedPlaceIds.length
-        ? currentTab.recommendationView.rerankedPlaceIds
-        : orderedIds;
-    const rerankedPlaceIds = randomizeUnchangedRanking(safe.rerankedPlaceIds, previousRanking);
-    const result =
-      rerankedPlaceIds === safe.rerankedPlaceIds
-        ? safe
-        : { ...safe, rerankedPlaceIds };
+    const result = raw;
     const fullText = buildAssistantReplyText(result, { searchMeta });
     const messageId = useBookingChatStore.getState().appendAssistantShellForStream(tabId);
 

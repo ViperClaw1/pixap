@@ -1120,6 +1120,7 @@ export type Database = {
           p_city: string
           p_is_restaurant_table?: boolean
           p_limit?: number
+          p_fallback_limit?: number
           p_query?: string | null
         }
         Returns: {
@@ -1146,6 +1147,7 @@ export type Database = {
           p_category_id?: string | null
           p_category_name?: string | null
           p_city?: string | null
+          p_fallback_limit?: number
           p_is_restaurant_table?: boolean
           p_latitude: number
           p_limit?: number

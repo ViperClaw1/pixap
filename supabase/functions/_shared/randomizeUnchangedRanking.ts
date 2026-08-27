@@ -1,3 +1,4 @@
+/** When Gemini returns the same order as before, shuffle so repeated asks feel fresh. */
 export function randomizeUnchangedRanking(next: string[], previous: string[]): string[] {
   const unchanged =
     next.length > 1 &&
@@ -11,7 +12,7 @@ export function randomizeUnchangedRanking(next: string[], previous: string[]): s
     [shuffled[index], shuffled[target]] = [shuffled[target]!, shuffled[index]!];
   }
 
-  if (shuffled.every((id, index) => id === next[index])) {
+  if (shuffled.every((id, index) => id === next[index]) && shuffled.length > 1) {
     [shuffled[0], shuffled[1]] = [shuffled[1]!, shuffled[0]!];
   }
   return shuffled;

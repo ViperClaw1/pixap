@@ -32,7 +32,7 @@ import {
   RESTAURANT_BOOKING_TIME_WINDOWS,
 } from "@/entities/booking";
 import {
-  isPixaiOrchestrateInsufficientCreditsError,
+  isPixaiConciergeInsufficientCreditsError,
   usePixAI,
   type PixAIFlowPayload,
   type PixAIPlace,
@@ -983,16 +983,17 @@ function AIBookingPageContent() {
       }
     }
 
+    const comment = requestComment.trim();
+
     const payload: PixAIFlowPayload = {
       city: selectedCity.trim(),
       categoryId: isRestaurantTable ? undefined : selectedCategoryId.trim(),
       categoryName: isRestaurantTable ? restaurantTableLabel : selectedCategoryName,
       isRestaurantTable,
-      comment: requestComment.trim() || undefined,
+      comment: comment || undefined,
       mode: searchScope,
       radiusMiles: DEFAULT_RADIUS_MILES,
       location: searchScope === "nearby" ? coords ?? undefined : undefined,
-      limit: 8,
     };
 
     try {
@@ -1007,8 +1008,12 @@ function AIBookingPageContent() {
         nextRev = prev + 1;
         return nextRev;
       });
+      const resolvedCity = result.resolved_city?.trim() || payload.city.trim();
+      if (resolvedCity) {
+        setSearchForm((prev) => ({ ...prev, city: resolvedCity }));
+      }
       const snapshot: BookingSearchSnapshot = {
-        city: selectedCity.trim(),
+        city: resolvedCity,
         categoryId: isRestaurantTable ? RESTAURANT_TABLE_KEY : selectedCategoryId.trim(),
         categoryName: isRestaurantTable ? restaurantTableLabel : selectedCategoryName || "",
         isRestaurantTable,
@@ -1019,7 +1024,7 @@ function AIBookingPageContent() {
         searchedAt: Date.now(),
         searchMeta: result.meta ?? null,
       };
-      const resultsLine = buildSearchResultsLineFromFlow(payload, catalogPlaces.length);
+      const resultsLine = buildSearchResultsLineFromFlow({ ...payload, city: resolvedCity }, catalogPlaces.length);
       const tabId = useBookingChatStore.getState().activeTabId;
       if (tabId) {
         seedOnboardingSearchResultsMessage(tabId, resultsLine);
@@ -1028,7 +1033,7 @@ function AIBookingPageContent() {
         useBookingChatStore.getState().applySearchResults(nextRev, snapshot);
       }, 0);
     } catch (error) {
-      if (isPixaiOrchestrateInsufficientCreditsError(error)) {
+      if (isPixaiConciergeInsufficientCreditsError(error)) {
         void refreshBalance();
         navigation.replace("SubscriptionPaywall", { reason: "no_credits" });
         return;
@@ -1076,8 +1081,12 @@ function AIBookingPageContent() {
           nextRev = prev + 1;
           return nextRev;
         });
+        const resolvedCity = result.resolved_city?.trim() || payload.city.trim();
+        if (resolvedCity) {
+          setSearchForm((prev) => ({ ...prev, city: resolvedCity }));
+        }
         const snapshot: BookingSearchSnapshot = {
-          city: payload.city,
+          city: resolvedCity,
           scope: "city",
           catalogPlaces,
           persons: Number(form.persons) || Number(AI_BOOKING_DEFAULT_PERSONS),
@@ -1085,13 +1094,16 @@ function AIBookingPageContent() {
           searchMeta: result.meta ?? null,
           ...snapshotFields,
         };
-        const resultsLine = buildSearchResultsLineFromFlow(payload, catalogPlaces.length);
+        const resultsLine = buildSearchResultsLineFromFlow(
+          { ...payload, city: resolvedCity },
+          catalogPlaces.length,
+        );
         if (tabId) seedOnboardingSearchResultsMessage(tabId, resultsLine);
         setTimeout(() => {
           useBookingChatStore.getState().applySearchResults(nextRev, snapshot);
         }, 0);
       } catch (error) {
-        if (isPixaiOrchestrateInsufficientCreditsError(error)) {
+        if (isPixaiConciergeInsufficientCreditsError(error)) {
           void refreshBalance();
           navigation.replace("SubscriptionPaywall", { reason: "no_credits" });
           return;
@@ -1124,7 +1136,7 @@ function AIBookingPageContent() {
       const truncatedQuery = query.length > 40 ? `${query.slice(0, 40)}…` : query;
       setSearchForm((prev) => ({
         ...prev,
-        city: resolvedCity.source === "selected" ? cityValue : prev.city,
+        city: resolvedCity.source === "selected" || resolvedCity.source === "geolocation" ? cityValue : prev.city,
         categoryId: "",
         categoryName: "",
         scope: "city",
@@ -1138,7 +1150,6 @@ function AIBookingPageContent() {
           comment: query,
           mode: "city",
           radiusMiles: DEFAULT_RADIUS_MILES,
-          limit: 8,
         },
         {
           categoryId: "",
@@ -1184,7 +1195,6 @@ function AIBookingPageContent() {
           isRestaurantTable: category.isRestaurantTable,
           mode: "city",
           radiusMiles: DEFAULT_RADIUS_MILES,
-          limit: 8,
         },
         {
           categoryId: category.isRestaurantTable ? RESTAURANT_TABLE_KEY : category.categoryId,

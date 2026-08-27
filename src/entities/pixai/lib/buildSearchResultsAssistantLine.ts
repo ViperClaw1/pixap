@@ -1,5 +1,6 @@
 import { i18n } from "@/shared/lib/i18n";
 import { localizeCategoryName } from "@/entities/category";
+import { cityNameWithoutCountry } from "@/entities/business-card";
 import type { PixAIFlowPayload } from "../api/usePixAI";
 
 export function buildSearchResultsAssistantLine(params: {
@@ -28,7 +29,7 @@ export function buildSearchResultsLineFromFlow(flow: PixAIFlowPayload, placeCoun
     flow.mode === "nearby"
       ? i18n.t("bookingCommon.nearMe5Miles")
       : flow.city.trim()
-        ? i18n.t("bookingCommon.allPlacesInMyCity")
+        ? i18n.t("aiBooking.scopeInCity", { city: cityNameWithoutCountry(flow.city) })
         : i18n.t("aiBooking.scopeAcrossAllCities");
 
   const line = buildSearchResultsAssistantLine({ count: placeCount, requestType, scopeText });

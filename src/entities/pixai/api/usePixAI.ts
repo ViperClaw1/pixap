@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { i18n } from "@/shared/lib/i18n";
-import { supabase } from "@/shared/api/supabase/client";
-import { devInfo, devWarn } from "@/shared/lib/devLog";
-import { useAuth } from "@/app/providers/AuthProvider";
+import { devWarn } from "@/shared/lib/devLog";
 import type { BusinessCard } from "@/entities/business-card";
-import { PIXAI_BUSINESS_CARD_SELECT, localizeBusinessCard } from "@/entities/business-card";
+import { localizeBusinessCard } from "@/entities/business-card";
 import { normalizeBusinessCardImages } from "@/shared/lib/business-card/businessCardImages";
 import { normalizeBusinessCardBlurhashes } from "@/shared/lib/business-card/businessCardBlurhash";
 import {
+  invokePixaiConciergeWithAuth,
+  isPixaiConciergeCreditError,
+} from "./invokePixaiConcierge";
+import {
   invokePixaiOrchestrateWithAuth,
-  isPixaiOrchestrateCreditError,
   logPixaiOrchestrateInvokeFailure,
 } from "./invokePixaiOrchestrate";
 import {
@@ -18,8 +19,6 @@ import {
   PIXAI_WELCOME_MESSAGE_ID,
 } from "@/entities/pixai/lib/bookingAssistantCopy";
 import { buildFlowUserSummary } from "../lib/buildFlowUserSummary";
-import { buildSearchResultsLineFromFlow } from "../lib/buildSearchResultsAssistantLine";
-import { expandQuery } from "../lib/queryExpansion";
 import { buildPixAISearchMeta, type PixAISearchMeta } from "../model/searchMeta";
 
 export type { PixAISearchMeta };
@@ -104,13 +103,14 @@ type OrchestratorResponse = {
   draft?: PixAIBookingDraft;
   plan?: unknown;
   meta?: PixAISearchMeta;
+  resolved_city?: string;
   credits?: {
     balance: number | null;
     charged: number;
   };
 };
 
-export type FlowRunResult = OrchestratorResponse & { catalogFallback?: boolean };
+export type FlowRunResult = OrchestratorResponse;
 
 function createRequestId(): string {
   if (typeof globalThis.crypto?.randomUUID === "function") {
@@ -153,10 +153,6 @@ function parseVibeStops(raw: unknown): VibePlanStop[] {
   return out;
 }
 
-function buildAssistantFromFlow(flow: PixAIFlowPayload, placeCount: number): string {
-  return buildSearchResultsLineFromFlow(flow, placeCount);
-}
-
 export type PixAISearchMode = "nearby" | "city";
 
 export type PixAIFlowPayload = {
@@ -194,10 +190,6 @@ function makeLocalSlots(): PixAISlot[] {
   });
 }
 
-type LooseRpcClient = {
-  rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }>;
-};
-
 function mapRowsToPlaces(rows: unknown, language: string): PixAIPlace[] {
   if (!Array.isArray(rows)) return [];
   return rows.map((row) => {
@@ -228,82 +220,6 @@ function mapRowsToPlaces(rows: unknown, language: string): PixAIPlace[] {
   });
 }
 
-/** When the edge function fails, run the same search against the DB with the user JWT (RPCs + table fallback). */
-async function fetchPlacesWhenOrchestratorFails(flow: PixAIFlowPayload, language: string): Promise<PixAIPlace[]> {
-  const limit = Math.max(3, Math.min(flow.limit ?? 8, 20));
-  const city = flow.city.trim();
-  const categoryId = flow.isRestaurantTable ? null : flow.categoryId?.trim() ?? null;
-  const categoryName = flow.isRestaurantTable ? null : flow.categoryName?.trim() ?? null;
-  const rpc = supabase as unknown as LooseRpcClient;
-
-  let places: PixAIPlace[] = [];
-  const triedNearby = flow.mode === "nearby" && flow.location != null;
-
-  const query = expandQuery((flow.comment ?? "").trim()) || null;
-
-  if (triedNearby && flow.location) {
-    const nearbyBase: Record<string, unknown> = {
-      p_latitude: flow.location.lat,
-      p_longitude: flow.location.lng,
-      p_radius_miles: flow.radiusMiles ?? 5,
-      p_city: city,
-      p_category_id: categoryId,
-      p_is_restaurant_table: flow.isRestaurantTable ?? false,
-      p_limit: limit,
-      p_query: query,
-    };
-    let { data, error } = await rpc.rpc("search_business_cards_nearby", {
-      ...nearbyBase,
-      p_category_name: categoryName,
-    });
-    if (error) {
-      ({ data, error } = await rpc.rpc("search_business_cards_nearby", nearbyBase));
-    }
-    if (!error) places = mapRowsToPlaces(data, language);
-  }
-
-  if (places.length === 0) {
-    if (city) {
-      const { data, error } = await rpc.rpc("search_business_cards_in_city", {
-        p_city: city,
-        p_category_id: categoryId,
-        p_is_restaurant_table: flow.isRestaurantTable ?? false,
-        p_limit: limit,
-        p_category_name: categoryName,
-        p_query: query,
-      });
-      if (!error) places = mapRowsToPlaces(data, language);
-    }
-
-    if (places.length === 0) {
-      let q = supabase
-        .from("business_cards")
-        .select(PIXAI_BUSINESS_CARD_SELECT as never)
-        .order("rating", { ascending: false })
-        .limit(limit);
-      if (city) q = q.ilike("city", city);
-      if (categoryId) q = q.eq("category_id", categoryId);
-      if (flow.isRestaurantTable) {
-        q = q.or("name.ilike.%restaurant%,tags.cs.{restaurant},tags.cs.{table}");
-      }
-      const { data: rows } = await q;
-      places = mapRowsToPlaces(rows ?? [], language);
-    }
-  }
-
-  if (places.length === 0 && city) {
-    const { data: rows } = await supabase
-      .from("business_cards")
-      .select(PIXAI_BUSINESS_CARD_SELECT as never)
-      .eq("city", city)
-      .order("rating", { ascending: false })
-      .limit(3);
-    places = mapRowsToPlaces(rows ?? [], language);
-  }
-
-  return places;
-}
-
 function keepWelcomeMessageOnly(prev: PixAIMessage[]): PixAIMessage[] {
   return prev.filter((m) => m.id === PIXAI_WELCOME_MESSAGE_ID);
 }
@@ -326,7 +242,6 @@ function buildFlowSearchTranscript(
 }
 
 export function usePixAI() {
-  const { user } = useAuth();
   const [messages, setMessages] = useState<PixAIMessage[]>(() => [
     {
       id: PIXAI_WELCOME_MESSAGE_ID,
@@ -344,49 +259,30 @@ export function usePixAI() {
 
   const flowMutation = useMutation({
     mutationFn: async (flow: PixAIFlowPayload): Promise<FlowRunResult> => {
-      const { data, error } = await invokePixaiOrchestrateWithAuth({
+      const { data, error } = await invokePixaiConciergeWithAuth({
+        action: "search",
         request_id: createRequestId(),
         flow,
-        user_id: user?.id ?? null,
-        history: messages.map((m) => ({ role: m.role, content: m.content })),
       });
-      if (!error && data != null) {
-        const payload = data as OrchestratorResponse;
-        const places = payload.places != null ? mapRowsToPlaces(payload.places, i18n.language) : undefined;
-        const meta =
-          payload.meta ??
-          buildPixAISearchMeta((flow.comment ?? "").trim() || null, places ?? []);
-        return {
-          ...payload,
-          places,
-          meta,
-          catalogFallback: false,
-        };
+      if (error) {
+        if (isPixaiConciergeCreditError(error)) throw error;
+        throw error ?? new Error("PixAI concierge search failed");
       }
-      if (isPixaiOrchestrateCreditError(error)) throw error;
-      await logPixaiOrchestrateInvokeFailure(error);
-      const places = await fetchPlacesWhenOrchestratorFails(flow, i18n.language);
-      if (places.length > 0) {
-        devInfo("[PixAI] edge invoke failed; showing results from direct DB search (same filters as orchestrator).");
-        return {
-          assistant: buildAssistantFromFlow(flow, places.length),
-          places,
-          slots: makeLocalSlots(),
-          meta: buildPixAISearchMeta((flow.comment ?? "").trim() || null, places),
-          catalogFallback: true,
-        };
-      }
-      throw error ?? new Error("PixAI orchestrator failed");
+      if (data == null) throw new Error("PixAI concierge search returned empty response");
+      const payload = data as OrchestratorResponse;
+      const places = payload.places != null ? mapRowsToPlaces(payload.places, i18n.language) : undefined;
+      const meta =
+        payload.meta ?? buildPixAISearchMeta((flow.comment ?? "").trim() || null, places ?? []);
+      return {
+        ...payload,
+        places,
+        meta,
+      };
     },
     onSuccess: (payload, flow) => {
-      const placeCount = payload.places?.length ?? 0;
-      const assistantContent =
-        payload.catalogFallback && placeCount > 0
-          ? buildSearchResultsLineFromFlow(flow, placeCount)
-          : payload.assistant;
       setMessages((prev) => [
         ...keepWelcomeMessageOnly(prev),
-        ...buildFlowSearchTranscript(flow, assistantContent, {
+        ...buildFlowSearchTranscript(flow, payload.assistant, {
           places: payload.places,
           slots: payload.slots,
           draft: payload.draft,
@@ -394,7 +290,7 @@ export function usePixAI() {
       ]);
     },
     onError: async (error, flow) => {
-      devWarn("[PixAI] search failed (edge and local DB returned no places):", error);
+      devWarn("[PixAI] concierge search failed:", error);
       setMessages((prev) => [
         ...keepWelcomeMessageOnly(prev),
         ...buildFlowSearchTranscript(
