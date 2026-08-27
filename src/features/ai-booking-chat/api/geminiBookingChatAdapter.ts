@@ -1,24 +1,26 @@
 import type { AiBookingChatProvider, BookingChatTurnInput } from "./aiBookingChatProvider";
-import { invokePixaiBookingChatWithAuth, parseAiBookingChatResponse } from "./invokePixaiBookingChat";
+import { parseAiBookingChatResponse } from "@/entities/pixai/api/invokePixaiBookingChat";
+import {
+  invokePixaiConciergeWithAuth,
+  isPixaiConciergeInsufficientCreditsError,
+} from "@/entities/pixai/api/invokePixaiConcierge";
 
-/** Sentinel thrown by sendTurn when the pixai-booking-chat function returns 402 (out of AI credits). */
+/** Sentinel thrown by sendTurn when the concierge returns 402 (out of AI credits). */
 export const INSUFFICIENT_AI_CREDITS_ERROR = "insufficient_ai_credits";
 
 function isInsufficientCreditsHttpError(error: unknown): boolean {
-  const ctx =
-    error && typeof error === "object" && "context" in error
-      ? (error as { context: unknown }).context
-      : undefined;
-  return ctx instanceof Response && ctx.status === 402;
+  return isPixaiConciergeInsufficientCreditsError(error);
 }
 
 function toWireBody(input: BookingChatTurnInput) {
   return {
+    action: "refine" as const,
     request_id: input.requestId,
     booking_context: input.bookingContext,
     places: input.places,
     messages: input.history,
     user_message: input.userText,
+    previous_reranked_place_ids: input.previousRerankedPlaceIds,
     meta: input.searchMeta ?? {},
     locale: input.locale ?? "en",
   };
@@ -27,7 +29,7 @@ function toWireBody(input: BookingChatTurnInput) {
 export function createGeminiBookingChatAdapter(): AiBookingChatProvider {
   return {
     async sendTurn(input: BookingChatTurnInput) {
-      const { data, error } = await invokePixaiBookingChatWithAuth(toWireBody(input));
+      const { data, error } = await invokePixaiConciergeWithAuth(toWireBody(input));
       if (error) {
         if (isInsufficientCreditsHttpError(error)) {
           throw new Error(INSUFFICIENT_AI_CREDITS_ERROR);

@@ -1,7 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { consumeAiCredits } from "../_shared/consumeAiCredits.ts";
+import { randomizeUnchangedRanking } from "../_shared/randomizeUnchangedRanking.ts";
 import { softenAssistantFallbackTone } from "../_shared/softenAssistantFallbackTone.ts";
+import { validatePixaiBookingChatShape } from "../_shared/validatePixaiBookingChatShape.ts";
 
 type PlaceIn = {
   id: string;
@@ -26,19 +28,12 @@ type ReqBody = {
   user_message?: string;
   request_id?: string;
   locale?: string;
+  previous_reranked_place_ids?: string[];
   meta?: {
     is_fallback?: boolean;
     fts_matched?: boolean;
     original_query?: string | null;
   };
-};
-
-type AiShape = {
-  message: string;
-  filters: Record<string, unknown>;
-  rerankedPlaceIds: string[];
-  excludedPlaceIds: string[];
-  explanation?: string;
 };
 
 function extractJsonObject(text: string): unknown {
@@ -51,45 +46,6 @@ function extractJsonObject(text: string): unknown {
 function clampHistory(messages: Msg[], max = 24): Msg[] {
   if (messages.length <= max) return messages;
   return messages.slice(messages.length - max);
-}
-
-function validateAndRepairShape(raw: unknown, places: PlaceIn[]): AiShape {
-  const orderedIds = places.map((p) => String(p.id));
-  const allowedIds = new Set(orderedIds);
-  const base: AiShape = {
-    message: "Here are places from your current results, re-ordered for what you asked.",
-    filters: {},
-    rerankedPlaceIds: [...orderedIds],
-    excludedPlaceIds: [],
-  };
-  if (!raw || typeof raw !== "object") return base;
-  const o = raw as Record<string, unknown>;
-  const message = typeof o.message === "string" && o.message.trim() ? o.message.trim() : base.message;
-  const filters =
-    o.filters != null && typeof o.filters === "object" && !Array.isArray(o.filters)
-      ? (o.filters as Record<string, unknown>)
-      : {};
-  const rerankRaw = Array.isArray(o.rerankedPlaceIds) ? o.rerankedPlaceIds : [];
-  const exclRaw = Array.isArray(o.excludedPlaceIds) ? o.excludedPlaceIds : [];
-  const excludedPlaceIds = exclRaw
-    .map((x) => (typeof x === "string" ? x : ""))
-    .filter((id) => allowedIds.has(id));
-  const exclSet = new Set(excludedPlaceIds);
-  const visibleOrdered = orderedIds.filter((id) => !exclSet.has(id));
-
-  const headCandidates = rerankRaw
-    .map((x) => (typeof x === "string" ? x : ""))
-    .filter((id) => allowedIds.has(id) && !exclSet.has(id));
-  const seen = new Set<string>();
-  const head = headCandidates.filter((id) => {
-    if (seen.has(id)) return false;
-    seen.add(id);
-    return true;
-  });
-  const tail = visibleOrdered.filter((id) => !seen.has(id));
-  const rerankedPlaceIds = [...head, ...tail];
-  const explanation = typeof o.explanation === "string" ? o.explanation : undefined;
-  return { message, filters, rerankedPlaceIds, excludedPlaceIds, explanation };
 }
 
 /**
@@ -250,6 +206,11 @@ CORE RULES:
 - Prefer reranking over excluding — only exclude if CLEARLY irrelevant.
 - If no places clearly match, KEEP ALL and explain with suggestive tone (not failure).
 
+LOCATION PRIORITY (critical):
+- booking_context.city is the user's default city — NOT the search target when user_message names another city.
+- If user_message explicitly names a city/location, treat that as the intended destination.
+- When every place.city differs from the city named in user_message, note the mismatch warmly and still rank by vibe/cuisine fit — do not pretend results are in the requested city.
+
 DATA FIELDS AVAILABLE PER PLACE:
 - tags[]: general keywords
 - description: venue description
@@ -406,7 +367,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    const repaired = validateAndRepairShape(rawModel, places);
+    const repaired = validatePixaiBookingChatShape(rawModel, places);
+    const previousRanking = Array.isArray(body.previous_reranked_place_ids)
+      ? body.previous_reranked_place_ids.filter((id): id is string => typeof id === "string")
+      : places.map((p) => String(p.id));
+    repaired.rerankedPlaceIds = randomizeUnchangedRanking(repaired.rerankedPlaceIds, previousRanking);
     const meta = body.meta ?? {};
     const hasFtsMatch = places.some((p) => p.fts_matched === true);
     const softenOpts = {

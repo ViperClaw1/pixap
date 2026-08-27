@@ -1,7 +1,12 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { consumeAiCredits } from "../_shared/consumeAiCredits.ts";
-import { expandQuery } from "./queryExpansion.ts";
+import {
+  buildPixaiSearchAssistantLine,
+  makePixaiPlaceholderSlots,
+  runPixaiPlaceSearch,
+  type PixaiSearchFlow,
+} from "../_shared/pixaiPlaceSearch.ts";
 
 type PixaiRpcName = "search_business_cards_in_city" | "search_business_cards_nearby" | "search_by_vibe";
 
@@ -15,17 +20,7 @@ function pixaiRpc(
   }).rpc(name, args);
 }
 
-type Flow = {
-  city: string;
-  categoryId?: string;
-  categoryName?: string;
-  isRestaurantTable?: boolean;
-  comment?: string;
-  mode: "nearby" | "city";
-  radiusMiles?: number;
-  location?: { lat: number; lng: number };
-  limit?: number;
-};
+type Flow = PixaiSearchFlow;
 
 type VibeTimeline = "day" | "evening" | "night";
 
@@ -45,118 +40,6 @@ type RpcVibeRow = {
   description: string | null;
   is_restaurant_table: boolean;
 };
-
-function normalizeCity(flow: Flow): string {
-  return (flow.city ?? "").trim();
-}
-
-function normalizeCategoryId(flow: Flow): string | null {
-  const raw = flow.categoryId?.trim();
-  if (!raw || flow.isRestaurantTable) return null;
-  return raw;
-}
-
-const BUSINESS_CARD_SELECT =
-  "id,name,address,city,rating,booking_price,image,images,blurhashes,tags,category_id,cuisine_types,menu_items,price_tier";
-
-function expandedSearchQuery(flow: Flow): string {
-  return expandQuery((flow.comment ?? "").trim());
-}
-
-function placesHaveFtsMatch(places: Array<Record<string, unknown>>): boolean {
-  return places.some((place) => place.fts_matched === true);
-}
-
-function buildSearchMeta(flow: Flow, places: Array<Record<string, unknown>>) {
-  const originalQuery = (flow.comment ?? "").trim() || null;
-  const hasFtsMatch = placesHaveFtsMatch(places);
-  const isFallback = Boolean(originalQuery) && places.length > 0 && !hasFtsMatch;
-  return {
-    is_fallback: isFallback,
-    fts_matched: hasFtsMatch,
-    original_query: originalQuery,
-  };
-}
-
-function normalizeCategoryName(flow: Flow): string | null {
-  const raw = (flow.categoryName ?? "").trim();
-  if (!raw || flow.isRestaurantTable) return null;
-  return raw;
-}
-
-async function fetchPlacesInCityLegacy(
-  supabase: SupabaseClient,
-  flow: Flow,
-  city: string,
-  limit: number,
-): Promise<Array<Record<string, unknown>>> {
-  let query = supabase
-    .from("business_cards")
-    .select(BUSINESS_CARD_SELECT)
-    .order("rating", { ascending: false })
-    .limit(limit);
-  if (city) query = query.ilike("city", city);
-  const categoryId = normalizeCategoryId(flow);
-  if (categoryId) query = query.eq("category_id", categoryId);
-  if (flow.isRestaurantTable) {
-    query = query.or("name.ilike.%restaurant%,tags.cs.{restaurant},tags.cs.{table}");
-  }
-  const { data, error } = await query;
-  if (error) {
-    console.error("[pixai-orchestrate] legacy city query failed:", error.message ?? error);
-    return [];
-  }
-  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
-    ...row,
-    fts_matched: row.fts_matched === true,
-  }));
-}
-
-async function fetchPlacesInCityRpc(
-  supabase: SupabaseClient,
-  flow: Flow,
-  city: string,
-  limit: number,
-): Promise<Array<Record<string, unknown>>> {
-  if (!city) return fetchPlacesInCityLegacy(supabase, flow, city, limit);
-
-  const comment = expandedSearchQuery(flow);
-  const { data, error } = await pixaiRpc(supabase, "search_business_cards_in_city", {
-    p_city: city,
-    p_category_id: normalizeCategoryId(flow),
-    p_is_restaurant_table: flow.isRestaurantTable ?? false,
-    p_limit: limit,
-    p_category_name: normalizeCategoryName(flow),
-    p_query: comment || null,
-  });
-  if (!error) return (data ?? []) as Array<Record<string, unknown>>;
-  return fetchPlacesInCityLegacy(supabase, flow, city, limit);
-}
-
-function buildAssistant(
-  flow: Flow,
-  placeCount: number,
-  expandedFromNearby: boolean,
-  isFallback = false,
-) {
-  if (placeCount === 0) {
-    return "I could not find matching places. Try changing city, category, or search scope.";
-  }
-  const cityLabel = normalizeCity(flow) || "all cities";
-  const query = (flow.comment ?? "").trim();
-  if (isFallback && query) {
-    return (
-      `Exact matches for "${query}" aren't available yet — menu data is still being added. ` +
-      `Here are the top-rated venues in ${cityLabel} — the AI assistant can help narrow these down.`
-    );
-  }
-  const requestType = flow.isRestaurantTable ? "restaurant tables" : "services";
-  if (expandedFromNearby) {
-    return `Nothing matched within 5 miles — nearby search only includes businesses with map coordinates. Here are ${placeCount} ${requestType} in ${cityLabel}. Pick one and I will suggest the best available slots.`;
-  }
-  const scopeText = flow.mode === "nearby" ? "near you" : `in ${cityLabel}`;
-  return `I found ${placeCount} ${requestType} ${scopeText}. Pick one and I will suggest the best available slots.`;
-}
 
 function normalizeVibeTimeline(v: string): VibeTimeline | null {
   if (v === "late_night") return "night";
@@ -415,7 +298,6 @@ Deno.serve(async (req) => {
     }
 
     const flow = body.flow;
-    const city = flow ? normalizeCity(flow) : "";
     if (!flow || !flow.mode) {
       return new Response(JSON.stringify({ error: "Missing required flow fields" }), {
         status: 400,
@@ -423,53 +305,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const limit = Math.max(3, Math.min(flow.limit ?? 8, 20));
-    let places: Array<Record<string, unknown>> = [];
-    let expandedFromNearby = false;
+    const searchResult = await runPixaiPlaceSearch(supabase, flow);
+    const { places, meta, resolvedCity, effectiveFlow, expandedFromNearby } = searchResult;
 
-    try {
-      const triedNearby = flow.mode === "nearby" && flow.location?.lat != null && flow.location?.lng != null;
-
-      if (triedNearby) {
-        const nearbyComment = expandedSearchQuery(flow);
-        const nearbyBase = {
-          p_latitude: flow.location!.lat,
-          p_longitude: flow.location!.lng,
-          p_radius_miles: flow.radiusMiles ?? 5,
-          p_city: city,
-          p_category_id: normalizeCategoryId(flow),
-          p_is_restaurant_table: flow.isRestaurantTable ?? false,
-          p_limit: limit,
-          p_query: nearbyComment || null,
-        };
-        let { data, error } = await pixaiRpc(supabase, "search_business_cards_nearby", {
-          ...nearbyBase,
-          p_category_name: normalizeCategoryName(flow),
-        });
-        if (error) {
-          ({ data, error } = await pixaiRpc(supabase, "search_business_cards_nearby", nearbyBase));
-        }
-        if (!error) places = (data ?? []) as Array<Record<string, unknown>>;
-      }
-
-      if (places.length === 0) {
-        places = await fetchPlacesInCityRpc(supabase, flow, city, limit);
-        expandedFromNearby = triedNearby && places.length > 0;
-      }
-    } catch (e) {
-      console.error("[pixai-orchestrate] place search failed:", (e as Error)?.message ?? e);
-      places = [];
-      expandedFromNearby = false;
-    }
-
-    const slots = [
-      { label: "10:00", dateTimeIso: new Date(Date.now() + 60 * 60 * 1000).toISOString(), available: true, isBest: false },
-      { label: "11:00", dateTimeIso: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), available: true, isBest: false },
-      { label: "12:00", dateTimeIso: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(), available: false, isBest: false },
-      { label: "13:00", dateTimeIso: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), available: true, isBest: false },
-    ];
-
-    const meta = buildSearchMeta(flow, places ?? []);
+    const slots = makePixaiPlaceholderSlots();
     let credits: { balance: number | null; charged: number } | undefined;
 
     if ((flow.comment ?? "").trim()) {
@@ -508,10 +347,16 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        assistant: buildAssistant(flow, (places ?? []).length, expandedFromNearby, meta.is_fallback),
+        assistant: buildPixaiSearchAssistantLine(
+          effectiveFlow,
+          (places ?? []).length,
+          expandedFromNearby,
+          meta.is_fallback,
+        ),
         places,
         slots,
         meta,
+        resolved_city: resolvedCity,
         credits,
       }),
       {

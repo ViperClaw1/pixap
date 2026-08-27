@@ -1,5 +1,10 @@
 export * from "./api/usePixAI";
 export { isPixaiOrchestrateInsufficientCreditsError } from "./api/invokePixaiOrchestrate";
+export {
+  invokePixaiConciergeWithAuth,
+  isPixaiConciergeCreditError,
+  isPixaiConciergeInsufficientCreditsError,
+} from "./api/invokePixaiConcierge";
 export * from "./api/invokePixaiBookingChat";
 export * from "./api/usePixaiBookingChat";
 export * from "./api/useAiGenerationJob";
