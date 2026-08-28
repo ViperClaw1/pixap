@@ -10,6 +10,7 @@ import {
   invokePixaiConciergeWithAuth,
   isPixaiConciergeCreditError,
 } from "./invokePixaiConcierge";
+import { parsePixaiCreditsPayload } from "@/entities/booking-credits";
 import {
   invokePixaiOrchestrateWithAuth,
   logPixaiOrchestrateInvokeFailure,
@@ -273,10 +274,12 @@ export function usePixAI() {
       const places = payload.places != null ? mapRowsToPlaces(payload.places, i18n.language) : undefined;
       const meta =
         payload.meta ?? buildPixAISearchMeta((flow.comment ?? "").trim() || null, places ?? []);
+      const credits = parsePixaiCreditsPayload(payload.credits) ?? undefined;
       return {
         ...payload,
         places,
         meta,
+        credits,
       };
     },
     onSuccess: (payload, flow) => {

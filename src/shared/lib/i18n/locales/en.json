@@ -423,6 +423,7 @@
     "commentPlaceholder": "Optional comment (preferences, budget, atmosphere...)",
     "nearbyHelper": "Nearby search will ask for fine location permission only when you start search.",
     "searching": "Searching...",
+    "pixAiThinking": "Pix AI thinking",
     "searchPlaces": "Search places",
     "refineSearch": "Refine search",
     "locationRequiredTitle": "Location is required",

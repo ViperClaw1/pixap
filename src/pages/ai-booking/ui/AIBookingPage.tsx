@@ -434,7 +434,7 @@ function AIBookingPageContent() {
     hasPaidPremium,
     introPeriodEndsAt,
   } = useBookingAccess();
-  const { syncBalance, refreshBalance } = useBookingCreditsSync();
+  const { applyPixaiCredits, refreshBalance } = useBookingCreditsSync();
   const shouldEnforcePaywall = shouldEnforceSubscriptionPaywall();
   const navigation = useNavigation<Nav>();
   const { openVibeMatch } = useSubscriptionGatedNavigation(navigation);
@@ -998,7 +998,7 @@ function AIBookingPageContent() {
 
     try {
       const result = await runFlow(payload);
-      if (result.credits) syncBalance(result.credits);
+      applyPixaiCredits(result.credits);
       const catalogPlaces = result.places ?? [];
 
       setSelection((prev) => ({ ...prev, hasSearched: true }));
@@ -1071,7 +1071,7 @@ function AIBookingPageContent() {
 
       try {
         const result = await runFlow(payload);
-        if (result.credits) syncBalance(result.credits);
+        applyPixaiCredits(result.credits);
         const catalogPlaces = result.places ?? [];
 
         setSelection((prev) => ({ ...prev, hasSearched: true }));
@@ -1118,7 +1118,7 @@ function AIBookingPageContent() {
         setUiState((prev) => ({ ...prev, isSearchingPlaces: false }));
       }
     },
-    [form.persons, navigation, refreshBalance, resetFlowSearchTranscript, runFlow, syncBalance, t],
+    [form.persons, navigation, refreshBalance, resetFlowSearchTranscript, runFlow, applyPixaiCredits, t],
   );
 
   /** Free-form query typed before (or instead of) the structured prompts — searches immediately. */

@@ -12,6 +12,7 @@ import { executeBookingAssistantTurn } from "../lib/executeBookingAssistantTurn"
 import { INSUFFICIENT_AI_CREDITS_ERROR } from "../api/geminiBookingChatAdapter";
 import { BookingChatComposer } from "./BookingChatComposer";
 import { BookingChatMessageList } from "./BookingChatMessageList";
+import { PixAiThinkingBubble } from "./PixAiThinkingBubble";
 import { BookingOnboardingControls } from "@/features/ai-booking-onboarding/ui/BookingOnboardingControls";
 import type { BookingOnboardingPhase } from "@/features/ai-booking-onboarding";
 
@@ -64,7 +65,7 @@ export function BookingInlineAssistantChat({
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
-  const { syncBalance, refreshBalance } = useBookingCreditsSync();
+  const { applyPixaiCredits, refreshBalance } = useBookingCreditsSync();
   const navigation = useNavigation<{ navigate: (name: "SubscriptionPaywall", params?: { reason?: "no_credits" | "upgrade" }) => void }>();
   const isSending = useBookingChatStore((s) => s.isSending);
   const sendError = useBookingChatStore((s) => s.sendError);
@@ -83,6 +84,7 @@ export function BookingInlineAssistantChat({
   );
 
   const geminiPhase = onboardingPhase === "gemini";
+  const showThinking = searchPlacesBusy || (geminiPhase && isSending);
 
   const placeLite = useMemo(
     () =>
@@ -137,7 +139,7 @@ export function BookingInlineAssistantChat({
         orderedIds,
         prior,
         searchMeta,
-        onCreditsChanged: syncBalance,
+        onCreditsChanged: applyPixaiCredits,
       });
     },
     [
@@ -149,7 +151,7 @@ export function BookingInlineAssistantChat({
       placeLite,
       preSearchComposerPhase,
       searchMeta,
-      syncBalance,
+      applyPixaiCredits,
     ],
   );
 
@@ -175,6 +177,7 @@ export function BookingInlineAssistantChat({
           openingTypewriterEpoch={openingTypewriterEpoch}
           onOnboardingTypewriterComplete={onOnboardingTypewriterComplete}
         />
+        {showThinking ? <PixAiThinkingBubble /> : null}
         <BookingOnboardingControls
           phase={onboardingPhase}
           nearMeLabel={nearMeLabel}

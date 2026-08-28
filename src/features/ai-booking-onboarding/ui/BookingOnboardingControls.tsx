@@ -1,4 +1,4 @@
-import { ActivityIndicator, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { AppPressable } from "@/shared/ui/app-pressable";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -104,13 +104,6 @@ export function BookingOnboardingControls({
           >
             <Text style={{ color: colors.text, fontWeight: "600" }}>{allPlacesInMyCityLabel}</Text>
           </AppPressable>
-        </View>
-      ) : null}
-
-      {phase === "searching" || searchPlacesBusy ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={{ color: colors.textMuted, fontSize: 13 }}>{t("aiBooking.searching")}</Text>
         </View>
       ) : null}
     </View>

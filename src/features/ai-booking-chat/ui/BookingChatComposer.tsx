@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, type Ref } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/providers/ThemeProvider";
@@ -83,7 +83,7 @@ export function BookingChatComposer({
             hitSlop={8}
           >
             {sending ? (
-              <ActivityIndicator color={sendIconColor} size="small" />
+              <Ionicons name="send" size={18} color={sendIconColor} style={{ opacity: 0.45 }} />
             ) : (
               <Ionicons name="send" size={18} color={sendIconColor} />
             )}

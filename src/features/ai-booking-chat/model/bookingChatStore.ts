@@ -354,10 +354,7 @@ export const useBookingChatStore = create<BookingChatStore>()(
 
       finalizeAssistantStream: (tabId, messageId, result, catalogRevision) => {
         const now = Date.now();
-        const state = get();
-        const tab = state.tabs.find((t) => t.id === tabId);
-        const searchMeta = tab?.searchSnapshot?.searchMeta ?? state.lastSearchSnapshot?.searchMeta ?? null;
-        const assistantText = buildAssistantReplyText(result, { searchMeta });
+        const assistantText = buildAssistantReplyText(result);
         set((s) => ({
           tabs: s.tabs.map((t) =>
             t.id === tabId
@@ -382,10 +379,7 @@ export const useBookingChatStore = create<BookingChatStore>()(
 
       applyAiResult: (tabId, result, catalogRevision) => {
         const now = Date.now();
-        const state = get();
-        const tab = state.tabs.find((t) => t.id === tabId);
-        const searchMeta = tab?.searchSnapshot?.searchMeta ?? state.lastSearchSnapshot?.searchMeta ?? null;
-        const assistantText = buildAssistantReplyText(result, { searchMeta });
+        const assistantText = buildAssistantReplyText(result);
         const msg: BookingChatMessage = {
           id: `a-${now}`,
           role: "assistant",
