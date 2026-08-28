@@ -35,6 +35,7 @@ import { bookingChatListRowKey, flattenChainedOpeningMessages } from "../lib/fla
 import { BookingChainedOpeningAssistantPair } from "./BookingChainedOpeningAssistantPair";
 import { BookingChatComposer } from "./BookingChatComposer";
 import { BookingChatMessageRow } from "./BookingChatMessageRow";
+import { PixAiThinkingBubble } from "./PixAiThinkingBubble";
 import { AiBookingAssistantGate } from "@/features/ai-data-consent";
 import { BookingChatTabsStrip } from "./BookingChatTabsStrip";
 
@@ -50,7 +51,7 @@ const SPRING_OPEN = { damping: 22, stiffness: 220, mass: 0.75 } as const;
 
 function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, places }: PanelProps) {
   const { colors } = useAppTheme();
-  const { syncBalance } = useBookingCreditsSync();
+  const { applyPixaiCredits } = useBookingCreditsSync();
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const panelH = Math.min(winH * 0.48, 420);
@@ -175,10 +176,10 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
         orderedIds,
         prior,
         searchMeta,
-        onCreditsChanged: syncBalance,
+        onCreditsChanged: applyPixaiCredits,
       });
     },
-    [bookingContext, catalogRevision, orderedIds, placeLite, searchMeta, syncBalance],
+    [bookingContext, catalogRevision, orderedIds, placeLite, searchMeta, applyPixaiCredits],
   );
 
   const requestClose = useCallback(() => {
@@ -286,6 +287,7 @@ function BookingChatPanel({ open, onClose, catalogRevision, bookingContext, plac
               contentContainerStyle={{ paddingVertical: 8 }}
               keyboardShouldPersistTaps="handled"
             />
+            {isSending ? <PixAiThinkingBubble /> : null}
           </View>
 
           <BookingChatComposer disabled={places.length === 0} sending={isSending} onSend={onSend} />

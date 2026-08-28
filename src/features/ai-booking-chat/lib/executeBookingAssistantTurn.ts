@@ -20,7 +20,7 @@ export async function executeBookingAssistantTurn(input: {
   prior: BookingChatTurnHistoryItem[];
   searchMeta?: PixAISearchMeta | null;
   signal?: AbortSignal;
-  onCreditsChanged?: (credits: { balance: number | null; charged: number }) => void;
+  onCreditsChanged?: (credits: unknown) => void;
 }): Promise<void> {
   const {
     tabId,
@@ -69,9 +69,9 @@ export async function executeBookingAssistantTurn(input: {
           ? tabBefore.recommendationView.rerankedPlaceIds
           : orderedIds,
     });
-    onCreditsChanged?.(raw.credits ?? { balance: null, charged: 0 });
+    onCreditsChanged?.(raw.credits);
     const result = raw;
-    const fullText = buildAssistantReplyText(result, { searchMeta });
+    const fullText = buildAssistantReplyText(result);
     const messageId = useBookingChatStore.getState().appendAssistantShellForStream(tabId);
 
     const reveal = revealAssistantText({

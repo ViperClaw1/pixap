@@ -50,11 +50,7 @@ function normalizeCity(flow: PixaiSearchFlow): string {
 }
 
 export async function fetchDistinctCatalogCities(supabase: SupabaseClient): Promise<string[]> {
-  const { data, error } = await supabase
-    .from("business_cards")
-    .select("city")
-    .not("city", "is", null)
-    .limit(500);
+  const { data, error } = await supabase.rpc("get_business_card_cities");
   if (error) {
     console.warn("[pixai-place-search] catalog cities lookup failed:", error.message ?? error);
     return [];

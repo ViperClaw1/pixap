@@ -68,6 +68,55 @@ async function forwardRefine(req: Request, body: RefineBody): Promise<Response> 
   });
 }
 
+function parseCreditRpcResult(creditData: unknown): { balance: number | null; charged: number } {
+  const creditResult =
+    creditData && typeof creditData === "object" ? (creditData as Record<string, unknown>) : {};
+  const balanceRaw = creditResult.balance;
+  const chargedRaw = creditResult.charged;
+  const balance =
+    typeof balanceRaw === "number"
+      ? balanceRaw
+      : typeof balanceRaw === "string"
+        ? Number(balanceRaw)
+        : null;
+  const charged =
+    typeof chargedRaw === "number"
+      ? chargedRaw
+      : typeof chargedRaw === "string"
+        ? Number(chargedRaw)
+        : 0.25;
+  return {
+    balance: balance != null && Number.isFinite(balance) ? balance : null,
+    charged: Number.isFinite(charged) ? charged : 0.25,
+  };
+}
+
+async function deductConciergeSearchCredits(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string,
+  requestId: string,
+): Promise<{ balance: number | null; charged: number } | Response> {
+  const { data: creditData, error: creditError } = await consumeAiCredits(adminClient, {
+    userId,
+    delta: 0.25,
+    requestId,
+  });
+  if (creditError?.message.includes("insufficient_ai_credits")) {
+    return new Response(JSON.stringify({ error: "insufficient_credits" }), {
+      status: 402,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (creditError) {
+    console.error("[pixai-concierge] credit deduction failed:", creditError.message);
+    return new Response(JSON.stringify({ error: "credit_deduction_failed" }), {
+      status: 503,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  return parseCreditRpcResult(creditData);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
@@ -118,40 +167,13 @@ Deno.serve(async (req) => {
       meta.is_fallback,
     );
 
-    let credits: { balance: number | null; charged: number } | undefined;
-    if ((body.flow.comment ?? "").trim()) {
-      const adminClient = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-        { auth: { persistSession: false } },
-      );
-      const { data: creditData, error: creditError } = await consumeAiCredits(adminClient, {
-        userId: userData.user.id,
-        delta: 0.25,
-        requestId,
-      });
-      if (creditError?.message.includes("insufficient_ai_credits")) {
-        return new Response(JSON.stringify({ error: "insufficient_credits" }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (creditError) {
-        console.error("[pixai-concierge] credit deduction failed:", creditError.message);
-        return new Response(JSON.stringify({ error: "credit_deduction_failed" }), {
-          status: 503,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const creditResult =
-        creditData && typeof creditData === "object"
-          ? (creditData as Record<string, unknown>)
-          : {};
-      credits = {
-        balance: typeof creditResult.balance === "number" ? creditResult.balance : null,
-        charged: typeof creditResult.charged === "number" ? creditResult.charged : 0.25,
-      };
-    }
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } },
+    );
+    const creditResult = await deductConciergeSearchCredits(adminClient, userData.user.id, requestId);
+    if (creditResult instanceof Response) return creditResult;
 
     return new Response(
       JSON.stringify({
@@ -160,7 +182,7 @@ Deno.serve(async (req) => {
         slots: makePixaiPlaceholderSlots(),
         meta,
         resolved_city: resolvedCity,
-        credits,
+        credits: creditResult,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
