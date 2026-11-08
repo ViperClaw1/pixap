@@ -5,9 +5,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const googleMapsWebApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY?.trim();
   const googleMapsAndroidCertSha1 = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_CERT_SHA1?.replace(/:/g, "").trim();
   const oauthMobileRedirectUri = process.env.EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI?.trim();
-  const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.3";
-  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "61";
-  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "55");
+  const appVersion = process.env.APP_VERSION?.trim() ?? config.version ?? "1.0.4";
+  const iosBuildNumber = process.env.IOS_BUILD_NUMBER?.trim() ?? config.ios?.buildNumber ?? "62";
+  const androidVersionCodeRaw = process.env.ANDROID_VERSION_CODE?.trim() ?? String(config.android?.versionCode ?? "56");
   const androidVersionCode = Number.parseInt(androidVersionCodeRaw, 10);
   const nativeOAuthRedirectUri =
     oauthMobileRedirectUri && !oauthMobileRedirectUri.startsWith("exp://") ? oauthMobileRedirectUri : undefined;
