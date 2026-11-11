@@ -1,6 +1,6 @@
 const express = require("express");
 const { processIncomingWhatsApp, processWhatsAppWebhook } = require("../services/bookingService");
-const { handleMetaWebhookVerify } = require("../utils/metaWebhookVerify");
+const { handleMetaWebhookVerify, verifyMetaSignature } = require("../utils/metaWebhookVerify");
 
 const router = express.Router();
 
@@ -30,6 +30,10 @@ async function handleInbound(req, res) {
       }),
     );
     if (isMetaWebhook) {
+      const sig = verifyMetaSignature(req);
+      if (!sig.ok) {
+        return res.status(sig.status).json({ ok: false, error: sig.error });
+      }
       // Meta retries aggressively when webhook processing is slow; ACK first, process async.
       res.status(200).json({ ok: true, accepted: true });
       void processWhatsAppWebhook(body)

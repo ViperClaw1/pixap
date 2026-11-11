@@ -104,16 +104,19 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (secret.length > 0) {
-    const token = callbackSharedSecret(req);
-    if (!token || token !== secret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: jsonHeaders(),
-      });
-    }
-  } else {
-    console.warn("[n8n-wa-booking-callback] N8N_INBOUND_SECRET unset — callback is open (set secret for production)");
+  if (!secret) {
+    console.error("[n8n-wa-booking-callback] N8N_INBOUND_SECRET unset — rejecting (fail closed)");
+    return new Response(JSON.stringify({ error: "Server misconfigured" }), {
+      status: 503,
+      headers: jsonHeaders(),
+    });
+  }
+  const token = callbackSharedSecret(req);
+  if (!token || token !== secret) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: jsonHeaders(),
+    });
   }
 
   let body: Body;

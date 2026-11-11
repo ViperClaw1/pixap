@@ -44,3 +44,11 @@ google-services.json
 /android
 /.cursor
 /.claude
+# build/tool junk
+.turbo/
+*.stackdump
+tmp-*
+*.lock.yaml.*
+
+# local tooling (embedded repo)
+antivibe/

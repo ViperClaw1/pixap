@@ -149,6 +149,31 @@ Exact columns and RLS live in `supabase/migrations/`; regenerate client types wh
 
 - Example: `useCartItems` subscribes to **`postgres_changes`** on `cart_items` for the signed-in user so WhatsApp callback updates refresh the UI without manual polling (polling is still used as a fallback while a WA flow is in progress).
 
+### Edge Functions with `verify_jwt = false`
+
+Gateway JWT checks are off for these (ES256 session tokens can 401 at the gateway, see supabase/supabase#44530). Each function authenticates itself:
+
+| Function | Caller | Auth mechanism |
+| --- | --- | --- |
+| `lemon-webhook` | Lemon Squeezy | HMAC-SHA256 of the body with `LEMONSQUEEZY_SIGNING_SECRET` |
+| `n8n-wa-booking-callback` | `wa-booking-service` / n8n | Shared secret `N8N_INBOUND_SECRET` in `x-wa-booking-secret` (or Bearer). Returns 503 if the secret is unset |
+| `n8n-wa-booking-start` | App | User JWT via `auth.getUser()` |
+| `confirm-service-cart-booking` | App | User JWT via `auth.getUser()` |
+| `pixai-booking-chat` | App | User JWT via `auth.getUser()` |
+| `auth-email-signup` | App (pre-auth) | None, public by design. Input validation only |
+| `auth-email-recovery` | App (pre-auth) | None, public by design. Input validation only |
+| `iap-apple-notifications` | App Store Server Notifications v2 | Apple JWS signature chain (`verifyAppleSignedPayload`) |
+| `iap-google-rtdn` | Google Pub/Sub push | Pub/Sub OIDC token (`verifyGooglePubSubRequest`) |
+| `iap-reconcile-subscriptions` | pg_cron | Bearer = service role key or `IAP_RECONCILIATION_SECRET` |
+| `consume-push-outbox` | pg_cron | `x-push-cron-secret` = `PUSH_CRON_SECRET`, or service role bearer |
+| `generate-daily-recommendations` | pg_cron | Service role bearer (`_shared/serviceAuth.ts`) |
+| `send-booking-email` | pg_net trigger / cron | Service role bearer (`_shared/serviceAuth.ts`) |
+| `booking-reminder-cron` | pg_cron | Service role bearer (`_shared/serviceAuth.ts`) |
+| `link-router` | Browsers (deep links) | None, public redirect |
+| `transcribe-audio` | App | ⚠️ None. The client sends only the anon key, so this is an open Groq proxy. Needs a user JWT check plus a client change |
+
+`wa-booking-service` (Express) verifies Meta `X-Hub-Signature-256` with `META_APP_SECRET` (it fails closed when the secret is unset) and dedupes inbound messages by `message.id`.
+
 ---
 
 ## Business domains and flows

@@ -39,7 +39,15 @@ const app = express();
 
 runParserSelfChecks();
 
-app.use(express.json({ limit: "1mb" }));
+app.use(
+  express.json({
+    limit: "1mb",
+    // Keep raw bytes for Meta X-Hub-Signature-256 verification.
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
 
 app.use((req, _res, next) => {
   if (req.path.startsWith("/webhook")) {

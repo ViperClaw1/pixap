@@ -1,3 +1,5 @@
+const crypto = require("crypto");
+
 /**
  * Meta (Facebook / WhatsApp Cloud API) subscription verification — GET only.
  * @see https://developers.facebook.com/docs/graph-api/webhooks/getting-started#verification-requests
@@ -38,4 +40,30 @@ function handleMetaWebhookVerify(req, res) {
   return true;
 }
 
-module.exports = { handleMetaWebhookVerify };
+/**
+ * Verifies Meta `X-Hub-Signature-256` (HMAC-SHA256 of raw body with the app secret).
+ * Fails closed when META_APP_SECRET is unset.
+ * @param {import("express").Request} req
+ * @returns {{ ok: true } | { ok: false, status: number, error: string }}
+ */
+function verifyMetaSignature(req) {
+  const secret = (process.env.META_APP_SECRET || "").trim();
+  if (!secret) {
+    console.error("[meta-webhook] META_APP_SECRET is not set — rejecting Meta webhook POST");
+    return { ok: false, status: 503, error: "Server misconfigured" };
+  }
+  const header = String(req.get("x-hub-signature-256") || "");
+  if (!header.startsWith("sha256=") || !req.rawBody) {
+    return { ok: false, status: 401, error: "Missing signature" };
+  }
+  const expected = Buffer.from(
+    "sha256=" + crypto.createHmac("sha256", secret).update(req.rawBody).digest("hex"),
+  );
+  const received = Buffer.from(header);
+  if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
+    return { ok: false, status: 401, error: "Invalid signature" };
+  }
+  return { ok: true };
+}
+
+module.exports = { handleMetaWebhookVerify, verifyMetaSignature };
