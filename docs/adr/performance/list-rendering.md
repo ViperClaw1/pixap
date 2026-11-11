@@ -1,4 +1,4 @@
-# LIST_PERFORMANCE_REPORT
+# List rendering performance report
 
 ## Scope
 

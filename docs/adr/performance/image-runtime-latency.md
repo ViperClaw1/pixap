@@ -1,8 +1,8 @@
-# IMAGE_RUNTIME_LATENCY_REPORT
+# Image runtime latency report
 
 ## Executive summary
 
-На устройстве POCO C71 по сценарию из [`LIST_PERFORMANCE_REPORT.md`](./LIST_PERFORMANCE_REPORT.md) метрики кадров уже в здоровом диапазоне: узкое место воспринимаемой «тяжести» смещено к **медиа-пайплайну** (сеть, decode, попадание в кэш expo-image, момент prefetch и длительность `transition`), а не к виртуализации списков.
+На устройстве POCO C71 по сценарию из [list rendering report](./list-rendering.md) метрики кадров уже в здоровом диапазоне: узкое место воспринимаемой «тяжести» смещено к **медиа-пайплайну** (сеть, decode, попадание в кэш expo-image, момент prefetch и длительность `transition`), а не к виртуализации списков.
 
 Эта фаза разводит **метрики рендера списков** (FPS, frame pacing) и **метрики медиа-латентности** (cache key стабильность, размер payload, prefetch до смены слайда, короче fade-in). Ниже — правила и аудит; в код внесены точечные правки без архитектурных переписываний и без массовой миграции на FlashList.
 
@@ -22,7 +22,7 @@
 
 ### Рекомендации (принятые в коде)
 
-- Единый helper **`quantizeDecodePx`** в [`src/shared/lib/imageUtils.ts`](./src/shared/lib/imageUtils.ts) для бакетизации decode-размеров (шаг 64, минимум 128 по умолчанию в helper).
+- Единый helper **`quantizeDecodePx`** в [`src/shared/lib/imageUtils.ts`](../../../src/shared/lib/imageUtils.ts) для бакетизации decode-размеров (шаг 64, минимум 128 по умолчанию в helper).
 - Лента постов уже квантовала размеры VM; **StorySlide** и **PlaceGallery** переведены на **DPR × layout + quantize** для стабильных URL на fullscreen-путях.
 - Архив сетки использует тот же экспорт `quantizeDecodePx` (раньше была локальная копия с `min=96` — унификация снижает расхождение правил).
 
@@ -38,13 +38,13 @@
 
 ### Пути без transform
 
-В [`getOptimizedImageUrl`](./src/shared/lib/imageUtils.ts): для URL **не** из Supabase public storage и **не** `images.unsplash.com` возвращается исходная строка — без изменения query. Видео по расширению в path также возвращается исходный URL (без render API).
+В [`getOptimizedImageUrl`](../../../src/shared/lib/imageUtils.ts): для URL **не** из Supabase public storage и **не** `images.unsplash.com` возвращается исходная строка — без изменения query. Видео по расширению в path также возвращается исходный URL (без render API).
 
 ## Preload strategy report
 
 ### Текущая реализация `preloadSmartImages`
 
-[`SmartImage.tsx`](./src/shared/ui/smart-image/SmartImage.tsx): жёсткий cap **12** URI, параллельность **4** (`Promise.allSettled` батчами).
+[`SmartImage.tsx`](../../../src/shared/ui/smart-image/SmartImage.tsx): жёсткий cap **12** URI, параллельность **4** (`Promise.allSettled` батчами).
 
 ### Где вызывается prefetch
 
@@ -87,7 +87,7 @@
 
 ### Smoke checklist (без регрессии list FPS)
 
-Повторить сценарий из [`LIST_PERFORMANCE_REPORT.md`](./LIST_PERFORMANCE_REPORT.md): **30 s агрессивный скролл ленты + переходы в stories** — убедиться, что `avg_frame_ms` / `p95_frame_ms` не хуже baseline более чем на шум измерения.
+Повторить сценарий из [list rendering report](./list-rendering.md): **30 s агрессивный скролл ленты + переходы в stories** — убедиться, что `avg_frame_ms` / `p95_frame_ms` не хуже baseline более чем на шум измерения.
 
 ### Кодовые изменения (кратко)
 

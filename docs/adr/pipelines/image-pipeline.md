@@ -1,4 +1,4 @@
-# IMAGE_PIPELINE_REPORT
+# Image pipeline report
 
 ## Scope
 
@@ -8,7 +8,7 @@
 
 ## Recorded baseline (Android release)
 
-Cross-reference: primary scroll/frame baseline for feed + stories is logged in [LIST_PERFORMANCE_REPORT.md](LIST_PERFORMANCE_REPORT.md) (POCO C71, 30 s aggressive feed scroll + stories transitions). Rendering metrics there show a **healthy frame budget** for that scenario; next passes should prioritize **memory, image decode/cache, JS spikes, long-session drift**, and **network payload** — not broad list rewrites.
+Cross-reference: primary scroll/frame baseline for feed + stories is logged in [list rendering report](../performance/list-rendering.md) (POCO C71, 30 s aggressive feed scroll + stories transitions). Rendering metrics there show a **healthy frame budget** for that scenario; next passes should prioritize **memory, image decode/cache, JS spikes, long-session drift**, and **network payload** — not broad list rewrites.
 
 Image-specific **Before** cells below remain **TBD** until the same device runs the image checklist scenarios (memory peak, flicker count, media bytes).
 
@@ -28,7 +28,7 @@ Image-specific **Before** cells below remain **TBD** until the same device runs 
 
 ## Storage upload (client-side)
 
-Raster picks from `expo-image-picker` are normalized in [`src/shared/lib/prepareImageForStorageUpload.ts`](src/shared/lib/prepareImageForStorageUpload.ts) before `supabase.storage.from("stories").upload`: **long edge 2048 px** for post photos, **1080 px** for story media, output **JPEG** at **0.82** compression. The pipeline reads compressed pixels via **manipulator `base64`** (avoids `fetch(file://)` on some Android devices) and uploads a **sliced `ArrayBuffer`**. Picker uses **`base64: false`** so large selections do not retain huge base64 strings in memory. This cuts multi‑MB originals at the source; URLs already in the database are not rewritten. Trade-off: PNG transparency is flattened to JPEG.
+Raster picks from `expo-image-picker` are normalized in [`src/shared/lib/prepareImageForStorageUpload.ts`](../../../src/shared/lib/prepareImageForStorageUpload.ts) before `supabase.storage.from("stories").upload`: **long edge 2048 px** for post photos, **1080 px** for story media, output **JPEG** at **0.82** compression. The pipeline reads compressed pixels via **manipulator `base64`** (avoids `fetch(file://)` on some Android devices) and uploads a **sliced `ArrayBuffer`**. Picker uses **`base64: false`** so large selections do not retain huge base64 strings in memory. This cuts multi‑MB originals at the source; URLs already in the database are not rewritten. Trade-off: PNG transparency is flattened to JPEG.
 
 ## Detailed Findings
 

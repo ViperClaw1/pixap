@@ -1,4 +1,4 @@
-# Performance Report (Phase 1)
+# Startup performance report (phase 1)
 
 ## Baseline Context
 

@@ -1,4 +1,4 @@
-# Pixap — frontend architecture (FSD)
+# Frontend architecture (FSD)
 
 The mobile app under `src/` follows **[Feature-Sliced Design (FSD)](https://feature-sliced.design/)**: layers run from the **application shell** (`app`) down to **shared** primitives. **Exact import rules** are enforced by ESLint (see [Import rules](#import-rules-summary)) — not only strict "downward only" intuition (e.g. `entities` and `shared` may import `app` where the config allows it).
 
@@ -75,4 +75,4 @@ For a full dependency graph (optional): `npx madge --image graph.svg src` (requi
 
 ## Related
 
-- Product and backend overview: [README.md](README.md)
+- Product and backend overview: [README.md](../../../README.md)

@@ -1,354 +1,102 @@
 # Pixap
 
-Pixap is an **Expo (SDK 54) / React Native** mobile client for a local-services marketplace: discover **business cards** (venues), browse **categories** and **shopping items**, manage **cart** and **bookings**, use **PixAI**-assisted discovery and slot hints, optional **WhatsApp-mediated venue confirmation** for service bookings, **Lemon Squeezy** webhooks for some payment flows, and **native in-app purchase** subscriptions (Apple / Google) verified via Supabase Edge Functions.
+**Booking a table or a service at venues that have no booking API is still done by phone. Pixap books it for you: an AI concierge finds the place, then confirms availability and price with the venue over WhatsApp, voice, or email.**
 
-Backend data and auth live in **Supabase** (PostgreSQL, Auth, Realtime, Storage). Additional **Supabase Edge Functions** (Deno) implement orchestration, payments, IAP verification, and WhatsApp booking glue. A separate **Node (Express) `wa-booking-service`** talks to the **Meta WhatsApp Cloud API** and calls back into Supabase when a cart row uses the WhatsApp confirmation pipeline.
+<!-- TODO(stage-1): 30–60s screen recording of the booking flow: PixAI search → place → slot → WhatsApp confirmation → booked. Save as docs/media/booking-flow.gif -->
+<p align="center"><img src="docs/media/booking-flow.gif" alt="Pixap booking flow" width="300" /></p>
 
----
+<p align="center">
+  <a href="https://apps.apple.com/app/pixap/id6760616898">App Store</a> ·
+  <a href="https://play.google.com/store/apps/details?id=com.pixap.pixap">Google Play</a> ·
+  Test account: <!-- TODO: reviewer@… / password, or "on request" -->
+</p>
 
-## Table of contents
-
-1. [High-level architecture](#high-level-architecture)
-2. [Repository layout](#repository-layout)
-3. [Mobile app layers](#mobile-app-layers)
-4. [Supabase data and auth](#supabase-data-and-auth)
-5. [Business domains and flows](#business-domains-and-flows)
-6. [Layer interactions](#layer-interactions)
-7. [API reference](#api-reference)
-8. [Configuration and environment](#configuration-and-environment)
-9. [Local development](#local-development)
-10. [Further reading](#further-reading)
-11. [Frontend architecture (FSD)](ARCHITECTURE.md)
+**Stack:** Expo SDK 54 / React Native · TypeScript · TanStack Query · Supabase (Postgres + RLS, Auth, Realtime, Edge Functions on Deno) · Node/Express · Meta WhatsApp Cloud API · Gemini · Apple / Google IAP
 
 ---
 
-## High-level architecture
+## Architecture
 
 ```mermaid
-flowchart TB
-  subgraph client["Mobile client (Expo / RN)"]
-    UI[Pages, widgets, features]
-    Nav[app/navigation]
-    RQ[TanStack Query]
-    Prov[AuthProvider / ThemeProvider]
-    SBClient[supabase-js client]
+flowchart LR
+  subgraph client["Mobile app (Expo / RN, FSD)"]
+    UI[Screens] --> RQ[TanStack Query]
   end
 
-  subgraph supa["Supabase project"]
-    Auth[GoTrue Auth]
-    DB[(PostgreSQL + RLS)]
+  subgraph supa["Supabase"]
+    DB[(Postgres + RLS)]
     RT[Realtime]
-    Edge[Edge Functions Deno]
+    Edge[Edge Functions]
   end
 
-  subgraph external["Third parties"]
-    WA[Meta WhatsApp Cloud API]
-    LS[Lemon Squeezy]
-    AAS[Apple App Store Server API]
-    GP[Google Play Developer API]
-    Maps[Google Maps / Directions / Geocoding]
-  end
+  WA_SVC["wa-booking-service<br/>(Express, Railway)"]
 
-  WA_SVC["wa-booking-service (Express)"]
-
-  UI --> Nav
-  UI --> RQ
-  RQ --> SBClient
-  Prov --> SBClient
-  SBClient --> Auth
-  SBClient --> DB
-  SBClient --> RT
-  SBClient --> Edge
+  RQ -- "PostgREST + user JWT" --> DB
+  RQ -- "privileged ops" --> Edge
+  RT -- "cart_items updates" --> RQ
   Edge --> DB
-  Edge --> LS
-  Edge --> AAS
-  Edge --> GP
-  Edge --> WA_SVC
-  WA_SVC --> WA
-  WA_SVC --> Edge
-  UI --> Maps
+  Edge -- "start confirmation" --> WA_SVC
+  WA_SVC -- "callback + secret" --> Edge
+  WA_SVC <--> Meta[WhatsApp Cloud API]
+  Edge <--> LLM[Gemini]
+  Edge <-- "signed webhooks" --> Pay[Apple / Google / Lemon Squeezy]
 ```
 
-- **Client**: Mostly talks to Supabase with the **anon key** and the users **JWT** after sign-in. Some server-side payment integrations can use a **reverse proxy** (`EXPO_PUBLIC_PIXAPP_API_URL`) for stable HTTPS paths (e.g. Lemon).
-- **Edge Functions**: Server-side logic with **service role** where needed; several functions have **`verify_jwt = false`** in `supabase/config.toml` because the gateway JWT check is incompatible with server-to-server callsthose functions enforce auth or secrets **inside** the handler.
-- **`wa-booking-service`**: Holds an in-memory **booking state machine**, sends WhatsApp templates/messages, and **POSTs** updates to `n8n-wa-booking-callback` using the Supabase anon JWT plus optional `x-wa-booking-secret`.
+How a booking flows:
+1. The app writes a `cart_items` draft through PostgREST. RLS limits each user to their own rows.
+2. `n8n-wa-booking-start` hands the draft to `wa-booking-service`, which messages the venue and parses the reply (availability, then price, then a payment link).
+3. Each step is posted back to `n8n-wa-booking-callback`, which patches the cart row. The app sees the change over Realtime.
+4. `confirm-service-cart-booking` turns the draft into a `bookings` row.
 
----
+More detail: [system overview](docs/system-overview.md) · [API & auth reference](docs/api.md) · [frontend architecture (FSD)](docs/adr/architecture/frontend-fsd.md)
 
-## Repository layout
+## Key engineering decisions
 
-| Path | Role |
-|------|------|
-| `App.tsx` | Root: gesture handler, safe area, theme, React Query, auth, splash, permissions gate, navigation. |
-| `app.config.ts` | Expo config: app id, scheme `pixap`, iOS/Android, `extra` env passthrough, Google Maps keys, associated domains. |
-| `src/pages/` | Route-level UI (FSD **pages**): home, place detail, booking, cart, stories, profile, auth, paywall, etc. |
-| `src/app/navigation/` | Tab + stack navigators, deep linking config, route types. |
-| `src/app/providers/` | `AuthProvider`, `ThemeProvider`, `AppProviders`. |
-| `src/widgets/` | Composite blocks reused across screens (feed list, place card, story discussion, …). |
-| `src/features/` | Isolated user scenarios (one ESLint slice per subfolder). |
-| `src/entities/` | Domain hooks and models (cart, bookings, stories, PixAI, …) — TanStack Query + Supabase. |
-| `src/shared/` | `shared/ui/`, `shared/lib/` (env, linking helpers, push/IAP), `shared/api/` (typed Supabase client), `shared/model/types/`. |
-| `supabase/migrations/` | SQL schema and RLS evolution. |
-| `supabase/functions/` | Deno Edge Functions (see [API reference](#api-reference)). |
-| `supabase/proxy/api.pixapp.kz.nginx.conf.example` | Example nginx routes for Lemon (and pattern for other paths). |
-| `backend/wa-booking-service/` | Standalone Express WhatsApp booking service ([local README](backend/wa-booking-service/README.md)). |
-
----
-
-## Mobile app layers
-
-The client follows **Feature-Sliced Design** under `src/` (layers, ESLint slices, entity graph, refactor audit): **[ARCHITECTURE.md](ARCHITECTURE.md)**.
-
-### Presentation
-
-- **Screens** (`src/pages/`) compose UI and call hooks; there is no separate MVVM layer — **hooks + React Query** own async state.
-- **Widgets** (`src/widgets/`) and **shared UI** (`src/shared/ui/`): composite screen sections (story strip, place card, feed list) and reusable UI (directions modal, booking place panel, story progress bar, shimmers).
-
-### Navigation
-
-- **`src/app/navigation/AppNavigator.tsx`**: Bottom tabs **Home**, **Feed**, **Bookings**, **Cart**, **Profile**. Each tab is a **native stack** with shared screen names (place detail, booking flow, story viewer/composer, paywall, etc.).
-- **`src/app/navigation/linking.ts`** + **`src/shared/lib/linking.ts`**: Universal / custom scheme links, nested screen paths; special handling for `payment-success` and `payment-canceled` to open the cart stack with the right screen.
-
-### Application state
-
-- **`AuthProvider`** (`src/app/providers/`): Wraps `supabase.auth` session lifecycle, sign-up/in/out, password reset redirects, and registers push tokens when `user.id` is present (context is internal; consumers use the exported hook).
-- **`ThemeProvider`**: Light/dark palette and navigation theme bridge.
-
-### Data access
-
-- **Direct PostgREST** via `supabase.from(...)` in **entity** (and occasionally feature) hooks for tables the user is allowed to read/write under RLS (e.g. `business_cards`, `cart_items`, `bookings`, stories).
-- **Edge Functions** via `supabase.functions.invoke("<name>", { body, headers })` for privileged or multi-step operations (PixAI orchestration, slot computation, WhatsApp start, confirm booking, IAP).
-
-### Cross-cutting
-
-- **`expo-constants`** + `app.config.ts` **`extra`** expose `EXPO_PUBLIC_*` at runtime (`src/shared/lib/env.ts`).
-- **Google Maps**: Native maps + REST Directions/Geocoding; listings store **address text** (not lat/lng) — the app geocodes for pins and routes.
-
----
-
-## Supabase data and auth
-
-### Auth
-
-- Email/password and OAuth (Google / Apple) go through **Supabase Auth**; the client uses **AsyncStorage** for session persistence.
-- Mobile OAuth return URLs use the app **scheme** (see `getOAuthRedirectUri` / OAuth callback screen); hosted **HTTPS** base is used for email confirmation and password reset links (`EXPO_PUBLIC_OAUTH_REDIRECT_BASE`).
-
-### Notable tables (from migrations; names are indicative)
-
-- **`business_cards`**: Venues/services: name, address, city, rating, booking fields, images, `contact_whatsapp`, tags, category, etc.
-- **`cart_items`**: Service booking drafts in the users cart; status `created` | `paid` | `expired`; columns for **WhatsApp flow** (`wa_n8n_*`, `wa_status_lines`, `wa_confirmable`, `wa_confirmed_price`, `wa_payment_link`, &).
-- **`bookings`**: Confirmed reservations; `payment_status` reflects paid vs pending (venue links, Lemon, free flows, etc.).
-- **`shopping_*`**: Shopping cart line items and catalog items (Lemon / external checkout where used).
-- **`stories`**, **`story_comments`**, **`story_reactions`**, **`user_follows`**: Social stories feed.
-- **`subscription_entitlements`**, **`subscription_transactions`**, **`subscription_receipts`**, **`subscription_events`**: IAP subscription state and audit trail.
-- **`processed_lemon_orders`**: Idempotency for Lemon webhooks.
-
-Exact columns and RLS live in `supabase/migrations/`; regenerate client types when schema changes.
-
-### Realtime
-
-- Example: `useCartItems` subscribes to **`postgres_changes`** on `cart_items` for the signed-in user so WhatsApp callback updates refresh the UI without manual polling (polling is still used as a fallback while a WA flow is in progress).
-
-### Edge Functions with `verify_jwt = false`
-
-Gateway JWT checks are off for these (ES256 session tokens can 401 at the gateway, see supabase/supabase#44530). Each function authenticates itself:
-
-| Function | Caller | Auth mechanism |
+| Decision | Why | ADR |
 | --- | --- | --- |
-| `lemon-webhook` | Lemon Squeezy | HMAC-SHA256 of the body with `LEMONSQUEEZY_SIGNING_SECRET` |
-| `n8n-wa-booking-callback` | `wa-booking-service` / n8n | Shared secret `N8N_INBOUND_SECRET` in `x-wa-booking-secret` (or Bearer). Returns 503 if the secret is unset |
-| `n8n-wa-booking-start` | App | User JWT via `auth.getUser()` |
-| `confirm-service-cart-booking` | App | User JWT via `auth.getUser()` |
-| `pixai-booking-chat` | App | User JWT via `auth.getUser()` |
-| `auth-email-signup` | App (pre-auth) | None, public by design. Input validation only |
-| `auth-email-recovery` | App (pre-auth) | None, public by design. Input validation only |
-| `iap-apple-notifications` | App Store Server Notifications v2 | Apple JWS signature chain (`verifyAppleSignedPayload`) |
-| `iap-google-rtdn` | Google Pub/Sub push | Pub/Sub OIDC token (`verifyGooglePubSubRequest`) |
-| `iap-reconcile-subscriptions` | pg_cron | Bearer = service role key or `IAP_RECONCILIATION_SECRET` |
-| `consume-push-outbox` | pg_cron | `x-push-cron-secret` = `PUSH_CRON_SECRET`, or service role bearer |
-| `generate-daily-recommendations` | pg_cron | Service role bearer (`_shared/serviceAuth.ts`) |
-| `send-booking-email` | pg_net trigger / cron | Service role bearer (`_shared/serviceAuth.ts`) |
-| `booking-reminder-cron` | pg_cron | Service role bearer (`_shared/serviceAuth.ts`) |
-| `link-router` | Browsers (deep links) | None, public redirect |
-| `transcribe-audio` | App | ⚠️ None. The client sends only the anon key, so this is an open Groq proxy. Needs a user JWT check plus a client change |
+| **Postgres RLS instead of a CRUD API** | Ownership rules live with the data and also cover Realtime, so there's no backend to write for 80% of traffic | [0001](docs/adr/0001-rls-instead-of-custom-api.md) |
+| **Edge Functions as a thin BFF** | Secrets, the LLM prompt, and multi-step writes stay on the server; the prompt can change without a store release | [0002](docs/adr/0002-edge-functions-as-bff.md) |
+| **Idempotent webhooks via unique keys** | Lemon, Apple, Google, and Meta all deliver at least once; each event is claimed in the DB before any side effect | [0003](docs/adr/0003-idempotent-webhooks.md) |
+| **Venue confirmation in a separate stateful service** | Venue conversations last minutes to hours, which doesn't fit stateless, short-lived functions | [0004](docs/adr/0004-whatsapp-venue-confirmation.md) |
+| **Feature-Sliced Design, enforced by lint** | Features can't import each other, so each one can be read and deleted on its own | [0005](docs/adr/0005-feature-sliced-design.md) |
 
-`wa-booking-service` (Express) verifies Meta `X-Hub-Signature-256` with `META_APP_SECRET` (it fails closed when the secret is unset) and dedupes inbound messages by `message.id`.
+Security posture: every Edge Function with gateway JWT turned off authenticates the caller itself (HMAC, JWS, OIDC, a shared secret, or the user JWT), and webhook secrets fail closed. Per-function table: [docs/api.md](docs/api.md#edge-function-auth-verify_jwt--false).
 
----
+## Results
 
-## Business domains and flows
+| Metric | Value | Source |
+| --- | --- | --- |
+| Feed + stories scroll, 30 s, low-end Android (POCO C71) | 1 frame > 16 ms, 0 frames > 32 ms | [list rendering report](docs/adr/performance/list-rendering.md) |
+| JS bundle (Hermes bytecode) | ~7.22 MB | [bundle-baseline.json](bundle-baseline.json) |
+| Storage cached egress, before image pipeline work | ~1.2 GB / MAU (21.6 GB / 18 MAU) | [docs/EGRESS_METRICS.md](docs/EGRESS_METRICS.md) |
+| Egress after pre-generated WebP + transforms | _TBD_ | stage 3 |
+| AI concierge: p50 / p95 latency, booking confirmation rate | _TBD_ | stage 3 |
 
-### 1. Discovery and place detail
-
-- Users browse **home / category / search** data from `business_cards` (and related hooks).
-- **Place detail** supports directions via **Geocoding + Directions API** from the users location.
-
-### 2. Manual booking flow
-
-- User picks slot/cost and customer details � **`cart_items`** row (`status: "created"`) via `useCreateCartItem` or related flows.
-- Optional **WhatsApp venue confirmation**: client invokes **`n8n-wa-booking-start`** with `cart_item_id`. That Edge Function loads the row (with venue `contact_whatsapp`), ensures a **`wa_n8n_callback_token`**, and **POSTs** a payload to **`wa-booking-service` `POST /webhook/booking`**, which starts the **availability � pricing � payment link / free** state machine and notifies **`n8n-wa-booking-callback`** to patch the same `cart_items` row.
-- When `wa_confirmable` is true, the user calls **`confirm-service-cart-booking`** with `action: "confirm"` (free) or `"pay"` (priced path inserts `bookings` with `payment_status: "pending"` until settled elsewhere).
-
-### 3. PixAI-assisted booking
-
-- **`pixai-orchestrate`** (authenticated): given a **flow** (city, mode `nearby` | `city`, category, restaurant-table flag, optional GPS), searches places via RPCs **`search_business_cards_nearby`** / **`search_business_cards_in_city`** with PostgREST fallback; returns **assistant text**, **places**, and **demo slot suggestions** (the edge function currently returns illustrative slot rows; the app can also use **`get-available-slots`** for real busy/free logic from `bookings`).
-- Client-side **`usePixAI`** refreshes the session before invoke to avoid **401 Invalid JWT** on the Functions gateway.
-
-### 4. Shopping cart
-
-- Users manage **shopping** lines in-app; fulfillment and payment are coordinated via **WhatsApp** (availability CTA from cart) and/or **Lemon** checkout on the server side where configured — there is no in-app card processor for goods.
-
-### 5. Lemon Squeezy
-
-- **`lemon-create-checkout`**: Authenticated checkout session creation against Lemons API (store/variant env).
-- **`lemon-webhook`**: **No JWT**; validates **`X-Signature`** with `LEMONSQUEEZY_SIGNING_SECRET`, handles `order_created` for `checkout_type` **`shopping_cart`** or **`service_booking`**, marks carts paid and creates bookings as appropriate.
-
-### 6. Subscriptions (IAP)
-
-- **`iap-verify-purchase`**: Client sends purchase payload; function talks to **Apple** / **Google** APIs using configured secrets and upserts **`subscription_entitlements`** (and related rows).
-- **`iap-sync-status`**: Lightweight entitlement read + expiry cleanup for the current user.
-- **`iap-apple-notifications`** / **`iap-google-rtdn`**: Server-to-server subscription lifecycle events (JWT verify off; secured by Apple/Google payload verification patterns inside).
-
----
-
-## Layer interactions
-
-### Typical authenticated read/write
-
-1. User signs in � **GoTrue** returns JWT � `supabase-js` attaches it to PostgREST and (when not overridden) to **`functions.invoke`**.
-2. Hook runs `queryFn` � `supabase.from("...").select(...)` � **RLS** allows or denies rows.
-3. Optional **Realtime** channel invalidates React Query caches on `UPDATE`.
-
-### WhatsApp booking chain
-
-1. Mobile: `supabase.functions.invoke("n8n-wa-booking-start", { body: { cart_item_id } })`.
-2. Edge: validates user, loads `cart_items` + `business_cards.contact_whatsapp`, writes callback token if needed, **POST** JSON to **`WA_BOOKING_SERVICE_URL`** (must be public HTTPS in production).
-3. **wa-booking-service**: `createBooking` stores state in memory, sends **WhatsApp templates** to the venue, calls **`n8n-wa-booking-callback`** with `callback_token`, `status_lines`, `confirmable`, optional `confirmed_price` / `payment_link`.
-4. **n8n-wa-booking-callback**: Validates `N8N_INBOUND_SECRET` (or open if unsetnot recommended), updates **`cart_items`**; mobile Realtime/polling shows progress.
-5. Mobile: `confirm-service-cart-booking` creates **`bookings`** and marks cart **paid** when rules match.
-
----
-
-## API reference
-
-Unless noted, **base URL** for Edge Functions is:
-
-`{SUPABASE_URL}/functions/v1/{function-name}`
-
-Send **`Authorization: Bearer <user_access_token>`** for user-scoped functions. For **`verify_jwt = false`** functions, follow each section: some require **service secrets**, **HMAC signatures**, or **anon JWT + custom header**.
-
-### Mobile-invoked Edge Functions (from codebase)
-
-| Function | Method | Auth | Request body (JSON) | Response (typical) |
-|----------|--------|------|---------------------|-------------------|
-| **`pixai-orchestrate`** | POST | User JWT (gateway) | `{ flow: { city, mode: "nearby"\|"city", categoryId?, categoryName?, isRestaurantTable?, comment?, radiusMiles?, location?: {lat,lng}, limit? } }` | `{ assistant, places[], slots[] }` |
-| **`pixai-booking-chat`** | POST | User JWT (gateway) or **verify_jwt false** + inner `auth.getUser()` (match repo config) | `{ booking_context, places: [...], messages: [...], user_message }` | `{ message, filters, rerankedPlaceIds[], excludedPlaceIds[], explanation? }` — secret **`GEMINI_API_KEY`**; optional **`GEMINI_MODEL`** (one id tried first). If that model returns 404/403, the function tries a built-in fallback chain (`gemini-2.5-flash`, `gemini-3-flash-preview`, …). Without API key, returns a safe no-op JSON. |
-| **`get-available-slots`** | POST | User JWT | `{ business_id, date? }` | `{ slots: [{ label, dateTimeIso, available, isBest }] }` |
-| **`n8n-wa-booking-start`** | POST | Bearer JWT in `Authorization` header (client passes it explicitly in some screens) | `{ cart_item_id }` | `{ ok, callback_token, already_started? }` or structured errors (`step`, `hint`) |
-| **`confirm-service-cart-booking`** | POST | Bearer JWT | `{ cart_item_id, action?: "confirm"\|"pay" }` | `{ ok: true, booking_id }` or `{ error }` |
-| **`iap-verify-purchase`** | POST | User JWT via invoke | Platform-specific purchase fields (`platform`, `productId`, transaction ids / receipt / `purchaseToken`, `source`, &) | Entitlement / error payload per implementation |
-| **`iap-sync-status`** | POST | User JWT | (empty or ignored) | `{ entitlement: {...} \| null }` |
-
-### Other Edge Functions (server / secondary clients)
-
-| Function | Purpose | Notes |
-|----------|---------|--------|
-| **`create-booking-draft`** | Inserts a **`cart_items`** draft with `status: "created"` using service fields from body | Authenticated user JWT; alternative path to direct client `insert`. |
-| **`search-businesses`** | Scored search over `business_cards` | Authenticated user JWT; optional `query`, `city`, `limit`, `preference_tags`. |
-| **`lemon-create-checkout`** | Creates Lemon checkout | User JWT + Lemon API keys. |
-| **`lemon-webhook`** | Lemon `order_created` | **verify_jwt false**; `X-Signature` HMAC. |
-| **`n8n-wa-booking-callback`** | Updates `cart_items` from WA service | **verify_jwt false**; `N8N_INBOUND_SECRET` in `Authorization` **or** `x-wa-booking-secret`; for hosted Supabase, WA service uses **anon JWT** in `Authorization` + secret header. |
-| **`n8n-wa-booking-start`** | Starts WA flow | **verify_jwt false**; validates JWT **inside** with anon client + `auth.getUser()`. |
-| **`confirm-service-cart-booking`** | Confirms booking after WA | **verify_jwt false**; same inner JWT pattern. |
-| **`iap-apple-notifications`** | Apple ASSN v2 | **verify_jwt false**; POST signed payloads from Apple. |
-| **`iap-google-rtdn`** | Google Play RTDN | **verify_jwt false**; Pub/Sub style envelope. |
-
-### `wa-booking-service` HTTP API
-
-Base: your deployed origin (e.g. Railway). Mount path **`/webhook`**.
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| **`/webhook/booking`** | POST | Primary: **Supabase booking start** JSON (`booking_id`, `venue_name`, `date`, `time`, `owner_phone`, optional `supabase_callback_url` + `supabase_callback_token`, customer fields, &). **Also** accepts simplified `{ from, message }` or Meta **`entry[]`** shape for WhatsApp routing (see service). Returns **`202`** `{ ok, booking }` for create path. |
-| **`/webhook/booking`** | GET | Meta **hub challenge** verification when `hub.verify_token` matches env. |
-| **`/webhook/whatsapp`** (and **`/`** under webhook router) | GET | Same Meta verification (preferred Meta callback URL). |
-| **`/webhook/whatsapp`** | POST | Inbound WhatsApp (Meta or simplified JSON). |
-| **`/health`** | GET | Liveness + minimal config fingerprint. |
-| **`/debug/state`** | GET | In-memory booking debug snapshot. |
-
-Detailed state machine: [backend/wa-booking-service/README.md](backend/wa-booking-service/README.md).
-
----
-
-## Configuration and environment
-
-### Mobile (`/.env`  see [.env.example](.env.example))
-
-- **`EXPO_PUBLIC_SUPABASE_URL`**, **`EXPO_PUBLIC_SUPABASE_ANON_KEY`**: Required.
-- **`EXPO_PUBLIC_SUPABASE_IMAGE_TRANSFORM`**: Set to `1` in **EAS Environment** (and locally in `.env`) so `/render/image/` is used only when pregen WebP is missing; primary path is pre-generated variants via `/object/public/` (see `docs/SUPABASE_IMAGE_TRANSFORMS_SETUP.md`).
-- **`EXPO_PUBLIC_OAUTH_REDIRECT_BASE`**: HTTPS site for email / reset links.
-- **`EXPO_PUBLIC_OAUTH_MOBILE_REDIRECT_URI`**: Optional override for native OAuth redirect.
-- **`EXPO_PUBLIC_STRIPE_RETURN_SCHEME`**: Deep link scheme segment for payment return (see `app.config.ts` **`scheme`**: **`pixap`**).
-- **`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`**, **`EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY`**: Maps + REST.
-- **`EXPO_PUBLIC_PIXAPP_API_URL`**: Optional reverse proxy base (e.g. Lemon routes).
-- **`EXPO_PUBLIC_PIXAI_MONTHLY_SUBSCRIPTION_SKU`**: Store SKU for PixAI Premium Monthly (`pixai_premium_monthly`, 10 booking credits per cycle).
-- **`EXPO_PUBLIC_PIXAI_ANNUAL_SUBSCRIPTION_SKU`**: Store SKU for PixAI Premium Plus Annual (`pixai_premium_annual`, 100 booking credits per cycle).
-- **`EXPO_PUBLIC_PIXAI_WHATSAPP_E164`**: Digits-only fallback for PixAI WhatsApp CTAs.
-- **`EXPO_PUBLIC_EAS_PROJECT_ID`**: EAS / push-related.
-
-Build-time: `app.config.ts` also reads **`APP_VERSION`**, **`IOS_BUILD_NUMBER`**, **`ANDROID_VERSION_CODE`**.
-
-### Supabase Edge secrets (Dashboard)
-
-Documented in [.env.example](.env.example) and in each functions source; commonly:
-
-- **`SUPABASE_SERVICE_ROLE_KEY`**, **`SUPABASE_URL`**, **`SUPABASE_ANON_KEY`**
-- **`WA_BOOKING_SERVICE_URL`**: Public base URL for `n8n-wa-booking-start` � **`wa-booking-service`**
-- **`N8N_INBOUND_SECRET`**: Shared with **`WA_BOOKING_SUPABASE_CALLBACK_SECRET`** on the Node service
-- **Lemon**, **Apple**, **Google** credentials for the respective functions
-
-### `wa-booking-service` (Railway / Node)
-
-See [backend/wa-booking-service/README.md](backend/wa-booking-service/README.md): WhatsApp tokens, Meta verify token, optional header image URLs for templates, anon key for Supabase callback posts.
-
----
-
-## Local development
-
-From the **repository root** (this Expo app, `package.json` **name** is `mobile`):
+## Quick start
 
 ```bash
-cp .env.example .env
-# Fill EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY from Supabase Dashboard � API
-
-npm install
-npx expo start
+cp .env.example .env && npm install && npx expo start
 ```
 
-**Maps**: After adding Google keys, rebuild a **dev client** or production binary; `expo start` alone does not inject native map SDK keys.
+Fill in `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in `.env`. Maps need a dev client build (`npx expo run:android`), because Expo Go doesn't inject native map keys. Backend setup (migrations, functions, WhatsApp service) is in [docs/system-overview.md](docs/system-overview.md) and [backend/wa-booking-service/README.md](backend/wa-booking-service/README.md).
 
-**Supabase**: Link your project and run migrations as per your team workflow (`supabase db push`, etc.). Edge Functions are deployed separately (`supabase functions deploy <name>`).
+## Known limitations & next steps
 
-**WhatsApp service** (optional):
-
-```bash
-cd backend/wa-booking-service
-npm install
-npm run start
-```
-
-Default listen **8787** (avoids Metro on 8081). Point **`WA_BOOKING_SERVICE_URL`** in Supabase to an **HTTPS** tunnel or deployed URL in cloud.
-
----
+- **WhatsApp booking state is in memory.** `wa-booking-service` loses in-flight conversations and its inbound `message.id` dedup on restart, and it can't run more than one replica. Next: persist both to Postgres.
+- **`transcribe-audio` is unauthenticated.** The released client sends only the anon key, so the endpoint is effectively an open speech-to-text proxy. Next: send the session token from the client, then require it on the server.
+- **Almost no automated tests** (2 test files). Next: tests for the booking state machine and the webhook handlers first, since that's where money moves.
+- **`pixai-orchestrate` returns illustrative slots.** Real availability comes from `get-available-slots` and venue confirmation.
+- **Public auth endpoints** (`auth-email-signup`, `auth-email-recovery`) have no rate limiting.
+- **US venues mostly don't use WhatsApp.** The voice (Retell) and email channels are newer and less proven.
 
 ## Further reading
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** — FSD layers, ESLint boundaries, feature slices, entity dependency graph, commands (`lint`, `madge`).
-- [backend/wa-booking-service/README.md](backend/wa-booking-service/README.md)  WhatsApp state machine, Meta webhook verification, Railway port notes.
-- [docs/mobile-store-compliance.md](docs/mobile-store-compliance.md)  Store policies (referenced from older docs).
-- [supabase/user_stories_query_examples.md](supabase/user_stories_query_examples.md)  Story feed query examples.
-- [supabase/proxy/api.pixapp.kz.nginx.conf.example](supabase/proxy/api.pixapp.kz.nginx.conf.example)  Reverse proxy pattern for Lemon.
+- [docs/system-overview.md](docs/system-overview.md): repository layout, app layers, data model, booking flows
+- [docs/api.md](docs/api.md): Edge Functions, `wa-booking-service` endpoints, auth per function, environment variables
+- [docs/adr/](docs/adr/README.md): architecture decisions, performance reports, pipelines
+- [docs/deep-dive/](docs/deep-dive/): PixAI booking chat, subscriptions and credits
+- [docs/adr/architecture/frontend-fsd.md](docs/adr/architecture/frontend-fsd.md): FSD layers and ESLint boundaries
 
----
+## License
 
-**Expo SDK note:** This app targets **SDK 54** so it aligns with the **Expo Go** version from the stores; newer SDKs may require a dev client upgrade.
+Proprietary. See [LICENSE](LICENSE).
